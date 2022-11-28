@@ -35,7 +35,7 @@
 <!-- PROJECT LOGO -->
 <br />
 <p align="center">
-  <a href="https://github.com/lazzati-astro/MCRaT">
+  <a href="https://github.com/parsotat/BatAnalysis">
     <img src="./batanalysis/data/batanalysis_logo.jpg" alt="Logo">
   </a>
 
@@ -44,14 +44,14 @@
   <p align="center">
     The BatAnalysis python pipeline is brings the analysis of BAT data to the convenience offered by Python. 
     <br />
-    <a href="https://github.com/lazzati-astro/MCRaT/tree/master/Doc"><strong>Explore the docs »</strong></a>
+    <a href="https://github.com/parsotat/BatAnalysis/tree/master/Doc"><strong>Explore the docs »</strong></a>
     <br />
     <br />
-    <!-- <a href="https://github.com/lazzati-astro/MCRaT">View Demo</a>
+    <!-- <a href="https://github.com/parsotat/BatAnalysis">View Demo</a>
     · -->
-    <a href="https://github.com/lazzati-astro/MCRaT/issues">Report Bug</a>
+    <a href="https://github.com/parsotat/BatAnalysis/issues">Report Bug</a>
     ·
-    <a href="https://github.com/lazzati-astro/MCRaT/issues">Request Feature</a>
+    <a href="https://github.com/parsotat/BatAnalysis/issues">Request Feature</a>
   </p>
 </p>
 
@@ -125,7 +125,7 @@ The following software are necessary for the BatAnalysis python module.
    - This can be easily installed via pip
 3. Swifttools
    - This can also be easily installed via pip
-4. HEASoftPy
+4. HEASoftPy > v1.2 
    - The installation is included with HEASoft and the steps can be found here: [https://heasarc.gsfc.nasa.gov/lheasoft/install.html](https://heasarc.gsfc.nasa.gov/lheasoft/install.html)
 5. PyXspec
    - The installation is included with HEASoft but there may be additional steps to take if you have changed your anaconda 
@@ -136,14 +136,14 @@ version after building HEASoft. More information can be found here: [https://hea
 
 1. Clone the repo
    ```sh
-   git clone **Insert Clone here**
+   git clone https://github.com/parsotat/BatAnalysis.git
    ```
 2. Install the BatAnalysis package
    ```sh
    pip install batanalysis
    OR 
    cd BatAnalysis/
-   pip install batanalysis/ 
+   pip install -e .
    ```
 
 <!-- USAGE EXAMPLES -->
@@ -236,7 +236,7 @@ Distributed under the MIT License. See `LICENSE` for more information.
 
 Tyler Parsotan - [Personal Website](https://asd.gsfc.nasa.gov/Tyler.Parsotan/) - parsotat@umbc.edu
 
-Project Link: [link to github here](https://github.com/lazzati-astro/MCRaT)
+Project Link: [https://github.com/https://github.com/parsotat/BatAnalysis.git](https://github.com/https://github.com/parsotat/BatAnalysis.git)
 
 
 
