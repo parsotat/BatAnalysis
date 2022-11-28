@@ -29,7 +29,7 @@
 [![MIT License][license-shield]][license-url]  
 [![Google Scholar Badge](https://img.shields.io/badge/Google-Scholar-lightgrey)](https://scholar.google.com/citations?user=cIxaj3MAAAAJ&hl=en)
 [![ResearchGate Badge](https://img.shields.io/badge/Research-Gate-9cf)](https://www.researchgate.net/profile/Tyler-Parsotan)
-<a href="https://ascl.net/2005.019"><img src="https://img.shields.io/badge/ascl-2005.019-blue.svg?colorB=262255" alt="ascl:2005.019" /></a>
+<!-- <a href="https://ascl.net/2005.019"><img src="https://img.shields.io/badge/ascl-2005.019-blue.svg?colorB=262255" alt="ascl:2005.019" /></a> -->
 
 
 <!-- PROJECT LOGO -->
@@ -199,7 +199,7 @@ ba.plot_survey_lc(mosaic_obs, id_list="Crab_Pulsar", calc_lc=True)
 
 ```
 
-_For more details and additional examples please refer to the [Notebooks](https://github.com/lazzati-astro/MCRaT/tree/master/Doc) directory_
+_For more details and additional examples please refer to the [Notebooks](https://github.com/parsotat/BatAnalysis/tree/master/Doc) directory_
 
 
 <!-- ROADMAP -->
@@ -207,7 +207,7 @@ _For more details and additional examples please refer to the [Notebooks](https:
 
 This package will soon be modified to include analysis of BAT event data. 
 
-See the [open issues](https://github.com/lazzati-astro/MCRaT/issues) for a list of proposed features (and known issues).
+See the [open issues](https://github.com/parsotat/BatAnalysis/issues) for a list of proposed features (and known issues).
 
 
 
@@ -236,7 +236,7 @@ Distributed under the MIT License. See `LICENSE` for more information.
 
 Tyler Parsotan - [Personal Website](https://asd.gsfc.nasa.gov/Tyler.Parsotan/) - parsotat@umbc.edu
 
-Project Link: [https://github.com/https://github.com/parsotat/BatAnalysis.git](https://github.com/https://github.com/parsotat/BatAnalysis.git)
+Project Link: [https://github.com/https://github.com/parsotat/BatAnalysis.git](https://github.com/parsotat/BatAnalysis.git)
 
 
 
@@ -250,15 +250,15 @@ Project Link: [https://github.com/https://github.com/parsotat/BatAnalysis.git](h
 
 <!-- MARKDOWN LINKS & IMAGES -->
 <!-- https://www.markdownguide.org/basic-syntax/#reference-style-links -->
-[contributors-shield]: https://img.shields.io/github/contributors/lazzati-astro/MCRaT.svg?style=for-the-badge
-[contributors-url]: https://github.com/lazzati-astro/MCRaT/graphs/contributors
-[forks-shield]: https://img.shields.io/github/forks/lazzati-astro/MCRaT.svg?style=for-the-badge
-[forks-url]: https://github.com/lazzati-astro/MCRaT/network/members
-[stars-shield]: https://img.shields.io/github/stars/lazzati-astro/MCRaT.svg?style=for-the-badge
-[stars-url]: https://github.com/lazzati-astro/MCRaT/stargazers
-[issues-shield]: https://img.shields.io/github/issues/lazzati-astro/MCRaT.svg?style=for-the-badge
-[issues-url]: https://github.com/lazzati-astro/MCRaT/issues
-[license-shield]: https://img.shields.io/github/license/lazzati-astro/MCRaT.svg?style=for-the-badge
- [license-url]: https://github.com/lazzati-astro/MCRaT/blob/master/LICENSE
+[contributors-shield]: https://img.shields.io/github/contributors/parsotat/BatAnalysis.svg?style=for-the-badge
+[contributors-url]: https://github.com/parsotat/BatAnalysis/graphs/contributors
+[forks-shield]: https://img.shields.io/github/forks/parsotat/BatAnalysis.svg?style=for-the-badge
+[forks-url]: https://github.com/parsotat/BatAnalysis/network/members
+[stars-shield]: https://img.shields.io/github/stars/parsotat/BatAnalysis.svg?style=for-the-badge
+[stars-url]: https://github.com/parsotat/BatAnalysis/stargazers
+[issues-shield]: https://img.shields.io/github/issues/parsotat/BatAnalysis.svg?style=for-the-badge
+[issues-url]: https://github.com/parsotat/BatAnalysis/issues
+[license-shield]: https://img.shields.io/github/license/parsotat/BatAnalysis.svg?style=for-the-badge
+ [license-url]: https://github.com/parsotat/BatAnalysis/blob/master/LICENSE
 <!-- [linkedin-shield]: https://img.shields.io/badge/-LinkedIn-black.svg?style=for-the-badge&logo=linkedin&colorB=555 
 [linkedin-url]: https://linkedin.com/in/lazzati-astro -->
