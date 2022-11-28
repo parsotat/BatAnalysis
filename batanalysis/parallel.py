@@ -1,0 +1,284 @@
+"""
+This file holds convience functions for conveniently analyzing batches of observation IDs using the joblib module
+"""
+
+from .batlib import dirtest, datadir, calc_response, calculate_detection, fit_spectrum, download_swiftdata
+from .batobservation import MosaicBatSurvey, BatSurvey
+from .mosaic import _mosaic_loop, merge_mosaics, finalize_mosaic, read_correctionsmap, read_skygrids
+
+from joblib import Parallel, delayed
+from pathlib import Path
+import sys
+from multiprocessing.pool import ThreadPool
+
+
+def _create_BatSurvey(obs_id, obs_dir=None, input_dict=None, recalc=False, load_dir=None, patt_noise_dir=None, verbose=False):
+    """
+    The inner loop that attempts to run batsurvey on a survey observation ID. If ther eis a load file saved already, it
+    will try to load the BATSurvey object otherwise it will call batsurvey. This will return a BATSurvey object if the
+    batsurvey code succesfully completes, otherwise it will return None.
+
+    :param obs_id: string of the survey observation ID
+    :param obs_dir: None or a Path object of where the directory that the observation ID data is located. This will most likely
+        be the datadir path. None defaults to using the datadir() output
+    :param input_dict: The input dictionary that will be passed to the heasoft batsurvey call
+    :param recalc: Boolean False by default. The default, will cause the function to try to load a save file to save on computational
+        time. If set to True, do not try to load the results of prior calculations. Instead rerun batsurvey on the observation ID.
+    :param load_dir: Default None or a Path object. The default uses the directory as pointed to by obs_dir/obs_id+'_surveyresult'
+        to try to look for a .batsurvey file to load.
+    :param verbose: Boolean False by default. Tells the code to print progress/diagnostic information.
+    :return: None or a BATSurvey object
+    """
+
+    print(f"Working on Obsid {obs_id}")
+    try:
+        obs = BatSurvey(obs_id, obs_dir=obs_dir, recalc=recalc, load_dir=load_dir, input_dict=input_dict, verbose=verbose,\
+                        patt_noise_dir=patt_noise_dir)
+        #see if there is already a .pickle file, if there is not or if the user wants to recalc, then do the save
+        if not obs.result_dir.joinpath('batsurvey.pickle').exists() or recalc:
+            obs.save()
+    except ValueError:
+        print(f"Obsid {obs_id} has no survey data")
+        obs=None
+
+    print(f"Done with Obsid {obs_id}")
+
+    return obs
+
+def batsurvey_analysis(obs_id_list, input_dict=None, recalc=False, load_dir=None, patt_noise_dir=None, verbose=False, nprocs=1):
+    """
+    Calls batsurvey for a set of observation IDs. Can process the observations in parallel if nprocs does not equal one.
+
+    :param obs_id_list: list of strings that denote the observation IDs to run batsurvey on
+    :param input_dict: user defined dictionary of key/value pairs that will be passed to batsurvey
+    :param recalc:  Boolean False by default. The default, will cause the function to try to load a save file to save on computational
+        time. If set to True, do not try to load the results of prior calculations. Instead rerun batsurvey on the observation ID.
+    :param load_dir: Default None or a Path object. The default uses the directory as pointed to by obs_dir/obs_id+'_surveyresult'
+        to try to look for a .batsurvey file to load.
+    :param verbose: Boolean False by default. Tells the code to print progress/diagnostic information.
+    :param nprocs: The number of processes that will be run simulaneously. This number should not be larger than the
+        number of CPUs that a user has available to them.
+    :return: a list of BATSurvey objects for all the observation IDs that completed successfully.
+    """
+
+    obs=Parallel(n_jobs=nprocs)(delayed(_create_BatSurvey)(i, obs_dir=datadir(), recalc=recalc, load_dir=load_dir, input_dict=input_dict,
+                                                           patt_noise_dir=patt_noise_dir, verbose=verbose) for i in obs_id_list)
+
+    final_obs=[i for i in obs if i is not None]
+
+    return final_obs
+
+def _spectrum_analysis(obs, source_name, recalc=False, generic_model=None,setPars=None, fit_iterations=1000, use_cstat=False):
+    """
+    Calculate and fit a spectrum for a source at a single pointing.
+
+    :param obs: the BATSurvey object for the survey pointings that will have their spectra exttracted and fitted.
+    :param source_name: String of the source name as it appears in the BAT Survey catalog
+    :param recalc: Boolean False by default. The default, will cause the function to try to load a save file to save on computational
+        time. If set to True, do not try to load the results of prior calculations. Instead rerun the fitting on the
+        pointings of the observation ID.
+    :param generic_model: Default None or a generic model that can be passed to pyXspec, see the pyXspec documentation or
+        the fit_spectrum docustring for more information on how to define this. The default None uses the basic powerlaw function (see the fit_spectrum function)
+    :param setPars: None or a dictionary to specify values for the pyXspec model parameters. The value of None defaults
+        to using the default parameter values found in the fit_spectrum function. More inforamtion on how to define this can
+        be found by looking at the fit_spectrum docustring or the pyXspec documentation.
+    :param fit_iterations: Integer, default 100, that defines the maximum iterations that can occur to conduct the fitting
+    :param use_cstat: boolean, default False, to determine if CSTAT statistics should be used. In very bright sources,
+        with lots of counts this should be set to False. For sources with small counts where the errors are not expected
+        to be gaussian, this should be set to True.
+    :return: The updated BATSurvey object with updated spectral information
+    """
+
+    if recalc:
+        val=True
+    else:
+        try:
+            #otherwise check if theere are no pha files or no model_params key for any of the pointings
+            pointing_id_test = 0
+            for i in obs.get_pointing_ids():
+                pointing_id_test += ("model_params" in obs.get_pointing_info(i, source_name))
+            val=(len(obs.get_pha_filenames()) <= 0) or (len(obs.get_pointing_ids()) != pointing_id_test)
+
+            #if this is true then we should set recalc=True to redo the calculations for this observation ID
+            if val:
+                recalc=True
+        except ValueError:
+            val = True
+
+
+    if val:
+        if isinstance(obs, MosaicBatSurvey):
+            print("Running calculations for mosaic", obs.get_pointing_info("mosaic")["utc_time"])
+        else:
+            print("Running calculations for observation id", obs.obs_id)
+
+        obs.merge_pointings()
+
+        try:
+            obs.calculate_pha(id_list=source_name, clean_dir=recalc)
+            pha_list = obs.get_pha_filenames(id_list=source_name)
+            if len(pha_list)>0:
+                if not isinstance(obs, MosaicBatSurvey):
+                    calc_response(pha_list)
+
+                # delete the upper limit key if necessary
+                for i in obs.get_pointing_ids():
+                    try:
+                        obs.get_pointing_info(i, source_name).pop('nsigma_lg10flux_upperlim', None)
+                    except ValueError:
+                        #if the suorce doesnt exist, just continue
+                        pass
+
+                 # Loop over individual PHA pointings
+                for pha in pha_list:
+                    fit_spectrum(pha, obs, use_cstat=use_cstat, plotting=False, verbose=False, generic_model=generic_model,setPars=setPars, fit_iterations=fit_iterations)
+
+                calculate_detection(obs, source_name)
+                obs.save()
+            else:
+                print(f"The source {source_name} was not found in the image and thus does not have a PHA file to analyze.")
+                for i in obs.get_pointing_ids():
+                    obs.set_pointing_info(i, "model_params", None, source_id=source_name)
+                obs.save()
+        except FileNotFoundError as e:
+            print(e)
+            print(
+                f'This means that the batsurvey script didnt deem there to be good enough statistics for {source_name} in this observation ID.')
+
+    return obs
+
+def batspectrum_analysis(batsurvey_obs_list, source_name, recalc=False, generic_model=None,setPars=None, fit_iterations=1000, use_cstat=False, nprocs=1):
+    """
+    Calculates and fits the spectra for a single source across many BAT Survey observations in parallel.
+
+    :param batsurvey_obs_list: list of BATSurvey observation objects
+    :param source_name:  String of the source name as it appears in the BAT Survey catalog
+    :param recalc: Boolean False by default. The default, will cause the function to try to load a save file to save on computational
+        time. If set to True, do not try to load the results of prior calculations. Instead rerun the fitting on the
+        pointings of the observation ID.
+    :param generic_model: Default None or a generic model that can be passed to pyXspec, see the pyXspec documentation or
+        the fit_spectrum docustring for more information on how to define this. The default None uses the basic powerlaw
+        function (see the fit_spectrum function)
+    :param setPars: None or a dictionary to specify values for the pyXspec model parameters. The value of None defaults
+        to using the default parameter values found in the fit_spectrum function. More inforamtion on how to define this can
+        be found by looking at the fit_spectrum docustring or the pyXspec documentation.
+    :param fit_iterations: Integer, default 100, that defines the maximum iterations that can occur to conduct the fitting
+    :param use_cstat: boolean, default False, to determine if CSTAT statistics should be used. In very bright sources,
+        with lots of counts this should be set to False. For sources with small counts where the errors are not expected
+        to be gaussian, this should be set to True.
+    :param nprocs: The number of processes that will be run simulaneously. This number should not be larger than the
+        number of CPUs that a user has available to them.
+    :return: a list of BATSurvey objects for all the observation IDs with updated spectral information
+    """
+    if type(batsurvey_obs_list) is not list:
+        not_list=True
+        batsurvey_obs_list=[batsurvey_obs_list]
+
+    obs=Parallel(n_jobs=nprocs)(
+        delayed(_spectrum_analysis)(i, source_name=source_name, recalc=recalc, use_cstat=use_cstat, generic_model=generic_model,setPars=setPars, fit_iterations=fit_iterations) for i in batsurvey_obs_list)
+
+    #if this wasnt a list, just return the single object otherwise return the list
+    if not_list:
+        return obs[0]
+    else:
+        return obs
+
+def batmosaic_analysis(batsurvey_obs_list, outventory_file, time_bins, catalog_file=None, total_mosaic_savedir=None, recalc=False, nprocs=1):
+    """
+    Calculates the mosaic images in parallel.
+
+    :param batsurvey_obs_list: The list of BATSurvey objects that correpond to the observations listed in the outventory file
+        parameter
+    :param outventory_file: Path object of the outventory file that contains all the BAT survey observations that will
+        be used to create the mosaiced images.
+    :param time_bins: The time bin edges that the observatons in the outventory file have been grouped into
+    :param total_mosaic_savedir: Default None or a Path object that denotes the directory that the total "time-integrated"
+        images will be saved to. The default is to place the total mosaic image in a directory called "total_mosaic"
+        located in the same directory as the outventory file.
+    :param recalc: Boolean False by default. If this calculation was done previously, do not try to load the results of
+        prior calculations. Instead recalculate the mosaiced images. The default, will cause the function to try to load
+        a save file to save on computational time.
+    :param nprocs: The number of processes that will be run simulaneously. This number should not be larger than the
+        number of CPUs that a user has available to them.
+    :return:
+    """
+
+    # make sure its a path object
+    outventory_file = Path(outventory_file)
+
+    # get the corections map and the skygrids
+    corrections_map = read_correctionsmap()
+    ra_skygrid, dec_skygrid = read_skygrids()
+
+    #get the lower and upper time limits
+    start_t=time_bins[:-1]
+    end_t=time_bins[1:]
+
+
+    all_mosaic_survey=Parallel(n_jobs=nprocs)(
+        delayed(_mosaic_loop)(outventory_file, start, end, corrections_map, ra_skygrid, dec_skygrid, batsurvey_obs_list, \
+                              recalc=recalc, verbose=True) for start, end in zip(start_t, end_t))    #i in range(len(start_t)))
+
+    final_mosaics=[i for i in all_mosaic_survey if i is not None]
+
+    #if batcelldetect hasnt been run yet do so
+    for i in final_mosaics:
+        if not i.result_dir.joinpath("sources_tot.cat").exists():
+            i.detect_sources(catalog_file=catalog_file)
+
+    intermediate_mosaic_dir_list = [i.result_dir for i in final_mosaics]
+
+    #see if the total mosaic has been created and saved (ie there is a .batsurvey file in that directory) if there isnt,
+    # then do the full calculation or if we set recalc=True then also do the full calculation
+    if total_mosaic_savedir is None:
+        total_mosaic_savedir=intermediate_mosaic_dir_list[0].parent.joinpath("total_mosaic")
+    else:
+        total_mosaic_savedir=Path(total_mosaic_savedir)
+
+    if not total_mosaic_savedir.joinpath('batsurvey.pickle').exists() or recalc:
+        #merge all the mosaics together to get the full 'time integrated' images and convert to final files with proper units
+        total_dir=merge_mosaics(intermediate_mosaic_dir_list, savedir=total_mosaic_savedir)
+        finalize_mosaic(total_dir)
+        total_mosaic = MosaicBatSurvey(total_dir)
+    else:
+        total_mosaic=MosaicBatSurvey(total_mosaic_savedir)
+
+    # if batcelldetect hasnt been run yet do so
+    if not total_mosaic.result_dir.joinpath("sources_tot.cat").exists():
+        total_mosaic.detect_sources(catalog_file=catalog_file)
+        total_mosaic.save()
+
+    return final_mosaics, total_mosaic
+
+"""
+def download_swiftdata(table,  reload=False,
+                        bat=True, auxil=True, log=False, uvot=False, xrt=False,
+                        save_dir=None, nprocs=1, **kwargs):
+    #sys.setrecursionlimit(10000)
+
+    download_status=Parallel(n_jobs=nprocs, require='sharedmem')(
+        delayed(download_swiftdata)(i, reload=reload, bat=bat, auxil=auxil, log=log, uvot=uvot, xrt=xrt,
+                        save_dir=save_dir) for i in table)
+
+    return download_status
+"""
+def download_swiftdata(table,  reload=False,
+                        bat=True, auxil=True, log=False, uvot=False, xrt=False,
+                        save_dir=None, nprocs=1):
+
+
+    #create temporary functions that will be called separately to download the data
+    dl = lambda x: download_swiftdata(x,  reload=reload,
+                        bat=bat, auxil=auxil, log=log, uvot=uvot, xrt=xrt,
+                        save_dir=save_dir)
+
+    # Run the function threaded. nprocs at a time.
+    results = ThreadPool(nprocs).imap_unordered(dl, table)
+
+    #combine the results into a dictionary that is typically output from download_swiftdata
+    all_results={}
+    for i in results:
+        all_results.update(i)
+
+    return all_results
+

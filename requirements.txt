@@ -1,0 +1,10 @@
+setuptools>=58.0.4
+numpy>=1.20.3
+matplotlib>=3.4.2
+astropy>=4.3.1
+astroquery>=0.4.5
+swiftbat>=0.1.1
+swifttools>=2.4.8
+scipy>=1.7.2
+requests>=2.20
+joblib>=1.1.0
