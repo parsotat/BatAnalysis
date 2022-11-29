@@ -170,6 +170,8 @@ def batspectrum_analysis(batsurvey_obs_list, source_name, recalc=False, generic_
         number of CPUs that a user has available to them.
     :return: a list of BATSurvey objects for all the observation IDs with updated spectral information
     """
+
+    not_list = False
     if type(batsurvey_obs_list) is not list:
         not_list=True
         batsurvey_obs_list=[batsurvey_obs_list]
