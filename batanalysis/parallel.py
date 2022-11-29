@@ -133,7 +133,7 @@ def _spectrum_analysis(obs, source_name, recalc=False, generic_model=None,setPar
                 for pha in pha_list:
                     fit_spectrum(pha, obs, use_cstat=use_cstat, plotting=False, verbose=False, generic_model=generic_model,setPars=setPars, fit_iterations=fit_iterations)
 
-                calculate_detection(obs, source_name)
+                calculate_detection(obs, source_name, verbose=False)
                 obs.save()
             else:
                 print(f"The source {source_name} was not found in the image and thus does not have a PHA file to analyze.")

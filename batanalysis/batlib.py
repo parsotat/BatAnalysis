@@ -428,7 +428,7 @@ def fit_spectrum(phafilename,surveyobservation, plotting=True, generic_model=Non
     #get the cwd.
     phafilename=Path(phafilename)
     current_dir=Path.cwd()
-    plt.ion()
+    #plt.ion()
 
 # Check if the phafilename is a string and if it has an extension .pha. If NOT then exit
     #if type(phafilename) is not str or '.pha' not in  os.path.splitext(phafilename)[1]:
