@@ -175,15 +175,16 @@ import matplotlib.pyplot as plt
 plt.ion()
 
 object_name='Crab'
+catalog_name="Crab_Nebula_Pulsar"
 table = ba.from_heasarc(object_name)
 result = ba.download_swiftdata(table[:5])
 
 batsurvey_obs=ba.parallel.batsurvey_analysis(table["OBSID"][:5], nprocs=2)
 
 #the name of the source in the included survey catalog must be used here 
-ba.parallel.batspectrum_analysis(batsurvey_obs, "Crab_Pulsar", nprocs=2)
+batsurvey_obs=ba.parallel.batspectrum_analysis(batsurvey_obs, catalog_name, nprocs=2)
 
-ba.plot_survey_lc(batsurvey_obs, id_list="Crab_Pulsar", calc_lc=True)
+ba.plot_survey_lc(batsurvey_obs, id_list=catalog_name, calc_lc=True)
 
 outventory_file=ba.merge_outventory(batsurvey_obs)
 
@@ -193,9 +194,9 @@ time_bins=ba.group_outventory(batsurvey_obs, np.timedelta64(1,'D'))
 #bin into daily time bin
 mosaic_obs=ba.parallel.batmosaic_analysis(batsurvey_obs, outventory_file, time_bins)
 
-ba.parallel.batspectrum_analysis(mosaic_obs, "Crab_Pulsar", nprocs=2)
+mosaic_obs=ba.parallel.batspectrum_analysis(mosaic_obs, catalog_name, nprocs=2)
 
-ba.plot_survey_lc(mosaic_obs, id_list="Crab_Pulsar", calc_lc=True)
+ba.plot_survey_lc(mosaic_obs, id_list=catalog_name, calc_lc=True)
 
 ```
 
