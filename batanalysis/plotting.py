@@ -160,13 +160,20 @@ def plot_survey_lc(survey_obsid_list, id_list=None, energy_range=None, savedir=N
                     for pointings in sorted_pointing_ids:
 
                         if "MET" in time_unit:
-                            t_0=obs.get_pointing_info(pointings)['met_time']
-                            t_f=t_0+obs.get_pointing_info(pointings)['exposure']
+                            t_0 = obs.get_pointing_info(pointings)['met_time']
+                            if 'mosaic' not in pointings:
+                                t_f=t_0+obs.get_pointing_info(pointings)['exposure']
+                            else:
+                                t_f = t_0 + obs.get_pointing_info(pointings)['elapse_time']
+
                             t=0.5*(t_0+t_f)
                             dt=0.5*(t_f-t_0)
                         else:
                             t_0 = obs.get_pointing_info(pointings)['mjd_time']
-                            dt = TimeDelta(obs.get_pointing_info(pointings)['exposure'], format='sec')
+                            if 'mosaic' not in pointings:
+                                dt = TimeDelta(obs.get_pointing_info(pointings)['exposure'], format='sec')
+                            else:
+                                dt = TimeDelta(obs.get_pointing_info(pointings)['elapse_time'], format='sec')
                             t_f = t_0 + dt.to_value('jd')
                             t = 0.5 * (t_0 + t_f)
                             if "UTC" in time_unit:

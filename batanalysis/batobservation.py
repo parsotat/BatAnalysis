@@ -1022,16 +1022,23 @@ class MosaicBatSurvey(BatSurvey):
                 file_header = file[0].header
 
                 time_array = file_header['TSTART']  # MET time
+                time_array_stop = file_header['TSTOP']  # MET time
                 exposure_array = file_header['EXPOSURE']  # MET time in s
+                time_elapse = file_header['TELAPSE']  # MET time in s
 
                 # calculate times in UTC and MJD units as well
                 mjdtime = met2mjd(time_array)
                 utctime = met2utc(time_array, mjd_time=mjdtime)
 
+                mjdtime_stop = met2mjd(time_array_stop)
+                utctime_stop = met2utc(time_array_stop, mjd_time=mjdtime_stop)
+
+
                 file.close
 
                 self.pointing_info[id] = dict(met_time=time_array, exposure=exposure_array, utc_time=utctime,
-                                              mjd_time=mjdtime)
+                                              mjd_time=mjdtime, elapse_time=time_elapse, met_stop_time=time_array_stop,
+                                              utc_stop_time=utctime_stop, mjd_stop_time=mjdtime_stop)
         else:
             self.load(load_file)
 

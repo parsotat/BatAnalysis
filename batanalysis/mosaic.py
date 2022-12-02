@@ -411,7 +411,6 @@ def group_outventory(outventory_file, binning_timedelta, start_datetime=None, en
 
             #move the outventory file to the folder where we will keep them
             output_file = Path(str(outventory_file).replace(".fits", "_sel.fits"))
-            #savefile=os.path.join(savedir, os.path.split(output_file)[-1].replace("_sel.fits", "_"+str(start.astype('datetime64[D]'))+".fits"))
             savefile = savedir.joinpath(output_file.name.replace("_sel.fits", f"_{start.astype('datetime64[D]')}.fits") )
             #os.system("mv %s %s" % (output_file, savefile))
             output_file.rename(savefile)

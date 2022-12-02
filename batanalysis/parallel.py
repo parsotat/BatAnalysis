@@ -216,6 +216,11 @@ def batmosaic_analysis(batsurvey_obs_list, outventory_file, time_bins, catalog_f
     start_t=time_bins[:-1]
     end_t=time_bins[1:]
 
+    if recalc:
+        #make sure that the time bins are cleared
+        for i in start_t:
+            binned_savedir = outventory_file.parent.joinpath(f"mosaic_{i.astype('datetime64[D]')}")
+            dirtest(binned_savedir)
 
     all_mosaic_survey=Parallel(n_jobs=nprocs)(
         delayed(_mosaic_loop)(outventory_file, start, end, corrections_map, ra_skygrid, dec_skygrid, batsurvey_obs_list, \
