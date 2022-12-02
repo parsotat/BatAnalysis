@@ -36,12 +36,9 @@ except ModuleNotFoundError as err:
     # Error handling
 #    print(err)
 
-try:
-    import swiftbat.swutil as sbu
-    import swiftbat
-except ModuleNotFoundError as err:
-    # Error handling
-    print(err)
+import swiftbat.swutil as sbu
+import swiftbat
+
 
 _orig_pdir=os.getenv('PFILES')
 
