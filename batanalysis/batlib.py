@@ -870,20 +870,65 @@ def print_parameters(obs_list, source_id, values=["met_time","utc_time", "exposu
                     elif i in obs.get_pointing_info(pointings, source_id=source_id).keys():
                         outstr += "\t%s" % (str(obs.pointing_info[pointings][source_id][i]))
                     elif is_model_param or ("flux" in i or "Flux" in i):
+                        # print the actual value
+                        middle_str = '\t'
+                        if latex_table:
+                            middle_str += '$'
+
                         #see if the user wants the flux and if there is an upper limit available
                         if ("flux" in i or "Flux" in i) and "nsigma_lg10flux_upperlim" in pointing_dict.keys():
-                            outstr += "\t  %e  "%(pointing_dict["nsigma_lg10flux_upperlim"])
+                            #outstr += "\t  %e  "%(pointing_dict["nsigma_lg10flux_upperlim"])
+                            val=10**pointing_dict["nsigma_lg10flux_upperlim"]
+                            base = int(str(val).split('e')[-1])
+
+                            middle_str += f'{val/10**base:-.3}'
+
+                            if latex_table:
+                                middle_str += f" \\times "
+                            else:
+                                middle_str += f' x '
+
+                            middle_str += f'10^{{{base:+}}}'
+
                         else:
                             #get the value and errors if the error calculation worked properly
                             val=model[model_param_key]["val"]
                             if 'T' in model[model_param_key]["errflag"]:
                                 err_val="nan"
-                                errs = np.array(["nan", "nan"])
-                                outstr += "\t%s-%s\+%s" % (val, errs[0], errs[1])
+                                errs = np.array([np.nan, np.nan])
+                                #outstr += "\t%s-%s\+%s" % (val, errs[0], errs[1])
                             else:
                                 errs = np.array([model[model_param_key]["lolim"], model[model_param_key]["hilim"]])
                                 err_val="%e"%(np.abs(val - errs).max())
-                                outstr += "\t%e-%e\+%e"%(val,errs[0], errs[1])
+                                #outstr += "\t%e-%e\+%e"%(val,errs[0], errs[1])
+
+
+                            #if we've got scientific notation, print it nicely
+                            if ("flux" in i or "Flux" in i) or len(str(val).split('e'))>1:
+                                if ("flux" in i or "Flux" in i):
+                                    val=10**val
+                                    errs = 10 ** errs
+                                base=int(str(val).split('e')[-1])
+                                diff_errs = np.abs(val - errs)
+                                middle_str += f'{val/10**base:-.3}^{{{diff_errs[1]/10**base:+.2}}}_{{{-1*diff_errs[0]/10**base:+.2}}}'
+
+                                if latex_table:
+                                    middle_str += f" \\times "
+                                else:
+                                    middle_str += f' x '
+
+                                middle_str += f'10^{{{base:+}}}'
+                            else:
+                                diff_errs = np.abs(val - errs)
+                                middle_str += f'{val:-.3}'
+
+                                if "nsigma_lg10flux_upperlim" not in pointing_dict.keys():
+                                    middle_str += f'^{{{diff_errs[1]:+.2}}}_{{{-1*diff_errs[0]:+.2}}}'
+
+                        if latex_table:
+                            middle_str += '$'
+
+                        outstr += middle_str
                     else:
                         outstr += "\tnan"
 
@@ -1178,7 +1223,7 @@ def save_progress(obs_list):
 def set_pdir(pdir):
     """
     Sets the custom pfile directory for calling a heasoftpy function. This ensures that functions can be called in
-    parallel
+    parallel. This is depreciated since heasoftpy v1.2.
 
     :param pdir: None, Path, or string to the custom pfiles directory. a value of None will force heasoftpy to create a
         custom pfiles directory in /tmp, as is specified in their documentation.
@@ -1196,7 +1241,7 @@ def set_pdir(pdir):
 
 def reset_pdir():
     """
-    Resets the pfiles environment variable to what it originally was
+    Resets the pfiles environment variable to what it originally was. This is depreciated since heasoftpy v1.2.
 
     :return:
     """
