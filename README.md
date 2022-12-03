@@ -192,11 +192,11 @@ outventory_file=ba.merge_outventory(batsurvey_obs)
 time_bins=ba.group_outventory(outventory_file, np.timedelta64(1,'M'))
 
 #bin into daily time bin
-mosaic_obs=ba.parallel.batmosaic_analysis(batsurvey_obs, outventory_file, time_bins)
+mosaic_list, total_mosaic=ba.parallel.batmosaic_analysis(batsurvey_obs, outventory_file, time_bins, nprocs=3)
 
-mosaic_obs=ba.parallel.batspectrum_analysis(mosaic_obs, catalog_name, nprocs=2)
+mosaic_list=ba.parallel.batspectrum_analysis(mosaic_list, catalog_name, nprocs=2)
 
-ba.plot_survey_lc(mosaic_obs, id_list=catalog_name, calc_lc=True)
+ba.plot_survey_lc(mosaic_list, id_list=catalog_name, calc_lc=True)
 
 ```
 
