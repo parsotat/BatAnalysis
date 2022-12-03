@@ -720,12 +720,15 @@ def calculate_detection(surveyobservation,source_id, nsigma=3,bkg_nsigma=5, plot
             if verbose:
                 print("******************************************************")
                 print("Fitting the 5 times bkg of the spectrum ",bkgnsigma_upper_limit_pha_file)
-                xsp.Fit.nIterations = 100
-                xsp.Fit.perform()
-                if plot_fit:
-                    xsp.AllModels.show()
-                    xsp.Fit.show()
-                xsp.AllModels.calcFlux("14.0 195.0")
+
+            xsp.Fit.nIterations = 100
+            xsp.Fit.perform()
+            if plot_fit:
+                xsp.AllModels.show()
+                xsp.Fit.show()
+            xsp.AllModels.calcFlux("14.0 195.0")
+
+            if verbose:
                 print("******************************************************")
                 print("******************************************************")
                 print("******************************************************")

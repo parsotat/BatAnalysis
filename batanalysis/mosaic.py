@@ -984,30 +984,30 @@ def _mosaic_loop(outventory_file, start, end, corrections_map, ra_skygrid, dec_s
             grouped_outventory_data = file[1].data
 
         #if there are survey observations within the time bin of interest do all this stuff
-        if grouped_outventory_data['NBATDETS'].size > 0:
-            # calculate the mask of which points we should use based on good image statistics
-            chi_mask = compute_statistics_map(grouped_outventory_data['CHI2'], grouped_outventory_data['NBATDETS'], \
-                                              grouped_outventory_data['RA_PNT'], grouped_outventory_data['DEC_PNT'], \
-                                              grouped_outventory_data['PA_PNT'], grouped_outventory_data['TSTART'])
+        #if grouped_outventory_data['NBATDETS'].size > 0:
+        # calculate the mask of which points we should use based on good image statistics
+        chi_mask = compute_statistics_map(grouped_outventory_data['CHI2'], grouped_outventory_data['NBATDETS'], \
+                                          grouped_outventory_data['RA_PNT'], grouped_outventory_data['DEC_PNT'], \
+                                          grouped_outventory_data['PA_PNT'], grouped_outventory_data['TSTART'])
 
-            # create the arays that will hold the binned data
-            eimg = np.zeros_like(ra_skygrid)  # exposure map, has the same dimensions as the skygrid
-            pimg = np.zeros_like(ra_skygrid)  # Partial coding map
-            nx, ny, nz = ra_skygrid.shape
-            vimg = np.zeros((nx, ny, nz,
-                             _nebands + 1))  # Variance map, size of skygrid with extra enegy dimension (+1 for total 14-195 band)
-            simg = np.zeros_like(vimg)  # Sky flux  image
-            total_binned_exposure = 0  # tally up the total exposure
-            total_tstart = []
-            total_tstop = []
-            total_dateobs_start = []
-            total_dateobs_end = []
-            total_headers = []
+        # create the arays that will hold the binned data
+        eimg = np.zeros_like(ra_skygrid)  # exposure map, has the same dimensions as the skygrid
+        pimg = np.zeros_like(ra_skygrid)  # Partial coding map
+        nx, ny, nz = ra_skygrid.shape
+        vimg = np.zeros((nx, ny, nz,
+                         _nebands + 1))  # Variance map, size of skygrid with extra enegy dimension (+1 for total 14-195 band)
+        simg = np.zeros_like(vimg)  # Sky flux  image
+        total_binned_exposure = 0  # tally up the total exposure
+        total_tstart = []
+        total_tstop = []
+        total_dateobs_start = []
+        total_dateobs_end = []
+        total_headers = []
 
-            # this holds the merged files in the next loop
-            merged_pointing_dir = []
-            obsids = []
-            data_directories = []
+        # this holds the merged files in the next loop
+        merged_pointing_dir = []
+        obsids = []
+        data_directories = []
 
         # loop over the observation IDs and the pointings that are outlined in the
         for j in range(grouped_outventory_data['NBATDETS'].size):

@@ -1094,7 +1094,7 @@ class MosaicBatSurvey(BatSurvey):
             outfile = self.result_dir.joinpath(f'sources_c{num}.cat')
 
             default_input_dict = dict(
-                infile=f'{file}', #[col #HDUCLAS2 = "NET"; #FACET = {num}]', This isnt needed since this info is in HDUCLAS2 and BSKYPLAN already
+                infile=f'{file}', #[col #HDUCLAS2 = "NET"; #FACET = {num}]', #This isnt needed since this info is in HDUCLAS2 and BSKYPLAN already
                 outfile=str(outfile),
                 snrthresh=4.0, psfshape='GAUSSIAN', psffwhm='0.325', srcfit='YES', posfit='NO', posfitwindow=0.0,
                 bkgwindowtype='SMOOTH_CIRCLE', srcdetect='NO', nadjpix=1, srcradius=15, bkgradius=100, bkgfit='no',
