@@ -997,17 +997,17 @@ def _mosaic_loop(outventory_file, start, end, corrections_map, ra_skygrid, dec_s
             vimg = np.zeros((nx, ny, nz,
                              _nebands + 1))  # Variance map, size of skygrid with extra enegy dimension (+1 for total 14-195 band)
             simg = np.zeros_like(vimg)  # Sky flux  image
-            total_binned_exposure = 0  # tally up the total exposure
-            total_tstart = []
-            total_tstop = []
-            total_dateobs_start = []
-            total_dateobs_end = []
-            total_headers = []
+        total_binned_exposure = 0  # tally up the total exposure
+        total_tstart = []
+        total_tstop = []
+        total_dateobs_start = []
+        total_dateobs_end = []
+        total_headers = []
 
-            # this holds the merged files in the next loop
-            merged_pointing_dir = []
-            obsids = []
-            data_directories = []
+        # this holds the merged files in the next loop
+        merged_pointing_dir = []
+        obsids = []
+        data_directories = []
 
         # loop over the observation IDs and the pointings that are outlined in the
         for j in range(grouped_outventory_data['NBATDETS'].size):
