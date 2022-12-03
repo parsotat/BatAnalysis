@@ -360,7 +360,7 @@ def group_outventory(outventory_file, binning_timedelta, start_datetime=None, en
         #inputs = dict(intime=str(met_time), insystem="MET", informat="s", outsystem="UTC", outformat = "m")  # output in MJD
         #o = hsp.swifttime(**inputs)
         #end_datetime = Time(o.params["outtime"], format="mjd", scale='utc')
-        end_datetime = met2utc(met_time)
+        end_datetime = Time(met2utc(met_time))
 
     if binning_timedelta==np.timedelta64(1,'M'):
         #if the user wants months, need to specify each year, month and the number of days

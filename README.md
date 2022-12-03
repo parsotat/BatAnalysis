@@ -188,8 +188,8 @@ ba.plot_survey_lc(batsurvey_obs, id_list=catalog_name, calc_lc=True)
 
 outventory_file=ba.merge_outventory(batsurvey_obs)
 
-#bin into 1 day time bins
-time_bins=ba.group_outventory(batsurvey_obs, np.timedelta64(1,'D'))
+#bin into 1 month time bins
+time_bins=ba.group_outventory(outventory_file, np.timedelta64(1,'M'))
 
 #bin into daily time bin
 mosaic_obs=ba.parallel.batmosaic_analysis(batsurvey_obs, outventory_file, time_bins)
