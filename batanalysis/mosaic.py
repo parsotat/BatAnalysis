@@ -997,6 +997,7 @@ def _mosaic_loop(outventory_file, start, end, corrections_map, ra_skygrid, dec_s
             vimg = np.zeros((nx, ny, nz,
                              _nebands + 1))  # Variance map, size of skygrid with extra enegy dimension (+1 for total 14-195 band)
             simg = np.zeros_like(vimg)  # Sky flux  image
+
         total_binned_exposure = 0  # tally up the total exposure
         total_tstart = []
         total_tstop = []
@@ -1223,7 +1224,7 @@ def _mosaic_loop(outventory_file, start, end, corrections_map, ra_skygrid, dec_s
             model_hdr['TSTOP'] = (np.max(total_tstop), ' stop time of image')
             model_hdr['TELAPSE'] = (np.max(total_tstop) - np.min(total_tstart), '  elapsed time of image (= TSTOP-TSTART)')
             model_hdr['DATE-OBS'] = (total_dateobs_start[np.argmin(total_tstart)], '  TSTART, expressed in UTC')
-            model_hdr['DATE-END'] = (total_dateobs_end[np.argmax(total_tstart)], '  TSTART, expressed in UTC')
+            model_hdr['DATE-END'] = (total_dateobs_end[np.argmax(total_tstop)], '  TSTOP, expressed in UTC')
 
             model_hdr['EXPOSURE'] = (total_binned_exposure, '[sec.] Sum of pointing exposures used')
 
@@ -1319,11 +1320,13 @@ def merge_mosaics(intermediate_mosaic_dir_list, savedir=None):
             with fits.open(str(pimg_file)) as file:
                 # read the partial coding map
                 pimg[:,:,j] += file[0].data
-                total_binned_exposure+=file[0].header['EXPOSURE']
-                total_tstart.append(file[0].header['TSTART'])
-                total_tstop.append(file[0].header['TSTOP'])
-                total_dateobs_start.append(file[0].header['DATE-OBS'])
-                total_dateobs_end.append(file[0].header['DATE-END'])
+                #for the first sky facet obtain this info. all sky facets have this info so we only need it from one sky facet
+                if j==0:
+                    total_binned_exposure+=file[0].header['EXPOSURE']
+                    total_tstart.append(file[0].header['TSTART'])
+                    total_tstop.append(file[0].header['TSTOP'])
+                    total_dateobs_start.append(file[0].header['DATE-OBS'])
+                    total_dateobs_end.append(file[0].header['DATE-END'])
 
             # open the eimg and add it to the array and accumulate the exposure
             eimg_file = i.joinpath('expmap_'+string+ '.img')  #os.path.join(i, 'expmap_' + string + '.img')
@@ -1356,7 +1359,7 @@ def merge_mosaics(intermediate_mosaic_dir_list, savedir=None):
     tmax=np.max(total_tstop)
     dt=np.max(total_tstop) - np.min(total_tstart)
     obs_min=total_dateobs_start[np.argmin(total_tstart)]
-    obs_max=total_dateobs_end[np.argmax(total_tstart)]
+    obs_max=total_dateobs_end[np.argmax(total_tstop)]
 
     # loop over each sky facet
     for j in range(nz):
@@ -1378,7 +1381,7 @@ def merge_mosaics(intermediate_mosaic_dir_list, savedir=None):
             header['TSTOP'] = (tmax, ' stop time of image')
             header['TELAPSE'] = (dt, '  elapsed time of image (= TSTOP-TSTART)')
             header['DATE-OBS'] = (obs_min, '  TSTART, expressed in UTC')
-            header['DATE-END'] = (obs_max, '  TSTART, expressed in UTC')
+            header['DATE-END'] = (obs_max, '  TSTOP, expressed in UTC')
             header['EXPOSURE'] = (total_binned_exposure, '[sec.] Sum of pointing exposures used')
             file.flush()
 
@@ -1399,7 +1402,7 @@ def merge_mosaics(intermediate_mosaic_dir_list, savedir=None):
             header['TSTOP'] = (tmax, ' stop time of image')
             header['TELAPSE'] = (dt, '  elapsed time of image (= TSTOP-TSTART)')
             header['DATE-OBS'] = (obs_min, '  TSTART, expressed in UTC')
-            header['DATE-END'] = (obs_max, '  TSTART, expressed in UTC')
+            header['DATE-END'] = (obs_max, '  TSTOP, expressed in UTC')
             header['EXPOSURE'] = (total_binned_exposure, '[sec.] Sum of pointing exposures used')
             file.flush()
 
@@ -1435,7 +1438,7 @@ def merge_mosaics(intermediate_mosaic_dir_list, savedir=None):
             header['TSTOP'] = (tmax, ' stop time of image')
             header['TELAPSE'] = (dt, '  elapsed time of image (= TSTOP-TSTART)')
             header['DATE-OBS'] = (obs_min, '  TSTART, expressed in UTC')
-            header['DATE-END'] = (obs_max, '  TSTART, expressed in UTC')
+            header['DATE-END'] = (obs_max, '  TSTOP, expressed in UTC')
             header['EXPOSURE'] = (total_binned_exposure, '[sec.] Sum of pointing exposures used')
             flux_file.flush()
 
@@ -1446,7 +1449,7 @@ def merge_mosaics(intermediate_mosaic_dir_list, savedir=None):
             header['TSTOP'] = (tmax, ' stop time of image')
             header['TELAPSE'] = (dt, '  elapsed time of image (= TSTOP-TSTART)')
             header['DATE-OBS'] = (obs_min, '  TSTART, expressed in UTC')
-            header['DATE-END'] = (obs_max, '  TSTART, expressed in UTC')
+            header['DATE-END'] = (obs_max, '  TSTOP, expressed in UTC')
             header['EXPOSURE'] = (total_binned_exposure, '[sec.] Sum of pointing exposures used')
             var_file.flush()
 
