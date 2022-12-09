@@ -125,7 +125,7 @@ The following software are necessary for the BatAnalysis python module.
    - This can be easily installed via pip
 3. Swifttools
    - This can also be easily installed via pip
-4. HEASoftPy > v1.2 
+4. HEASoftPy >= v1.3
    - The installation is included with HEASoft and the steps can be found here: [https://heasarc.gsfc.nasa.gov/lheasoft/install.html](https://heasarc.gsfc.nasa.gov/lheasoft/install.html)
 5. PyXspec
    - The installation is included with HEASoft but there may be additional steps to take if you have changed your anaconda 
