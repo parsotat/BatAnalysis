@@ -339,8 +339,8 @@ def combine_survey_lc(survey_obsid_list, output_dir=None, clean_dir=True, nprocs
         all_data.write(lc_dir.joinpath(f"{name}"), format="fits")
 
     #remove the subdirectories
-    #for i in sub_dirs:
-    #    shutil.rmtree(i)
+    for i in sub_dirs:
+        shutil.rmtree(i)
 
     return lc_dir
 
