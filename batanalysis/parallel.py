@@ -326,7 +326,7 @@ def combine_survey_lc(survey_obsid_list, output_dir=None, clean_dir=True, nprocs
     #get the unique file names
     uniq_source_names=np.unique(source_names)
 
-    for i in sub_dirs
+    #for i in sub_dirs
 
 
     return lc_dir
