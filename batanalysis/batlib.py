@@ -212,16 +212,17 @@ def combine_survey_lc(survey_obsid_list, clean_dir=True):
     #if the directory doesnt exist, create it otherwise over write it
     dirtest(output_dir, clean_dir=clean_dir)
 
+    ret=[]
     for obs in survey_obsid_list:
         for i in obs.pointing_flux_files:
             dictionary = dict(keycolumn="NAME", infile=i, outfile= str(output_dir.joinpath("%s.cat"))  ) #os.path.join(output_dir, "%s.cat"))
 
             # there is a bug in the heasoftpy code so try to explicitly call it for now
-            # return hsp.batsurvey_catmux(**input_dict)
-            input_string = "batsurvey-catmux "
-            for i in dictionary:
-                input_string = input_string + "%s=%s " % (str(i), dictionary[i])
-            os.system(input_string)
+            ret.append(hsp.batsurvey_catmux(**dictionary))
+            #input_string = "batsurvey-catmux "
+            #for i in dictionary:
+            #    input_string = input_string + "%s=%s " % (str(i), dictionary[i])
+            #os.system(input_string)
 
     return output_dir
 
