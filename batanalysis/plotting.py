@@ -246,10 +246,12 @@ def plot_survey_lc(survey_obsid_list, id_list=None, energy_range=None, savedir=N
                                 #outstr += "\tnan"
                                 y.append(np.nan)
                                 yerr.append(np.nan)
+                                y_upperlim.append(0)
                         else:
                             # outstr += "\tnan"
                             y.append(np.nan)
                             yerr.append(np.nan)
+                            y_upperlim.append(0)
                 x=obs_time
                 xerr=obs_time_err
 

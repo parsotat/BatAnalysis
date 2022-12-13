@@ -189,7 +189,7 @@ def create_custom_catalog(src_name_list, src_ra_list, src_dec_list, src_glon_lis
     return final_cat
 
 
-def combine_survey_lc(survey_obsid_list, clean_dir=True):
+def combine_survey_lc(survey_obsid_list, output_dir=None, clean_dir=True):
     """
     Concatenates a set of *.cat files to produce a fits file containing data over the duration of times specified in the
     BatSurvey objects. This runs for the catalog that was passed to the constructor methods of the BatSurvey objects
@@ -204,8 +204,10 @@ def combine_survey_lc(survey_obsid_list, clean_dir=True):
         survey_obsid_list = [survey_obsid_list]
 
     #get the main directory where we shoudl create the total_lc directory
-    #main_dir=os.path.split(survey_obsid_list[0].result_dir)[0]
-    output_dir = survey_obsid_list[0].result_dir.parent.joinpath("total_lc")  #os.path.join(main_dir, "total_lc")
+    if output_dir is None:
+        output_dir = survey_obsid_list[0].result_dir.parent.joinpath("total_lc")  #os.path.join(main_dir, "total_lc")
+    else:
+        output_dir=Path(output_dir).expanduser().resolve()
 
     #if not os.path.isdir(output_dir):
     #    raise ValueError('The directory %s needs to exist for this function to save its results.' % (output_dir))
@@ -223,7 +225,7 @@ def combine_survey_lc(survey_obsid_list, clean_dir=True):
     ret=[]
     for obs in survey_obsid_list:
         for i in obs.pointing_flux_files:
-            dictionary = dict(keycolumn="NAME", infile=i, outfile= str(output_dir.joinpath("%s.cat"))  ) #os.path.join(output_dir, "%s.cat"))
+            dictionary = dict(keycolumn="NAME", infile=str(i), outfile= str(output_dir.joinpath("%s.cat"))  ) #os.path.join(output_dir, "%s.cat"))
 
             # there is a bug in the heasoftpy code so try to explicitly call it for now
             ret.append(hsp.batsurvey_catmux(**dictionary))

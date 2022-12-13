@@ -2,7 +2,7 @@
 This file holds convience functions for conveniently analyzing batches of observation IDs using the joblib module
 """
 
-from .batlib import dirtest, datadir, calc_response, calculate_detection, fit_spectrum, download_swiftdata
+from .batlib import dirtest, datadir, calc_response, calculate_detection, fit_spectrum, download_swiftdata, combine_survey_lc
 from .batobservation import MosaicBatSurvey, BatSurvey
 from .mosaic import _mosaic_loop, merge_mosaics, finalize_mosaic, read_correctionsmap, read_skygrids
 
@@ -10,6 +10,8 @@ from joblib import Parallel, delayed
 from pathlib import Path
 import sys
 from multiprocessing.pool import ThreadPool
+from astropy.io import fits
+
 
 
 def _create_BatSurvey(obs_id, obs_dir=None, input_dict=None, recalc=False, load_dir=None, patt_noise_dir=None, verbose=False):
@@ -288,4 +290,45 @@ def download_swiftdata(table,  reload=False,
         all_results.update(i)
 
     return all_results
+
+def combine_survey_lc(survey_obsid_list, output_dir=None, clean_dir=True, nprocs=1):
+
+    if type(survey_obsid_list) is not list:
+        survey_obsid_list = [survey_obsid_list]
+
+    #create a list of subdirectories to hold parallelized catmux results
+    sub_dirs=[survey_obsid_list[0].result_dir.parent.joinpath(f"total_lc_{i}") for i in range(nprocs)]
+
+    #setup the lc_dir
+    if output_dir is None:
+        lc_dir=survey_obsid_list[0].result_dir.parent.joinpath("total_lc")
+    else:
+        lc_dir=Path(output_dir)
+
+    #reset/make the lc_dir if necessary
+    dirtest(lc_dir, clean_dir=clean_dir)
+
+    #create a list of sublists of the observations
+    sublist=np.array_split(survey_obsid_list, nprocs)
+
+    #combine the subsets of survey data
+    all_catmux=Parallel(n_jobs=nprocs)(
+        delayed(combine_survey_lc)(surveys, output_dir=direc, clean_dir=clean_dir) for direc, surveys in zip(sub_dirs, sublist))    #i in range(len(start_t)))
+
+
+    #combine the files in the subdirectories
+    source_names=[]
+    for i in sub_dirs:
+        files=sorted(list(i.glob("*.cat")))
+        for j in files:
+            source_names.append(j.name)
+
+    #get the unique file names
+    uniq_source_names=np.unique(source_names)
+
+    for i in sub_dirs
+
+
+    return lc_dir
+
 
