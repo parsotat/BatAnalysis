@@ -12,6 +12,7 @@ import sys
 from multiprocessing.pool import ThreadPool
 from astropy.table import Table, vstack
 import shutil
+import numpy as np
 
 
 def _create_BatSurvey(obs_id, obs_dir=None, input_dict=None, recalc=False, load_dir=None, patt_noise_dir=None, verbose=False):
@@ -313,7 +314,7 @@ def combine_survey_lc(survey_obsid_list, output_dir=None, clean_dir=True, nprocs
 
     #combine the subsets of survey data
     all_catmux=Parallel(n_jobs=nprocs)(
-        delayed(combine_survey_lc)(surveys, output_dir=direc, clean_dir=clean_dir) for direc, surveys in zip(sub_dirs, sublist))    #i in range(len(start_t)))
+        delayed(combine_survey_lc)(list(surveys), output_dir=direc, clean_dir=clean_dir) for direc, surveys in zip(sub_dirs, sublist))    #i in range(len(start_t)))
 
 
     #combine the files in the subdirectories
