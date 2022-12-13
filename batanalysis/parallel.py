@@ -2,7 +2,8 @@
 This file holds convience functions for conveniently analyzing batches of observation IDs using the joblib module
 """
 
-from .batlib import dirtest, datadir, calc_response, calculate_detection, fit_spectrum, download_swiftdata, combine_survey_lc
+from .batlib import dirtest, datadir, calc_response, calculate_detection, fit_spectrum, download_swiftdata
+from .batlib import combine_survey_lc as serial_combine_survey_lc
 from .batobservation import MosaicBatSurvey, BatSurvey
 from .mosaic import _mosaic_loop, merge_mosaics, finalize_mosaic, read_correctionsmap, read_skygrids
 
@@ -314,7 +315,7 @@ def combine_survey_lc(survey_obsid_list, output_dir=None, clean_dir=True, nprocs
 
     #combine the subsets of survey data
     all_catmux=Parallel(n_jobs=nprocs)(
-        delayed(combine_survey_lc)(list(surveys), output_dir=direc, clean_dir=clean_dir) for direc, surveys in zip(sub_dirs, sublist))    #i in range(len(start_t)))
+        delayed(serial_combine_survey_lc)(list(surveys), output_dir=direc, clean_dir=clean_dir) for direc, surveys in zip(sub_dirs, sublist))    #i in range(len(start_t)))
 
 
     #combine the files in the subdirectories
