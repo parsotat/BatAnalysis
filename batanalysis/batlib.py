@@ -212,6 +212,14 @@ def combine_survey_lc(survey_obsid_list, clean_dir=True):
     #if the directory doesnt exist, create it otherwise over write it
     dirtest(output_dir, clean_dir=clean_dir)
 
+    # make the local pfile dir if it doesnt exist and set this value
+    _local_pfile_dir = output_dir.joinpath(".local_pfile")
+    _local_pfile_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        hsp.local_pfiles(pfiles_dir=str(_local_pfile_dir))
+    except AttributeError:
+        hsp.utils.local_pfiles(par_dir=str(_local_pfile_dir))
+
     ret=[]
     for obs in survey_obsid_list:
         for i in obs.pointing_flux_files:
