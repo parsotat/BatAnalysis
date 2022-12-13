@@ -334,9 +334,9 @@ def combine_survey_lc(survey_obsid_list, output_dir=None, clean_dir=True, nprocs
         data=[]
         for i in sub_dirs:
             if i.joinpath(f"{name}.cat").exists():
-                data[name].append(Table.read(i.joinpath(f"{name}.cat")))
+                data[name].append(Table.read(i.joinpath(f"{name}")))
         all_data=vstack(data)
-        all_data.write(lc_dir.joinpath(f"{name}.cat"), format="fits")
+        all_data.write(lc_dir.joinpath(f"{name}"), format="fits")
 
     #remove the subdirectories
     #for i in sub_dirs:
