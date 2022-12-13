@@ -10,8 +10,8 @@ from joblib import Parallel, delayed
 from pathlib import Path
 import sys
 from multiprocessing.pool import ThreadPool
-from astropy.io import fits
-
+from astropy.table import Table, vstack
+import shutil
 
 
 def _create_BatSurvey(obs_id, obs_dir=None, input_dict=None, recalc=False, load_dir=None, patt_noise_dir=None, verbose=False):
@@ -325,9 +325,20 @@ def combine_survey_lc(survey_obsid_list, output_dir=None, clean_dir=True, nprocs
 
     #get the unique file names
     uniq_source_names=np.unique(source_names)
+    #data=dict().fromkeys(list(uniq_source_names)) maybe dont need this
 
-    #for i in sub_dirs
+    #concatenate the subdirectories
+    for name in uniq_source_names:
+        data=[]
+        for i in sub_dirs:
+            if i.joinpath(f"{name}.cat").exists():
+                data[name].append(Table.read(i.joinpath(f"{name}.cat")))
+        all_data=vstack(data)
+        all_data.write(lc_dir.joinpath(f"{name}.cat"), format="fits")
 
+    #remove the subdirectories
+    #for i in sub_dirs:
+    #    shutil.rmtree(i)
 
     return lc_dir
 
