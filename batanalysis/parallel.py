@@ -333,7 +333,7 @@ def combine_survey_lc(survey_obsid_list, output_dir=None, clean_dir=True, nprocs
     for name in uniq_source_names:
         data=[]
         for i in sub_dirs:
-            if i.joinpath(f"{name}.cat").exists():
+            if i.joinpath(f"{name}").exists():
                 data[name].append(Table.read(i.joinpath(f"{name}")))
         all_data=vstack(data)
         all_data.write(lc_dir.joinpath(f"{name}"), format="fits")
