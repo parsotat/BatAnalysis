@@ -30,6 +30,9 @@ def _create_BatSurvey(obs_id, obs_dir=None, input_dict=None, recalc=False, load_
         time. If set to True, do not try to load the results of prior calculations. Instead rerun batsurvey on the observation ID.
     :param load_dir: Default None or a Path object. The default uses the directory as pointed to by obs_dir/obs_id+'_surveyresult'
         to try to look for a .batsurvey file to load.
+    :param patt_noise_dir: String of the directory that holds the pre-calculated pattern noise maps for BAT. None defaults to
+            looking for the maps in a folder called: "noise_pattern_maps" located in the ba.datadir() directory. If this directory
+            doesn't exist then pattern maps are not used.
     :param verbose: Boolean False by default. Tells the code to print progress/diagnostic information.
     :return: None or a BATSurvey object
     """
@@ -41,8 +44,8 @@ def _create_BatSurvey(obs_id, obs_dir=None, input_dict=None, recalc=False, load_
         #see if there is already a .pickle file, if there is not or if the user wants to recalc, then do the save
         if not obs.result_dir.joinpath('batsurvey.pickle').exists() or recalc:
             obs.save()
-    except ValueError:
-        print(f"Obsid {obs_id} has no survey data")
+    except ValueError as ve:
+        print(f"{ve}")
         obs=None
 
     print(f"Done with Obsid {obs_id}")
@@ -59,6 +62,9 @@ def batsurvey_analysis(obs_id_list, input_dict=None, recalc=False, load_dir=None
         time. If set to True, do not try to load the results of prior calculations. Instead rerun batsurvey on the observation ID.
     :param load_dir: Default None or a Path object. The default uses the directory as pointed to by obs_dir/obs_id+'_surveyresult'
         to try to look for a .batsurvey file to load.
+    :param patt_noise_dir: String of the directory that holds the pre-calculated pattern noise maps for BAT. None defaults to
+            looking for the maps in a folder called: "noise_pattern_maps" located in the ba.datadir() directory. If this directory
+            doesn't exist then pattern maps are not used.
     :param verbose: Boolean False by default. Tells the code to print progress/diagnostic information.
     :param nprocs: The number of processes that will be run simulaneously. This number should not be larger than the
         number of CPUs that a user has available to them.
@@ -198,6 +204,8 @@ def batmosaic_analysis(batsurvey_obs_list, outventory_file, time_bins, catalog_f
     :param outventory_file: Path object of the outventory file that contains all the BAT survey observations that will
         be used to create the mosaiced images.
     :param time_bins: The time bin edges that the observatons in the outventory file have been grouped into
+    :param catalog_file: A Path object of the catalog file that should be used to identify sources in the mosaic images. This
+        will default to using the catalog file that is included with the BatAnalysis package.
     :param total_mosaic_savedir: Default None or a Path object that denotes the directory that the total "time-integrated"
         images will be saved to. The default is to place the total mosaic image in a directory called "total_mosaic"
         located in the same directory as the outventory file.

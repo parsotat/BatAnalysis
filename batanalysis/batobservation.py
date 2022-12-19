@@ -90,10 +90,11 @@ class BatSurvey(BatObservation):
     pointing_flux_files : list of strings
         A list of the pointing files created by heasoftpy bat_survey for the specified obs_id
     pointing_ids : list of strings
-        The pointing  ids for the pointings associated with the analyzed obs_id
+        The pointing  ids for the successfully analyzed pointings associated with the analyzed obs_id
     pointing_info : dictionary of dictionaries
         The encompassed information including MET time, exposure time, flux, etc for each pointing in a observation id
-        Can be access as pointing_info[pointing_id]["key"]
+        Can be access as pointing_info[pointing_id]["key"]. This also includes poining IDs that failed to be analyzed
+        and includes their reason for failure.
     channel : list
         List of the channel number for the survey data energy channels
     emin : list
@@ -146,7 +147,9 @@ class BatSurvey(BatObservation):
         :param recalc: Boolean to either delete the existing batsurvey results and start over
         :param verbose: Boolean to print diagnostic information
         :param load_dir: String of the directory that holds the result directory of batsurvey for a given observation ID
-        :param patt_noise_dir: String of the directory that holds the pre-calculated pattern noise maps for BAT
+        :param patt_noise_dir: String of the directory that holds the pre-calculated pattern noise maps for BAT. None defaults to
+            looking for the maps in a folder called: "noise_pattern_maps" located in the ba.datadir() directory. If this directory
+            doesn't exist then pattern maps are not used.
         """
 
 
@@ -394,8 +397,32 @@ class BatSurvey(BatObservation):
 
                 lc_fits.close
 
-                self.pointing_info[id]=dict(met_time=time_array, exposure=exposure_array, utc_time=utctime, mjd_time=mjdtime)
+                #open the status file to save the success code
+                status_file=pointing.parent.joinpath(f"point_{id}_status.txt")
+                stat=self._batsurvey_error(status_file)[0]
 
+                self.pointing_info[id]=dict(success=stat, fail_code=None, met_time=time_array, exposure=exposure_array, utc_time=utctime, mjd_time=mjdtime)
+
+            #see if there were any pointings that failed
+            status_file=self.result_dir.joinpath("stats_point.dat")
+            with open(status_file, "r") as f:
+                batsurvey_output = f.readlines()
+            if len(batsurvey_output) != len(self.pointing_ids):
+                #get the info for the other pointings that failed and save their fail codes
+                for line in batsurvey_output:
+                    #see if the pointing ID exists in the
+                    pointing=line.split(' ')[3]
+
+                    if pointing.split("_")[-1] not in self.pointing_info.keys():
+                        # open the status file to save the success code
+                        status_file = self.result_dir.joinpath(f"{pointing}").joinpath(f"{pointing}_status.txt")
+                        if status_file.exists():
+                            stat, fail_str = self._batsurvey_error(status_file)
+                        else:
+                            stat=False
+                            fail_str="The dpi could not be analyzed."
+
+                        self.pointing_info[pointing.split("_")[-1]] = dict(success=stat, fail_code=fail_str)
 
             #if there are pointings found, merge them
             if verbose:
@@ -409,10 +436,11 @@ class BatSurvey(BatObservation):
 
             #if there are no pointings throw an error and save the state so we know what it is
             if len(self.pointing_flux_files) == 0:
-                #look at the
+                #see if there is a status.txt file that was produced and read it
+                #then print out the error
 
                 self.save()
-                raise ValueError("No pointings were found.")
+                raise ValueError(f"The results for each pointing of observation ID {self.obs_id} is:\n {' '.join(batsurvey_output)}")
 
             #self.survey_input=input_dict_copy
 
@@ -421,8 +449,11 @@ class BatSurvey(BatObservation):
             self.load(load_file)
 
             if len(self.pointing_flux_files) == 0:
+                # see if there is a status.txt file that was produced and read it
+                # then print out the error
+
                 self.save()
-                raise ValueError("No pointings were found.")
+                raise ValueError("No pointings were able to be loaded.")
 
 
     def load(self, f):
@@ -464,12 +495,46 @@ class BatSurvey(BatObservation):
             #result = task(**input_dict)
             #return result
 
-            print(os.getenv("PFILES"))
+            #print(os.getenv("PFILES"))
 
             return hsp.batsurvey(**input_dict)
 
         except Exception:
-            raise ValueError ("The observation id %s has no survey data." %(self.obs_id)) 
+            #see if there were any pointings that failed
+            status_file=self.result_dir.joinpath("stats_point.dat")
+            if status_file.exists():
+                with open(status_file, "r") as f:
+                    batsurvey_output = f.readlines()
+                raise ValueError(f"The results for each pointing of observation ID {self.obs_id} is:\n {' '.join(batsurvey_output)}")
+            else:
+                raise ValueError(f"Obsid {self.obs_id} has no survey data")
+
+    def _batsurvey_error(self, status_file):
+        """
+        Prints the error for a pointing ID's status file. the file needs to exist before calling this method.
+        :param status_file: Path file that is the pointing_*_status.txt file that will be read in
+        :return: Boolean denoting if the batsurvey call wasy successful for that pointing ID and a string of the
+            associated reason for failure
+        """
+
+        #status_file = pointing.name.joinpath(f"point_{id}_status.txt")
+        with open(status_file, "r") as f:
+            output = f.readlines()[0]
+        stat = output.split(';')[0].split("status=")[-1]
+        stat = stat.replace("'", "")
+        stat = stat.replace('"', "")
+        if "SUCCESS" in stat:
+            stat = True
+        else:
+            stat = False
+
+        # read in the failure reason
+        fail_str = output.split(';')[2].split("reason=")[-1]
+        fail_str = fail_str.replace("'", "")
+        fail_str = fail_str.replace('"', "")
+
+        return stat, fail_str
+
 
     def _call_batsurvey_catmux(self, input_dict):
         """

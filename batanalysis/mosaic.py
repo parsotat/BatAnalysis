@@ -216,6 +216,8 @@ def merge_outventory(survey_list, savedir=None):
         #save to a new subdirectory within the directory that contains the batsurvey result for the first surveydata object
         #savedir=os.path.join(os.path.split(survey_list[0].result_dir)[0], "mosaiced_surveyresults")
         savedir = survey_list[0].result_dir.parent.joinpath("mosaiced_surveyresults")
+    else:
+        savedir=Path(savedir)
     dirtest(savedir, clean_dir=False)
 
     #create the pfile directory
@@ -864,6 +866,8 @@ def create_mosaics(outventory_file, time_bins, survey_list, catalog_file=None, t
         be used to create the mosaiced images.
     :param time_bins: The time bins that the observatons in outventory file have been grouped into
     :param survey_list: The list of BATSurvey objects that correpond to the observations listed in the outventory file
+    :param catalog_file: A Path object of the catalog file that should be used to identify sources in the mosaic images. This
+        will default to using the catalog file that is included with the BatAnalysis package.
     :param total_mosaic_savedir: Default None or a Path object that denotes the directory that the total "time-integrated"
         images will be saved to. The default is to place the total mosaic image in a directory called "total_mosaic"
         located in the same directory as the outventory file.
