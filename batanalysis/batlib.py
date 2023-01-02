@@ -866,8 +866,14 @@ def print_parameters(obs_list, source_id, values=["met_time","utc_time", "exposu
                 #xsp.Xset.restore(pointing_dict['xspec_model'])
                 #model = xsp.AllModels(1)
                 model = pointing_dict["model_params"]
+                
+                if model is not None:
+                    model_names= model.keys() #[model(i).name for i in range(1,model.nParameters+1)]
+                else:
+                    #create a dict keys list that is empty so the
+                    #remaining code works
+                    model_names = dict().keys()
 
-                model_names= model.keys() #[model(i).name for i in range(1,model.nParameters+1)]
 
                 for i in values:
                     # get the real key we need if its a xspec model parameter

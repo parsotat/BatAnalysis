@@ -29,6 +29,7 @@ def plot_survey_lc(survey_obsid_list, id_list=None, energy_range=None, savedir=N
     :param time_unit: String specifying the time unit of the light curve. Can be "MET", "UTC" or "MJD"
     :param values: A list of strings contaning information that the user would like to be plotted out. The strings
         correspond to the keys in the pointing_info dictionaries of each BatSurvey object or to 'rate' or 'snr'.
+    :param T0: None or a MET time of interest that should be highlighted on the plot.
     :param calc_lc: Boolean set to True, to denote if the light curves across all the BatSurvey objects need to be recombined
     :param clean_dir: Boolean set to True by default. Denotes if the whole directory that holds all the compiled light curve
         data for the passed survey observations should be deleted and recreated if the directory exists.
@@ -192,9 +193,13 @@ def plot_survey_lc(survey_obsid_list, id_list=None, energy_range=None, savedir=N
                             # xsp.Xset.restore(pointing_dict['xspec_model'])
                             # model = xsp.AllModels(1)
                             model = pointing_dict["model_params"]
-
-                            model_names = model.keys()
-                            #stop
+                            
+                            if model is not None:
+                                model_names = model.keys()
+                            else:
+                                #create a dict keys list that is empty so the
+                                #remaining code works
+                                model_names = dict().keys()
 
                             # get the real key we need if its a xspec model parameter
                             is_model_param=False
