@@ -868,12 +868,13 @@ def print_parameters(obs_list, source_id, values=["met_time","utc_time", "exposu
                 model = pointing_dict["model_params"]
                 
                 if model is not None:
-                    model_names= model.keys() #[model(i).name for i in range(1,model.nParameters+1)]
+                    model_names = model.keys()
                 else:
-                    #create a dict keys list that is empty so the
-                    #remaining code works
+                    # create a dict keys list that is empty so the
+                    # remaining code works
                     model_names = dict().keys()
-
+                    if ("flux" in i or "Flux" in i):
+                        i = "None"
 
                 for i in values:
                     # get the real key we need if its a xspec model parameter
@@ -910,8 +911,7 @@ def print_parameters(obs_list, source_id, values=["met_time","utc_time", "exposu
 
                             middle_str += f'10^{{{base:+}}}'
 
-
-                        elif is_model_param:
+                        else:
                             #get the value and errors if the error calculation worked properly
                             val=model[model_param_key]["val"]
                             if 'T' in model[model_param_key]["errflag"]:

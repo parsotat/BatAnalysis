@@ -200,6 +200,10 @@ def plot_survey_lc(survey_obsid_list, id_list=None, energy_range=None, savedir=N
                                 #create a dict keys list that is empty so the
                                 #remaining code works
                                 model_names = dict().keys()
+                                if ("flux" in i or "Flux" in i):
+                                    i="None"
+
+
 
                             # get the real key we need if its a xspec model parameter
                             is_model_param=False
@@ -224,7 +228,7 @@ def plot_survey_lc(survey_obsid_list, id_list=None, energy_range=None, savedir=N
                                     yerr.append(np.nan)
 
                                     y_upperlim.append(1)
-                                elif is_model_param:
+                                else:
                                     #get the value and errors if the error calculation worked properly
                                     val=model[model_param_key]["val"]
                                     if ("flux" in i or "Flux" in i):
