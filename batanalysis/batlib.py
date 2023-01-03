@@ -910,7 +910,8 @@ def print_parameters(obs_list, source_id, values=["met_time","utc_time", "exposu
 
                             middle_str += f'10^{{{base:+}}}'
 
-                        else:
+
+                        elif is_model_param:
                             #get the value and errors if the error calculation worked properly
                             val=model[model_param_key]["val"]
                             if 'T' in model[model_param_key]["errflag"]:

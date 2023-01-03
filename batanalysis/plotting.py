@@ -224,7 +224,7 @@ def plot_survey_lc(survey_obsid_list, id_list=None, energy_range=None, savedir=N
                                     yerr.append(np.nan)
 
                                     y_upperlim.append(1)
-                                else:
+                                elif is_model_param:
                                     #get the value and errors if the error calculation worked properly
                                     val=model[model_param_key]["val"]
                                     if ("flux" in i or "Flux" in i):
