@@ -254,7 +254,7 @@ def plot_survey_lc(survey_obsid_list, id_list=None, energy_range=None, savedir=N
                                 yerr.append(np.nan)
                                 y_upperlim.append(0)
 
-                    else:
+                        else:
                             # outstr += "\tnan"
                             y.append(np.nan)
                             yerr.append(np.nan)
