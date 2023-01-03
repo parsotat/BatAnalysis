@@ -196,67 +196,65 @@ def plot_survey_lc(survey_obsid_list, id_list=None, energy_range=None, savedir=N
                             
                             if model is not None:
                                 model_names = model.keys()
-                            else:
-                                #create a dict keys list that is empty so the
-                                #remaining code works
-                                model_names = dict().keys()
-                                if ("flux" in i or "Flux" in i):
-                                    i="None"
 
+                                # get the real key we need if its a xspec model parameter
+                                is_model_param=False
+                                for key in model_names:
+                                    if i.capitalize() in key or i in key:
+                                        model_param_key=key
+                                        is_model_param=True
 
-
-                            # get the real key we need if its a xspec model parameter
-                            is_model_param=False
-                            for key in model_names:
-                                if i.capitalize() in key or i in key:
-                                    model_param_key=key
-                                    is_model_param=True
-
-                            if i in obs.get_pointing_info(pointings).keys():
-                                #outstr += "\t%s" % (str(obs.pointing_info[pointings][i]))
-                                y.append(obs.pointing_info[pointings][i])
-                                yerr.append(np.nan)
-                            elif i in obs.get_pointing_info(pointings, source_id=id).keys():
-                                #outstr += "\t%s" % (str(obs.pointing_info[pointings][source_id][i]))
-                                y.append(obs.pointing_info[pointings][id][i])
-                                yerr.append(np.nan)
-                            elif is_model_param or ("flux" in i or "Flux" in i):
-                                #see if the user wants the flux and if there is an upper limit available
-                                if ("flux" in i or "Flux" in i) and "nsigma_lg10flux_upperlim" in pointing_dict.keys():
-                                    #outstr += "\t  %e  "%(pointing_dict["nsigma_lg10flux_upperlim"])
-                                    y.append(10**pointing_dict["nsigma_lg10flux_upperlim"])
+                                if i in obs.get_pointing_info(pointings).keys():
+                                    #outstr += "\t%s" % (str(obs.pointing_info[pointings][i]))
+                                    y.append(obs.pointing_info[pointings][i])
                                     yerr.append(np.nan)
-
-                                    y_upperlim.append(1)
-                                else:
-                                    #get the value and errors if the error calculation worked properly
-                                    val=model[model_param_key]["val"]
-                                    if ("flux" in i or "Flux" in i):
-                                        y.append(10**model[model_param_key]["val"])
-                                    else:
-                                        y.append(model[model_param_key]["val"])
-
-                                    if 'T' in model[model_param_key]["errflag"]:
-                                        err_val="nan"
-                                        errs = np.array(["nan", "nan"])
-                                        #outstr += "\t%s-%s\+%s" % (val, errs[0], errs[1])
+                                elif i in obs.get_pointing_info(pointings, source_id=id).keys():
+                                    #outstr += "\t%s" % (str(obs.pointing_info[pointings][source_id][i]))
+                                    y.append(obs.pointing_info[pointings][id][i])
+                                    yerr.append(np.nan)
+                                elif is_model_param or ("flux" in i or "Flux" in i):
+                                    #see if the user wants the flux and if there is an upper limit available
+                                    if ("flux" in i or "Flux" in i) and "nsigma_lg10flux_upperlim" in pointing_dict.keys():
+                                        #outstr += "\t  %e  "%(pointing_dict["nsigma_lg10flux_upperlim"])
+                                        y.append(10**pointing_dict["nsigma_lg10flux_upperlim"])
                                         yerr.append(np.nan)
+
+                                        y_upperlim.append(1)
                                     else:
-                                        errs = np.array([model[model_param_key]["lolim"], model[model_param_key]["hilim"]])
-                                        err_val=np.abs(val - errs).max() #"%e"%(np.abs(val - errs).max())
-                                        #outstr += "\t%e-%e\+%e"%(val,errs[0], errs[1])
+                                        #get the value and errors if the error calculation worked properly
+                                        val=model[model_param_key]["val"]
                                         if ("flux" in i or "Flux" in i):
-                                            err_val=0.5 * (((10 ** errs[1]) - (10 ** val)) + ((10 ** val) - (10 ** errs[0])))
-                                        yerr.append(err_val)
+                                            y.append(10**model[model_param_key]["val"])
+                                        else:
+                                            y.append(model[model_param_key]["val"])
 
+                                        if 'T' in model[model_param_key]["errflag"]:
+                                            err_val="nan"
+                                            errs = np.array(["nan", "nan"])
+                                            #outstr += "\t%s-%s\+%s" % (val, errs[0], errs[1])
+                                            yerr.append(np.nan)
+                                        else:
+                                            errs = np.array([model[model_param_key]["lolim"], model[model_param_key]["hilim"]])
+                                            err_val=np.abs(val - errs).max() #"%e"%(np.abs(val - errs).max())
+                                            #outstr += "\t%e-%e\+%e"%(val,errs[0], errs[1])
+                                            if ("flux" in i or "Flux" in i):
+                                                err_val=0.5 * (((10 ** errs[1]) - (10 ** val)) + ((10 ** val) - (10 ** errs[0])))
+                                            yerr.append(err_val)
+
+                                        y_upperlim.append(0)
+
+                                else:
+                                    #outstr += "\tnan"
+                                    y.append(np.nan)
+                                    yerr.append(np.nan)
                                     y_upperlim.append(0)
-
                             else:
-                                #outstr += "\tnan"
+                                # outstr += "\tnan"
                                 y.append(np.nan)
                                 yerr.append(np.nan)
                                 y_upperlim.append(0)
-                        else:
+
+                    else:
                             # outstr += "\tnan"
                             y.append(np.nan)
                             yerr.append(np.nan)
