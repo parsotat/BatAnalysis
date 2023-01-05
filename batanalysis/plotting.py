@@ -278,6 +278,12 @@ def plot_survey_lc(survey_obsid_list, id_list=None, energy_range=None, savedir=N
                 else:
                     uplims=np.zeros(len(xerr)) #np.zeros(len(xerr))
 
+                #in matplotlib 3.6.2, an array of all np.nans give a StopIteration error and the plot fails
+                #See https://github.com/matplotlib/matplotlib/issues/24818
+                #therfore do this workaround
+                if np.sum(np.isnan(yerr))==len(yerr):
+                    yerr=np.zeros(len(yerr))
+
                 #plot the lc
                 ax.errorbar(x,y,xerr=xerr, yerr=yerr, uplims=uplims, linestyle="None", marker="o", markersize=3, color="red", zorder=10)
 

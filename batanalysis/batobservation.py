@@ -405,24 +405,30 @@ class BatSurvey(BatObservation):
 
             #see if there were any pointings that failed
             status_file=self.result_dir.joinpath("stats_point.dat")
-            with open(status_file, "r") as f:
-                batsurvey_output = f.readlines()
-            if len(batsurvey_output) != len(self.pointing_ids):
-                #get the info for the other pointings that failed and save their fail codes
-                for line in batsurvey_output:
-                    #see if the pointing ID exists in the
-                    pointing=line.split(' ')[3]
 
-                    if pointing.split("_")[-1] not in self.pointing_info.keys():
-                        # open the status file to save the success code
-                        status_file = self.result_dir.joinpath(f"{pointing}").joinpath(f"{pointing}_status.txt")
-                        if status_file.exists():
-                            stat, fail_str = self._batsurvey_error(status_file)
-                        else:
-                            stat=False
-                            fail_str="The dpi could not be analyzed."
+            #somethimes this file may not exist if batsurvey determines that there are no GTIs at all
+            #in this case there will be no pointing flux files so we will execure the if statement a little later on
+            if status_file.exists():
+                with open(status_file, "r") as f:
+                    batsurvey_output = f.readlines()
+                if len(batsurvey_output) != len(self.pointing_ids):
+                    #get the info for the other pointings that failed and save their fail codes
+                    for line in batsurvey_output:
+                        #see if the pointing ID exists in the
+                        pointing=line.split(' ')[3]
 
-                        self.pointing_info[pointing.split("_")[-1]] = dict(success=stat, fail_code=fail_str)
+                        if pointing.split("_")[-1] not in self.pointing_info.keys():
+                            # open the status file to save the success code
+                            status_file = self.result_dir.joinpath(f"{pointing}").joinpath(f"{pointing}_status.txt")
+                            if status_file.exists():
+                                stat, fail_str = self._batsurvey_error(status_file)
+                            else:
+                                stat=False
+                                fail_str="The dpi could not be analyzed."
+
+                            self.pointing_info[pointing.split("_")[-1]] = dict(success=stat, fail_code=fail_str)
+            else:
+                batsurvey_output=[f'There were no GTI intervals found for this observation ID {self.obs_id}']
 
             #if there are pointings found, merge them
             if verbose:
