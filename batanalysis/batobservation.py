@@ -922,6 +922,70 @@ class BatSurvey(BatObservation):
                 raise FileNotFoundError(f'This means that the batsurvey script didnt deem there to be good enough statistics for '+
                                  f'source {id} in this observation ID.')
 
+    def load_source_information(self, sources):
+        '''
+        This function loads in all the source information for all the sources that have been specified. This can be done
+        once batsurvey has been called. It reads in the pointing id cat file and searches for the source within it.
+
+        NOTE: The source names entered here have to match the name in the catalog. In other methods, they have to match
+        the filename in the merged_pointings_lc
+
+        :param sources: A string or a list of strings with source names that is in the catalog that was passed in to the BatSurvey object
+        :return: None
+        '''
+
+        if type(sources) is not list:
+            # it is a single string:
+            sources = [sources]
+
+        #get the pointing flux files and the pointing ID, these arrays hsould be ordered with respect to one another
+        #see for loop in init() to get the pointing IDs
+        for pointing_file, id in zip(self.pointing_flux_files, self.pointing_ids):
+            #make sure that the file exists
+            if pointing_file.exists():
+                #then read in the info and try to find where the object is within it if it exists there
+                with  fits.open(str(pointing_file)) as file:
+                    #get the names of the sources
+                    pointing_file_sources=file[1].data['NAME']
+
+                    #iterate over each passed in source
+                    for s in sources:
+                        idx=np.where(s==pointing_file_sources)[0]
+
+                        if len(idx) != 0:
+                            #then there is a row for the source of interest so we can read in the data and do the necessary
+                            #calculations
+
+                            #read in the cent rate, the error, etc and save it
+                            rate_array = list.(file[1].data[idx]['RATE'])
+                            rate_err_array = list(file[1].data[idx]['RATE_ERR'])
+                            bkg_var_array = list(file[1].data[idx]['BKG_VAR'])
+                            snr_array = list(file[1].data[idx]['VECTSNR'])
+
+                            rate_tot = 0.0
+                            rate_err_2_tot = 0.0
+                            bkg_var_2_tot = 0.0
+                            for j in range(len(rate_array)):
+                                rate_num = rate_array[j]
+                                rate_err_2 = rate_err_array[j] * rate_err_array[j]
+                                bkg_var_2 = bkg_var_array[j] * bkg_var_array[j]
+                                rate_tot = rate_tot + rate_num
+                                rate_err_2_tot = rate_err_2_tot + rate_err_2
+                                bkg_var_2_tot = bkg_var_2_tot + bkg_var_2
+
+                            rate_array.append(rate_tot)
+                            rate_err_tot = np.sqrt(rate_err_2_tot)
+                            rate_err.append(rate_err_tot)
+                            snr_allband_num = rate_tot / np.sqrt(bkg_var_2_tot)
+                            snr_array.append(snr_allband_num)
+                            bkg_var_array.append(np.sqrt(bkg_var_2_tot))
+
+                            self.set_pointing_info(id, "rate", np.array(rate_array), source_id=s)
+                            self.set_pointing_info(id, "rate_err", np.array(rate_err), source_id=s)
+                            self.set_pointing_info(id, "bkg_var", np.array(bkg_var_array), source_id=s)
+                            self.set_pointing_info(id, "snr", np.array(snr_array), source_id=s)
+
+
     def get_pointing_ids(self):
         return self.pointing_ids
 

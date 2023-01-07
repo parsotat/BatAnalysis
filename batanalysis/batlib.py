@@ -188,6 +188,17 @@ def create_custom_catalog(src_name_list, src_ra_list, src_dec_list, src_glon_lis
 
     return final_cat
 
+def _source_name_converter(name):
+    '''
+    This function converts a source name to one that may correspond to the file name found in a merged_pointings_lc directory.
+    This function is needed due to the name change with the batsurvey-catmux script.
+
+    :param name: a string or list of strings of dfferent source names
+    :return: string or list of strings
+    '''
+
+    return " "
+
 
 def combine_survey_lc(survey_obsid_list, output_dir=None, clean_dir=True):
     """
