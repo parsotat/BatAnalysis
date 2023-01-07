@@ -957,7 +957,7 @@ class BatSurvey(BatObservation):
                             #calculations
 
                             #read in the cent rate, the error, etc and save it
-                            rate_array = list(file[1].data[idx]['RATE'])
+                            rate_array = list(file[1].data[idx]['CENT_RATE'])
                             rate_err_array = list(file[1].data[idx]['RATE_ERR'])
                             bkg_var_array = list(file[1].data[idx]['BKG_VAR'])
                             snr_array = list(file[1].data[idx]['VECTSNR'])
