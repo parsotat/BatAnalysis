@@ -388,7 +388,7 @@ class BatSurvey(BatObservation):
                 lc_fits = fits.open(pointing)
                 lc_fits_data = lc_fits[1].data
 
-                time_array = lc_fits_data.field('TIME')[0] #MET time
+                time_array = lc_fits_data.field('TIME')[0] #MET start time
                 exposure_array = lc_fits_data.field('EXPOSURE')[0]#MET time in s
 
                 #calculate times in UTC and MJD units as well
@@ -988,7 +988,7 @@ class BatSurvey(BatObservation):
 
                             self.set_pointing_info(id, "rate", rate_array, source_id=s)
                             self.set_pointing_info(id, "rate_err", rate_err_array, source_id=s)
-                            self.set_pointing_info(id, "bkg_var", bkg_var_array, source_id=s)
+                            #self.set_pointing_info(id, "bkg_var", bkg_var_array, source_id=s)
                             self.set_pointing_info(id, "snr", snr_array, source_id=s)
 
 
