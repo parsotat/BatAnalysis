@@ -957,28 +957,31 @@ class BatSurvey(BatObservation):
                             #calculations
 
                             #read in the cent rate, the error, etc and save it
-                            rate_array = list.(file[1].data[idx]['RATE'])
+                            rate_array = list(file[1].data[idx]['RATE'])
                             rate_err_array = list(file[1].data[idx]['RATE_ERR'])
                             bkg_var_array = list(file[1].data[idx]['BKG_VAR'])
                             snr_array = list(file[1].data[idx]['VECTSNR'])
 
-                            rate_tot = 0.0
-                            rate_err_2_tot = 0.0
-                            bkg_var_2_tot = 0.0
-                            for j in range(len(rate_array)):
-                                rate_num = rate_array[j]
-                                rate_err_2 = rate_err_array[j] * rate_err_array[j]
-                                bkg_var_2 = bkg_var_array[j] * bkg_var_array[j]
-                                rate_tot = rate_tot + rate_num
-                                rate_err_2_tot = rate_err_2_tot + rate_err_2
-                                bkg_var_2_tot = bkg_var_2_tot + bkg_var_2
+                            #this does the calculation for the total energy range so set the if statement so the
+                            #mosaic results dont attempt to calcualte a wrong energy integrated count rate
+                            if len(rate_array) == 8:
+                                rate_tot = 0.0
+                                rate_err_2_tot = 0.0
+                                bkg_var_2_tot = 0.0
+                                for j in range(len(rate_array)):
+                                    rate_num = rate_array[j]
+                                    rate_err_2 = rate_err_array[j] * rate_err_array[j]
+                                    bkg_var_2 = bkg_var_array[j] * bkg_var_array[j]
+                                    rate_tot = rate_tot + rate_num
+                                    rate_err_2_tot = rate_err_2_tot + rate_err_2
+                                    bkg_var_2_tot = bkg_var_2_tot + bkg_var_2
 
-                            rate_array.append(rate_tot)
-                            rate_err_tot = np.sqrt(rate_err_2_tot)
-                            rate_err.append(rate_err_tot)
-                            snr_allband_num = rate_tot / np.sqrt(bkg_var_2_tot)
-                            snr_array.append(snr_allband_num)
-                            bkg_var_array.append(np.sqrt(bkg_var_2_tot))
+                                rate_array.append(rate_tot)
+                                rate_err_tot = np.sqrt(rate_err_2_tot)
+                                rate_err.append(rate_err_tot)
+                                snr_allband_num = rate_tot / np.sqrt(bkg_var_2_tot)
+                                snr_array.append(snr_allband_num)
+                                bkg_var_array.append(np.sqrt(bkg_var_2_tot))
 
                             self.set_pointing_info(id, "rate", np.array(rate_array), source_id=s)
                             self.set_pointing_info(id, "rate_err", np.array(rate_err), source_id=s)
