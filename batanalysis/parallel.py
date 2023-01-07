@@ -124,6 +124,8 @@ def _spectrum_analysis(obs, source_name, recalc=False, generic_model=None,setPar
 
         obs.merge_pointings()
 
+        obs.load_source_information(source_name)
+
         try:
             obs.calculate_pha(id_list=source_name, clean_dir=recalc)
             pha_list = obs.get_pha_filenames(id_list=source_name)

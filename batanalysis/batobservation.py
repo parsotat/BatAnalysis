@@ -962,8 +962,6 @@ class BatSurvey(BatObservation):
                             bkg_var_array = file[1].data[idx]['BKG_VAR'][0]
                             snr_array = file[1].data[idx]['VECTSNR'][0]
 
-                            #stop
-
                             #this does the calculation for the total energy range so set the if statement so the
                             #mosaic results dont attempt to calcualte a wrong energy integrated count rate
                             if len(rate_array) == 8:
