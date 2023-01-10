@@ -1175,15 +1175,11 @@ class MosaicBatSurvey(BatSurvey):
                 mjdtime_stop = met2mjd(time_array_stop)
                 utctime_stop = met2utc(time_array_stop, mjd_time=mjdtime_stop)
 
+                #with fits.open(outventory_file) as file:
+                tbin_start_met = file_header["S_TBIN"]
+                tbin_end_met = file_header["E_TBIN"]
+
                 file.close
-
-                #get the name of the file for the group inventory which has this information and do the conversions
-                str_date=self.result_dir.name.split("_")[-1]
-                outventory_file=sorted(self.result_dir.parent.joinpath("grouped_outventory").glob(f"*_{str_date}*"))[0]
-
-                with fits.open(outventory_file) as file:
-                    tbin_start_met = file[1].header["S_TBIN"]
-                    tbin_end_met = file[1].header["E_TBIN"]
 
                 tbin_start_mjdtime = met2mjd(tbin_start_met)
                 tbin_start_utctime = met2utc(tbin_start_met, mjd_time=tbin_start_mjdtime)

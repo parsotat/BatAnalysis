@@ -1326,6 +1326,8 @@ def merge_mosaics(intermediate_mosaic_dir_list, savedir=None):
     total_tstop = []
     total_dateobs_start = []
     total_dateobs_end = []
+    user_met_tbin_start = []
+    user_met_tbin_end = []
 
     #loop over the directories to read files and add them
     for i in intermediate_mosaic_dir_list:
@@ -1346,6 +1348,8 @@ def merge_mosaics(intermediate_mosaic_dir_list, savedir=None):
                     total_tstop.append(file[0].header['TSTOP'])
                     total_dateobs_start.append(file[0].header['DATE-OBS'])
                     total_dateobs_end.append(file[0].header['DATE-END'])
+                    user_met_tbin_start.append(file[0].header['S_TBIN'])
+                    user_met_tbin_end.append(file[0].header['E_TBIN'])
 
             # open the eimg and add it to the array and accumulate the exposure
             eimg_file = i.joinpath('expmap_'+string+ '.img')  #os.path.join(i, 'expmap_' + string + '.img')
@@ -1379,6 +1383,8 @@ def merge_mosaics(intermediate_mosaic_dir_list, savedir=None):
     dt=np.max(total_tstop) - np.min(total_tstart)
     obs_min=total_dateobs_start[np.argmin(total_tstart)]
     obs_max=total_dateobs_end[np.argmax(total_tstop)]
+    user_tbin_start = np.min(user_met_tbin_start)
+    user_tbin_end = np.max(user_met_tbin_end)
 
     # loop over each sky facet
     for j in range(nz):
@@ -1402,6 +1408,8 @@ def merge_mosaics(intermediate_mosaic_dir_list, savedir=None):
             header['DATE-OBS'] = (obs_min, '  TSTART, expressed in UTC')
             header['DATE-END'] = (obs_max, '  TSTOP, expressed in UTC')
             header['EXPOSURE'] = (total_binned_exposure, '[sec.] Sum of pointing exposures used')
+            header["S_TBIN"] = (user_tbin_start, 'Mosaicing Start of Time Bin (MET)')
+            header["E_TBIN"] = (user_tbin_end, 'Mosaicing End of Time Bin (MET)')
             file.flush()
 
         #do this for the pcode
@@ -1423,6 +1431,8 @@ def merge_mosaics(intermediate_mosaic_dir_list, savedir=None):
             header['DATE-OBS'] = (obs_min, '  TSTART, expressed in UTC')
             header['DATE-END'] = (obs_max, '  TSTOP, expressed in UTC')
             header['EXPOSURE'] = (total_binned_exposure, '[sec.] Sum of pointing exposures used')
+            header["S_TBIN"] = (user_tbin_start, 'Mosaicing Start of Time Bin (MET)')
+            header["E_TBIN"] = (user_tbin_end, 'Mosaicing End of Time Bin (MET)')
             file.flush()
 
         #copy files for the variability and flux
@@ -1459,6 +1469,8 @@ def merge_mosaics(intermediate_mosaic_dir_list, savedir=None):
             header['DATE-OBS'] = (obs_min, '  TSTART, expressed in UTC')
             header['DATE-END'] = (obs_max, '  TSTOP, expressed in UTC')
             header['EXPOSURE'] = (total_binned_exposure, '[sec.] Sum of pointing exposures used')
+            header["S_TBIN"] = (user_tbin_start, 'Mosaicing Start of Time Bin (MET)')
+            header["E_TBIN"] = (user_tbin_end, 'Mosaicing End of Time Bin (MET)')
             flux_file.flush()
 
             #update the variance
@@ -1470,6 +1482,8 @@ def merge_mosaics(intermediate_mosaic_dir_list, savedir=None):
             header['DATE-OBS'] = (obs_min, '  TSTART, expressed in UTC')
             header['DATE-END'] = (obs_max, '  TSTOP, expressed in UTC')
             header['EXPOSURE'] = (total_binned_exposure, '[sec.] Sum of pointing exposures used')
+            header["S_TBIN"] = (user_tbin_start, 'Mosaicing Start of Time Bin (MET)')
+            header["E_TBIN"] = (user_tbin_end, 'Mosaicing End of Time Bin (MET)')
             var_file.flush()
 
         flux_file.close()
