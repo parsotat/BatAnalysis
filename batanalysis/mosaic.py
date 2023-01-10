@@ -417,6 +417,11 @@ def group_outventory(outventory_file, binning_timedelta, start_datetime=None, en
             #os.system("mv %s %s" % (output_file, savefile))
             output_file.rename(savefile)
 
+            with fits.open(str(savefile), mode='update') as file:
+                file[1].header["S_TBIN"]=(float(start_met), 'Mosaicing Start of Time Bin (MET)')
+                file[1].header["E_TBIN"] = (float(end_met), 'Mosaicing End of Time Bin (MET)')
+                file.flush()
+
             #create the directories that will hold all the mosaiced images within a given time bin
             #binned_savedir = os.path.join(os.path.split(outventory_file)[0], 'mosaic_'+str(start.astype('datetime64[D]')))
             binned_savedir = outventory_file.parent.joinpath(f"mosaic_{start.astype('datetime64[D]')}")
@@ -1231,6 +1236,16 @@ def _mosaic_loop(outventory_file, start, end, corrections_map, ra_skygrid, dec_s
             model_hdr['DATE-END'] = (total_dateobs_end[np.argmax(total_tstop)], '  TSTOP, expressed in UTC')
 
             model_hdr['EXPOSURE'] = (total_binned_exposure, '[sec.] Sum of pointing exposures used')
+
+            #Add info about the user specified TBIN that was used to create the mosaic
+            t=Time(start)
+            start_met=sbu.datetime2met(t.datetime)
+
+            t=Time(end)
+            end_met=sbu.datetime2met(t.datetime)
+
+            model_hdr["S_TBIN"] = (start_met, 'Mosaicing Start of Time Bin (MET)')
+            model_hdr["E_TBIN"] = (end_met, 'Mosaicing End of Time Bin (MET)')
 
             # add/modify extra stuff for pcoding*exp image
             model_hdr['HDUCLAS2'] = ('VIGNETTING', ' Contains partial coding map <== PCODE*EXP')

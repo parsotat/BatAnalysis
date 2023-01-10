@@ -114,6 +114,8 @@ class BatSurvey(BatObservation):
         Merges the counts from multiple pointings found within an observation ID dataset
     calculate_pha(id_list=None, output_dir=None, calc_upper_lim=False, bkg_nsigma=None, verbose=True, clean_dir=False, single_pointing=None):
         Calculates the PHA file for each pointing found within an observation ID dataset
+    load_source_information(sources):
+        Loads the count rate, background variance, and snr from the .cat file produced by batsurvey for the sources of interest
     get_pointing_ids():
         Returns the pointing ids in the observation ID
     get_pointing_info(pointing_id, source_id=None)
@@ -979,7 +981,7 @@ class BatSurvey(BatObservation):
                                 rate_array= np.concatenate((rate_array,[rate_tot]))
                                 rate_err_tot = np.sqrt(rate_err_2_tot)
                                 #rate_err_array.append(rate_err_tot)
-                                rate_array = np.concatenate((rate_err_array, [rate_err_tot]))
+                                rate_err_array = np.concatenate((rate_err_array, [rate_err_tot]))
                                 snr_allband_num = rate_tot / np.sqrt(bkg_var_2_tot)
                                 #snr_array.append(snr_allband_num)
                                 #bkg_var_array.append(np.sqrt(bkg_var_2_tot))
@@ -1124,7 +1126,6 @@ class MosaicBatSurvey(BatSurvey):
         # initalize the pha filename list attribute
         self.pha_file_names_list = []
 
-
         self.result_dir=Path(mosaic_dir).expanduser().resolve()
 
         load_file=self.result_dir.joinpath("batsurvey.pickle")
@@ -1162,8 +1163,8 @@ class MosaicBatSurvey(BatSurvey):
                 file = fits.open( str(self.result_dir.joinpath('swiftbat_exposure_c0.img')) )   #os.path.join(mosaic_dir, 'swiftbat_exposure_c0.img'))
                 file_header = file[0].header
 
-                time_array = file_header['TSTART']  # MET time
-                time_array_stop = file_header['TSTOP']  # MET time
+                time_array = file_header['TSTART']  # MET time of first survey dataset to be part of mosaic
+                time_array_stop = file_header['TSTOP']  # MET time of last survey data to be part of mosaic
                 exposure_array = file_header['EXPOSURE']  # MET time in s
                 time_elapse = file_header['TELAPSE']  # MET time in s
 
@@ -1174,12 +1175,28 @@ class MosaicBatSurvey(BatSurvey):
                 mjdtime_stop = met2mjd(time_array_stop)
                 utctime_stop = met2utc(time_array_stop, mjd_time=mjdtime_stop)
 
-
                 file.close
+
+                #get the name of the file for the group inventory which has this information and do the conversions
+                str_date=self.result_dir.name.split("_")[-1]
+                outventory_file=sorted(self.result_dir.parent.joinpath("grouped_outventory").glob(f"*_{str_date}*"))[0]
+
+                with fits.open(outventory_file) as file:
+                    tbin_start_met = file[1].header["S_TBIN"]
+                    tbin_end_met = file[1].header["E_TBIN"]
+
+                tbin_start_mjdtime = met2mjd(tbin_start_met)
+                tbin_start_utctime = met2utc(tbin_start_met, mjd_time=tbin_start_mjdtime)
+
+                tbin_end_mjdtime = met2mjd(tbin_end_met)
+                tbin_end_utctime = met2utc(tbin_end_met, mjd_time=tbin_end_mjdtime)
+
+                user_timebin=dict(met_time=tbin_start_met, met_stop_time=tbin_end_met, utc_time=tbin_start_utctime,
+                                    mjd_time=tbin_start_mjdtime, utc_stop_time=tbin_end_utctime, mjd_stop_time=tbin_end_mjdtime)
 
                 self.pointing_info[id] = dict(met_time=time_array, exposure=exposure_array, utc_time=utctime,
                                               mjd_time=mjdtime, elapse_time=time_elapse, met_stop_time=time_array_stop,
-                                              utc_stop_time=utctime_stop, mjd_stop_time=mjdtime_stop)
+                                              utc_stop_time=utctime_stop, mjd_stop_time=mjdtime_stop, user_timebin=user_timebin)
         else:
             self.load(load_file)
 
