@@ -1356,6 +1356,18 @@ def concatenate_data(bat_observation, source_ids, keys, energy_range=None, chron
                     #iterate over the keys of interest
                     for user_key in keys:
                         save_val=np.nan
+
+                        #see if the user wants observation ID or pointing ID
+                        if "obs" in user_key:
+                            save_val=observation_id
+                            concat_data[source][user_key].append(save_val)
+                            save_val=np.inf #set to a crazy number so we dont get errors with np.isnan for a string
+
+                        if "pointing" in user_key:
+                            save_val=pointings
+                            concat_data[source][user_key].append(save_val)
+                            save_val=np.inf #set to a crazy number so we dont get errors with np.isnan for a string
+
                         #search in all
                         for dictionary in [obs.get_pointing_info(pointings), obs.get_pointing_info(pointings, source_id=source)]:
                             if np.isnan(save_val) and len(dpath.search(obs.get_pointing_info(pointings, source_id=source)["model_params"], user_key))==0 and ("flux" not in user_key.lower()):
@@ -1447,7 +1459,5 @@ def concatenate_data(bat_observation, source_ids, keys, energy_range=None, chron
                                 concat_data[source][user_key_lolim].append(error[0])
                                 concat_data[source][user_key_hilim].append(error[1])
                                 concat_data[source][user_key_upperlim].append(is_upper_lim)
-
-
 
     return concat_data
