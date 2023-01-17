@@ -8,3 +8,4 @@ swifttools>=2.4.8
 scipy>=1.7.2
 requests>=2.20
 joblib>=1.1.0
+dpath>=2.1.4

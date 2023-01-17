@@ -19,6 +19,7 @@ from astroquery.heasarc import Heasarc
 from copy import copy
 import swifttools.swift_too as swtoo
 import datetime
+import dpath
 
 
 # from xspec import *
@@ -1277,3 +1278,176 @@ def reset_pdir():
     :return:
     """
     os.environ['PFILES'] = _orig_pdir
+
+def concatenate_data(bat_observation, source_ids, keys, energy_range=None, chronological_order=True):
+    """
+    This convenience function collects the data that was requested by the user as passed into the keys variable. The data
+    is returned in the form of a dictionary with the same keys and numpy arrays of all the concatenated data. if the user asks
+    for parameters with errors associated with them these errors will be automatically included. For example if the user wants
+    rates information then the function will automatically include a dicitonary key to hold the rates error information as well
+
+    :param bat_observation: a list of BatObservation objects including BatSurvey and MosaicBatSurvey objects that the user
+        eants to extract the relevant data from.
+    :param source_ids: The sources that the user would like to collect data for
+    :param keys: a string or list of strings
+    :param energy_range: a list or array of the minimum energy range that should be considered and the maximum energy
+        range that should be considered
+    :param chronological_order: Boolean to denote if the outputs should be sorted chronologically or kept in the same order
+        as the BATSurvey objects that were passed in
+    :return: dict with the keys specified by the user and numpy lists as the concatenated values for each key
+    """
+
+    #make sure that the keys are a list
+    if type(keys) is not list:
+        # it is a single string:
+        keys = [keys]
+
+    if type(source_ids) is not list:
+        # it is a single string:
+        source_ids = [source_ids]
+
+    #create a dict from the keys for soure and what the user is interested in
+    concat_data=dict().fromkeys(source_ids)
+    for i in concat_data.keys():
+        concat_data[i]=dict().fromkeys(keys)
+        for j in concat_data[i].keys():
+            concat_data[i][j]=[]
+
+
+    #deterine the energy range that may be of interest. This can be none for total E range or one of the basic 8 channel
+    #energies or a range that spans more than one energy range of the 8 channels.
+    if energy_range is None:
+        e_range_idx = [-1] #this is just the last index of the arrays for counts, etc
+    else:
+        #get the index
+        obs_min_erange_idx=bat_observation[0].emin.index(np.min(energy_range))
+        obs_max_erange_idx = bat_observation[0].emax.index(np.max(energy_range))
+        e_range_idx = np.arange(obs_min_erange_idx, obs_max_erange_idx+1)
+
+    if chronological_order:
+        #sort the obs ids by time of 1st pointing id
+        all_met=[i.pointing_info[i.pointing_ids[0]]["met_time"] for i in bat_observation]
+        sorted_obs_idx=np.argsort(all_met)
+    else:
+        sorted_obs_idx = np.arange(len(bat_observation))
+
+    #iterate over observation IDs
+    for idx in sorted_obs_idx:
+        obs=bat_observation[idx]
+        try:
+            #have obs id for normal survey object
+            observation_id=obs.obs_id
+        except AttributeError:
+            #dont have obs_id for mosaic survey object
+            observation_id='mosaic'
+
+        if chronological_order:
+            #sort the pointing IDs too
+            sorted_pointing_ids=np.sort(obs.pointing_ids)
+        else:
+            sorted_pointing_ids=obs.pointing_ids
+
+        #iterate over pointings
+        for pointings in sorted_pointing_ids:
+            #iterate over sources
+            for source in concat_data.keys():
+                #see if the source exists in the observation
+                if source in obs.get_pointing_info(pointings).keys():
+                    #iterate over the keys of interest
+                    for user_key in keys:
+                        save_val=np.nan
+                        #search in all
+                        for dictionary in [obs.get_pointing_info(pointings), obs.get_pointing_info(pointings, source_id=source)]:
+                            if np.isnan(save_val) and len(dpath.search(obs.get_pointing_info(pointings, source_id=source)["model_params"], user_key))==0 and ("flux" not in user_key.lower()):
+                                try:
+                                    # if this is a rate/rate_err/snr need to calcualate these quantities based on the returned array
+                                    if "rate" in user_key or "snr" in user_key:
+                                        rate, rate_err, snr=obs.get_count_rate(e_range_idx, pointings, source)
+                                        if "rate_err" in user_key:
+                                            save_val=rate_err
+                                        elif "rate" in user_key:
+                                            save_val=rate
+                                        elif "snr" in user_key:
+                                            save_val=snr
+
+                                    else:
+                                        save_val = dpath.get(dictionary, user_key)
+
+                                except KeyError:
+                                # if the key doest exist dont do anything but add np.nan
+                                    save_val =np.nan
+
+                                # save the value to the appropriate list under the appropriate key
+                                concat_data[source][user_key].append(save_val)
+
+                        #see if the values are for the model fit
+                        if np.sum(np.isnan(save_val))>0 and "model_params" in obs.get_pointing_info(pointings, source_id=source).keys():
+                            #have to modify the name of the flux related quantity here
+                            if ("flux" in user_key.lower()):
+                                real_user_key="lg10Flux"
+                            else:
+                                real_user_key=user_key
+
+                            #try to access the dictionary key
+                            try:
+                                save_val = dpath.get(obs.get_pointing_info(pointings, source_id=source)["model_params"], real_user_key)
+                            except KeyError:
+                                # if the key doest exist dont do anything but add np.nan
+                                save_val = np.nan
+                                #if the value that we want is flux but we only have an upper limit then we have to get
+                                # the nsigma_lg10flux_upperlim value
+                                if real_user_key == "lg10Flux":
+                                    real_user_key="nsigma_lg10flux_upperlim"
+                                    #see if there is a nsigma_lg10flux_upperlim
+                                    try:
+                                        save_val = dpath.get(
+                                            obs.get_pointing_info(pointings, source_id=source),
+                                            real_user_key)
+                                    except KeyError:
+                                        # if the key doest exist dont do anything but add np.nan
+                                        save_val = np.nan
+
+                            #need to calculate the error on the value
+                            #first do the case of flux upper limit
+                            if real_user_key=="nsigma_lg10flux_upperlim":
+                                save_value = 10 ** save_val
+                                #there is no upper/lower error since we have an upper limit
+                                error=np.ones(2)*np.nan
+                                is_upper_lim=True
+                            else:
+                                is_upper_lim = False
+                                if real_user_key == "lg10Flux":
+                                    save_value=10**save_val['val']
+                                    error = np.array([10 ** save_val['lolim'], 10 ** save_val['hilim']])
+                                else:
+                                    save_value = save_val['val']
+                                    error = np.array([save_val['lolim'], save_val['hilim']])
+
+                                if 'T' in save_val["errflag"]:
+                                    error=np.ones(2)*np.nan
+                                else:
+                                    error=np.abs(save_value - error)
+
+                            # save the value to the appropriate list under the appropriate key
+                            concat_data[source][user_key].append(save_value)
+
+                            #save the errors as well. We may need to create the dictionary key for the error/upperlimit
+                            user_key_lolim=user_key+"_lolim"
+                            user_key_hilim=user_key+"_hilim"
+                            user_key_upperlim = user_key + "_upperlim"
+                            try:
+                                concat_data[source][user_key_lolim].append(error[0])
+                                concat_data[source][user_key_hilim].append(error[1])
+                                concat_data[source][user_key_upperlim].append(is_upper_lim)
+                            except KeyError:
+                                concat_data[source][user_key_lolim]=[]
+                                concat_data[source][user_key_hilim]=[]
+                                concat_data[source][user_key_upperlim]=[]
+
+                                concat_data[source][user_key_lolim].append(error[0])
+                                concat_data[source][user_key_hilim].append(error[1])
+                                concat_data[source][user_key_upperlim].append(is_upper_lim)
+
+
+
+    return concat_data

@@ -964,34 +964,44 @@ class BatSurvey(BatObservation):
                             bkg_var_array = file[1].data[idx]['BKG_VAR'][0]
                             snr_array = file[1].data[idx]['VECTSNR'][0]
 
+                            self.set_pointing_info(id, "rate", rate_array, source_id=s)
+                            self.set_pointing_info(id, "rate_err", rate_err_array, source_id=s)
+                            self.set_pointing_info(id, "bkg_var", bkg_var_array, source_id=s)
+                            self.set_pointing_info(id, "snr", snr_array, source_id=s)
+
+
                             #this does the calculation for the total energy range so set the if statement so the
                             #mosaic results dont attempt to calcualte a wrong energy integrated count rate
                             if len(rate_array) == 8:
-                                rate_tot = 0.0
-                                rate_err_2_tot = 0.0
-                                bkg_var_2_tot = 0.0
-                                for j in range(len(rate_array)):
-                                    rate_num = rate_array[j]
-                                    rate_err_2 = rate_err_array[j] * rate_err_array[j]
-                                    bkg_var_2 = bkg_var_array[j] * bkg_var_array[j]
-                                    rate_tot = rate_tot + rate_num
-                                    rate_err_2_tot = rate_err_2_tot + rate_err_2
-                                    bkg_var_2_tot = bkg_var_2_tot + bkg_var_2
+                                #rate_tot = 0.0
+                                #rate_err_2_tot = 0.0
+                                #bkg_var_2_tot = 0.0
+                                #for j in range(len(rate_array)):
+                                #    rate_num = rate_array[j]
+                                #    rate_err_2 = rate_err_array[j] * rate_err_array[j]
+                                #    bkg_var_2 = bkg_var_array[j] * bkg_var_array[j]
+                                #    rate_tot = rate_tot + rate_num
+                                #    rate_err_2_tot = rate_err_2_tot + rate_err_2
+                                #    bkg_var_2_tot = bkg_var_2_tot + bkg_var_2
+                                idx=np.arange(len(rate_array))
+                                rate_tot, rate_err_2_tot, snr_allband_num = self.get_count_rate( energy_idx, id, s)
 
-                                rate_array= np.concatenate((rate_array,[rate_tot]))
-                                rate_err_tot = np.sqrt(rate_err_2_tot)
+                                rate_array= np.concatenate((self.pointing_info[id][s]["rate"],[rate_tot]))
+                                #rate_err_tot = np.sqrt(rate_err_2_tot) not needed with method above
                                 #rate_err_array.append(rate_err_tot)
-                                rate_err_array = np.concatenate((rate_err_array, [rate_err_tot]))
-                                snr_allband_num = rate_tot / np.sqrt(bkg_var_2_tot)
+                                rate_err_array = np.concatenate((self.pointing_info[id][s]["rate_err"], [rate_err_tot]))
+                                #snr_allband_num = rate_tot / np.sqrt(bkg_var_2_tot) not needed with method above
                                 #snr_array.append(snr_allband_num)
                                 #bkg_var_array.append(np.sqrt(bkg_var_2_tot))
-                                snr_array = np.concatenate((snr_array, [snr_allband_num]))
-                                bkg_var_array = np.concatenate((bkg_var_array, [np.sqrt(bkg_var_2_tot)]))
+                                snr_array = np.concatenate((self.pointing_info[id][s]["snr"], [snr_allband_num]))
+                                #bkg_var_array = np.concatenate((bkg_var_array, [np.sqrt(bkg_var_2_tot)]))
 
-                            self.set_pointing_info(id, "rate", rate_array, source_id=s)
-                            self.set_pointing_info(id, "rate_err", rate_err_array, source_id=s)
-                            #self.set_pointing_info(id, "bkg_var", bkg_var_array, source_id=s)
-                            self.set_pointing_info(id, "snr", snr_array, source_id=s)
+                                self.set_pointing_info(id, "rate", rate_array, source_id=s)
+                                self.set_pointing_info(id, "rate_err", rate_err_array, source_id=s)
+                                self.set_pointing_info(id, "bkg_var", bkg_var_array, source_id=s)
+                                self.set_pointing_info(id, "snr", snr_array, source_id=s)
+
+
 
 
     def get_pointing_ids(self):
@@ -1102,6 +1112,29 @@ class BatSurvey(BatObservation):
             #reset the list
             self.pha_file_names_list=[]
 
+    def get_count_rate(self, energy_index, pointing_id, source):
+
+        rate_array=self.get_pointing_info(pointing_id, source_id=source)["rate"]
+        rate_err_array=self.get_pointing_info(pointing_id, source_id=source)["rate_err"]
+        bkg_var_array=self.get_pointing_info(pointing_id, source_id=source)["bkg_var"]
+        snr_array=self.get_pointing_info(pointing_id, source_id=source)["snr"]
+
+        #this loop can be vectorized with numpy
+        rate_tot = 0.0
+        rate_err_2_tot = 0.0
+        bkg_var_2_tot = 0.0
+        for j in energy_index:
+            rate_num = rate_array[j]
+            rate_err_2 = rate_err_array[j] * rate_err_array[j]
+            bkg_var_2 = bkg_var_array[j] * bkg_var_array[j]
+            rate_tot = rate_tot + rate_num
+            rate_err_2_tot = rate_err_2_tot + rate_err_2
+            bkg_var_2_tot = bkg_var_2_tot + bkg_var_2
+
+        rate_err_tot = np.sqrt(rate_err_2_tot)
+        snr_allband_num = rate_tot / np.sqrt(bkg_var_2_tot)
+
+        return rate_tot, rate_err_tot, snr_allband_num
 
 class MosaicBatSurvey(BatSurvey):
     def __init__(self, mosaic_dir, recalc=False, load_dir=None):
