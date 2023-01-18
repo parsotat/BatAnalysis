@@ -559,11 +559,11 @@ class BatSurvey(BatObservation):
 
         #calls batsurvey_catmux to merge pointings, outputs to the survey result directory
         #there is a bug in the heasoftpy code so try to explicitly call it for now
-        #return hsp.batsurvey_catmux(**input_dict)
-        input_string="batsurvey-catmux "
-        for i in input_dict:
-            input_string=input_string+"%s=%s " % (i, input_dict[i])
-        os.system(input_string)
+        return hsp.batsurvey_catmux(**input_dict)
+        #input_string="batsurvey-catmux "
+        #for i in input_dict:
+        #    input_string=input_string+"%s=%s " % (i, input_dict[i])
+        #os.system(input_string)
 
     def merge_pointings(self, input_dict=None, verbose=False):
         """
@@ -983,13 +983,13 @@ class BatSurvey(BatObservation):
                                 #    rate_tot = rate_tot + rate_num
                                 #    rate_err_2_tot = rate_err_2_tot + rate_err_2
                                 #    bkg_var_2_tot = bkg_var_2_tot + bkg_var_2
-                                idx=np.arange(len(rate_array))
+                                energy_idx=np.arange(len(rate_array))
                                 rate_tot, rate_err_2_tot, snr_allband_num = self.get_count_rate( energy_idx, id, s)
 
                                 rate_array= np.concatenate((self.pointing_info[id][s]["rate"],[rate_tot]))
                                 #rate_err_tot = np.sqrt(rate_err_2_tot) not needed with method above
                                 #rate_err_array.append(rate_err_tot)
-                                rate_err_array = np.concatenate((self.pointing_info[id][s]["rate_err"], [rate_err_tot]))
+                                rate_err_array = np.concatenate((self.pointing_info[id][s]["rate_err"], [rate_err_2_tot]))
                                 #snr_allband_num = rate_tot / np.sqrt(bkg_var_2_tot) not needed with method above
                                 #snr_array.append(snr_allband_num)
                                 #bkg_var_array.append(np.sqrt(bkg_var_2_tot))

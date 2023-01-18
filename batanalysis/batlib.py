@@ -1203,20 +1203,21 @@ def met2mjd(met_time):
 
     try:
         val=sbu.met2mjd(met_time, correct=True)
-    except ModuleNotFoundError:
-        _local_pfile_dir=Path(f"/tmp/met2mjd_{os.times().elapsed}")
-        _local_pfile_dir.mkdir(parents=True, exist_ok=True)
-        try:
-            hsp.local_pfiles(pfiles_dir=str(_local_pfile_dir))
-        except AttributeError:
-            hsp.utils.local_pfiles(par_dir=str(_local_pfile_dir))
+    except (ModuleNotFoundError, RuntimeError):
+        #_local_pfile_dir=Path(f"/tmp/met2mjd_{os.times().elapsed}")
+        #_local_pfile_dir.mkdir(parents=True, exist_ok=True)
+        #try:
+        #    hsp.local_pfiles(pfiles_dir=str(_local_pfile_dir))
+        #except AttributeError:
+        #    hsp.utils.local_pfiles(par_dir=str(_local_pfile_dir))
 
         # calculate times in UTC and MJD units as well
         inputs = dict(intime=str(met_time), insystem="MET", informat="s", outsystem="UTC",
                       outformat="m")  # output in MJD
         o = hsp.swifttime(**inputs)
-        val=o.params["outtime"]
-        shutil.rmtree(_local_pfile_dir)
+        #stop
+        val=float(o.params["outtime"])
+        #shutil.rmtree(_local_pfile_dir)
 
     atime = Time(val, format="mjd", scale='utc')
     return atime.value
@@ -1432,13 +1433,20 @@ def concatenate_data(bat_observation, source_ids, keys, energy_range=None, chron
                                     save_value=10**save_val['val']
                                     error = np.array([10 ** save_val['lolim'], 10 ** save_val['hilim']])
                                 else:
-                                    save_value = save_val['val']
-                                    error = np.array([save_val['lolim'], save_val['hilim']])
+                                    try:
+                                        save_value = save_val['val']
+                                        error = np.array([save_val['lolim'], save_val['hilim']])
 
-                                if 'T' in save_val["errflag"]:
-                                    error=np.ones(2)*np.nan
-                                else:
-                                    error=np.abs(save_value - error)
+                                        if 'T' in save_val["errflag"]:
+                                            error = np.ones(2) * np.nan
+                                        else:
+                                            error = np.abs(save_value - error)
+
+                                    except TypeError:
+                                        #this is the last resort for catching any keys that arent found in the dict so we may
+                                        #have save_val be = np.nan and we will get TypeError trying to call it as a dict
+                                        save_value = np.nan
+                                        error = np.ones(2)*np.nan
 
                             # save the value to the appropriate list under the appropriate key
                             concat_data[source][user_key].append(save_value)
