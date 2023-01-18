@@ -1,6 +1,7 @@
 """
 This file holds convience functions for conveniently analyzing batches of observation IDs using the joblib module
 """
+import os
 
 from .batlib import dirtest, datadir, calc_response, calculate_detection, fit_spectrum, download_swiftdata
 from .batlib import combine_survey_lc as serial_combine_survey_lc
@@ -15,6 +16,14 @@ from astropy.table import Table, vstack
 import shutil
 import numpy as np
 
+def _remove_pfiles():
+    """
+    This function removes the pfiles located in ~/pfiles so there is no conflict with the pfiles when running things in parallel
+    :return:
+    """
+    direc=Path("~/pfiles").expanduser().resolve()
+
+    os.system(f"rm {direc}/*")
 
 def _create_BatSurvey(obs_id, obs_dir=None, input_dict=None, recalc=False, load_dir=None, patt_noise_dir=None, verbose=False):
     """
@@ -70,6 +79,8 @@ def batsurvey_analysis(obs_id_list, input_dict=None, recalc=False, load_dir=None
         number of CPUs that a user has available to them.
     :return: a list of BATSurvey objects for all the observation IDs that completed successfully.
     """
+
+    _remove_pfiles()
 
     obs=Parallel(n_jobs=nprocs)(delayed(_create_BatSurvey)(i, obs_dir=datadir(), recalc=recalc, load_dir=load_dir, input_dict=input_dict,
                                                            patt_noise_dir=patt_noise_dir, verbose=verbose) for i in obs_id_list)
@@ -183,6 +194,8 @@ def batspectrum_analysis(batsurvey_obs_list, source_name, recalc=False, generic_
     :return: a list of BATSurvey objects for all the observation IDs with updated spectral information
     """
 
+    _remove_pfiles()
+
     not_list = False
     if type(batsurvey_obs_list) is not list:
         not_list=True
@@ -218,6 +231,8 @@ def batmosaic_analysis(batsurvey_obs_list, outventory_file, time_bins, catalog_f
         number of CPUs that a user has available to them.
     :return:
     """
+
+    _remove_pfiles()
 
     # make sure its a path object
     outventory_file = Path(outventory_file)
