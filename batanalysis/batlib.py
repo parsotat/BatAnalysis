@@ -853,153 +853,113 @@ def print_parameters(obs_list, source_id, values=["met_time","utc_time", "exposu
     #all_met=[i.pointing_info[i.pointing_ids[0]]["met_time"] for i in obs_list]
     #sorted_obs_idx=np.argsort(all_met)
 
-    #outstr="Obs ID  \t Pointing ID\t"
-    #for i in values:
-    #    outstr+="\t%s"%(i)
-    outstr=" \t ".join(values)
+    outstr= " " #Obs ID  \t Pointing ID\t"
+    for i in values:
+        outstr+= f"{i: ^31}\t"   #"\t%s"%(i)
 
     if not savetable:
         print(outstr)
     else:
         f.writelines([str(outstr), "\n"])
 
-    for idx in sorted_obs_idx:
-        obs=obs_list[idx]
-        try:
-            #have obs id for normal survey object
-            observation_id=obs.obs_id
-        except AttributeError:
-            #dont have obs_id for mosaic survey object
-            observation_id='mosaic'
+    if latex_table:
+        nchar=29
+    else:
+        nchar=30
 
-        outstr="%s"%(observation_id)
+    outstr = ""
+    for i in range(len(all_data[list(all_data.keys())[0]])):
 
-        #sort the pointing IDs too
-        sorted_pointing_ids=np.sort(obs.pointing_ids)
-
-        for pointings in sorted_pointing_ids:
-
-            if latex_table:
-                outstr += " &"
-
-            outstr += "\t%s" % (pointings)
-
-            if latex_table:
-                outstr += " &"
-
-            if source_id in obs.get_pointing_info(pointings).keys():
-
-
-                #get the model component names
-                pointing_dict=obs.get_pointing_info(pointings,source_id=source_id)
-                #xsp.Xset.restore(pointing_dict['xspec_model'])
-                #model = xsp.AllModels(1)
-                model = pointing_dict["model_params"]
-                
-                if model is not None:
-                    model_names= model.keys() #[model(i).name for i in range(1,model.nParameters+1)]
+        for key in values:
+            val=all_data[key]
+            if "id" in key:
+                if val[i] != val[i-1]:
+                    print_val=val[i]
                 else:
-                    #create a dict keys list that is empty so the
-                    #remaining code works
-                    model_names = dict().keys()
-
-
-                for i in values:
-                    # get the real key we need if its a xspec model parameter
-                    is_model_param = False
-                    for key in model_names:
-                        if i.capitalize() in key or i in key:
-                            model_param_key = key
-                            is_model_param = True
-
-                    #see if the parameter exists in the pointings info otherwise look in source_id dictionary, otherwise
-                    # in the future look in the spectral model otherwise print nan
-                    if i in obs.get_pointing_info(pointings).keys():
-                        outstr += "\t%s" % (str(obs.pointing_info[pointings][i]))
-                    elif i in obs.get_pointing_info(pointings, source_id=source_id).keys():
-                        outstr += "\t%s" % (str(obs.pointing_info[pointings][source_id][i]))
-                    elif (is_model_param or ("flux" in i or "Flux" in i)) and model is not None:
-                        # print the actual value
-                        middle_str = '\t'
-                        if latex_table:
-                            middle_str += '$'
-
-                        #see if the user wants the flux and if there is an upper limit available
-                        if ("flux" in i or "Flux" in i) and "nsigma_lg10flux_upperlim" in pointing_dict.keys():
-                            #outstr += "\t  %e  "%(pointing_dict["nsigma_lg10flux_upperlim"])
-                            val=10**pointing_dict["nsigma_lg10flux_upperlim"]
-                            base = int(str(val).split('e')[-1])
-
-                            middle_str += f'{val/10**base:-.3}'
-
-                            if latex_table:
-                                middle_str += f" \\times "
-                            else:
-                                middle_str += f' x '
-
-                            middle_str += f'10^{{{base:+}}}'
-
-                        else:
-                            #get the value and errors if the error calculation worked properly
-                            val=model[model_param_key]["val"]
-                            if 'T' in model[model_param_key]["errflag"]:
-                                err_val="nan"
-                                errs = np.array([np.nan, np.nan])
-                                #outstr += "\t%s-%s\+%s" % (val, errs[0], errs[1])
-                            else:
-                                errs = np.array([model[model_param_key]["lolim"], model[model_param_key]["hilim"]])
-                                err_val="%e"%(np.abs(val - errs).max())
-                                #outstr += "\t%e-%e\+%e"%(val,errs[0], errs[1])
-
-
-                            #if we've got scientific notation, print it nicely
-                            if ("flux" in i or "Flux" in i) or len(str(val).split('e'))>1:
-                                if ("flux" in i or "Flux" in i):
-                                    val=10**val
-                                    errs = 10 ** errs
-                                base=int(str(val).split('e')[-1])
-                                diff_errs = np.abs(val - errs)
-                                middle_str += f'{val/10**base:-.3}^{{{diff_errs[1]/10**base:+.2}}}_{{{-1*diff_errs[0]/10**base:+.2}}}'
-
-                                if latex_table:
-                                    middle_str += f" \\times "
-                                else:
-                                    middle_str += f' x '
-
-                                middle_str += f'10^{{{base:+}}}'
-                            else:
-                                diff_errs = np.abs(val - errs)
-                                middle_str += f'{val:-.3}'
-
-                                if "nsigma_lg10flux_upperlim" not in pointing_dict.keys():
-                                    middle_str += f'^{{{diff_errs[1]:+.2}}}_{{{-1*diff_errs[0]:+.2}}}'
-
-                        if latex_table:
-                            middle_str += '$'
-
-                        outstr += middle_str
-                    else:
-                        outstr += "\tnan"
-
-                    if i != values[-1]:
-                        if latex_table:
-                            outstr += " &"
-
+                    print_val=''
             else:
-                #if the source doesnt exist for the observation print nan so the user can double check these
-                for i in values:
-                    outstr+="\tnan"
+                print_val = val[i]
+
+            #see if there are errrors associated with the key
+            if key+"_lolim" in all_data.keys():
+                #get the errors
+                lolim=all_data[key+"_lolim"][i]
+                hilim = all_data[key + "_hilim"][i]
+
+                if not np.isnan(lolim) and not np.isnan(hilim):
+                    middle_str=''
+                    if len(str(val[i]).split('e')) > 1:
+                        base = int(str(val[i]).split('e')[-1])
+
+                        if latex_table:
+                            middle_str += '$'
+
+                        middle_str += f'{val[i] / 10 ** base:-.3}^{{{hilim / 10 ** base:+.2}}}_{{{-1 * lolim / 10 ** base:+.2}}}'
+
+                        if latex_table:
+                            middle_str += f" \\times "
+                        else:
+                            middle_str += f' x '
+
+                        middle_str += f'10^{{{base:+}}}'
+
+                        if latex_table:
+                            middle_str += '$'
+
+                        print_val = middle_str
+
+                    else:
+                        print_val=''
+                        if latex_table:
+                            print_val += '$'
+
+                        print_val += f'{val[i]:-.3}' +f'^{{{hilim :+.2}}}_{{{-1 * lolim :+.2}}}'
+
+                        if latex_table:
+                            print_val += '$'
+
+
+                    outstr += f"{print_val: ^{nchar}}" +"\t"
+                else:
+                    middle_str=''
+                    if len(str(val[i]).split('e')) > 1:
+                        base = int(str(val[i]).split('e')[-1])
+
+                        if latex_table:
+                            middle_str += '$'
+
+                        middle_str += f'{val[i] / 10 ** base:-.3}'
+
+                        if latex_table:
+                            middle_str += f" \\times "
+                        else:
+                            middle_str += f' x '
+
+                        middle_str += f'10^{{{base:+}}}'
+
+                        if latex_table:
+                            middle_str += '$'
+
+                        print_val=middle_str
+
+                    outstr += f"{print_val: ^{nchar}}\t"
+            else:
+                outstr += f"{print_val: ^{nchar}}\t"
+
 
             if latex_table:
-                outstr += " \\\\"
-            outstr += "\n"
-            for j in range(len(observation_id)):
-                outstr += " "
+                outstr += " & "
 
-        if savetable and save_file is not None:
-            f.writelines([str(outstr),"\n"])
-        else:
-            print(outstr)
+        if latex_table:
+            outstr=outstr[:-2]
+            outstr += " \\\\"
+        outstr += "\n"
+
+    if savetable and save_file is not None:
+        f.writelines([str(outstr),"\n"])
+        f.close()
+    else:
+        print(outstr)
 
     if savetable and save_file is not None:
         f.close()
