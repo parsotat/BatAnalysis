@@ -89,7 +89,8 @@ def batsurvey_analysis(obs_id_list, input_dict=None, recalc=False, load_dir=None
 
     return final_obs
 
-def _spectrum_analysis(obs, source_name, recalc=False, generic_model=None,setPars=None, fit_iterations=1000, use_cstat=False):
+def _spectrum_analysis(obs, source_name, recalc=False, generic_model=None,setPars=None, fit_iterations=1000, \
+                       use_cstat=False, nsigma=3,bkg_nsigma=5):
     """
     Calculate and fit a spectrum for a source at a single pointing.
 
@@ -107,6 +108,9 @@ def _spectrum_analysis(obs, source_name, recalc=False, generic_model=None,setPar
     :param use_cstat: boolean, default False, to determine if CSTAT statistics should be used. In very bright sources,
         with lots of counts this should be set to False. For sources with small counts where the errors are not expected
         to be gaussian, this should be set to True.
+    :param nsigma: Integer, denoting the number for sigma the user needs to justify a detection
+    :param bkg_nsigma: Integer, denoting the number of sigma the user needs to to calculate flux upper limit in case of a non detection.
+
     :return: The updated BATSurvey object with updated spectral information
     """
 
@@ -156,7 +160,7 @@ def _spectrum_analysis(obs, source_name, recalc=False, generic_model=None,setPar
                 for pha in pha_list:
                     fit_spectrum(pha, obs, use_cstat=use_cstat, plotting=False, verbose=False, generic_model=generic_model,setPars=setPars, fit_iterations=fit_iterations)
 
-                calculate_detection(obs, source_name, verbose=False)
+                calculate_detection(obs, source_name, nsigma=nsigma,bkg_nsigma=bkg_nsigma, verbose=False)
                 obs.save()
             else:
                 print(f"The source {source_name} was not found in the image and thus does not have a PHA file to analyze.")
@@ -170,7 +174,8 @@ def _spectrum_analysis(obs, source_name, recalc=False, generic_model=None,setPar
 
     return obs
 
-def batspectrum_analysis(batsurvey_obs_list, source_name, recalc=False, generic_model=None,setPars=None, fit_iterations=1000, use_cstat=False, nprocs=1):
+def batspectrum_analysis(batsurvey_obs_list, source_name, recalc=False, generic_model=None,setPars=None, \
+                         fit_iterations=1000, use_cstat=False, nsigma=3,bkg_nsigma=5, nprocs=1):
     """
     Calculates and fits the spectra for a single source across many BAT Survey observations in parallel.
 
@@ -189,6 +194,8 @@ def batspectrum_analysis(batsurvey_obs_list, source_name, recalc=False, generic_
     :param use_cstat: boolean, default False, to determine if CSTAT statistics should be used. In very bright sources,
         with lots of counts this should be set to False. For sources with small counts where the errors are not expected
         to be gaussian, this should be set to True.
+    :param nsigma: Integer, denoting the number for sigma the user needs to justify a detection
+    :param bkg_nsigma: Integer, denoting the number of sigma the user needs to to calculate flux upper limit in case of a non detection.
     :param nprocs: The number of processes that will be run simulaneously. This number should not be larger than the
         number of CPUs that a user has available to them.
     :return: a list of BATSurvey objects for all the observation IDs with updated spectral information
@@ -202,7 +209,8 @@ def batspectrum_analysis(batsurvey_obs_list, source_name, recalc=False, generic_
         batsurvey_obs_list=[batsurvey_obs_list]
 
     obs=Parallel(n_jobs=nprocs)(
-        delayed(_spectrum_analysis)(i, source_name=source_name, recalc=recalc, use_cstat=use_cstat, generic_model=generic_model,setPars=setPars, fit_iterations=fit_iterations) for i in batsurvey_obs_list)
+        delayed(_spectrum_analysis)(i, source_name=source_name, recalc=recalc, use_cstat=use_cstat, generic_model=generic_model,\
+                                    setPars=setPars, fit_iterations=fit_iterations, nsigma=nsigma,bkg_nsigma=bkg_nsigma) for i in batsurvey_obs_list)
 
     #if this wasnt a list, just return the single object otherwise return the list
     if not_list:

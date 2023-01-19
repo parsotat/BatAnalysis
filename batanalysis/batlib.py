@@ -802,7 +802,8 @@ def calculate_detection(surveyobservation,source_id, nsigma=3,bkg_nsigma=5, plot
     return  flux_upperlim   	#This is a list for all the Valid non-detection pointings
 
 
-def print_parameters(obs_list, source_id, values=["met_time","utc_time", "exposure"], latex_table=False, savetable=False, save_file="output.txt", overwrite=True):
+def print_parameters(obs_list, source_id, values=["met_time","utc_time", "exposure"], energy_range=None, \
+                     latex_table=False, savetable=False, save_file="output.txt", overwrite=True, add_obs_id=True):
 
     """
     Convenience function to plot various survey data pieces of information in a formatted file/table
@@ -810,11 +811,15 @@ def print_parameters(obs_list, source_id, values=["met_time","utc_time", "exposu
     :param obs_list: A list of BatSurvey objects
     :param source_id: A string with the name of the source of interest.
     :param values: A list of strings contaning information that the user would like to be printed out. The strings
-        correspond to the keys in the pointing_info dictionaries of each BatSurvey object.
+        correspond to the keys in the pointing_info dictionaries of each BatSurvey object and the colmns will be put
+        in this order.
+    :param energy_range: a list or array of the minimum energy range that should be considered and the maximum energy
+        range that should be considered
     :param latex_table: Boolean to denote if the output should be formatted as a latex table
     :param savetable: Boolean to denote if the user wants to save the table to a file
     :param save_file: string that specified the location and name of the file that contains the saved table
     :param overwrite: Boolean that says to overwrite the output file if it already exists
+    :param add_obs_id: Moolean to denote if the observation and pointing IDs should be added to the value list automatically
     :return: None
     """
 
@@ -826,6 +831,17 @@ def print_parameters(obs_list, source_id, values=["met_time","utc_time", "exposu
     if type(obs_list) is not list:
         obs_list=[obs_list]
 
+    if add_obs_id:
+        #make sure that the values list has obs_id and pointing_id in it
+        if "pointing_id" not in values:
+            values.insert(0, "pointing_id")
+
+        if "obs_id" not in values:
+            values.insert(0, "obs_id")
+
+    #get all the data that we need
+    all_data = concatenate_data(obs_list, source_id, values, energy_range=energy_range)[source_id]
+
     if savetable and save_file is not None:
         #open the file to write the output to
         f=open(str(save_file),"w")
@@ -834,12 +850,13 @@ def print_parameters(obs_list, source_id, values=["met_time","utc_time", "exposu
     #xsp.Xset.allowPrompting = False
 
     #sort the obs ids by time of 1st pointing id
-    all_met=[i.pointing_info[i.pointing_ids[0]]["met_time"] for i in obs_list]
-    sorted_obs_idx=np.argsort(all_met)
+    #all_met=[i.pointing_info[i.pointing_ids[0]]["met_time"] for i in obs_list]
+    #sorted_obs_idx=np.argsort(all_met)
 
-    outstr="Obs ID  \t Pointing ID\t"
-    for i in values:
-        outstr+="\t%s"%(i)
+    #outstr="Obs ID  \t Pointing ID\t"
+    #for i in values:
+    #    outstr+="\t%s"%(i)
+    outstr=" \t ".join(values)
 
     if not savetable:
         print(outstr)
@@ -1432,6 +1449,7 @@ def concatenate_data(bat_observation, source_ids, keys, energy_range=None, chron
                                 if real_user_key == "lg10Flux":
                                     save_value=10**save_val['val']
                                     error = np.array([10 ** save_val['lolim'], 10 ** save_val['hilim']])
+                                    error = np.abs(save_value - error)
                                 else:
                                     try:
                                         save_value = save_val['val']
