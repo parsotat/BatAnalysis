@@ -1013,7 +1013,8 @@ class BatSurvey(BatObservation):
                                 self.set_pointing_info(id, "bkg_var", bkg_var_array, source_id=s)
                                 self.set_pointing_info(id, "snr", snr_array, source_id=s)
                         else:
-                            raise ValueError(f"There is no source {s} found in the catalog file. Please double check the spelling.")
+                            #a given pointing may not have the source in it so just raise a warning
+                            warnings.warn(f"Observation ID: {self.obs_id} Pointing ID: {id}\nThere is no source {s} found in the catalog file. Please double check the spelling.\nThis source may also not be detected in this observation ID/pointing ID")
 
 
 
