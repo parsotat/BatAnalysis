@@ -1257,7 +1257,7 @@ def reset_pdir():
     """
     os.environ['PFILES'] = _orig_pdir
 
-def concatenate_data(bat_observation, source_ids, keys, energy_range=None, chronological_order=True):
+def concatenate_data(bat_observation, source_ids, keys, energy_range=[14,195], chronological_order=True):
     """
     This convenience function collects the data that was requested by the user as passed into the keys variable. The data
     is returned in the form of a dictionary with the same keys and numpy arrays of all the concatenated data. if the user asks
@@ -1294,7 +1294,7 @@ def concatenate_data(bat_observation, source_ids, keys, energy_range=None, chron
 
     #deterine the energy range that may be of interest. This can be none for total E range or one of the basic 8 channel
     #energies or a range that spans more than one energy range of the 8 channels.
-    if energy_range is None:
+    if np.isclose([14,195], energy_range).sum() == 2:
         e_range_idx = [-1] #this is just the last index of the arrays for counts, etc
     else:
         #get the index
@@ -1445,5 +1445,10 @@ def concatenate_data(bat_observation, source_ids, keys, energy_range=None, chron
                                 concat_data[source][user_key_lolim].append(error[0])
                                 concat_data[source][user_key_hilim].append(error[1])
                                 concat_data[source][user_key_upperlim].append(is_upper_lim)
+
+    #turn things into numpy array for easier handling
+    for src_key in concat_data.keys():
+        for key, val in concat_data[src_key].items():
+            concat_data[src_key][key]=np.array(val)
 
     return concat_data
