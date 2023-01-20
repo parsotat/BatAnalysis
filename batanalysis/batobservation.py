@@ -20,6 +20,8 @@ import re
 from pathlib import Path
 from astropy.time import Time
 from datetime import datetime, timedelta
+import re
+import warnings
 
 # for python>3.6
 try:
@@ -666,6 +668,12 @@ class BatSurvey(BatObservation):
         for id in id_list:
             if verbose:
                 print('Creating PHA file for ', id)
+
+            #get the proper name for the source incase the user didnt get the name correct
+            x = sorted(merge_output_path.glob('*.cat'))
+            catalog_sources=[i.stem for i in x]
+            id=np.array(catalog_sources)[self._compare_source_name(id, catalog_sources)][0]
+
             # get info from the newly created cat file (from merge)
             catalog= merge_output_path.joinpath(f"{id}.cat")  #os.path.join(os.path.split(self.merge_input['outfile'])[0], id+".cat")
             try:
@@ -950,9 +958,13 @@ class BatSurvey(BatObservation):
                     #get the names of the sources
                     pointing_file_sources=file[1].data['NAME']
 
+                    #decode it
+                    pointing_file_sources=[i for i in pointing_file_sources]
+
                     #iterate over each passed in source
                     for s in sources:
-                        idx=np.where(s==pointing_file_sources)[0]
+                        #get the index of the proper source name in the catalog
+                        idx=np.arange(len(pointing_file_sources))[self._compare_source_name(s, pointing_file_sources)] #np.where(s==pointing_file_sources)[0]
 
                         if len(idx) != 0:
                             #then there is a row for the source of interest so we can read in the data and do the necessary
@@ -1000,7 +1012,8 @@ class BatSurvey(BatObservation):
                                 self.set_pointing_info(id, "rate_err", rate_err_array, source_id=s)
                                 self.set_pointing_info(id, "bkg_var", bkg_var_array, source_id=s)
                                 self.set_pointing_info(id, "snr", snr_array, source_id=s)
-
+                        else:
+                            raise ValueError(f"There is no source {s} found in the catalog file. Please double check the spelling.")
 
 
 
@@ -1135,6 +1148,37 @@ class BatSurvey(BatObservation):
         snr_allband_num = rate_tot / np.sqrt(bkg_var_2_tot)
 
         return rate_tot, rate_err_tot, snr_allband_num
+
+    def _compare_source_name(self, string_1, string_2):
+        """
+        This compares 2 strings that can be either the user supplied source ID or the source ID from a catalog and
+        identifies if they are the same. This removes any non alpha-numeric values(except dots) in each string and compares them.
+
+        :param string_1: string
+        :param string_2: string or array of strings
+        :return: Boolean
+        """
+
+        reg='[^0-9a-zA-Z.]'
+
+        if type(string_1) is not str:
+            raise ValueError('The first argument must be a single string')
+
+        if type(string_2) is not list:
+            string_2=[string_2]
+
+        if len(string_2) == 1:
+            single_value=True
+        else:
+            single_value=False
+
+        ret=[re.sub(reg, '', string_1).lower() == re.sub(reg, '', i).lower() for i in string_2]
+
+        if single_value:
+            return ret[0]
+        else:
+            return ret
+
 
 class MosaicBatSurvey(BatSurvey):
     def __init__(self, mosaic_dir, recalc=False, load_dir=None):

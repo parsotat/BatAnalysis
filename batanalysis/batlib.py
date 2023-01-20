@@ -802,7 +802,7 @@ def calculate_detection(surveyobservation,source_id, nsigma=3,bkg_nsigma=5, plot
     return  flux_upperlim   	#This is a list for all the Valid non-detection pointings
 
 
-def print_parameters(obs_list, source_id, values=["met_time","utc_time", "exposure"], energy_range=None, \
+def print_parameters(obs_list, source_id, values=["met_time","utc_time", "exposure"], energy_range=[14,195], \
                      latex_table=False, savetable=False, save_file="output.txt", overwrite=True, add_obs_id=True):
 
     """
@@ -814,7 +814,7 @@ def print_parameters(obs_list, source_id, values=["met_time","utc_time", "exposu
         correspond to the keys in the pointing_info dictionaries of each BatSurvey object and the colmns will be put
         in this order.
     :param energy_range: a list or array of the minimum energy range that should be considered and the maximum energy
-        range that should be considered
+        range that should be considered. By default this is 14-195 keV
     :param latex_table: Boolean to denote if the output should be formatted as a latex table
     :param savetable: Boolean to denote if the user wants to save the table to a file
     :param save_file: string that specified the location and name of the file that contains the saved table

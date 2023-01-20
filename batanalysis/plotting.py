@@ -15,11 +15,13 @@ except ModuleNotFoundError as err:
     print(err)
 
 def plot_survey_lc(survey_obsid_list, id_list=None, energy_range=[14,195], savedir=None, time_unit="MET", \
-                   values=["rate","snr"], T0=None, calc_lc=False, clean_dir=False):
+                   values=["rate","snr"], T0=None, calc_lc=False, clean_dir=False, same_figure=False):
     """
     Convenience function to plot light curves for a number of sources.
 
-    :param survey_obsid_list: List of BatSurvey objects
+    :param survey_obsid_list: List of BatSurvey or MosaicBatSurvey objects, can also be a list of lists of BatSurvey or
+        MosaicBatSurvey objects which the user would like to plot. By default each sublist will be plotted on its own
+        set of axis.
     :param id_list: List of Strings or None Denoting which sources the user wants the light curves to be plotted for
     :param energy_range: An array for the lower and upper energy ranges to be used.
         the default value is 14-195 keV.
@@ -32,6 +34,8 @@ def plot_survey_lc(survey_obsid_list, id_list=None, energy_range=[14,195], saved
     :param calc_lc: Boolean set to True, to denote if the light curves across all the BatSurvey objects need to be recombined
     :param clean_dir: Boolean set to True by default. Denotes if the whole directory that holds all the compiled light curve
         data for the passed survey observations should be deleted and recreated if the directory exists.
+    :param same_figure: Boolean to denote if the passed in list of BatSurvey lists should be plotted on the same set of axis,
+        alongside one another. Default is False.
     :return: None
     """
 
@@ -40,13 +44,6 @@ def plot_survey_lc(survey_obsid_list, id_list=None, energy_range=[14,195], saved
 
     if "MET" not in time_unit and "UTC" not in time_unit and "MJD" not in time_unit:
         raise ValueError("This function plots survey data only using MET, UTC, or MJD time")
-
-    if calc_lc:
-        lc_dir=combine_survey_lc(survey_obsid_list, clean_dir=clean_dir)
-    else:
-        # get the main directory where we shoudl create the total_lc directory
-        #main_dir = os.path.split(survey_obsid_list[0].result_dir)[0]
-        lc_dir = survey_obsid_list[0].result_dir.parent.joinpath("total_lc") #os.path.join(main_dir, "total_lc")
 
     #determine if the user wants to plot a specific object or list of objects
     if id_list is None:
@@ -60,6 +57,18 @@ def plot_survey_lc(survey_obsid_list, id_list=None, energy_range=[14,195], saved
             # it is a single string:
             id_list = [id_list]
 
+    if type(survey_obsid_list[0]) is not list:
+        survey_obsid_list=[survey_obsid_list]
+
+    for observation_list in survey_obsid_list:
+        if calc_lc:
+            lc_dir=combine_survey_lc(observation_list, clean_dir=clean_dir)
+        #else:
+            # get the main directory where we shoudl create the total_lc directory
+            #main_dir = os.path.split(observation_list[0].result_dir)[0]
+            #lc_dir = observation_list[0].result_dir.parent.joinpath("total_lc") #os.path.join(main_dir, "total_lc")
+
+
     #if the user wants to save the plots check if the save dir exists
     if savedir is not None:
         savedir=Path(savedir)
@@ -67,161 +76,191 @@ def plot_survey_lc(survey_obsid_list, id_list=None, energy_range=[14,195], saved
             raise ValueError(f"The directory {savedir} does not exist" )
 
 
-    #collect all the data that we need
-    time_str_start = ''
-    if "mosaic" in survey_obsid_list[0].pointing_ids:
-        time_str_start+="user_timebin/"
-
-    if "MET" in time_unit:
-        time_str_start+="met_time"
-    elif "MJD" in time_unit:
-        time_str_start+="mjd_time"
-    else:
-        time_str_start+="utc_time"
-    values.insert(0, time_str_start)
-
-    if "mosaic" in survey_obsid_list[0].pointing_ids:
-        #need to get the stop time
-        time_str_end = "user_timebin/"
-        if "MET" in time_unit:
-            time_str_end += "met_stop_time"
-        elif "MJD" in time_unit:
-            time_str_end += "mjd_stop_time"
-        else:
-            time_str_end += "utc_stop_time"
-
-        values.append(time_str_end)
-    else:
-        if "exposure" not in values:
-            #need to get the exposure without duplication
-            values.append("exposure")
-
-    #if we want to plot the rate we also need the rate_err
-    if "rate" in values and "rate_err" not in values:
-        values.append("rate_err")
-
-    #get all the data that we need
-    all_data = concatenate_data(survey_obsid_list, id_list, values, energy_range=energy_range)
 
     #loop through each object and plot its light curve
     for source in id_list:
-        if T0 is None:
-            T0 = 0.0 #in MET time, incase we have a time that we are interested in
+        obs_list_count=0
+        for observation_list in survey_obsid_list:
+            values=base_values.copy()
 
-        data=all_data[source]
-
-        #get the time centers and errors
-        if "mosaic" in survey_obsid_list[0].pointing_ids:
+            # collect all the data that we need
+            time_str_start = ''
+            if "mosaic" in observation_list[0].pointing_ids:
+                time_str_start += "user_timebin/"
 
             if "MET" in time_unit:
-                t0=TimeDelta(data[time_str_start], format='sec')
-                tf = TimeDelta(data[time_str_end], format='sec')
+                time_str_start += "met_time"
             elif "MJD" in time_unit:
-                t0 = Time(data[time_str_start], format='mjd')
-                tf = Time(data[time_str_end], format='mjd')
+                time_str_start += "mjd_time"
             else:
-                t0 = Time(data[time_str_start])
-                tf = Time(data[time_str_end])
-        else:
+                time_str_start += "utc_time"
+            values.insert(0, time_str_start)
+
+            if "mosaic" in observation_list[0].pointing_ids:
+                # need to get the stop time
+                time_str_end = "user_timebin/"
+                if "MET" in time_unit:
+                    time_str_end += "met_stop_time"
+                elif "MJD" in time_unit:
+                    time_str_end += "mjd_stop_time"
+                else:
+                    time_str_end += "utc_stop_time"
+
+                values.append(time_str_end)
+            else:
+                if "exposure" not in values:
+                    # need to get the exposure without duplication
+                    values.append("exposure")
+
+            # if we want to plot the rate we also need the rate_err
+            if "rate" in values and "rate_err" not in values:
+                values.append("rate_err")
+
+            # get all the data that we need
+            all_data = concatenate_data(observation_list, source, values, energy_range=energy_range)
+            data = all_data[source]
+
+            if T0 is None:
+                T0 = 0.0 #in MET time, incase we have a time that we are interested in
+
+
+            #get the time centers and errors
+            if "mosaic" in observation_list[0].pointing_ids:
+
+                if "MET" in time_unit:
+                    t0=TimeDelta(data[time_str_start], format='sec')
+                    tf = TimeDelta(data[time_str_end], format='sec')
+                elif "MJD" in time_unit:
+                    t0 = Time(data[time_str_start], format='mjd')
+                    tf = Time(data[time_str_end], format='mjd')
+                else:
+                    t0 = Time(data[time_str_start])
+                    tf = Time(data[time_str_end])
+            else:
+                if "MET" in time_unit:
+                    t0=TimeDelta(data[time_str_start], format='sec')
+                elif "MJD" in time_unit:
+                    t0 = Time(data[time_str_start], format='mjd')
+                else:
+                    t0 = Time(data[time_str_start])
+                tf=t0+TimeDelta(data["exposure"], format='sec')
+
+            dt=tf-t0
+
             if "MET" in time_unit:
-                t0=TimeDelta(data[time_str_start], format='sec')
+                time_center=0.5*(tf+t0).value
+                time_diff=0.5*(tf-t0).value
             elif "MJD" in time_unit:
-                t0 = Time(data[time_str_start], format='mjd')
+                time_diff = 0.5 * (tf - t0)
+                time_center = t0+time_diff
+                time_center=time_center.value
+                time_diff=time_diff.value
+
             else:
-                t0 = Time(data[time_str_start])
-            tf=t0+TimeDelta(data["exposure"], format='sec')
+                time_diff = TimeDelta(0.5 * dt) #dt.to_value('datetime')
+                time_center=t0+time_diff
 
-        dt=tf-t0
+                time_center=np.array([i.to_value('datetime64') for i in time_center])
+                time_diff=np.array([np.timedelta64(0.5*i.to_datetime()) for i in dt])
 
-        if "MET" in time_unit:
-            time_center=0.5*(tf+t0).value
-            time_diff=0.5*(tf-t0).value
-        elif "MJD" in time_unit:
-            time_diff = 0.5 * (tf - t0)
-            time_center = t0+time_diff
-            time_center=time_center.value
-            time_diff=time_diff.value
+            x=time_center
+            xerr=time_diff
 
-        else:
-            time_diff = TimeDelta(0.5 * dt) #dt.to_value('datetime')
-            time_center=t0+time_diff
+            if not same_figure:
+                    fig, axes = plt.subplots(len(base_values), sharex=True)
+            else:
+                if obs_list_count==0:
+                    fig, axes = plt.subplots(len(base_values), sharex=True)
 
-            time_center=np.array([i.to_value('datetime64') for i in time_center])
-            time_diff=np.array([np.timedelta64(0.5*i.to_datetime()) for i in dt])
+            axes_queue = [i for i in range(len(base_values))]
+            #plot_value=[i for i in values]
 
-        x=time_center
-        xerr=time_diff
+            e_range_str=f"{np.min(energy_range)}-{np.max(energy_range)} keV"
+            axes[0].set_title(source + '; survey data from ' + e_range_str)
 
-        fig, axes = plt.subplots(len(base_values), sharex=True)
-        axes_queue = [i for i in range(len(base_values))]
-        #plot_value=[i for i in values]
+            for i in base_values:
+                ax = axes[axes_queue[0]]
+                axes_queue.pop(0)
 
-        e_range_str=f"{np.min(energy_range)}-{np.max(energy_range)} keV"
-        axes[0].set_title(source + '; survey data from ' + e_range_str)
+                y = data[i]
+                yerr = np.zeros(x.size)
+                y_upperlim = np.zeros(x.size)
 
-        for i in base_values:
-            ax = axes[axes_queue[0]]
-            axes_queue.pop(0)
+                label = i
 
-            y = data[i]
-            yerr = np.zeros(x.size)
-            y_upperlim = np.zeros(x.size)
+                if "rate" in i:
+                    yerr=data[i+"_err"]
+                    label="Count rate (cts/s)"
+                elif i+"_lolim" in data.keys():
+                    #get the errors
+                    lolim=data[i+"_lolim"]
+                    hilim = data[i + "_hilim"]
 
-            label = i
+                    yerr=np.array([lolim, hilim])
+                    y_upperlim = data[i + "_upperlim"]
 
-            if "rate" in i:
-                yerr=data[i+"_err"]
-                label="Count rate (cts/s)"
-            elif i+"_lolim" in data.keys():
-                #get the errors
-                lolim=data[i+"_lolim"]
-                hilim = data[i + "_hilim"]
+                    # find where we have upper limits and set the error to 1 since the nan error value isnt
+                    # compatible with upperlimits
+                    yerr[:,y_upperlim] = 0.2 * y[y_upperlim]
 
-                yerr=np.array([lolim, hilim])
-                y_upperlim = data[i + "_upperlim"]
+                if "mosaic" in observation_list[0].pointing_ids:
+                    zorder=5
+                    c="red"
+                else:
+                    zorder=10
+                    c="gray"
 
-                # find where we have upper limits and set the error to 1 since the nan error value isnt
-                # compatible with upperlimits
-                yerr[:,y_upperlim] = 0.2 * y[y_upperlim]
+                ax.errorbar(x, y, xerr=xerr, yerr=yerr, uplims=y_upperlim, linestyle="None", marker="o", markersize=3,
+                             zorder=zorder) #color="red"
 
-            ax.errorbar(x, y, xerr=xerr, yerr=yerr, uplims=y_upperlim, linestyle="None", marker="o", markersize=3,
-                        color="red", zorder=10)
+                if ("flux" in i.lower()):
+                    ax.set_yscale('log')
 
-            if ("flux" in i.lower()):
-                ax.set_yscale('log')
+                ax.set_ylabel(label)
 
-            ax.set_ylabel(label)
+            mjdtime = met2mjd(T0)
+            utctime = met2utc(T0, mjd_time=mjdtime)
 
-        mjdtime = met2mjd(T0)
-        utctime = met2utc(T0, mjd_time=mjdtime)
+            #if T0==0:
+            if "MET" in time_unit:
+                label_string='MET Time (s)'
+                val=T0
+                l = f"T0={val:.2f}"
+            elif "MJD" in time_unit:
+                label_string = 'MJD Time (s)'
+                val = mjdtime
+                l = f"T0={val:.2f}"
+            else:
+                label_string = 'UTC Time (s)'
+                val = utctime
+                l=f"T0={val}"
 
-        #if T0==0:
-        if "MET" in time_unit:
-            label_string='MET Time (s)'
-            val=T0
-            l = f"T0={val:.2f}"
-        elif "MJD" in time_unit:
-            label_string = 'MJD Time (s)'
-            val = mjdtime
-            l = f"T0={val:.2f}"
-        else:
-            label_string = 'UTC Time (s)'
-            val = utctime
-            l=f"T0={val}"
+            if not same_figure:
+                    l=l
+            else:
+                if obs_list_count!=0:
+                    l=''
 
-        if T0 != 0:
-            for ax in axes:
-                ax.axvline(val, 0,1, ls='--', label=l)
-            axes[0].legend(loc='best')
+            if T0 != 0:
+                for ax in axes:
+                    ax.axvline(val, 0,1, ls='--', label=l)
+                axes[0].legend(loc='best')
 
-        axes[-1].set_xlabel(label_string)
+            axes[-1].set_xlabel(label_string)
 
-        if savedir is not None:
-            plot_filename=source+'_survey_lc.pdf'
-            #fig.savefig(os.path.join(savedir, plot_filename), bbox_inches="tight")
+            if savedir is not None and not same_figure:
+                plot_filename=source+'_survey_lc.pdf'
+                #fig.savefig(os.path.join(savedir, plot_filename), bbox_inches="tight")
+                fig.savefig(savedir.joinpath(plot_filename), bbox_inches="tight")
+
+            obs_list_count+=1
+
+        if savedir is not None and same_figure:
+            plot_filename = source + '_survey_lc.pdf'
+            # fig.savefig(os.path.join(savedir, plot_filename), bbox_inches="tight")
             fig.savefig(savedir.joinpath(plot_filename), bbox_inches="tight")
 
-    plt.show()
+        plt.show()
 
     return fig, axes
 

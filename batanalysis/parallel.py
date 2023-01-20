@@ -23,7 +23,8 @@ def _remove_pfiles():
     """
     direc=Path("~/pfiles").expanduser().resolve()
 
-    os.system(f"rm {direc}/*")
+    if len(sorted(direc.glob("*"))) > 0:
+        os.system(f"rm {direc}/*")
 
 def _create_BatSurvey(obs_id, obs_dir=None, input_dict=None, recalc=False, load_dir=None, patt_noise_dir=None, verbose=False):
     """
