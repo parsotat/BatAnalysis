@@ -1347,8 +1347,9 @@ def concatenate_data(bat_observation, source_ids, keys, energy_range=[14,195], c
                             save_val=np.inf #set to a crazy number so we dont get errors with np.isnan for a string
 
                         #search in all
+                        continue_loop = True
                         for dictionary in [obs.get_pointing_info(pointings), obs.get_pointing_info(pointings, source_id=source)]:
-                            if np.isnan(save_val) and len(dpath.search(obs.get_pointing_info(pointings, source_id=source)["model_params"], user_key))==0 and ("flux" not in user_key.lower()):
+                            if continue_loop and np.isnan(save_val) and len(dpath.search(obs.get_pointing_info(pointings, source_id=source)["model_params"], user_key))==0 and ("flux" not in user_key.lower()):
                                 try:
                                     # if this is a rate/rate_err/snr need to calcualate these quantities based on the returned array
                                     if "rate" in user_key or "snr" in user_key:
@@ -1366,85 +1367,92 @@ def concatenate_data(bat_observation, source_ids, keys, energy_range=[14,195], c
                                 except KeyError:
                                 # if the key doest exist dont do anything but add np.nan
                                     save_val =np.nan
+                                    #this key for rate, rate_err, SNR doesnt exist probably because the source wasnt
+                                    #detected so dont eneter the outer if statement again 9which will keep saving np.nan
+                                    if "rate" in user_key or "snr" in user_key:
+                                        continue_loop=False
 
                                 # save the value to the appropriate list under the appropriate key
                                 concat_data[source][user_key].append(save_val)
 
                         #see if the values are for the model fit
                         if np.sum(np.isnan(save_val))>0 and "model_params" in obs.get_pointing_info(pointings, source_id=source).keys():
-                            #have to modify the name of the flux related quantity here
-                            if ("flux" in user_key.lower()):
-                                real_user_key="lg10Flux"
-                            else:
-                                real_user_key=user_key
-
-                            #try to access the dictionary key
-                            try:
-                                save_val = dpath.get(obs.get_pointing_info(pointings, source_id=source)["model_params"], real_user_key)
-                            except KeyError:
-                                # if the key doest exist dont do anything but add np.nan
-                                save_val = np.nan
-                                #if the value that we want is flux but we only have an upper limit then we have to get
-                                # the nsigma_lg10flux_upperlim value
-                                if real_user_key == "lg10Flux":
-                                    real_user_key="nsigma_lg10flux_upperlim"
-                                    #see if there is a nsigma_lg10flux_upperlim
-                                    try:
-                                        save_val = dpath.get(
-                                            obs.get_pointing_info(pointings, source_id=source),
-                                            real_user_key)
-                                    except KeyError:
-                                        # if the key doest exist dont do anything but add np.nan
-                                        save_val = np.nan
-
-                            #need to calculate the error on the value
-                            #first do the case of flux upper limit
-                            if real_user_key=="nsigma_lg10flux_upperlim":
-                                save_value = 10 ** save_val
-                                #there is no upper/lower error since we have an upper limit
-                                error=np.ones(2)*np.nan
-                                is_upper_lim=True
-                            else:
-                                is_upper_lim = False
-                                if real_user_key == "lg10Flux":
-                                    save_value=10**save_val['val']
-                                    error = np.array([10 ** save_val['lolim'], 10 ** save_val['hilim']])
-                                    error = np.abs(save_value - error)
+                            #can have obs.get_pointing_info(pointings, source_id=source)["model_params"]
+                            #but it can be None if the source isnt detected
+                            if obs.get_pointing_info(pointings, source_id=source)["model_params"] is not None:
+                                #have to modify the name of the flux related quantity here
+                                if ("flux" in user_key.lower()):
+                                    real_user_key="lg10Flux"
                                 else:
-                                    try:
-                                        save_value = save_val['val']
-                                        error = np.array([save_val['lolim'], save_val['hilim']])
+                                    real_user_key=user_key
 
-                                        if 'T' in save_val["errflag"]:
-                                            error = np.ones(2) * np.nan
-                                        else:
-                                            error = np.abs(save_value - error)
+                                #try to access the dictionary key
+                                try:
+                                    save_val = dpath.get(obs.get_pointing_info(pointings, source_id=source)["model_params"], real_user_key)
+                                except KeyError:
+                                    # if the key doest exist dont do anything but add np.nan
+                                    save_val = np.nan
+                                    #if the value that we want is flux but we only have an upper limit then we have to get
+                                    # the nsigma_lg10flux_upperlim value
+                                    if real_user_key == "lg10Flux":
+                                        real_user_key="nsigma_lg10flux_upperlim"
+                                        #see if there is a nsigma_lg10flux_upperlim
+                                        try:
+                                            save_val = dpath.get(
+                                                obs.get_pointing_info(pointings, source_id=source),
+                                                real_user_key)
+                                        except KeyError:
+                                            # if the key doest exist dont do anything but add np.nan
+                                            save_val = np.nan
 
-                                    except TypeError:
-                                        #this is the last resort for catching any keys that arent found in the dict so we may
-                                        #have save_val be = np.nan and we will get TypeError trying to call it as a dict
-                                        save_value = np.nan
-                                        error = np.ones(2)*np.nan
+                                #need to calculate the error on the value
+                                #first do the case of flux upper limit
+                                if real_user_key=="nsigma_lg10flux_upperlim":
+                                    save_value = 10 ** save_val
+                                    #there is no upper/lower error since we have an upper limit
+                                    error=np.ones(2)*np.nan
+                                    is_upper_lim=True
+                                else:
+                                    is_upper_lim = False
+                                    if real_user_key == "lg10Flux":
+                                        save_value=10**save_val['val']
+                                        error = np.array([10 ** save_val['lolim'], 10 ** save_val['hilim']])
+                                        error = np.abs(save_value - error)
+                                    else:
+                                        try:
+                                            save_value = save_val['val']
+                                            error = np.array([save_val['lolim'], save_val['hilim']])
 
-                            # save the value to the appropriate list under the appropriate key
-                            concat_data[source][user_key].append(save_value)
+                                            if 'T' in save_val["errflag"]:
+                                                error = np.ones(2) * np.nan
+                                            else:
+                                                error = np.abs(save_value - error)
 
-                            #save the errors as well. We may need to create the dictionary key for the error/upperlimit
-                            user_key_lolim=user_key+"_lolim"
-                            user_key_hilim=user_key+"_hilim"
-                            user_key_upperlim = user_key + "_upperlim"
-                            try:
-                                concat_data[source][user_key_lolim].append(error[0])
-                                concat_data[source][user_key_hilim].append(error[1])
-                                concat_data[source][user_key_upperlim].append(is_upper_lim)
-                            except KeyError:
-                                concat_data[source][user_key_lolim]=[]
-                                concat_data[source][user_key_hilim]=[]
-                                concat_data[source][user_key_upperlim]=[]
+                                        except TypeError:
+                                            #this is the last resort for catching any keys that arent found in the dict so we may
+                                            #have save_val be = np.nan and we will get TypeError trying to call it as a dict
+                                            save_value = np.nan
+                                            error = np.ones(2)*np.nan
 
-                                concat_data[source][user_key_lolim].append(error[0])
-                                concat_data[source][user_key_hilim].append(error[1])
-                                concat_data[source][user_key_upperlim].append(is_upper_lim)
+                                # save the value to the appropriate list under the appropriate key
+                                concat_data[source][user_key].append(save_value)
+
+                                #save the errors as well. We may need to create the dictionary key for the error/upperlimit
+                                user_key_lolim=user_key+"_lolim"
+                                user_key_hilim=user_key+"_hilim"
+                                user_key_upperlim = user_key + "_upperlim"
+                                try:
+                                    concat_data[source][user_key_lolim].append(error[0])
+                                    concat_data[source][user_key_hilim].append(error[1])
+                                    concat_data[source][user_key_upperlim].append(is_upper_lim)
+                                except KeyError:
+                                    concat_data[source][user_key_lolim]=[]
+                                    concat_data[source][user_key_hilim]=[]
+                                    concat_data[source][user_key_upperlim]=[]
+
+                                    concat_data[source][user_key_lolim].append(error[0])
+                                    concat_data[source][user_key_hilim].append(error[1])
+                                    concat_data[source][user_key_upperlim].append(is_upper_lim)
 
     #turn things into numpy array for easier handling
     for src_key in concat_data.keys():
