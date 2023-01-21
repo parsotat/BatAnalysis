@@ -1349,7 +1349,9 @@ def concatenate_data(bat_observation, source_ids, keys, energy_range=[14,195], c
                         #search in all
                         continue_search = True
                         for dictionary in [obs.get_pointing_info(pointings), obs.get_pointing_info(pointings, source_id=source)]:
-                            if continue_search and np.isnan(save_val) and len(dpath.search(obs.get_pointing_info(pointings, source_id=source)["model_params"], user_key))==0 and ("flux" not in user_key.lower()):
+                            if continue_search and np.isnan(save_val) and \
+                                    len(dpath.search(obs.get_pointing_info(pointings, source_id=source)["model_params"], user_key))==0 \
+                                    and ("flux" not in user_key.lower()) and ("index" not in user_key.lower()):
                                 try:
                                     # if this is a rate/rate_err/snr need to calcualate these quantities based on the returned array
                                     if "rate" in user_key or "snr" in user_key:
