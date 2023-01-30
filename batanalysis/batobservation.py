@@ -1198,10 +1198,14 @@ class BatSurvey(BatObservation):
         :return: string or None
         """
         #get the pointing info's keys
-        key_list=np.array(list(self.get_pointing_info(pointing_id)))
+        key_list=list(self.get_pointing_info(pointing_id))
 
         #get the idx of the similar source name either from loading data or the pha filename
         idx=self._compare_source_name(source, key_list)
+
+        #convert this to a np.array for indexing
+        key_list = np.array(key_list)
+
         if np.sum(idx) == 1:
             real_source_name=key_list[idx][0]
         else:
