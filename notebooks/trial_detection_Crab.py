@@ -1,92 +1,85 @@
-import batanalysis as ba
+import glob
 import os
+import sys
+import batanalysis as ba
+import matplotlib.pyplot as plt
 import numpy as np
-#from heasoftpy import HeasoftpyExecutionError
+from astropy.time import Time, TimeDelta
+from astropy.io import fits
+from pathlib import Path
+import swiftbat
+plt.ion()
+
+#set the path with the BAT survey data
+newdir = Path("/Users/tparsota/Documents/CRAB_SURVEY_DATA")
+ba.datadir(newdir, mkdir=True)
+
+#query heasarc for all the data within the time period of interest and download it
+object_name='Crab'
+queryargs = dict(Start_Time="2004-12-15 .. 2006-10-27", fields='All', resultmax=0)
+
+#use swiftbat to create a bat source object
+object_location = swiftbat.simbadlocation(object_name)
+object_batsource = swiftbat.source(ra=object_location[0], dec=object_location[1], name=object_name)
+table_everything = ba.from_heasarc(name=None, **queryargs)
+minexposure = 1000     # cm^2 after cos adjust
+
+#calculate the exposure with partial coding
+exposures = np.array([object_batsource.exposure(ra=row['RA'], dec=row['DEC'], roll=row['ROLL_ANGLE'])[0] for row in table_everything])
+
+#select the observations that have greater than the minimum desired exposure
+table_exposed = table_everything[exposures > minexposure]
+print(f"Finding everything finds {len(table_everything)} observations, of which {len(table_exposed)} have more than {minexposure:0} cm^2 coded")
+
+#download the data
+#result = ba.download_swiftdata(table_exposed)
+
+#get a list of the fully downloaded observation IDs
+final_obs_ids=[i for i in table_exposed['OBSID'] if result[i]['success']]
+
+#run batsurvey in parallel with pattern maps from 2011
+patt_mask=f"/Users/tparsota/Documents/CRAB_SURVEY_DATA/pattern_noise_survey8a_2019212_inbands.detmask"
+patt_map=f"/Users/tparsota/Documents/CRAB_SURVEY_DATA/pattern_noise_survey8a_2019212.dpi"
+input_dict=dict(global_pattern_map=patt_map, global_pattern_mask=patt_mask, cleansnr=6,cleanexpr='ALWAYS_CLEAN==T')
+
+batsurvey_obs=ba.parallel.batsurvey_analysis(final_obs_ids,  input_dict=input_dict, nprocs=15)
+
+#identify our source name based on the name in teh survey catalog
+source_name="Crab_Nebula_Pulsar"
 
 
-#Read in the file, then create a bat survey object for all the observation
+#creat the pha files and the appropriate rsp file in parallel.
+#use xspec to fit each spectrum with a default powerlaw spectrum
+batsurvey_obs=ba.parallel.batspectrum_analysis(batsurvey_obs, source_name, recalc=True,nprocs=14)
 
-Crab_dir="/Users/slaha/Desktop/BAT_projects/GIT_Repository_directory_Jan2022/survey_data/Crab_data/"  #This is the path to the directory where your observations are kept
+#plot the snapshot pointing values of rate, snr, and the fitted flux and photon index
+fig, axes=ba.plot_survey_lc(batsurvey_obs, id_list=source_name, time_unit="UTC", values=["rate","snr", "flux", "PhoIndex", "exposure"], calc_lc=True)
 
-list_of_obsid=np.genfromtxt((Crab_dir+"list_of_obsid.txt"), usecols=(0),unpack=True, dtype=str) #For multiple observations need to create a text file of obsids.
+#combine all the pointings into a single file to sort into binned fits files
+outventory_file=ba.merge_outventory(batsurvey_obs)
 
+#bin into 1 month cadence
+time_bins=ba.group_outventory(outventory_file, np.timedelta64(1, "M"), end_datetime=Time("2006-10-27"))
 
+#do the parallel construction of each mosaic for each time bin
+mosaic_list, total_mosaic=ba.parallel.batmosaic_analysis(batsurvey_obs, outventory_file, time_bins, nprocs=8)
 
-batsurvey_obs=[]        #We are saving the BatSurvey objects in this list while we loop over.
+#calculate the pha files and fit the spectra using the swiftbat_survey_full_157m.rsp file
+#final_mosaic_list=[]
+#for mosaic in mosaic_list:
+#    mosaic.detect_sources()
+#    mosaic.merge_pointings()
+#    mosaic.calculate_pha(id_list=source_name)
+#    pha_list=mosaic.get_pha_filenames(id_list=source_name)
+#    ba.fit_spectrum(pha_list[0], mosaic, use_cstat=False)
+#    ba.calculate_detection(mosaic, source_name)
+#    final_mosaic_list.append(mosaic)
+#    mosaic.save()
+ 
+#should be able to do the following with the most recent change to parallel.batspectrum_analysis on 10/27
+mosaic_list=ba.parallel.batspectrum_analysis(mosaic_list, source_name, recalc=True,nprocs=11)
+total_mosaic=ba.parallel.batspectrum_analysis(total_mosaic, source_name, recalc=True,nprocs=1)
 
-
-input_dict=dict(indir=None,outdir=None,incatalog="survey6b_2.cat")       #Creating a dictionary to set up the input and output directories and the files. Note that you need to ensure that your source is in the catalog. Or else you may need to add it.
-
-
-for i in list_of_obsid:
-
-    print(i)
-    try:
-        
-        obs=ba.BatSurvey(str(i),input_dict=input_dict,obs_dir=Crab_dir,recalc=True)
-    
-        obs.save()
-        batsurvey_obs.append(obs)
-    except ValueError:
-        print("Obsid has no survey data")
-
-'''
-This portion of the code can be uncommented when you have already run the batsurvey observation once (above), and just need to use them to analyze the data. In that situation, you need to comment out the above for loop entirely.
-
-batsurvey_obs=[]
-for i in list_of_obsid:
-
-    try:
-        batsurvey_obs.append(ba.BatSurvey(str(i), load_file=os.path.join(Crab_dir,"%s_surveyresult/batsurvey.pickle"%(str(i)))))
-        print("Loading observation id", i)
-    except FileNotFoundError:
-        pass
-
-print("I am ending the loading process here")
-
-'''
+fig, axes=ba.plot_survey_lc(mosaic_list, id_list=source_name, time_unit="UTC", values=["rate","snr", "flux", "PhoIndex", "exposure"], calc_lc=True)
 
 
-for obs in batsurvey_obs:
-
-    print("Running calculate_PHA for observation id", obs.pointing_ids)
-    obs.merge_pointings()
-    obs.pointing_ids 
-    obs.calculate_pha(id_list="Crab",clean_dir=True)
-    ba.calc_response(obs.pha_file_names_list)
-
-    fluxarray=[]
-    fluxarray_lolim=[]
-    fluxarray_hilim=[]
-
-    for pha,point_id in zip(obs.pha_file_names_list,obs.pointing_ids): #Looping over individual PHA/pointings
-
-        try:							#If XSPEC cannot fit because of negative counts
-            flux,fluxerr,_=ba.fit_spectrum(pha,plot_fit=True)
-        
-            fluxarray.append(flux)
-            fluxarray_lolim.append(fluxerr[0]) 
-            fluxarray_hilim.append(fluxerr[1]) 
-
-        except Exception as Error_with_Xspec_fitting:
-            print (Error_with_Xspec_fitting) 
-            fluxarray.append(0)
-            fluxarray_lolim.append(0) 
-            fluxarray_hilim.append(0) 
-
-        
-    ba.calculate_detection(obs,fluxarray,fluxarray_lolim,fluxarray_hilim,source_list="FRB180916",plot_fit=True)
-
-
-ba.print_parameters(batsurvey_obs,values=["met_time","utc_time", "exposure","flux","flux_lolim", "flux_hilim"],savetable=True, save_file=Crab_dir+"200_onwards_output.txt", latex_table=True)
-
-#to load all the saved data
-#obs=[]
-#for i in list_of_obsid:
-#    obs.append(ba.BatSurvey(str(i), load_file=os.path.join(FRB180916_dir,"%s_surveyresult/batsurvey.pickle"%(str(i)))))
-
-#to combine all of the light curves
-#ba.combine_survey_lc(batsurvey_obs)
-
-#to plot the light curve
-#ba.plot_survey_lc(os.path.join(os.path.split(batsurvey_obs[0].result_dir)[0], "total_lc"), time_unit="MJD",id_list="FRB180916")
