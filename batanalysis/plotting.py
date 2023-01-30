@@ -204,10 +204,10 @@ def plot_survey_lc(survey_obsid_list, id_list=None, energy_range=[14,195], saved
                     yerr[:,y_upperlim] = 0.2 * y[y_upperlim]
 
                 if "mosaic" in observation_list[0].pointing_ids:
-                    zorder=5
+                    zorder=10
                     c="red"
                 else:
-                    zorder=10
+                    zorder=5
                     c="gray"
 
                 ax.errorbar(x, y, xerr=xerr, yerr=yerr, uplims=y_upperlim, linestyle="None", marker="o", markersize=3,

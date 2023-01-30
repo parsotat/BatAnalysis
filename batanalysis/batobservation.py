@@ -1036,9 +1036,12 @@ class BatSurvey(BatObservation):
             val=self.pointing_info[pointing_id]
         else:
             #the source_id dictionary within the pointing_id dictionary may not exist
+            #also need to verify that the names are what we expect
+            real_source_name=self.get_real_source_name(pointing_id, source_id)
+
             try:
                 #if it does we are good
-                val=self.pointing_info[pointing_id][source_id]
+                val=self.pointing_info[pointing_id][real_source_name]
             except KeyError as ke:
                 print(ke)
                 raise ValueError("The dictionary for %s does not exist yet in the pointing id %s"%(source_id, pointing_id))
@@ -1062,9 +1065,12 @@ class BatSurvey(BatObservation):
             self.pointing_info[pointing_id][key]=value
         else:
             # the source_id dictionary within the pointing_id dictionary may not exist
+            #also need to verify that the names are what we expect
+            real_source_name=self.get_real_source_name(pointing_id, source_id)
+
             try:
                 #if it does, we are good
-                self.pointing_info[pointing_id][source_id][key] = value
+                self.pointing_info[pointing_id][real_source_name][key] = value
             except KeyError:
                 #otherwise create it and save the key value pair
                 self.pointing_info[pointing_id][source_id] = dict()
@@ -1180,6 +1186,31 @@ class BatSurvey(BatObservation):
             return ret[0]
         else:
             return ret
+
+    def get_real_source_name(self, pointing_id, source):
+        """
+        This method deermines the real source name in the pointing ID's dictionary. This can be something that was passed
+        in before when loading in calculated rate data or the name of a PHA file with the source name. This mehtod matches
+        these two formats so all the info related to a given source is saved appropriately.
+
+        :param pointing_id: string of the pointing ID of interest
+        :param source: string of the
+        :return: string or None
+        """
+        #get the pointing info's keys
+        key_list=list(self.get_pointing_info(pointing_id))
+
+        #get the idx of the similar source name either from loading data or the pha filename
+        idx=self._compare_source_name(source, key_list)
+        if len(idx) > 0:
+            real_source_name=key_list[idx]
+        else:
+            real_source_name=None
+
+        return real_source_name
+
+
+
 
 
 class MosaicBatSurvey(BatSurvey):
