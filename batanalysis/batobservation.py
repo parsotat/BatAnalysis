@@ -1103,8 +1103,11 @@ class BatSurvey(BatObservation):
                 # only get the pha filenames for the pointing ids specified
                 val = [i for i in self.pha_file_names_list if any(str(i) for j in pointing_id_list if j in str(i))]
         else:
-            #only get the pha filenames for the sources identified in id_list
-            val=[i for i in self.pha_file_names_list if any(str(i) for j in id_list if j in str(i))]
+            #only get the pha filenames for the sources identified in id_list taking into account the real source name
+            # that is specified in the BatSurvey dictionary which may be a different format than the pha file name
+            #val=[i for i in self.pha_file_names_list if any(str(i) for j in id_list if j in str(i))]
+            val = [i for i in self.pha_file_names_list if any(str(i) for j in id_list \
+                                                              if self._compare_source_name(j,str(i.name).split("_survey")[0]))]
             if pointing_id_list is not None:
                 # only get the pha filenames for the pointing ids specified
                 val = [i for i in val if any(str(i) for j in pointing_id_list if j in str(i))]
