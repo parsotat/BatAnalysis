@@ -873,7 +873,9 @@ def print_parameters(obs_list, source_id, values=["met_time","utc_time", "exposu
         for key in values:
             val=all_data[key]
             if "id" in key:
-                if val[i] != val[i-1]:
+                #if we have just one observation ID then we still want to print the obs_id for the first entry in list
+                #if we dont then we need to make sure that the printed value is not the same as the one prior
+                if i==0 or val[i] != val[i-1]:
                     print_val=val[i]
                 else:
                     print_val=''
