@@ -1202,7 +1202,7 @@ class BatSurvey(BatObservation):
 
         #get the idx of the similar source name either from loading data or the pha filename
         idx=self._compare_source_name(source, key_list)
-        if len(idx) > 0:
+        if np.sum(idx) == 1:
             real_source_name=key_list[idx]
         else:
             real_source_name=None
