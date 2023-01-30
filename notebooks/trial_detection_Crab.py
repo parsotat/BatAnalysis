@@ -15,7 +15,7 @@ newdir = Path("/Users/tparsota/Documents/CRAB_SURVEY_DATA")
 ba.datadir(newdir, mkdir=True)
 
 #query heasarc for all the data within the time period of interest and download it
-object_name='Crab'
+object_name='Crab_Nebula_Pulsar'
 queryargs = dict(Start_Time="2004-12-15 .. 2006-10-27", fields='All', resultmax=0)
 
 #use swiftbat to create a bat source object
@@ -35,18 +35,15 @@ print(f"Finding everything finds {len(table_everything)} observations, of which 
 #result = ba.download_swiftdata(table_exposed)
 
 #get a list of the fully downloaded observation IDs
-final_obs_ids=[i for i in table_exposed['OBSID'] if result[i]['success']]
+obs_ids=[i for i in table_exposed['OBSID'] if result[i]['success']]
 
-#run batsurvey in parallel with pattern maps from 2011
-patt_mask=f"/Users/tparsota/Documents/CRAB_SURVEY_DATA/pattern_noise_survey8a_2019212_inbands.detmask"
-patt_map=f"/Users/tparsota/Documents/CRAB_SURVEY_DATA/pattern_noise_survey8a_2019212.dpi"
-input_dict=dict(global_pattern_map=patt_map, global_pattern_mask=patt_mask, cleansnr=6,cleanexpr='ALWAYS_CLEAN==T')
-
-batsurvey_obs=ba.parallel.batsurvey_analysis(final_obs_ids,  input_dict=input_dict, nprocs=15)
+#run batsurvey in parallel with pattern maps
+input_dict=dict(cleansnr=6,cleanexpr='ALWAYS_CLEAN==T')
+noise_map_dir=Path("/Users/tparsota/Documents/PATTERN_MAPS/")
+batsurvey_obs=ba.parallel.batsurvey_analysis(obs_ids, input_dict=input_dict, patt_noise_dir=noise_map_dir, nprocs=20)
 
 #identify our source name based on the name in teh survey catalog
-source_name="Crab_Nebula_Pulsar"
-
+source_name=object_name
 
 #creat the pha files and the appropriate rsp file in parallel.
 #use xspec to fit each spectrum with a default powerlaw spectrum
@@ -64,19 +61,6 @@ time_bins=ba.group_outventory(outventory_file, np.timedelta64(1, "M"), end_datet
 #do the parallel construction of each mosaic for each time bin
 mosaic_list, total_mosaic=ba.parallel.batmosaic_analysis(batsurvey_obs, outventory_file, time_bins, nprocs=8)
 
-#calculate the pha files and fit the spectra using the swiftbat_survey_full_157m.rsp file
-#final_mosaic_list=[]
-#for mosaic in mosaic_list:
-#    mosaic.detect_sources()
-#    mosaic.merge_pointings()
-#    mosaic.calculate_pha(id_list=source_name)
-#    pha_list=mosaic.get_pha_filenames(id_list=source_name)
-#    ba.fit_spectrum(pha_list[0], mosaic, use_cstat=False)
-#    ba.calculate_detection(mosaic, source_name)
-#    final_mosaic_list.append(mosaic)
-#    mosaic.save()
- 
-#should be able to do the following with the most recent change to parallel.batspectrum_analysis on 10/27
 mosaic_list=ba.parallel.batspectrum_analysis(mosaic_list, source_name, recalc=True,nprocs=11)
 total_mosaic=ba.parallel.batspectrum_analysis(total_mosaic, source_name, recalc=True,nprocs=1)
 
