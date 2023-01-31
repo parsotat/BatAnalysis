@@ -22,7 +22,9 @@ print(f"Finding everything finds {len(table_everything)} observations, of which 
 obs_ids=[i for i in table_exposed['OBSID'] if result[i]['success']]
 #obs_ids=[i.name for i in sorted(ba.datadir().glob("*")) if i.name.isnumeric()]
 
+#incat=ba.create_custom_catalog(object_name,99.09830, -42.86781 ,251.51841, -20.67087)
+incat=Path("./custom_catalog.cat")
 
-input_dict=dict(cleansnr=6,cleanexpr='ALWAYS_CLEAN==T')
+input_dict=dict(cleansnr=6,cleanexpr='ALWAYS_CLEAN==T', incatalog=f"{incat}")
 noise_map_dir=Path("/local/data/bat1raid/tparsota/PATTERN_MAPS/")
-batsurvey_obs=ba.parallel.batsurvey_analysis(obs_ids, input_dict=input_dict, patt_noise_dir=noise_map_dir, nprocs=20)
+batsurvey_obs=ba.parallel.batsurvey_analysis(obs_ids, input_dict=input_dict, patt_noise_dir=noise_map_dir, nprocs=10)
