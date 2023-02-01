@@ -130,7 +130,8 @@ The following software are necessary for the BatAnalysis python module.
 5. PyXspec
    - The installation is included with HEASoft but there may be additional steps to take if you have changed your anaconda 
 version after building HEASoft. More information can be found here: [https://heasarc.gsfc.nasa.gov/xanadu/xspec/python/html/buildinstall.html](https://heasarc.gsfc.nasa.gov/xanadu/xspec/python/html/buildinstall.html)
-
+6. Swift BAT Pattern Noise Maps
+   - The pattern maps used by the BAT team are available at: [https://zenodo.org/record/7595904#.Y9q7pS-B3T8](https://zenodo.org/record/7595904#.Y9q7pS-B3T8) for download. These maps shoud be downloaded and placed into a place where the BatAnalysis code will be able to access them. 
 
 ### Installation
 
@@ -172,6 +173,7 @@ import batanalysis as ba
 import swiftbat
 import numpy as np 
 import matplotlib.pyplot as plt
+from pathlib import Path
 plt.ion()
 
 object_name='Crab'
@@ -182,7 +184,8 @@ result = ba.download_swiftdata(table[:5])
 batsurvey_obs=ba.parallel.batsurvey_analysis(table["OBSID"][:5], nprocs=2)
 
 #the name of the source in the included survey catalog must be used here 
-batsurvey_obs=ba.parallel.batspectrum_analysis(batsurvey_obs, catalog_name, nprocs=2)
+noise_map_dir=Path("/path/to/downloaded/PATTERN_MAPS/")
+batsurvey_obs=ba.parallel.batspectrum_analysis(batsurvey_obs, catalog_name, patt_noise_dir=noise_map_dir, nprocs=2)
 
 ba.plot_survey_lc(batsurvey_obs, id_list=catalog_name, calc_lc=True)
 

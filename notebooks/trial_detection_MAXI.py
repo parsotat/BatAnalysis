@@ -1,3 +1,5 @@
+#problem obs IDs: 00012012026, 00012172020, 00035344062, 00045604023, 00095400024, 03102102001, 03109915005, 03110367008
+
 import glob
 import os
 import sys
@@ -28,3 +30,5 @@ incat=Path("./custom_catalog.cat")
 input_dict=dict(cleansnr=6,cleanexpr='ALWAYS_CLEAN==T', incatalog=f"{incat}")
 noise_map_dir=Path("/local/data/bat1raid/tparsota/PATTERN_MAPS/")
 batsurvey_obs=ba.parallel.batsurvey_analysis(obs_ids, input_dict=input_dict, patt_noise_dir=noise_map_dir, nprocs=10)
+
+batsurvey_obs=ba.parallel.batspectrum_analysis(batsurvey_obs, object_name, use_cstat=True, nprocs=14)
