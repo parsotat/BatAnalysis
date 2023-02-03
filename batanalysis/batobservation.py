@@ -1018,8 +1018,14 @@ class BatSurvey(BatObservation):
                                 self.set_pointing_info(id, "snr", snr_array, source_id=s)
                         else:
                             #a given pointing may not have the source in it so just raise a warning
-                            warn_str=f"Observation ID: {self.obs_id} Pointing ID: {id} \nThere is no source {s} found in the catalog file. Please double check the spelling.\nThis source may also not be detected in this observation ID/pointing ID"
-                            warnings.warn(warn_str)
+                            try:
+                                warn_str=f"Observation ID: {self.obs_id} Pointing ID: {id} \nThere is no source {s} found in the catalog file. Please double check the spelling.\nThis source may also not be detected in this observation ID/pointing ID"
+                                warnings.warn(warn_str)
+                            except AttributeError:
+                                warn_str = f"Mosaic from {self.pointing_info['mosaic']['user_timebin']['utc_time']}-{self.pointing_info['mosaic']['user_timebin']['utc_stop_time']}" \
+                                           f"\nThere is no source {s} found in the catalog file. Please double check the spelling." \
+                                           f"\nThis source may also not be detected in this observation ID/pointing ID"
+                                warnings.warn(warn_str)
 
 
 

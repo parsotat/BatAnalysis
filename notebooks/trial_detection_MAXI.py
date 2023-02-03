@@ -27,8 +27,21 @@ obs_ids=[i for i in table_exposed['OBSID'] if result[i]['success']]
 #incat=ba.create_custom_catalog(object_name,99.09830, -42.86781 ,251.51841, -20.67087)
 incat=Path("./custom_catalog.cat")
 
-input_dict=dict(cleansnr=6,cleanexpr='ALWAYS_CLEAN==T', incatalog=f"{incat}")
+input_dict=dict(cleansnr=6,cleanexpr='ALWAYS_CLEAN==T', incatalog=f"{incat}", detthresh=8000, detthresh2=8000)
 noise_map_dir=Path("/local/data/bat1raid/tparsota/PATTERN_MAPS/")
 batsurvey_obs=ba.parallel.batsurvey_analysis(obs_ids, input_dict=input_dict, patt_noise_dir=noise_map_dir, nprocs=10)
 
 batsurvey_obs=ba.parallel.batspectrum_analysis(batsurvey_obs, object_name, use_cstat=True, nprocs=14)
+
+
+outventory_file=ba.merge_outventory(batsurvey_obs)
+time_bins=ba.group_outventory(outventory_file, np.timedelta64(1, "W"))
+mosaic_list, total_mosaic=ba.parallel.batmosaic_analysis(batsurvey_obs, outventory_file, time_bins, nprocs=3)
+
+mosaic_list=ba.parallel.batspectrum_analysis(mosaic_list, object_name, recalc=True,nprocs=5)
+total_mosaic=ba.parallel.batspectrum_analysis(total_mosaic, object_name, recalc=True,nprocs=1)
+
+fig, axes=ba.plot_survey_lc(mosaic_list, id_list= object_name, time_unit="UTC", values=["rate","snr", "flux", "PhoIndex", "exposure"], calc_lc=True)
+
+
+
