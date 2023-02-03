@@ -270,6 +270,7 @@ def batmosaic_analysis(batsurvey_obs_list, outventory_file, time_bins, catalog_f
     for i in final_mosaics:
         if not i.result_dir.joinpath("sources_tot.cat").exists():
             i.detect_sources(catalog_file=catalog_file)
+            i.save()
 
     intermediate_mosaic_dir_list = [i.result_dir for i in final_mosaics]
 
