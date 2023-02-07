@@ -41,7 +41,7 @@ mosaic_list, total_mosaic=ba.parallel.batmosaic_analysis(batsurvey_obs, outvento
 mosaic_list=ba.parallel.batspectrum_analysis(mosaic_list, object_name, recalc=True,nprocs=5)
 total_mosaic=ba.parallel.batspectrum_analysis(total_mosaic, object_name, recalc=True,nprocs=1)
 
-fig, axes=ba.plot_survey_lc(mosaic_list, id_list= object_name, time_unit="UTC", values=["rate","snr", "flux", "PhoIndex", "exposure"], calc_lc=True)
+fig, axes=ba.plot_survey_lc([batsurvey_obs,mosaic_list], id_list= object_name, time_unit="UTC", values=["rate","snr", "flux", "PhoIndex", "exposure"], calc_lc=True)
 
 
 

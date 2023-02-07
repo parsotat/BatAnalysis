@@ -1163,20 +1163,25 @@ class BatSurvey(BatObservation):
         bkg_var_array=self.get_pointing_info(pointing_id, source_id=source)["bkg_var"]
         snr_array=self.get_pointing_info(pointing_id, source_id=source)["snr"]
 
-        #this loop can be vectorized with numpy
-        rate_tot = 0.0
-        rate_err_2_tot = 0.0
-        bkg_var_2_tot = 0.0
-        for j in energy_index:
-            rate_num = rate_array[j]
-            rate_err_2 = rate_err_array[j] * rate_err_array[j]
-            bkg_var_2 = bkg_var_array[j] * bkg_var_array[j]
-            rate_tot = rate_tot + rate_num
-            rate_err_2_tot = rate_err_2_tot + rate_err_2
-            bkg_var_2_tot = bkg_var_2_tot + bkg_var_2
+        if len(energy_index)>1:
+            #this loop can be vectorized with numpy
+            rate_tot = 0.0
+            rate_err_2_tot = 0.0
+            bkg_var_2_tot = 0.0
+            for j in energy_index:
+                rate_num = rate_array[j]
+                rate_err_2 = rate_err_array[j] * rate_err_array[j]
+                bkg_var_2 = bkg_var_array[j] * bkg_var_array[j]
+                rate_tot = rate_tot + rate_num
+                rate_err_2_tot = rate_err_2_tot + rate_err_2
+                bkg_var_2_tot = bkg_var_2_tot + bkg_var_2
 
-        rate_err_tot = np.sqrt(rate_err_2_tot)
-        snr_allband_num = rate_tot / np.sqrt(bkg_var_2_tot)
+            rate_err_tot = np.sqrt(rate_err_2_tot)
+            snr_allband_num = rate_tot / np.sqrt(bkg_var_2_tot)
+        else:
+            rate_tot=rate_array[energy_index]
+            rate_err_tot=rate_err_array[energy_index]
+            snr_allband_num = snr_array[energy_index]
 
         return rate_tot, rate_err_tot, snr_allband_num
 
