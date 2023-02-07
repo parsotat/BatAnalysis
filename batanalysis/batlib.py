@@ -684,6 +684,7 @@ def calculate_detection(surveyobservation,source_id, nsigma=3,bkg_nsigma=5, plot
         pointing_id=pha_file.split(".")[0].split("_")[-1]
 
         # Within the pointing dictionar we have the "key" called "Xspec_model" which has the parameters, values and errors.
+        error_issues = False #preset this here
         try:
             pointing_dict= surveyobservation.get_pointing_info(pointing_id,source_id=source_id)
             # xsp.Xset.restore(os.path.split(pointing_dict['xspec_model'])[1])
@@ -697,6 +698,10 @@ def calculate_detection(surveyobservation,source_id, nsigma=3,bkg_nsigma=5, plot
                   (10 ** flux) - nsigma * (10 ** (fluxerr_uplim - flux)))
             avg_flux_err = 0.5 * (((10 ** fluxerr_uplim) - (10 ** flux)) + ((10 ** flux) - (10 ** fluxerr_lolim)))
 
+            #check the errors for any issues:
+            if "T" in model["errflag"]:
+                error_issues = True
+
         except ValueError:
             #the fitting wasnt not successful and the dictionary was not created but want to enter the upper limit if
             #statement
@@ -705,7 +710,7 @@ def calculate_detection(surveyobservation,source_id, nsigma=3,bkg_nsigma=5, plot
             nsigma=1
             avg_flux_err=1
 
-        if fluxerr_lolim==0 or ( ((10**flux) - nsigma * avg_flux_err) <= 0) or np.isnan(flux):
+        if fluxerr_lolim==0 or ( ((10**flux) - nsigma * avg_flux_err) <= 0) or np.isnan(flux) or error_issues:
 
             print("No detection, just upperlimits for the spectrum:",pha_file)
         # Here redo the PHA calculation with 5*BKG_VAR
