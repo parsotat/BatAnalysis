@@ -1098,6 +1098,16 @@ class BatSurvey(BatObservation):
         :return: returns a list of the pha filenames
         """
 
+        #determine if we are dealing with survey or mosaic pha files
+        for i in self.pha_file_names_list:
+            if "survey" in i.name:
+                split_str="_survey"
+            elif "mosaic" in i.name:
+                split_str="_mosaic"
+            else:
+                raise ValueError(f'Could not determine if the pha file {i} belongs to a survey observation or a mosaiced image.')
+
+
         #make inputs into list if necessary
         if id_list is not None and type(id_list) is not list:
             #it is a single string:
@@ -1117,7 +1127,7 @@ class BatSurvey(BatObservation):
             # that is specified in the BatSurvey dictionary which may be a different format than the pha file name
             #val=[i for i in self.pha_file_names_list if any(str(i) for j in id_list if j in str(i))]
             val = [i for i in self.pha_file_names_list if any(str(i) for j in id_list \
-                                                              if self._compare_source_name(j,str(i.name).split("_survey")[0]))]
+                                                              if self._compare_source_name(j,str(i.name).split(split_str)[0]))]
             if pointing_id_list is not None:
                 # only get the pha filenames for the pointing ids specified
                 val = [i for i in val if any(str(i) for j in pointing_id_list if j in str(i))]
