@@ -1484,6 +1484,16 @@ class MosaicBatSurvey(BatSurvey):
         for id in id_list:
             if verbose:
                 print('Creating PHA file for ', id)
+
+            #get the proper name for the source incase the user didnt get the name correct
+            x = sorted(merge_output_path.glob('*.cat'))
+            catalog_sources=[i.stem for i in x]
+            test=self._compare_source_name(id, catalog_sources)
+            if np.sum(test)>0:
+                id=np.array(catalog_sources)[self._compare_source_name(id, catalog_sources)][0]
+            else:
+                id=None
+
             # get info from the newly created cat file (from merge)
             try:
                 catalog=merge_output_path.joinpath(f"{id}.cat")  #os.path.join(os.path.split(self.merge_input['outfile'])[0], id+".cat")

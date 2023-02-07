@@ -11,7 +11,7 @@ from astropy.io import fits
 from pathlib import Path
 import swiftbat
 object_name='MAXI J0637-430'
-queryargs = dict(Start_Time="2019-11-01 .. 2020-01-30", fields='All', resultmax=0)
+queryargs = dict(time="2019-11-01 .. 2020-01-30", fields='All', resultmax=0)
 object_location = swiftbat.simbadlocation(object_name)
 object_batsource = swiftbat.source(ra=object_location[0], dec=object_location[1], name=object_name)
 table_everything = ba.from_heasarc(name=None, **queryargs)
@@ -36,7 +36,7 @@ batsurvey_obs=ba.parallel.batspectrum_analysis(batsurvey_obs, object_name, use_c
 
 outventory_file=ba.merge_outventory(batsurvey_obs)
 time_bins=ba.group_outventory(outventory_file, np.timedelta64(1, "W"))
-mosaic_list, total_mosaic=ba.parallel.batmosaic_analysis(batsurvey_obs, outventory_file, time_bins, nprocs=3)
+mosaic_list, total_mosaic=ba.parallel.batmosaic_analysis(batsurvey_obs, outventory_file, time_bins, catalog_file=incat, nprocs=3)
 
 mosaic_list=ba.parallel.batspectrum_analysis(mosaic_list, object_name, recalc=True,nprocs=5)
 total_mosaic=ba.parallel.batspectrum_analysis(total_mosaic, object_name, recalc=True,nprocs=1)

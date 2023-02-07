@@ -16,7 +16,7 @@ ba.datadir(newdir, mkdir=True)
 
 #query heasarc for all the data within the time period of interest and download it
 object_name='Crab_Nebula_Pulsar'
-queryargs = dict(Start_Time="2004-12-15 .. 2006-10-27", fields='All', resultmax=0)
+queryargs = dict(time="2004-12-15 .. 2006-10-27", fields='All', resultmax=0)
 
 #use swiftbat to create a bat source object
 object_location = swiftbat.simbadlocation(object_name)
