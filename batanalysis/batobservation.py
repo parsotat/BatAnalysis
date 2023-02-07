@@ -1163,6 +1163,10 @@ class BatSurvey(BatObservation):
         bkg_var_array=self.get_pointing_info(pointing_id, source_id=source)["bkg_var"]
         snr_array=self.get_pointing_info(pointing_id, source_id=source)["snr"]
 
+        if type(energy_index) is not list:
+            energy_index=[energy_index]
+
+
         if len(energy_index)>1:
             #this loop can be vectorized with numpy
             rate_tot = 0.0
@@ -1179,9 +1183,9 @@ class BatSurvey(BatObservation):
             rate_err_tot = np.sqrt(rate_err_2_tot)
             snr_allband_num = rate_tot / np.sqrt(bkg_var_2_tot)
         else:
-            rate_tot=rate_array[energy_index]
-            rate_err_tot=rate_err_array[energy_index]
-            snr_allband_num = snr_array[energy_index]
+            rate_tot=rate_array[energy_index][0]
+            rate_err_tot=rate_err_array[energy_index][0]
+            snr_allband_num = snr_array[energy_index][0]
 
         return rate_tot, rate_err_tot, snr_allband_num
 
