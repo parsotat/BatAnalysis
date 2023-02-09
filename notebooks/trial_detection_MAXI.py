@@ -216,6 +216,11 @@ for i,j in zip(met_time, utc_time.ymdhms):
 axes[1].set_ylabel("SNR")
 axes[2].set_ylabel(r"Flux (erg/s/cm$^2$)")
 
+axes[1].legend(loc= "lower center", ncol=2)
+
+for ax, l in zip(axes, ["a","b","c","d"]):
+    ax.text(1.0, .95, f"({l})", ha='right', va='top', transform=ax.transAxes,  fontsize=12)
+
 fig.tight_layout()
 plot_filename = object_name + '_survey_lc.pdf'
 fig.savefig(plot_filename, bbox_inches="tight")
