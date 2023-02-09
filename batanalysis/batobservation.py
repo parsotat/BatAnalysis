@@ -206,7 +206,7 @@ class BatSurvey(BatObservation):
             hsp.local_pfiles(pfiles_dir=str(self._local_pfile_dir))
         except AttributeError:
             hsp.utils.local_pfiles(par_dir=str(self._local_pfile_dir))
-        print(os.getenv("PFILES"))
+        #print(os.getenv("PFILES"))
 
         #if load_file is None:
         #if the user wants to recalculate things or if there is no batsurvey.pickle file, or if there is no

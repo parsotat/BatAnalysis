@@ -1287,6 +1287,12 @@ def concatenate_data(bat_observation, source_ids, keys, energy_range=[14,195], c
         # it is a single string:
         keys = [keys]
 
+    #see if the user has the rates included in here
+    if "rate" in keys:
+        #see if the rates_err is already included. If not add it.
+        if "rate_err" not in keys:
+            keys.append("rate_err")
+
     if type(source_ids) is not list:
         # it is a single string:
         source_ids = [source_ids]
