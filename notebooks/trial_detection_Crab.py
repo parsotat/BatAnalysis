@@ -37,6 +37,9 @@ print(f"Finding everything finds {len(table_everything)} observations, of which 
 #get a list of the fully downloaded observation IDs
 obs_ids=[i for i in table_exposed['OBSID'] if result[i]['success']]
 
+#To reload data wthout querying the database again
+#obs_ids=[i.name for i in sorted(ba.datadir().glob("*")) if i.name.isnumeric()]
+
 #run batsurvey in parallel with pattern maps
 input_dict=dict(cleansnr=6,cleanexpr='ALWAYS_CLEAN==T')
 noise_map_dir=Path("/Users/tparsota/Documents/PATTERN_MAPS/")
@@ -54,6 +57,9 @@ fig, axes=ba.plot_survey_lc(batsurvey_obs, id_list=source_name, time_unit="UTC",
 
 #combine all the pointings into a single file to sort into binned fits files
 outventory_file=ba.merge_outventory(batsurvey_obs)
+
+#when loading information:
+#outventory_file=Path("./path/to/outventory_all.fits")
 
 #bin into 1 month cadence
 time_bins=ba.group_outventory(outventory_file, np.timedelta64(1, "M"), end_datetime=Time("2006-10-27"))
