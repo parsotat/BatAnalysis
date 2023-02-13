@@ -45,15 +45,12 @@ input_dict=dict(cleansnr=6,cleanexpr='ALWAYS_CLEAN==T')
 noise_map_dir=Path("/Users/tparsota/Documents/PATTERN_MAPS/")
 batsurvey_obs=ba.parallel.batsurvey_analysis(obs_ids, input_dict=input_dict, patt_noise_dir=noise_map_dir, nprocs=20)
 
-#identify our source name based on the name in teh survey catalog
-source_name=object_name
-
 #creat the pha files and the appropriate rsp file in parallel.
 #use xspec to fit each spectrum with a default powerlaw spectrum
-batsurvey_obs=ba.parallel.batspectrum_analysis(batsurvey_obs, source_name, recalc=True,nprocs=14)
+batsurvey_obs=ba.parallel.batspectrum_analysis(batsurvey_obs, object_name, recalc=True,nprocs=14)
 
 #plot the snapshot pointing values of rate, snr, and the fitted flux and photon index
-fig, axes=ba.plot_survey_lc(batsurvey_obs, id_list=source_name, time_unit="UTC", values=["rate","snr", "flux", "PhoIndex", "exposure"], calc_lc=True)
+fig, axes=ba.plot_survey_lc(batsurvey_obs, id_list=object_name, time_unit="UTC", values=["rate","snr", "flux", "PhoIndex", "exposure"], calc_lc=True)
 
 #combine all the pointings into a single file to sort into binned fits files
 outventory_file=ba.merge_outventory(batsurvey_obs)
@@ -67,9 +64,9 @@ time_bins=ba.group_outventory(outventory_file, np.timedelta64(1, "M"), end_datet
 #do the parallel construction of each mosaic for each time bin
 mosaic_list, total_mosaic=ba.parallel.batmosaic_analysis(batsurvey_obs, outventory_file, time_bins, nprocs=8)
 
-mosaic_list=ba.parallel.batspectrum_analysis(mosaic_list, source_name, recalc=True,nprocs=11)
-total_mosaic=ba.parallel.batspectrum_analysis(total_mosaic, source_name, recalc=True,nprocs=1)
+mosaic_list=ba.parallel.batspectrum_analysis(mosaic_list, object_name, recalc=True,nprocs=11)
+total_mosaic=ba.parallel.batspectrum_analysis(total_mosaic, object_name, recalc=True,nprocs=1)
 
-fig, axes=ba.plot_survey_lc(mosaic_list, id_list=source_name, time_unit="UTC", values=["rate","snr", "flux", "PhoIndex", "exposure"], calc_lc=True)
+fig, axes=ba.plot_survey_lc(mosaic_list, id_list=object_name, time_unit="UTC", values=["rate","snr", "flux", "PhoIndex", "exposure"], calc_lc=True)
 
 
