@@ -1,3 +1,0 @@
-Obs ID  	 Pointing ID		met_time	utc_time	exposure	lg10Flux	PhoIndex
-00013201005	20200371529	602695795.0	2020-02-06T15:29:30.610148809	1088.0	nan-nan\+nan	nan-nan\+nan
-           
