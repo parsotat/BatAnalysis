@@ -19,7 +19,7 @@ object_name='Crab_Nebula_Pulsar'
 queryargs = dict(time="2004-12-15 .. 2006-10-27", fields='All', resultmax=0)
 
 #use swiftbat to create a bat source object
-object_location = swiftbat.simbadlocation(object_name)
+object_location = swiftbat.simbadlocation("Crab")
 object_batsource = swiftbat.source(ra=object_location[0], dec=object_location[1], name=object_name)
 table_everything = ba.from_heasarc(name=None, **queryargs)
 minexposure = 1000     # cm^2 after cos adjust

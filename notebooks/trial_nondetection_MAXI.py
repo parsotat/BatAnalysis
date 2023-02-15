@@ -18,7 +18,7 @@ object_name='MAXI J0637-430'
 queryargs = dict(time="2019-11-01 .. 2020-01-30", fields='All', resultmax=0)
 object_location = swiftbat.simbadlocation(object_name)
 object_batsource = swiftbat.source(ra=object_location[0], dec=object_location[1], name=object_name)
-table_everything = ba.from_heasarc(name=None, **queryargs)
+table_everything = ba.from_heasarc(**queryargs)
 minexposure = 1000     # cm^2 after cos adjust
 exposures = np.array([object_batsource.exposure(ra=row['RA'], dec=row['DEC'], roll=row['ROLL_ANGLE'])[0] for row in table_everything])
 table_exposed = table_everything[exposures > minexposure]
