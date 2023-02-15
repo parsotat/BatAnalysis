@@ -32,7 +32,7 @@ obs_ids=[i for i in table_exposed['OBSID'] if result[i]['success']]
 incat=Path("./custom_catalog.cat")
 
 input_dict=dict(cleansnr=6,cleanexpr='ALWAYS_CLEAN==T', incatalog=f"{incat}", detthresh=8000, detthresh2=8000)
-noise_map_dir=Path("/local/data/bat1raid/tparsota/PATTERN_MAPS/")
+noise_map_dir=Path("/local/data/tparsota/PATTERN_MAPS/")
 batsurvey_obs=ba.parallel.batsurvey_analysis(obs_ids, input_dict=input_dict, patt_noise_dir=noise_map_dir, nprocs=10)
 
 batsurvey_obs=ba.parallel.batspectrum_analysis(batsurvey_obs, object_name, use_cstat=True, nprocs=14)
