@@ -4,7 +4,8 @@ __all__ = [
     'plotting'
     'mosaic'
 ]
-__version__ = '0.0.1'  # make sure this matches the setup.py
+
+from ._version import __version__
 
 from .batobservation import *
 from .batlib import *

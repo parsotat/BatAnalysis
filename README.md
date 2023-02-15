@@ -10,6 +10,9 @@
 ***
 *** To avoid retyping too much info. Do a search and replace for the following:
 *** lazzati-astro, MCRaT, twitter_handle, email, project_title, project_description
+
+
+steps to upload a distribution to PyPi is at: https://stackoverflow.com/questions/1471994/what-is-setup-py
 -->
 
 
