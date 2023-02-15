@@ -128,6 +128,11 @@ class BatSurvey(BatObservation):
         Gets the pha filename list of the sources supplied in id_list and for the pointing ids supplied by pointing_id_list
     set_pha_filenames(file, reset=False)
         Sets the pha filenames attribute or resets it to be an empty list
+    load_source_information(sources)
+        Loads the rates information for a given source from the pointing_flux_files
+    get_count_rate(energy_index, pointing_id, source)
+        Returns the count rate information that is requested for a single (or multiple) energy range(s), a specified
+            pointing ID, and a specified source.
     """
     def __init__(self, obs_id, obs_dir=None, input_dict=None, recalc=False, verbose=False, load_dir=None, patt_noise_dir=None):
         """
@@ -301,6 +306,8 @@ class BatSurvey(BatObservation):
 
                 input_dict_copy['global_pattern_map'] = patt_map_name
                 input_dict_copy['global_pattern_mask'] = patt_mask_name
+                input_dict_copy['cleansnr']=6
+                input_dict_copy['cleanexpr']='ALWAYS_CLEAN==T'
             else:
                 # need to create copy of input dict so we dont overwrite it
                 input_dict_copy = input_dict.copy()
@@ -335,6 +342,13 @@ class BatSurvey(BatObservation):
 
                 if 'global_pattern_mask' not in input_dict_copy or input_dict_copy['global_pattern_mask'] is None:
                     input_dict_copy['global_pattern_mask'] = str(patt_mask_name)
+
+                if 'cleansnr' not in input_dict_copy or input_dict_copy['cleansnr'] is None:
+                    input_dict_copy['cleansnr'] = 6
+
+                if 'cleanexpr' not in input_dict_copy or input_dict_copy['cleanexpr'] is None:
+                    input_dict_copy['cleanexpr'] = 'ALWAYS_CLEAN==T'
+
 
                 # make sure that the output directory exists
                 #if not os.path.isdir(os.path.split(input_dict_copy['outdir'])[0]) and len(os.path.split(input_dict_copy['outdir'])[0])>0:
@@ -941,9 +955,6 @@ class BatSurvey(BatObservation):
         This function loads in all the source information for all the sources that have been specified. This can be done
         once batsurvey has been called. It reads in the pointing id cat file and searches for the source within it.
 
-        NOTE: The source names entered here have to match the name in the catalog. In other methods, they have to match
-        the filename in the merged_pointings_lc
-
         :param sources: A string or a list of strings with source names that is in the catalog that was passed in to the BatSurvey object
         :return: None
         '''
@@ -1026,8 +1037,6 @@ class BatSurvey(BatObservation):
                                            f"\nThere is no source {s} found in the catalog file. Please double check the spelling." \
                                            f"\nThis source may also not be detected in this observation ID/pointing ID"
                                 warnings.warn(warn_str)
-
-
 
     def get_pointing_ids(self):
         return self.pointing_ids
@@ -1157,6 +1166,15 @@ class BatSurvey(BatObservation):
             self.pha_file_names_list=[]
 
     def get_count_rate(self, energy_index, pointing_id, source):
+        """
+        This method returns the count rate information that was previously loaded by a call to the load_source_information
+        method.
+
+        :param energy_index: int or a list of ints that outline which energy channel(s) the user wants to get the counts for
+        :param pointing_id: The pointing ID that the user would like to load the information from
+        :param source: The name of the astrophysical source that the user would like the count information for
+        :return: count rate, standard deviation of the count rate, the SNR of the detection
+        """
 
         rate_array=self.get_pointing_info(pointing_id, source_id=source)["rate"]
         rate_err_array=self.get_pointing_info(pointing_id, source_id=source)["rate_err"]
