@@ -1,5 +1,7 @@
 #problematic obs IDs: 00012012026, 00012172020, 00035344062, 00045604023, 00095400024, 03102102001, 03109915005, 03110367008
 
+#added 00095400025 in test on laptop? not sure why this didnt work
+
 import glob
 import os
 import sys
