@@ -1188,21 +1188,21 @@ class BatSurvey(BatObservation):
                 energy_index = np.array([energy_index])
 
         if len(energy_index)>1:
-            rate_tot = 0.0
-            rate_err_2_tot = 0.0
-            bkg_var_2_tot = 0.0
-            for j in energy_index:
-                rate_num = rate_array[j]
-                rate_err_2 = rate_err_array[j] * rate_err_array[j]
-                bkg_var_2 = bkg_var_array[j] * bkg_var_array[j]
-                rate_tot = rate_tot + rate_num
-                rate_err_2_tot = rate_err_2_tot + rate_err_2
-                bkg_var_2_tot = bkg_var_2_tot + bkg_var_2
+            #rate_tot = 0.0
+            #rate_err_2_tot = 0.0
+            #bkg_var_2_tot = 0.0
+            #for j in energy_index:
+            #    rate_num = rate_array[j]
+            #    rate_err_2 = rate_err_array[j] * rate_err_array[j]
+            #    bkg_var_2 = bkg_var_array[j] * bkg_var_array[j]
+            #    rate_tot = rate_tot + rate_num
+            #    rate_err_2_tot = rate_err_2_tot + rate_err_2
+            #    bkg_var_2_tot = bkg_var_2_tot + bkg_var_2
 
             # the above loop can be vectorized with numpy
-            #rate_tot=np.sum(rate_array[energy_index])
-            #rate_err_2_tot=np.sum(rate_err_array[energy_index]**2)
-            #bkg_var_2_tot = np.sum(bkg_var_array[energy_index] ** 2)
+            rate_tot=np.sum(rate_array[energy_index])
+            rate_err_2_tot=np.sum(rate_err_array[energy_index]**2)
+            bkg_var_2_tot = np.sum(bkg_var_array[energy_index] ** 2)
 
             rate_err_tot = np.sqrt(rate_err_2_tot)
             snr_allband_num = rate_tot / np.sqrt(bkg_var_2_tot)
