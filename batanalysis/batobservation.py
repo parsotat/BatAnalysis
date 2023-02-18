@@ -94,7 +94,7 @@ class BatSurvey(BatObservation):
     pointing_ids : list of strings
         The pointing  ids for the successfully analyzed pointings associated with the analyzed obs_id
     pointing_info : dictionary of dictionaries
-        The encompassed information including MET time, exposure time, flux, etc for each pointing in a observation id
+        The encompassed information including MET time, exposure time, etc for each pointing in a observation id
         Can be access as pointing_info[pointing_id]["key"]. This also includes poining IDs that failed to be analyzed
         and includes their reason for failure.
     channel : list
@@ -1275,6 +1275,64 @@ class BatSurvey(BatObservation):
 
 
 class MosaicBatSurvey(BatSurvey):
+    """
+       A general Bat Survey Mosaic object that holds all information necessary to analyze Bat survey moaic image that
+       has already been created.
+
+       Attributes
+       ---------------
+       result_dir : str
+           The directory that holds the output of the user requested time bin mosaic calculation (ie the mosaic image
+           and its asociated data products)
+       pointing_flux_files : list of strings
+           A list of the source catalog files created by heasoftpy batcelldetect for the specified source catalog and
+           mosaic image
+       pointing_ids : list of strings
+           The pointing  ids for the successfully analyzed pointings associated with the analyzed user defined mosaic
+           time bin. This is just set as 'mosaic'
+       pointing_info : dictionary of dictionaries
+           The encompassed information including MET time, exposure time, etc for each pointing in a mosaic image
+           Can be access as pointing_info[pointing_id]["key"]. These values are not necessarily equal to the user defined
+           parameters for the creation of the mosaic image.
+       channel : list
+           List of the channel number for the survey data energy channels
+       emin : list
+           List of the energy lower limits for the survey data energy channels
+       emax : list
+           List of the energy upper limits for the survey data energy channels
+       syserr : list
+           List of the systematic errors associated with each energy channel
+
+       Methods
+       ---------------
+       load(f):
+           Load a MosaicBatSurvey object
+       save():
+           Saves a MosaicBatSurvey object
+       merge_pointings(input_dict=None, verbose=False):
+           Merges the counts from multiple pointings found within an observation ID dataset
+       calculate_pha(id_list=None, output_dir=None, calc_upper_lim=False, bkg_nsigma=None, verbose=True, clean_dir=False, single_pointing=None):
+           Calculates the PHA file for each source found in the mosaic image
+       load_source_information(sources):
+           Loads the count rate, background variance, and snr from the .cat file produced by batcelldetect for the sources of interest
+       get_pointing_ids():
+           Returns the pointing ids in the observation ID
+       get_pointing_info(pointing_id, source_id=None)
+           Gets the dictionary of information associated with the specified pointing id and source id if specified
+       set_pointing_info(pointing_id, key, value, source_id=None)
+           Sets the key/value pair for the dictionary of information associated with the specified pointing id and source, if the source_id is specified
+       get_pha_filenames(id_list=None, pointing_id_list=None)
+           Gets the pha filename list of the sources supplied in id_list and for the pointing ids supplied by pointing_id_list
+       set_pha_filenames(file, reset=False)
+           Sets the pha filenames attribute or resets it to be an empty list
+       load_source_information(sources)
+           Loads the rates information for a given source from the pointing_flux_files
+       get_count_rate(energy_index, pointing_id, source)
+           Returns the count rate information that is requested for a single (or multiple) energy range(s), a specified
+               pointing ID, and a specified source.
+        detect_sources(catalog_file=None, input_dict=None)
+            Calls batcelldetect to detect sources in the mosaic image that is encompassed by a given MosaicBatSurvey object
+    """
     def __init__(self, mosaic_dir, recalc=False, load_dir=None):
         """
         Initializer method for the MosaicBatSurvey object.
