@@ -28,7 +28,7 @@ print(f"Finding everything finds {len(table_everything)} observations, of which 
 obs_ids=[i for i in table_exposed['OBSID'] if result[i]['success']]
 
 #The below excluded observation IDs had too few detectors which led to batcelldetect not being able to analyze the background variance within certain energy bins. This led to batsurvey being stuck when analyzing these observation IDs. 
-#obs_ids=[i.name for i in sorted(ba.datadir().glob("*")) if i.name.isnumeric() and i.name not in ["00012012026", "00012172020", "00035344062", "00045604023", "00095400024", "03102102001", "03109915005", "03110367008"]]
+#obs_ids=[i.name for i in sorted(ba.datadir().glob("*")) if i.name.isnumeric() and i.name not in ["00012012026", "00012172020", "00035344062", "00045604023", "00095400024", "03102102001", "03109915005", "03110367008", "00095400025"]]
 
 #incat=ba.create_custom_catalog(object_name, 99.09830, -42.86781 ,251.51841, -20.67087)
 incat=Path("./custom_catalog.cat")
