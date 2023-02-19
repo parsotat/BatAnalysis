@@ -697,7 +697,9 @@ def write_mosaic(img, header, filename_base, emin=[14.0, 20.0, 24.0, 35.0, 50.0,
         with fits.open(str(ra_file)) as file:
             skygrid_header=file[0].header
 
-        skygrid_header.remove('DATE') #get rid of this old date
+        # get rid of this old date in the old skyfacets. Now that we create them when batanalysis is imported for the first
+        # time ever, the created files dont have this header value
+        #skygrid_header.remove('DATE')
         total_header=header+add_header+skygrid_header
         total_header['BSKYPLAN']=(string, 'BAT mosaic ZEA sky plane ID (0-5)')
 
