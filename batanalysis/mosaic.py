@@ -1499,6 +1499,7 @@ def merge_mosaics(intermediate_mosaic_dir_list, savedir=None):
 
 package_data_dir=Path(__file__).parent.joinpath("data")
 files=sorted(package_data_dir.glob('*_ZEA.img'))
+#the 2*_nskyimg is for the fact that we need skyfacets for RA and for Dec
 if (len(files) < 2*_nskyimg):
     print("Initalizing the BatAnalaysis package")
     make_skygrids()

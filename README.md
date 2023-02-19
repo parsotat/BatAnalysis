@@ -138,17 +138,18 @@ version after building HEASoft. More information can be found here: [https://hea
 
 ### Installation
 
-1. Clone the repo
-   ```sh
-   git clone https://github.com/parsotat/BatAnalysis.git
-   ```
-2. Install the BatAnalysis package
+1a. Install the BatAnalysis package with Pip
    ```sh
    pip install batanalysis
-   OR 
+   ```
+
+1b. Clone the repo and install 
+   ```sh
+   git clone https://github.com/parsotat/BatAnalysis.git
    cd BatAnalysis/
    pip install -e .
    ```
+
 
 <!-- USAGE EXAMPLES -->
 ## Usage
@@ -169,8 +170,7 @@ The typical BatAnalysis workflow is as follows:
 11. Calculate the light curve of the source from the mosaiced images
 12. Plot the light curve/spectral information for the mosaiced images
 
-Following these steps for the first 5 survey observation IDs for the Crab:
-_This still needs to be tested_
+Following these steps for the first 5 survey observation IDs for the Crab (although see the notebooks directory for recommended analysis steps):
 ```sh
 import batanalysis as ba
 import swiftbat
@@ -206,7 +206,7 @@ ba.plot_survey_lc(mosaic_list, id_list=catalog_name, calc_lc=True)
 
 ```
 
-_For more details and additional examples please refer to the [Notebooks](https://github.com/parsotat/BatAnalysis/tree/master/Doc) directory_
+_For more details and additional examples please refer to the [Notebooks](https://github.com/parsotat/BatAnalysis/tree/main/notebooks) directory_
 
 
 <!-- ROADMAP -->
@@ -243,7 +243,7 @@ Distributed under the MIT License. See `LICENSE` for more information.
 
 Tyler Parsotan - [Personal Website](https://asd.gsfc.nasa.gov/Tyler.Parsotan/) - parsotat@umbc.edu
 
-Project Link: [https://github.com/https://github.com/parsotat/BatAnalysis.git](https://github.com/parsotat/BatAnalysis.git)
+Project Link: [https://github.com/parsotat/BatAnalysis.git](https://github.com/parsotat/BatAnalysis.git)
 
 
 
