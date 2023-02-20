@@ -10,6 +10,7 @@ from astropy.time import Time, TimeDelta
 from astropy.io import fits
 from pathlib import Path
 import swiftbat
+import swiftbat.swutil as sbu
 import pickle
 from matplotlib import ticker
 

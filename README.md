@@ -140,7 +140,7 @@ version after building HEASoft. More information can be found here: [https://hea
 
 1a. Install the BatAnalysis package with Pip
    ```sh
-   pip install batanalysis
+   pip install BatAnalysis
    ```
 
 1b. Clone the repo and install 
