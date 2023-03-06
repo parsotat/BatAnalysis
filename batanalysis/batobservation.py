@@ -1624,7 +1624,7 @@ class MosaicBatSurvey(BatSurvey):
                 # make pha file
                 # write count_rate in each band to an pha file, exclude the 14-195 count
                 spec_col1 = fits.Column(name='CHANNEL', format='I', array=self.channel)
-                spec_col2 = fits.Column(name='RATE', format='E', unit='count/s/pixel', array=count_rate_array[0][:-1])
+                spec_col2 = fits.Column(name='RATE', format='E', unit='count/s/pixel', array=scale*count_rate_array[0][:-1])
                 spec_col3 = fits.Column(name='STAT_ERR', format='E', unit='count/s/pixel', array=count_rate_err_array[0][:-1])
 
                 ebound_col1 = fits.Column(name='CHANNEL', format='1I', unit='', array=self.channel)
