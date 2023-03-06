@@ -483,7 +483,7 @@ def fit_spectrum(phafilename,surveyobservation, plotting=True, generic_model=Non
     # Define model
 
     if generic_model is not None:  #User provides a string of model, and a Dictionary for the initial values
-        if np.type(generic_model) is str:
+        if type(generic_model) is str:
 
             if "cflux" in generic_model: #The user must provide the cflux, or else we will not be able to predict of there is a statistical detection (in the next function).
 	    

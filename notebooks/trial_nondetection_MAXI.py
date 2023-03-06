@@ -84,8 +84,8 @@ for observation_list in survey_obsid_list:
             t0 = TimeDelta(data["user_timebin/met_time"], format='sec')
             tf = TimeDelta(data["user_timebin/met_stop_time"], format='sec')
         elif "MJD" in time_unit:
-            t0 = Time(data[time_str_start], format='mjd')
-            tf = Time(data[time_str_end], format='mjd')
+            t0 = Time(data["user_timebin/utc_time"]).mjd
+            tf = Time(data["user_timebin/utc_stop_time"]).mjd
         else:
             t0 = Time(data["user_timebin/utc_time"])
             tf = Time(data["user_timebin/utc_stop_time"])
@@ -93,10 +93,14 @@ for observation_list in survey_obsid_list:
         if "MET" in time_unit:
             t0 = TimeDelta(data["met_time"], format='sec')
         elif "MJD" in time_unit:
-            t0 = Time(data[time_str_start], format='mjd')
+            t0 = Time(data["utc_time"]).mjd
         else:
             t0 = Time(data["utc_time"])
-        tf = t0 + TimeDelta(data["exposure"], format='sec')
+        
+        if "MJD" in time_unit:
+            tf = t0 + TimeDelta(data["exposure"], format='sec').jd
+        else:
+            tf = t0 + TimeDelta(data["exposure"], format='sec')
 
     dt = tf - t0
 
@@ -104,10 +108,15 @@ for observation_list in survey_obsid_list:
         time_center = 0.5 * (tf + t0).value
         time_diff = 0.5 * (tf - t0).value
     elif "MJD" in time_unit:
-        time_diff = 0.5 * (tf - t0)
-        time_center = t0 + time_diff
-        time_center = time_center.value
-        time_diff = time_diff.value
+        if "mosaic" in observation_list:
+            time_diff = 0.5 * (tf - t0)
+            time_center = t0 + time_diff
+
+            time_center = time_center
+            time_diff = time_diff
+        else:
+            time_center = 0.5 * (tf + t0)
+            time_diff = 0.5 * (tf - t0)
 
     else:
         time_diff = TimeDelta(0.5 * dt)  # dt.to_value('datetime')

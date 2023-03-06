@@ -75,6 +75,10 @@ outventory_file_weekly=ba.merge_outventory(batsurvey_obs, savedir=Path('./weekly
 time_bins_weekly=ba.group_outventory(outventory_file_weekly, np.timedelta64(1, "W"), start_datetime=Time("2004-12-01"), end_datetime=Time("2006-10-27"))
 weekly_mosaic_list, weekly_total_mosaic=ba.parallel.batmosaic_analysis(batsurvey_obs, outventory_file_weekly, time_bins_weekly, nprocs=8)
 
+weekly_mosaic_list=ba.parallel.batspectrum_analysis(weekly_mosaic_list, object_name, recalc=True,nprocs=11)
+weekly_total_mosaic=ba.parallel.batspectrum_analysis(weekly_total_mosaic, object_name, recalc=True,nprocs=1)
+
+
 #look at the results preliminarily
 fig, axes=ba.plot_survey_lc(mosaic_list, id_list=object_name, time_unit="UTC", values=["rate","snr", "flux", "PhoIndex", "exposure"], calc_lc=True)
 
