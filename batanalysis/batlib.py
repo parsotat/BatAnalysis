@@ -694,9 +694,9 @@ def calculate_detection(surveyobservation,source_id, nsigma=3,bkg_nsigma=5, plot
             fluxerr_lolim = model["lolim"]  # .cflux.lg10Flux.error[0]      #Error
             fluxerr_uplim = model["hilim"]  # .cflux.lg10Flux.error[1]
 
-            print('The condition here is', (flux), nsigma, fluxerr_uplim,
-                  (10 ** flux) - nsigma * (10 ** (fluxerr_uplim - flux)))
             avg_flux_err = 0.5 * (((10 ** fluxerr_uplim) - (10 ** flux)) + ((10 ** flux) - (10 ** fluxerr_lolim)))
+            print('The condition here is', 10**(flux),[10**fluxerr_lolim, 10**fluxerr_uplim], nsigma, avg_flux_err, ((10**flux) - nsigma * avg_flux_err))
+
 
             #check the errors for any issues:
             if "T" in model["errflag"]:
