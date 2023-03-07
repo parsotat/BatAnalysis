@@ -91,7 +91,7 @@ def batsurvey_analysis(obs_id_list, input_dict=None, recalc=False, load_dir=None
     return final_obs
 
 def _spectrum_analysis(obs, source_name, recalc=False, generic_model=None,setPars=None, fit_iterations=1000, \
-                       use_cstat=False, nsigma=3,bkg_nsigma=5):
+                       use_cstat=True, nsigma=3,bkg_nsigma=5):
     """
     Calculate and fit a spectrum for a source at a single pointing.
 
@@ -176,7 +176,7 @@ def _spectrum_analysis(obs, source_name, recalc=False, generic_model=None,setPar
     return obs
 
 def batspectrum_analysis(batsurvey_obs_list, source_name, recalc=False, generic_model=None,setPars=None, \
-                         fit_iterations=1000, use_cstat=False, nsigma=3,bkg_nsigma=5, nprocs=1):
+                         fit_iterations=1000, use_cstat=True, nsigma=3,bkg_nsigma=5, nprocs=1):
     """
     Calculates and fits the spectra for a single source across many BAT Survey observations in parallel.
 
