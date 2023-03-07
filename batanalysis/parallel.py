@@ -90,8 +90,8 @@ def batsurvey_analysis(obs_id_list, input_dict=None, recalc=False, load_dir=None
 
     return final_obs
 
-def _spectrum_analysis(obs, source_name, recalc=False, generic_model=None,setPars=None, fit_iterations=1000, \
-                       use_cstat=True, nsigma=3,bkg_nsigma=5):
+def _spectrum_analysis(obs, source_name, recalc=False, generic_model=None, setPars=None, fit_iterations=1000, \
+                       use_cstat=True, ul_pl_index=2, nsigma=3,bkg_nsigma=5):
     """
     Calculate and fit a spectrum for a source at a single pointing.
 
@@ -161,7 +161,7 @@ def _spectrum_analysis(obs, source_name, recalc=False, generic_model=None,setPar
                 for pha in pha_list:
                     fit_spectrum(pha, obs, use_cstat=use_cstat, plotting=False, verbose=False, generic_model=generic_model,setPars=setPars, fit_iterations=fit_iterations)
 
-                calculate_detection(obs, source_name, nsigma=nsigma,bkg_nsigma=bkg_nsigma, verbose=False)
+                calculate_detection(obs, source_name, pl_index=ul_pl_index, nsigma=nsigma,bkg_nsigma=bkg_nsigma, verbose=False)
                 obs.save()
             else:
                 print(f"The source {source_name} was not found in the image and thus does not have a PHA file to analyze.")
@@ -176,7 +176,7 @@ def _spectrum_analysis(obs, source_name, recalc=False, generic_model=None,setPar
     return obs
 
 def batspectrum_analysis(batsurvey_obs_list, source_name, recalc=False, generic_model=None,setPars=None, \
-                         fit_iterations=1000, use_cstat=True, nsigma=3,bkg_nsigma=5, nprocs=1):
+                         fit_iterations=1000, use_cstat=True, ul_pl_index=2, nsigma=3,bkg_nsigma=5, nprocs=1):
     """
     Calculates and fits the spectra for a single source across many BAT Survey observations in parallel.
 
@@ -211,7 +211,7 @@ def batspectrum_analysis(batsurvey_obs_list, source_name, recalc=False, generic_
 
     obs=Parallel(n_jobs=nprocs)(
         delayed(_spectrum_analysis)(i, source_name=source_name, recalc=recalc, use_cstat=use_cstat, generic_model=generic_model,\
-                                    setPars=setPars, fit_iterations=fit_iterations, nsigma=nsigma,bkg_nsigma=bkg_nsigma) for i in batsurvey_obs_list)
+                                    setPars=setPars, fit_iterations=fit_iterations, ul_pl_index=ul_pl_index, nsigma=nsigma,bkg_nsigma=bkg_nsigma) for i in batsurvey_obs_list)
 
     #if this wasnt a list, just return the single object otherwise return the list
     if not_list:

@@ -67,7 +67,7 @@ time_bins=ba.group_outventory(outventory_file, np.timedelta64(1, "M"), end_datet
 #do the parallel construction of each mosaic for each time bin
 mosaic_list, total_mosaic=ba.parallel.batmosaic_analysis(batsurvey_obs, outventory_file, time_bins, nprocs=8)
 
-mosaic_list=ba.parallel.batspectrum_analysis(mosaic_list, object_name, recalc=True,nprocs=11)
+mosaic_list=ba.parallel.batspectrum_analysis(mosaic_list, object_name, use_cstat=True, recalc=True,nprocs=11)
 total_mosaic=ba.parallel.batspectrum_analysis(total_mosaic, object_name, recalc=True,nprocs=1)
 
 #bin into weekly cadence too

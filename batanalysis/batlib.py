@@ -616,7 +616,7 @@ def fit_spectrum(phafilename,surveyobservation, plotting=True, generic_model=Non
 
     #return flux, (fluxerr_lolim, fluxerr_hilim), pyxspec_error_string
 
-def calculate_detection(surveyobservation,source_id, nsigma=3,bkg_nsigma=5, plot_fit=False,verbose=True):
+def calculate_detection(surveyobservation,source_id, pl_index=2, nsigma=3,bkg_nsigma=5, plot_fit=False,verbose=True):
     """
     This function uses the fitting function and statistically checks if there is any significant detection (at a specfied confidence).
     If there is no detection, then the function re-calculates the PHA with a bkg_nsigma times the background to calculate the 
@@ -741,7 +741,7 @@ def calculate_detection(surveyobservation,source_id, nsigma=3,bkg_nsigma=5, plot
             #p1.values = 15  # already frozen
             #p2.values = 150  # already frozen
             p4.frozen = True
-            p4.values=1
+            p4.values = pl_index
             p5.values = 0.001
             p5.frozen = False
 
