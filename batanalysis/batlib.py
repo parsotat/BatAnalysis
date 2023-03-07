@@ -730,6 +730,8 @@ def calculate_detection(surveyobservation,source_id, pl_index=2, nsigma=3,bkg_ns
 
             s = xsp.Spectrum(bkgnsigma_upper_limit_pha_file)
 
+            xsp.Fit.statMethod = "cstat"
+
             model = xsp.Model("po")
             #p1 = m1(1)  # cflux      Emin = 15 keV
             #p2 = m1(2)  # cflux      Emax = 150 keV
