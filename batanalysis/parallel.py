@@ -109,6 +109,7 @@ def _spectrum_analysis(obs, source_name, recalc=False, generic_model=None, setPa
     :param use_cstat: boolean, default False, to determine if CSTAT statistics should be used. In very bright sources,
         with lots of counts this should be set to False. For sources with small counts where the errors are not expected
         to be gaussian, this should be set to True.
+    :param ul_pl_index: Float (default 2) denoting the power law photon index that will be used to obtain a flux upper limit
     :param nsigma: Integer, denoting the number for sigma the user needs to justify a detection
     :param bkg_nsigma: Integer, denoting the number of sigma the user needs to to calculate flux upper limit in case of a non detection.
 
@@ -195,6 +196,7 @@ def batspectrum_analysis(batsurvey_obs_list, source_name, recalc=False, generic_
     :param use_cstat: boolean, default False, to determine if CSTAT statistics should be used. In very bright sources,
         with lots of counts this should be set to False. For sources with small counts where the errors are not expected
         to be gaussian, this should be set to True.
+    :param ul_pl_index: Float (default 2) denoting the power law photon index that will be used to obtain a flux upper limit
     :param nsigma: Integer, denoting the number for sigma the user needs to justify a detection
     :param bkg_nsigma: Integer, denoting the number of sigma the user needs to to calculate flux upper limit in case of a non detection.
     :param nprocs: The number of processes that will be run simulaneously. This number should not be larger than the

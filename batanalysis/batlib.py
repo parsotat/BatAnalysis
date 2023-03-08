@@ -639,6 +639,7 @@ def calculate_detection(surveyobservation,source_id, pl_index=2, nsigma=3,bkg_ns
 
     :param surveyobservation: Object denoting the batsurvey observation object which contains all the necessary information related to this observation.
     :param source_id: String denoting the source name exactly as that in the phafilename.
+    :param pl_index: Float (default 2) denoting the power law photon index that will be used to obtain a flux upper limit
     :param nsigma: Integer, denoting the number fo sigma the user needs to justify a detection
     :param bkg_nsigma: Integer, denoting the number of sigma the user needs to to calculate flux upper limit in case of a non detection.
     :param verbose: Boolean to show every output during the fitting process. Set to True by default, that'll help the user to identify any issues with the fits.
@@ -749,7 +750,7 @@ def calculate_detection(surveyobservation,source_id, pl_index=2, nsigma=3,bkg_ns
 
             if verbose:
                 print("******************************************************")
-                print("Fitting the 5 times bkg of the spectrum ",bkgnsigma_upper_limit_pha_file)
+                print(f"Fitting the {bkg_nsigma} times bkg of the spectrum {bkgnsigma_upper_limit_pha_file}")
 
             xsp.Fit.nIterations = 100
             xsp.Fit.perform()

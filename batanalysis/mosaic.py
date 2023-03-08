@@ -864,7 +864,6 @@ def finalize_mosaic(intermediate_mosaic_directory):
         var_file.close()
 
 
-
 def create_mosaics(outventory_file, time_bins, survey_list, catalog_file=None, total_mosaic_savedir=None, recalc=False, verbose=True):
     """
     Creates the mosaiced images for specified time bins and a total mosaic image that is "time-integrated" across all
