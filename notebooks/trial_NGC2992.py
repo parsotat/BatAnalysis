@@ -32,15 +32,15 @@ obs_ids=[i for i in table_exposed['OBSID'] if result[i]['success']]
 noise_map_dir=Path("/local/data/tparsota/PATTERN_MAPS/")
 batsurvey_obs=ba.parallel.batsurvey_analysis(obs_ids, patt_noise_dir=noise_map_dir, nprocs=30)
 
-batsurvey_obs=ba.parallel.batspectrum_analysis(batsurvey_obs, object_name, use_cstat=True, nprocs=30)
+batsurvey_obs=ba.parallel.batspectrum_analysis(batsurvey_obs, object_name,  ul_pl_index=1.9, use_cstat=True, nprocs=30)
 
 outventory_file=ba.merge_outventory(batsurvey_obs)
 time_bins=ba.group_outventory(outventory_file, np.timedelta64(1, "M"), start_datetime=Time("2004-12-15"), end_datetime=Time("2005-12-16"))
 
 mosaic_list, total_mosaic=ba.parallel.batmosaic_analysis(batsurvey_obs, outventory_file, time_bins, nprocs=3)
 
-mosaic_list=ba.parallel.batspectrum_analysis(mosaic_list, object_name, use_cstat=True, nprocs=5)
-total_mosaic=ba.parallel.batspectrum_analysis(total_mosaic, object_name, use_cstat=True, nprocs=1)
+mosaic_list=ba.parallel.batspectrum_analysis(mosaic_list, object_name, ul_pl_index=1.9, use_cstat=True, nprocs=5)
+total_mosaic=ba.parallel.batspectrum_analysis(total_mosaic, object_name, ul_pl_index=1.9, use_cstat=True, nprocs=1)
 
 fig, axes=ba.plot_survey_lc([batsurvey_obs,mosaic_list], id_list= object_name, time_unit="UTC", values=["rate","snr", "flux", "PhoIndex", "exposure"], same_figure=True)
 
