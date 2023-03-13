@@ -1,3 +1,5 @@
+#Warning: running this script as is will produce ~2.5 TB of data. Make sure that your computer has this much storage, otherwise you can simply run part of this analysis
+
 import glob
 import os
 import sys
@@ -50,7 +52,7 @@ batsurvey_obs=ba.parallel.batsurvey_analysis(obs_ids, input_dict=input_dict, pat
 
 #creat the pha files and the appropriate rsp file in parallel.
 #use xspec to fit each spectrum with a default powerlaw spectrum
-batsurvey_obs=ba.parallel.batspectrum_analysis(batsurvey_obs, object_name, recalc=True,nprocs=14)
+batsurvey_obs=ba.parallel.batspectrum_analysis(batsurvey_obs, object_name, ul_pl_index=2.15, recalc=True,nprocs=14)
 
 #plot the snapshot pointing values of rate, snr, and the fitted flux and photon index
 fig, axes=ba.plot_survey_lc(batsurvey_obs, id_list=object_name, time_unit="UTC", values=["rate","snr", "flux", "PhoIndex", "exposure"], calc_lc=True)
@@ -67,16 +69,16 @@ time_bins=ba.group_outventory(outventory_file, np.timedelta64(1, "M"), end_datet
 #do the parallel construction of each mosaic for each time bin
 mosaic_list, total_mosaic=ba.parallel.batmosaic_analysis(batsurvey_obs, outventory_file, time_bins, nprocs=8)
 
-mosaic_list=ba.parallel.batspectrum_analysis(mosaic_list, object_name, use_cstat=True, recalc=True,nprocs=11)
-total_mosaic=ba.parallel.batspectrum_analysis(total_mosaic, object_name, recalc=True,nprocs=1)
+mosaic_list=ba.parallel.batspectrum_analysis(mosaic_list, object_name, recalc=True,nprocs=11)
+total_mosaic=ba.parallel.batspectrum_analysis(total_mosaic, object_name, use_cstat=False, recalc=True, nprocs=1)
 
 #bin into weekly cadence too
 outventory_file_weekly=ba.merge_outventory(batsurvey_obs, savedir=Path('./weekly_mosaiced_surveyresults/'))
 time_bins_weekly=ba.group_outventory(outventory_file_weekly, np.timedelta64(1, "W"), start_datetime=Time("2004-12-01"), end_datetime=Time("2006-10-27"))
 weekly_mosaic_list, weekly_total_mosaic=ba.parallel.batmosaic_analysis(batsurvey_obs, outventory_file_weekly, time_bins_weekly, nprocs=8)
 
-weekly_mosaic_list=ba.parallel.batspectrum_analysis(weekly_mosaic_list, object_name, recalc=True, use_cstat=True, nprocs=11)
-weekly_total_mosaic=ba.parallel.batspectrum_analysis(weekly_total_mosaic, object_name, recalc=True,nprocs=1)
+weekly_mosaic_list=ba.parallel.batspectrum_analysis(weekly_mosaic_list, object_name, recalc=True, nprocs=11)
+weekly_total_mosaic=ba.parallel.batspectrum_analysis(weekly_total_mosaic, object_name, recalc=True, use_cstat=False, nprocs=1)
 
 
 #look at the results preliminarily
