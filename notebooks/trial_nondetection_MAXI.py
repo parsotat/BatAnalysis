@@ -1,4 +1,4 @@
-
+#Running this script can produce ~330 GB of data in total. Please make sure that you have enough storage on your computer.
 import glob
 import os
 import sys
@@ -37,15 +37,15 @@ input_dict=dict(cleansnr=6,cleanexpr='ALWAYS_CLEAN==T', incatalog=f"{incat}", de
 noise_map_dir=Path("/local/data/tparsota/PATTERN_MAPS/")
 batsurvey_obs=ba.parallel.batsurvey_analysis(obs_ids, input_dict=input_dict, patt_noise_dir=noise_map_dir, nprocs=10)
 
-batsurvey_obs=ba.parallel.batspectrum_analysis(batsurvey_obs, object_name, use_cstat=True, nprocs=14)
+batsurvey_obs=ba.parallel.batspectrum_analysis(batsurvey_obs, object_name, use_cstat=True, ul_pl_index=2, nprocs=14)
 
 
 outventory_file=ba.merge_outventory(batsurvey_obs)
 time_bins=ba.group_outventory(outventory_file, np.timedelta64(1, "W"))
 mosaic_list, total_mosaic=ba.parallel.batmosaic_analysis(batsurvey_obs, outventory_file, time_bins, catalog_file=incat, nprocs=3)
 
-mosaic_list=ba.parallel.batspectrum_analysis(mosaic_list, object_name, use_cstat=True,recalc=True,nprocs=5)
-total_mosaic=ba.parallel.batspectrum_analysis(total_mosaic, object_name, use_cstat=True, recalc=True,nprocs=1)
+mosaic_list=ba.parallel.batspectrum_analysis(mosaic_list, object_name, use_cstat=True, ul_pl_index=2, recalc=True,nprocs=5)
+total_mosaic=ba.parallel.batspectrum_analysis(total_mosaic, object_name, use_cstat=True, ul_pl_index=2, recalc=True,nprocs=1)
 
 #take a look at the data quickly
 fig, axes=ba.plot_survey_lc([batsurvey_obs,mosaic_list], id_list= object_name, time_unit="UTC", values=["rate","snr", "flux", "PhoIndex", "exposure"], same_figure=True)
