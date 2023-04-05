@@ -5,7 +5,7 @@ import os
 
 from .batlib import dirtest, datadir, calc_response, calculate_detection, fit_spectrum, download_swiftdata
 from .batlib import combine_survey_lc as serial_combine_survey_lc
-from .batobservation import MosaicBatSurvey, BatSurvey
+from .bat_survey import MosaicBatSurvey, BatSurvey
 from .mosaic import _mosaic_loop, merge_mosaics, finalize_mosaic, read_correctionsmap, read_skygrids
 
 from joblib import Parallel, delayed

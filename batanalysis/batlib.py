@@ -979,7 +979,7 @@ def download_swiftdata(table,  reload=False,
                         bat=True, auxil=True, log=False, uvot=False, xrt=False, tdrss=True,
                         save_dir=None, **kwargs) -> dict:
     """
-    Downloads swift data from heasarc.
+    Downloads swift data from heasarc. To download
 
     :param table: A astropy query table with OBSIDs, or a list of OBSIDs, that the user would like to download
     :param reload: load even if the data is already in the save_dir
@@ -993,6 +993,13 @@ def download_swiftdata(table,  reload=False,
     :param kwargs: passed to swifttools.swift_too.Data
     :return: dict{obsid: {obsoutdir:..., success:..., loaded:..., [, datafiles:swtoo.Data][, ]}
     """
+
+    # for GRBs do eg. object_name='GRB220715B', mission="swiftmastr"
+    # table = heasarc.query_object(object_name, mission=mission, sortvar="START_TIME")
+    # The first entry in the table should be the TTE data observation ID, from when the GRB was triggered, want to
+    # download the 0 segment. (Can download others for different survey analyses etc)
+    # Can also query mission="swifttdrss" and get the GRB target ID and just download the obs_id=str(Target ID)+'000'
+
     results = {}
     if save_dir is None:
         save_dir = datadir()

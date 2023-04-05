@@ -3,7 +3,7 @@ This file is meant to hold the functions that allow users to create mosaic-ed im
 '''
 import calendar
 from .batlib import dirtest, curdir, met2utc
-from .batobservation import MosaicBatSurvey
+from .bat_survey import MosaicBatSurvey
 import numpy as np
 from astropy.time import Time
 import os
