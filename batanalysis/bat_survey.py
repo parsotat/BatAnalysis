@@ -148,7 +148,7 @@ class BatSurvey(BatObservation):
         # .batsurveycomplete file (this is produced only if the batsurvey calculation was completely finished, and thus
         # know that we can safely load the batsurvey.pickle file)
         if not recalc and load_dir is None:
-            load_dir = sorted(self.obs_dir.parent.glob(obs_id + '_*'))
+            load_dir = sorted(self.obs_dir.parent.glob(obs_id + '_survey*'))
 
             # see if there are any _surveyresult dir or anything otherwise just use obs_dir as a place holder
             if len(load_dir) > 0:
@@ -156,7 +156,7 @@ class BatSurvey(BatObservation):
             else:
                 load_dir = self.obs_dir
         elif not recalc and load_dir is not None:
-            load_dir_test = sorted(Path(load_dir).glob(obs_id + '_*'))
+            load_dir_test = sorted(Path(load_dir).glob(obs_id + '_survey*'))
             # see if there are any _surveyresult dir or anything otherwise just use load_dir as a place holder
             if len(load_dir_test) > 0:
                 load_dir = load_dir_test[0]
