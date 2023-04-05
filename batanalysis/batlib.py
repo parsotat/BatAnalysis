@@ -976,7 +976,7 @@ def print_parameters(obs_list, source_id, values=["met_time","utc_time", "exposu
 
 
 def download_swiftdata(table,  reload=False,
-                        bat=True, auxil=True, log=False, uvot=False, xrt=False,
+                        bat=True, auxil=True, log=False, uvot=False, xrt=False, tdrss=True,
                         save_dir=None, **kwargs) -> dict:
     """
     Downloads swift data from heasarc.
@@ -988,6 +988,7 @@ def download_swiftdata(table,  reload=False,
     :param log: load the log data   (mostly diagnostic, defaults to false)
     :param uvot: load the uvot data (high volume, defaults to false)
     :param xrt: load the xrt data (high volume, defaults to false)
+    :param tdrss: load the tdrss data (necessary for triggered BAT event data, defaults to True)
     :param save_dir: The output directory where the observation ID directories will be saved
     :param kwargs: passed to swifttools.swift_too.Data
     :return: dict{obsid: {obsoutdir:..., success:..., loaded:..., [, datafiles:swtoo.Data][, ]}
@@ -1022,7 +1023,7 @@ def download_swiftdata(table,  reload=False,
         try:
             clobber = reload or quicklookfile.exists()
             data = swtoo.Data(obsid=obsid, clobber=clobber,
-                            bat=bat, log=log, auxil=auxil, uvot=uvot, xrt=xrt,
+                            bat=bat, log=log, auxil=auxil, uvot=uvot, xrt=xrt, tdrss=tdrss,
                             outdir=str(save_dir), **kwargs)
             result['data'] = data
             if data.quicklook:  # Mark the directory as quicklook
