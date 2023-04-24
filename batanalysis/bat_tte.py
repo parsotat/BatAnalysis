@@ -94,6 +94,7 @@ class BatEvent(BatObservation):
             detector_quality_file=list(self.obs_dir.joinpath("bat").joinpath("hk").glob('*bdqcb*'))
             event_file=list(self.obs_dir.joinpath("bat").joinpath("event").glob('*bevsh*_uf*'))
             attitude_file=list(self.obs_dir.joinpath("auxil").glob('*sat.*'))
+            tdrss_files=list(self.obs_dir.joinpath("tdrss").glob('*msb*.fits*'))
 
             #make sure that there is only 1 attitude file
             if len(attitude_file)>1:
@@ -104,26 +105,29 @@ class BatEvent(BatObservation):
 
             #make sure that there is at least one event file
             if len(event_file)<1:
-                raise FileNotFoundError("There seem to be no event files for this trigger with observation ID \
+                raise FileNotFoundError(f"There seem to be no event files for this trigger with observation ID \
                 {self.obs_id} located at {self.obs_dir}. This file is necessary for the remaining processing.")
 
             #make sure that we have an enable disable map
             if len(enable_disable_file) < 1:
-                raise FileNotFoundError("There seem to be no detector enable/disable file for this trigger with observation ID \
+                raise FileNotFoundError(f"There seem to be no detector enable/disable file for this trigger with observation ID \
                 {self.obs_id} located at {self.obs_dir}. This file is necessary for the remaining processing.")
 
             #make sure that we have a detector quality map
             if len(detector_quality_file) < 1:
                 if verbose:
-                    print("There seem to be no detector quality file for this trigger with observation ID \
+                    print(f"There seem to be no detector quality file for this trigger with observation ID \
                 {self.obs_id} located at {self.obs_dir}. This file is necessary for the remaining processing.")
-                #need to create this map
-                self.create_detector_quality_map()
+                raise FileNotFoundError(f"There seem to be no detector quality file for this trigger with observation ID \
+                                {self.obs_id} located at {self.obs_dir}. This file is necessary for the remaining processing.")
+                #need to create this map can get to this if necessary, TODO improve on this later
+                #self.create_detector_quality_map()
 
+            #get the relevant information from the event file/TDRSS file
 
-
+            #see if the event data has been energy calibrated
             if verbose:
-                print('Checking to see if the event file has been energy corrected.')
+                print('Checking to see if the event file has been energy calibrated.')
 
             #look at the header of the event file(s) and see if they have:
             # GAINAPP =                 T / Gain correction has been applied
@@ -132,7 +136,7 @@ class BatEvent(BatObservation):
                 hdr=file['EVENTS'].header
             if not hdr["GAINAPP"] or  "FIXEDDAC" not in hdr["GAINMETH"]:
                 #need to run the energy conversion even though this should have been done by ground software
-                raise AttributeError(f'The event file {ev_file} has not had the energy correction applied')
+                raise AttributeError(f'The event file {ev_file} has not had the energy calibration applied')
 
 
 
@@ -150,5 +154,6 @@ class BatEvent(BatObservation):
         :return: Path object to the detector quality mask
         """
 
+        #hsp.
 
 

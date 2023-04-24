@@ -1486,3 +1486,51 @@ def concatenate_data(bat_observation, source_ids, keys, energy_range=[14,195], c
             concat_data[src_key][key]=np.array(val)
 
     return concat_data
+
+def make_fake_tdrss_message(obs_id, trig_time, trig_stop, ra_obj, dec_obj, obs_dir=None):
+    """
+    This function creates a fake TDRSS message file that specifies a few important peices of information which can be
+    used in the BAT TTE data processing pipeline.
+
+    :param obs_id:
+    :param trig_time:
+    :param trig_stop:
+    :param ra_obj:
+    :param dec_obj:
+    :param obs_dir:
+    :return: The path object to the location of the created tdrss message file
+    """
+
+    from .batobservation import BatObservation
+
+    #see if the observation directory exists
+    obs=BatObservation(obs_id, obs_dir=obs_dir)
+
+    #see if the tdrss directory exists. If not, then create it
+    #create the tdrss message filename
+    tdrss_dir=obs.obs_dir.joinpath('tdrss')
+    tdrss_dir.mkdir(parents=True, exist_ok=True)
+    tdrss_file = tdrss_dir.joinpath(f'sw{obs.obs_dir.stem}msbce_test.fits.gz')
+
+    #get the trigger id from the observation id
+    trig_id=obs.obs_dir.stem[1:-3]
+
+    hdr = fits.Header()
+    hdr['CREATOR'] = ('BatAnalysis', ' Program that created FITS file')
+    hdr['OBS_ID'] = (obs_id, 'Observation ID')
+    hdr['TARG_ID'] = (trig_id, 'Target ID')
+    hdr['TRIGGER'] = (trig_id, 'Trigger Number')
+    hdr['TRIGTIME'] = (trig_time, '[s] MET TRIGger Time')
+    hdr['DATETRIG'] = (f'{met2utc(trig_time):.23}', 'Corrected UTC date of the trigger')
+    hdr['BRA_OBJ'] = (ra_obj, '[deg] BAT RA location of GRB or Object')
+    hdr['BDEC_OBJ'] = (dec_obj, '[deg] BAT DEC location of GRB or Object')
+    hdr['TRIGSTOP'] = (trig_stop, '[s] Trigger MET STOP time')
+    hdr['BACKSTRT'] = (0.0, '[s] BACKground STaRT time')
+    hdr['BACKSTOP'] = (0.0, '[s] BACKground STOP time')
+    hdr['IMAGETRG'] = ('T', 'Image Trigger occured?')
+
+    tdrss_header = fits.PrimaryHDU(header=hdr)
+
+    tdrss_header.writeto(tdrss_file)
+
+    return tdrss_file
