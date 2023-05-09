@@ -32,8 +32,8 @@ steps to upload a distribution to PyPi is at: https://stackoverflow.com/question
 [![MIT License][license-shield]][license-url]  
 [![Google Scholar Badge](https://img.shields.io/badge/Google-Scholar-lightgrey)](https://scholar.google.com/citations?user=cIxaj3MAAAAJ&hl=en)
 [![ResearchGate Badge](https://img.shields.io/badge/Research-Gate-9cf)](https://www.researchgate.net/profile/Tyler-Parsotan)
-<!-- <a href="https://ascl.net/2005.019"><img src="https://img.shields.io/badge/ascl-2005.019-blue.svg?colorB=262255" alt="ascl:2005.019" /></a> -->
-
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.7916509.svg)](https://doi.org/10.5281/zenodo.7916509)
+<a href="https://ascl.net/2304.003"><img src="https://img.shields.io/badge/ascl-2304.003-blue.svg?colorB=262255" alt="ascl:2304.003" /></a>
 
 <!-- PROJECT LOGO -->
 <br />
