@@ -211,7 +211,7 @@ axes[2].set_ylabel(r"Flux (erg/s/cm$^2$)")
 axes[1].legend(loc= "lower center", ncol=2)
 
 for ax, l in zip(axes, ["a","b","c","d"]):
-    ax.text(0.01, .95, f"({l})", ha='left', va='top', transform=ax.transAxes,  fontsize=12)
+    ax.text(0.01, .95, f"({l})", ha='left', va='top', transform=ax.transAxes,  fontsize=13)
 
 fig.tight_layout()
 plot_filename = object_name + '_survey_lc.pdf'

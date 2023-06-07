@@ -222,7 +222,7 @@ for i,j in zip(met_time, utc_time.ymdhms):
     for ax in axes:
         ax.axvline(i, 0, 1, ls='--', color='k')
         if ax==axes[0]:
-            ax.text(i, ax.get_ylim()[1]*1.03, f'{j["year"]}-{j["month"]}-{j["day"]}', fontsize=10, ha='center')
+            ax.text(i, ax.get_ylim()[1]*1.03, f'{j["year"]}-{j["month"]}-{j["day"]}', fontsize=13, ha='center')
 
 axes[1].set_ylabel("SNR")
 axes[2].set_ylabel(r"Flux (erg/s/cm$^2$)")
@@ -230,7 +230,7 @@ axes[2].set_ylabel(r"Flux (erg/s/cm$^2$)")
 axes[1].legend(loc= "lower center", ncol=2)
 
 for ax, l in zip(axes, ["a","b","c","d"]):
-    ax.text(1.0, .95, f"({l})", ha='right', va='top', transform=ax.transAxes,  fontsize=12)
+    ax.text(1.0, .95, f"({l})", ha='right', va='top', transform=ax.transAxes,  fontsize=13)
 
 fig.tight_layout()
 plot_filename = object_name + '_survey_lc.pdf'

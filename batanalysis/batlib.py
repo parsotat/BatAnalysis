@@ -461,7 +461,8 @@ def fit_spectrum(phafilename,surveyobservation, plotting=True, generic_model=Non
     pha_dir = phafilename.parent
     pha_file = phafilename.name
 
-    pointing_id=  pha_file.split(".")[0].split("_")[-1]
+    # The old statement: pointing_id=pha_file.split(".")[0].split("_")[-1] didnt work if source_id has period in it
+    pointing_id=  phafilename.stem.split("_")[-1] 
 
     if len(pha_file.split("_survey"))>1:
         #weve got a pha for a normal survey catalog

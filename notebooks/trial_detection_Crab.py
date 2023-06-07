@@ -103,7 +103,7 @@ energy_range=None
 time_unit="MET"
 values=["rate","snr", "flux", "PhoIndex"]
 
-survey_obsid_list=["all_data_dictionary","monthly_mosaic_dictionary", "weekly_mosaic_dictionary"]
+survey_obsid_list=["all_data_dictionary_test","monthly_mosaic_dictionary", "weekly_mosaic_dictionary_test"]
 
 obs_list_count=0
 for observation_list in survey_obsid_list:
@@ -243,7 +243,7 @@ for i,j in zip(met_values, [2005, 2006]):
     for ax in axes:
         ax.axvline(i, 0, 1, ls='--', color='k')
         if ax==axes[0]:
-            ax.text(i, ax.get_ylim()[1]*1.01, str(j), fontsize=12, ha='center')
+            ax.text(i, ax.get_ylim()[1]*1.01, str(j), fontsize=14, ha='center')
 
 axes[0].legend(loc="best")
 
@@ -252,7 +252,7 @@ axes[2].set_ylabel(r"Flux (erg/s/cm$^2$)")
 axes[3].set_ylabel(r"$\Gamma$")
 
 for ax, l in zip(axes, ["a","b","c","d"]):
-    ax.text(.99, .95, f"({l})", ha='right', va='top', transform=ax.transAxes,  fontsize=12)
+    ax.text(.99, .95, f"({l})", ha='right', va='top', transform=ax.transAxes,  fontsize=14)
 
 axes[-1].axhline(2.15, 0, 1)
 
@@ -354,21 +354,21 @@ for observation_list in survey_obsid_list:
                 zorder = 9
                 c = "blue"
                 m = "o"
-                l="Weekly Mosaic"
+                l="BatAnalysis Weekly Mosaic"
                 ms=5
                 a=0.5
             else:
                 zorder = 8
                 c='green'
                 m = "s"
-                l = "Monthly Mosaic"
+                l = "BatAnalysis Monthly Mosaic"
                 ms=7
                 a = 0.8
         else:
             zorder = 4
             c = "gray"
             m = "."
-            l = "Survey Snapshot"
+            l = "BatAnalysis Survey Snapshot"
             ms=3
             a = 0.3
 
@@ -402,7 +402,7 @@ utc_values=[np.datetime64(sbu.met2datetime(i)) for i in met_values]
 
 for i,j in zip(met_values, [2005, 2006]):
     ax.axvline(i, 0, 1, ls='--', color='k')
-    ax.text(i, ax.get_ylim()[1]*1.001, str(j), fontsize=12, ha='center')
+    ax.text(i, ax.get_ylim()[1]*1.001, str(j), fontsize=14, ha='center')
 
 #this file can be obtained from: https://swift.gsfc.nasa.gov/results/bs157mon/287
 with fits.open("BAT_157m_eight_band_SWIFT_J0534.6+2204.lc.txt") as crab_file:
@@ -415,9 +415,9 @@ with fits.open("BAT_157m_eight_band_SWIFT_J0534.6+2204.lc.txt") as crab_file:
     survey_exposure=data['EXPOSURE'][idx]
 
 axes.errorbar(survey_time, survey_rates[:,-1], yerr=survey_rates_err[:,-1], color="red", marker="*",\
-                 zorder=7, linestyle="None", markersize=13, label="22 Month Survey", alpha=1)
+                 zorder=7, linestyle="None", markersize=13, label="Tueller et al. (2010)", alpha=1)
 
-axes.legend(loc="best")
+axes.legend(loc="best", fontsize=12)
 
 
 fig.tight_layout()
