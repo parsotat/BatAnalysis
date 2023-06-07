@@ -683,7 +683,8 @@ def calculate_detection(surveyobservation,source_id, pl_index=2, nsigma=3,bkg_ns
         pha_dir = phafilename_list[i].parent
         pha_file = phafilename_list[i].name
 
-        pointing_id=pha_file.split(".")[0].split("_")[-1]
+        # The old statement: pointing_id=pha_file.split(".")[0].split("_")[-1] didnt work if source_id has period in it
+        pointing_id = phafilename_list[i].stem.split("_")[-1]
 
         # Within the pointing dictionar we have the "key" called "Xspec_model" which has the parameters, values and errors.
         error_issues = False #preset this here
