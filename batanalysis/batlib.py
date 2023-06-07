@@ -600,7 +600,7 @@ def fit_spectrum(phafilename,surveyobservation, plotting=True, generic_model=Non
         surveyobservation.set_pointing_info(pointing_id, "model_params", model_params, source_id=source_id)
 
     # Incorporating the model names, parameters, errors into the BatSurvey object.
-    xsp.Xset.save(pha_file.split(".")[0])
+    xsp.Xset.save(phafilename.stem)
     xspec_savefile = phafilename.parent.joinpath(phafilename.stem+".xcm")  #os.path.join(pha_dir, pha_file.split(".")[0] + ".xcm")
     surveyobservation.set_pointing_info(pointing_id, "xspec_model", xspec_savefile, source_id=source_id)
 
