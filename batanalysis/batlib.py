@@ -379,7 +379,7 @@ helps to debug in case of an error.
             os.chdir(pha_dir)
 
     # Split the filename by extension, so as to remove the .pha and replace it with .rsp
-        out = pha_file.split(".")[0] + '.rsp'
+        out = filename.stem + '.rsp' #pha_file.split(".")[0] + '.rsp', remove this since sources can have '.' in name
 
     #create drm
         output=hsp.batdrmgen(infile=pha_file, outfile=out, chatter=2, clobber="YES", hkfile="NONE")
@@ -720,8 +720,9 @@ def calculate_detection(surveyobservation,source_id, pl_index=2, nsigma=3,bkg_ns
             surveyobservation.calculate_pha(calc_upper_lim=True, bkg_nsigma=bkg_nsigma, id_list=source_id,single_pointing=pointing_id)
 
             # can also do surveyobservation.get_pha_filenames(id_list=source_id,pointing_id_list=pointing_id, getupperlim=True)
-            # to get the created upperlimit file
-            bkgnsigma_upper_limit_pha_file= pha_file.split(".")[0]+'_bkgnsigma_%d'%(bkg_nsigma) + '_upperlim.pha'
+            # to get the created upperlimit file. Will do this because it is more robust
+            #bkgnsigma_upper_limit_pha_file= pha_file.split(".")[0]+'_bkgnsigma_%d'%(bkg_nsigma) + '_upperlim.pha'
+            bkgnsigma_upper_limit_pha_file = surveyobservation.get_pha_filenames(id_list=source_id ,pointing_id_list=pointing_id, getupperlim=True)
 
             try:
                 calc_response(bkgnsigma_upper_limit_pha_file)
