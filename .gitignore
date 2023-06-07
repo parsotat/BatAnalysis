@@ -10,7 +10,7 @@ bat_analysis/__*
 *.egg-info/
 MOSAIC_CODE/
 .DS_Store
-
+batanalysis/data/*_c*_ZEA.img
 
 # https://github.com/github/gitignore/blob/main/Python.gitignore
 
