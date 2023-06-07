@@ -722,7 +722,7 @@ def calculate_detection(surveyobservation,source_id, pl_index=2, nsigma=3,bkg_ns
             # can also do surveyobservation.get_pha_filenames(id_list=source_id,pointing_id_list=pointing_id, getupperlim=True)
             # to get the created upperlimit file. Will do this because it is more robust
             #bkgnsigma_upper_limit_pha_file= pha_file.split(".")[0]+'_bkgnsigma_%d'%(bkg_nsigma) + '_upperlim.pha'
-            bkgnsigma_upper_limit_pha_file = surveyobservation.get_pha_filenames(id_list=source_id ,pointing_id_list=pointing_id, getupperlim=True)
+            bkgnsigma_upper_limit_pha_file = surveyobservation.get_pha_filenames(id_list=source_id ,pointing_id_list=pointing_id, getupperlim=True)[0].name
 
             try:
                 calc_response(bkgnsigma_upper_limit_pha_file)
