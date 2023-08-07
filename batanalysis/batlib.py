@@ -980,7 +980,6 @@ def print_parameters(obs_list, source_id, values=["met_time","utc_time", "exposu
         f.close()
 
 
-
 def download_swiftdata(observations,  reload=False, fetch=True, jobs=10,
                         bat=True, auxil=True, log=False, uvot=False, xrt=False, tdrss=True,
                         save_dir=None, **kwargs) -> dict:
@@ -989,27 +988,27 @@ def download_swiftdata(observations,  reload=False, fetch=True, jobs=10,
 
     If the data already exists in the mirror, it is not reloaded unless it is from
     a quicklook site, or if reload is set.
-    
-    Data for observations can be selected by instrument or by fliename match.
-    
+
+    Data for observations can be selected by instrument or by filename match.
+
     Observations are specified as a list of OBSIDs, or a table with an 'OBSID' field.
-    
+
     Match is a string or list of strings that match the filenames using unix globbing rules.
-    e.g. match=['*brtms*', '*sao.*'] will match both the BAT 64 ms rates and the
+    e.g. `match=['*brtms*', '*sao.*']` will match both the BAT 64 ms rates and the
     instrument auxiliary orbit information file (if bat=True and auxil=True are set) for
     each observation.
-    
+
     The result is returned in a dict indexed by OBSID.  The 'data' element of an OBSID's
     dict entry is a `swifttools.swift_too.Swift_Data` table including attributes for
     the  .url and .localpath of each file.
-    
+
 
     :param observations: OBSIDs to download
     :param reload: load even if the data is already in the save_dir
     :param fetch: Download the data if it is not locally cached (defaults to True)
-    :param jobs: number of simultaneous download jobs.  (Set to 1 to execute in main thread)
+    :param jobs: number of simultaneous download jobs.  (Set to 1 to execute unthreaded.)
     :param bat: load the bat data
-    :param auxil: load the bat data
+    :param auxil: load the auxil data
     :param log: load the log data   (mostly diagnostic, defaults to false)
     :param uvot: load the uvot data (high volume, defaults to false)
     :param xrt: load the xrt data (high volume, defaults to false)
@@ -1090,6 +1089,8 @@ def _download_single_observation(obsid, *, reload, bat, auxil, log, uvot, xrt, t
                             bat=bat, log=log, auxil=auxil, uvot=uvot, xrt=xrt, tdrss=tdrss,
                             outdir=str(save_dir), **kwargs)
         result['data'] = data
+        if data.status.status != 'Accepted':
+            raise RuntimeError(" ".join(data.status.warnings + data.status.errors))
         if data.quicklook:  # Mark the directory as quicklook
             quicklookfile.open("w").close()
             result['quicklook'] = True
