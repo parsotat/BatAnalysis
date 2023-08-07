@@ -981,14 +981,32 @@ def print_parameters(obs_list, source_id, values=["met_time","utc_time", "exposu
 
 
 
-def download_swiftdata(table,  reload=False, jobs=10,
+def download_swiftdata(observations,  reload=False, fetch=True, jobs=10,
                         bat=True, auxil=True, log=False, uvot=False, xrt=False, tdrss=True,
                         save_dir=None, **kwargs) -> dict:
     """
-    Downloads swift data from heasarc. To download
+    Download Swift data from HEASARC or quicklook sites to a local mirror directory.
 
-    :param table: A astropy query table with OBSIDs, or a list of OBSIDs, that the user would like to download
+    If the data already exists in the mirror, it is not reloaded unless it is from
+    a quicklook site, or if reload is set.
+    
+    Data for observations can be selected by instrument or by fliename match.
+    
+    Observations are specified as a list of OBSIDs, or a table with an 'OBSID' field.
+    
+    Match is a string or list of strings that match the filenames using unix globbing rules.
+    e.g. match=['*brtms*', '*sao.*'] will match both the BAT 64 ms rates and the
+    instrument auxiliary orbit information file (if bat=True and auxil=True are set) for
+    each observation.
+    
+    The result is returned in a dict indexed by OBSID.  The 'data' element of an OBSID's
+    dict entry is a `swifttools.swift_too.Swift_Data` table including attributes for
+    the  .url and .localpath of each file.
+    
+
+    :param observations: OBSIDs to download
     :param reload: load even if the data is already in the save_dir
+    :param fetch: Download the data if it is not locally cached (defaults to True)
     :param jobs: number of simultaneous download jobs.  (Set to 1 to execute in main thread)
     :param bat: load the bat data
     :param auxil: load the bat data
@@ -998,7 +1016,6 @@ def download_swiftdata(table,  reload=False, jobs=10,
     :param tdrss: load the tdrss data (necessary for triggered BAT event data, defaults to True)
     :param save_dir: The output directory where the observation ID directories will be saved
     (From swifttools.swift_too.Data )
-    :param fetch: Download the data if it is not locally cached (defaults to false)
     :param match: pattern (or list) to match (defaults to all)
     :param kwargs: passed to swifttools.swift_too.Data
     :return: dict{obsid: {obsoutdir:..., success:..., loaded:..., [, datafiles:swtoo.Data][, ]}
@@ -1013,10 +1030,10 @@ def download_swiftdata(table,  reload=False, jobs=10,
     if save_dir is None:
         save_dir = datadir()
     save_dir = Path(save_dir).resolve()
-    if np.isscalar(table) or isinstance(table, ap.table.row.Row):
-        table = [table]
+    if np.isscalar(observations) or isinstance(observations, ap.table.row.Row):
+        observations = [observations]
     obsids = []
-    for entry in table:
+    for entry in observations:
         try:    # swiftmastr observation table
             entry = entry["OBSID"]
         except:
@@ -1030,7 +1047,10 @@ def download_swiftdata(table,  reload=False, jobs=10,
         if not isinstance(entry, str):
             raise RuntimeError(f"Can't convert {entry} to OBSID string")
         obsids.append(entry)
+    # Remove duplicate obsids, but otherwise keep in order.
+    obsids = list({o:None for o in obsids}.keys())
     nowts = datetime.datetime.now().timestamp()
+    kwargs['fetch'] = fetch
     download_partialfunc = functools.partial(_download_single_observation, reload=reload, bat=bat, auxil=auxil, log=log, 
                                          uvot=uvot, xrt=xrt, tdrss=tdrss, save_dir=save_dir, nowts=nowts, **kwargs)
     if jobs == 1:
@@ -1044,6 +1064,23 @@ def download_swiftdata(table,  reload=False, jobs=10,
     return results
 
 def _download_single_observation(obsid, *, reload, bat, auxil, log, uvot, xrt, tdrss, save_dir, nowts, **kwargs):
+    """Helper function--not for general use
+    
+    Downloads files for a single OBSID, given parameters from download_swiftdata()
+    after encapsulation as a partial function for threading.
+
+    Args:
+        obsid (str): Observation ID to download
+        (remaining arguments are as in download_swiftdata())
+        
+
+    Raises:
+        RuntimeError: If missing local directory.  Other exceptions are presented as warnings and
+        by setting the 'success' flag to False.
+
+    Returns:
+        _type_: _description_
+    """
     obsoutdir = save_dir.joinpath(obsid)
     quicklookfile = obsoutdir.joinpath('.quicklook')
     result = dict(obsid=obsid, success=True, obsoutdir=obsoutdir, quicklook=False)
@@ -1071,7 +1108,7 @@ def _download_single_observation(obsid, *, reload, bat, auxil, log, uvot, xrt, t
         if not Path(data.outdir).is_dir():
             raise RuntimeError(f"Data directory {data.outdir} missing")
     except Exception as e:
-        print(f"{obsid} {e}", file=sys.stderr)
+        warnings.warn(f"Did not download {obsid} {e}")
         result['success'] = False
     return result
 
