@@ -20,6 +20,8 @@ from copy import copy
 import swifttools.swift_too as swtoo
 import datetime
 import dpath
+from concurrent.futures import ThreadPoolExecutor
+import functools
 
 
 # from xspec import *
@@ -978,21 +980,42 @@ def print_parameters(obs_list, source_id, values=["met_time","utc_time", "exposu
         f.close()
 
 
-def download_swiftdata(table,  reload=False,
+def download_swiftdata(observations,  reload=False, fetch=True, jobs=10,
                         bat=True, auxil=True, log=False, uvot=False, xrt=False, tdrss=True,
                         save_dir=None, **kwargs) -> dict:
     """
-    Downloads swift data from heasarc. To download
+    Download Swift data from HEASARC or quicklook sites to a local mirror directory.
 
-    :param table: A astropy query table with OBSIDs, or a list of OBSIDs, that the user would like to download
+    If the data already exists in the mirror, it is not reloaded unless it is from
+    a quicklook site, or if reload is set.
+
+    Data for observations can be selected by instrument or by filename match.
+
+    Observations are specified as a list of OBSIDs, or a table with an 'OBSID' field.
+
+    Match is a string or list of strings that match the filenames using unix globbing rules.
+    e.g. `match=['*brtms*', '*sao.*']` will match both the BAT 64 ms rates and the
+    instrument auxiliary orbit information file (if bat=True and auxil=True are set) for
+    each observation.
+
+    The result is returned in a dict indexed by OBSID.  The 'data' element of an OBSID's
+    dict entry is a `swifttools.swift_too.Swift_Data` table including attributes for
+    the  .url and .localpath of each file.
+
+
+    :param observations: OBSIDs to download
     :param reload: load even if the data is already in the save_dir
+    :param fetch: Download the data if it is not locally cached (defaults to True)
+    :param jobs: number of simultaneous download jobs.  (Set to 1 to execute unthreaded.)
     :param bat: load the bat data
-    :param auxil: load the bat data
+    :param auxil: load the auxil data
     :param log: load the log data   (mostly diagnostic, defaults to false)
     :param uvot: load the uvot data (high volume, defaults to false)
     :param xrt: load the xrt data (high volume, defaults to false)
     :param tdrss: load the tdrss data (necessary for triggered BAT event data, defaults to True)
     :param save_dir: The output directory where the observation ID directories will be saved
+    (From swifttools.swift_too.Data )
+    :param match: pattern (or list) to match (defaults to all)
     :param kwargs: passed to swifttools.swift_too.Data
     :return: dict{obsid: {obsoutdir:..., success:..., loaded:..., [, datafiles:swtoo.Data][, ]}
     """
@@ -1003,14 +1026,13 @@ def download_swiftdata(table,  reload=False,
     # download the 0 segment. (Can download others for different survey analyses etc)
     # Can also query mission="swifttdrss" and get the GRB target ID and just download the obs_id=str(Target ID)+'000'
 
-    results = {}
     if save_dir is None:
         save_dir = datadir()
     save_dir = Path(save_dir).resolve()
-    if np.isscalar(table) or isinstance(table, ap.table.row.Row):
-        table = [table]
+    if np.isscalar(observations) or isinstance(observations, ap.table.row.Row):
+        observations = [observations]
     obsids = []
-    for entry in table:
+    for entry in observations:
         try:    # swiftmastr observation table
             entry = entry["OBSID"]
         except:
@@ -1024,109 +1046,72 @@ def download_swiftdata(table,  reload=False,
         if not isinstance(entry, str):
             raise RuntimeError(f"Can't convert {entry} to OBSID string")
         obsids.append(entry)
-    fetch = kwargs.pop('fetch', True)
+    # Remove duplicate obsids, but otherwise keep in order.
+    obsids = list({o:None for o in obsids}.keys())
     nowts = datetime.datetime.now().timestamp()
-    for obsid in obsids:
-        obsoutdir = save_dir.joinpath(obsid)
-        quicklookfile = obsoutdir.joinpath('.quicklook')
-        result = dict(success=True, obsoutdir=obsoutdir, quicklook=False)
-        try:
-            clobber = reload or quicklookfile.exists()
-            data = swtoo.Data(obsid=obsid, clobber=clobber,
-                            bat=bat, log=log, auxil=auxil, uvot=uvot, xrt=xrt, tdrss=tdrss,
-                            outdir=str(save_dir), **kwargs)
-            result['data'] = data
-            if data.quicklook:  # Mark the directory as quicklook
-                quicklookfile.open("w").close()
-                result['quicklook'] = True
-            elif quicklookfile.exists():
-                # This directory just transitioned from quicklook to archival version
-                oldqlookdir = save_dir.joinpath("old_quicklook",obsid)
-                oldqlookdir.mkdir(exist_ok=True, parents=True)
-                for stalefile in obsoutdir.glob('**/*'):
-                    # Any file older than the time before the data was downloaded
-                    if (stalefile.is_file() and stalefile.stat().st_mtime < nowts 
-                        and not stalefile.name.startswith(".")):
-                        stalefile.replace(oldqlookdir.joinpath(stalefile.name))
-                quicklookfile.unlink()
-                result.update(datafiles=data, quicklook=data.quicklook,
-                              outdir=Path(data.outdir), success=True, downloaded=True)
-            if not Path(data.outdir).is_dir():
-                raise RuntimeError(f"Data directory {data.outdir} missing")
-        except Exception as e:
-            print(f"{obsid} {e}", file=sys.stderr)
-            result['success'] = False
-        results[obsid] = result
+    kwargs['fetch'] = fetch
+    download_partialfunc = functools.partial(_download_single_observation, reload=reload, bat=bat, auxil=auxil, log=log, 
+                                         uvot=uvot, xrt=xrt, tdrss=tdrss, save_dir=save_dir, nowts=nowts, **kwargs)
+    if jobs == 1:
+        results = {}
+        for obsid in obsids:
+            result = download_partialfunc(obsid)
+            results[obsid] = result
+    else:
+        with ThreadPoolExecutor(max_workers=jobs) as executor:
+            results = {result['obsid']: result for result in executor.map(download_partialfunc, obsids)}
     return results
 
+def _download_single_observation(obsid, *, reload, bat, auxil, log, uvot, xrt, tdrss, save_dir, nowts, **kwargs):
+    """Helper function--not for general use
+    
+    Downloads files for a single OBSID, given parameters from download_swiftdata()
+    after encapsulation as a partial function for threading.
 
-def download_swiftdata_legacy(table, reload=False,
-                        bat=True, log=True, auxil=True, uvot=False, xrt=False,
-                        save_dir=None) -> dict:
+    Args:
+        obsid (str): Observation ID to download
+        (remaining arguments are as in download_swiftdata())
+        
+
+    Raises:
+        RuntimeError: If missing local directory.  Other exceptions are presented as warnings and
+        by setting the 'success' flag to False.
+
+    Returns:
+        _type_: _description_
     """
-    Downloads swift data from heasarc.
-    LEGACY code from before I was aware of swifttools.swift_too
-
-    :param table: A astropy query table with OBSIDs, or a list of OBSIDs, that the user would like to download
-    :param reload: load even if the data is already in the save_dir
-    :param bat: load the bat data
-    :param log: load the log data
-    :param auxil: load the bat data
-    :param uvot: load the uvot data (high volume, defaults to false)
-    :param xrt: load the xrt data (high volume, defaults to false)
-    :param save_dir: The output directory where the observation ID directories will be saved
-    :return: dict{obsid: dict(localdir=..., [remoteurl=...,] [cut_dirs=...] [starttime=...], [success=...])}
-    """
-
-    # data in heasarc is organized by observation day/month and then observation id
-    # eg for observation id 00013201221, the download command is:
-    # wget -q -nH --no-check-certificate --cut-dirs=5 -r -l0 -c -N -np -R 'index*'
-    # -erobots=off --retr-symlinks https://heasarc.gsfc.nasa.gov/FTP/swift/data/obs/2021_12//00013201221/
-    # for GRBs do eg. object_name='GRB110414A'
-    # table = heasarc.query_object(object_name, mission=mission, sortvar="START_TIME")
-    # The first entry in the table should be the TTE data observation ID, from when the GRB was triggered
-
-    result = {} 
-
-    # Whatever table is 
-    if np.isscalar(table) or isinstance(table, ap.table.row.Row):
-        table = [table]
-
-    #base of wget command to download data
-    download_base="wget -q -nH --no-check-certificate -r -l0 -c -N -np -R 'index*' -erobots=off --retr-symlinks "
-    subdirectories = []
-    for subdirectory in "bat log auxil uvot xrt".split():
-        if locals()[subdirectory]:
-            subdirectories.append(subdirectory)
-    if save_dir is None:
-        save_dir = datadir()
-    else:
-        save_dir = Path(save_dir)
-
-    if not save_dir.exists():
-        raise ValueError(f"Save directory {save_dir} does not exist")
-
-    for observation in table:
-        details = dict()
-        find_data(observation=observation, save_dir=save_dir, details=details)
-        obsid = details['obsid']
-        obsdir = details['localdir']
-        for subdirectory in subdirectories:
-            if reload or not obsdir.joinpath(subdirectory).is_dir():
-                link = details['remoteurl']
-                # print(id, t.datetime.year, t.datetime.month, f"{link}/{subdirectory}/")
-
-                input_string=f"{download_base} --directory-prefix={obsdir} --cut-dirs={details['cutdirs']} {link}/{subdirectory}/"
-                errout = os.system(input_string)
-                if errout != 0:
-                    print(f"Command failed with exitcode {os.waitstatus_to_exitcode(errout)}\n   {input_string}", file=sys.stderr)
-                    details['success'] = False
-                # retcode = subprocess.check_output(input_string, shell=True, stderr=subprocess.STDOUT)
-        result[details['obsid']] = details
+    obsoutdir = save_dir.joinpath(obsid)
+    quicklookfile = obsoutdir.joinpath('.quicklook')
+    result = dict(obsid=obsid, success=True, obsoutdir=obsoutdir, quicklook=False)
+    try:
+        clobber = reload or quicklookfile.exists()
+        data = swtoo.Swift_Data(obsid=obsid, clobber=clobber,
+                            bat=bat, log=log, auxil=auxil, uvot=uvot, xrt=xrt, tdrss=tdrss,
+                            outdir=str(save_dir), **kwargs)
+        result['data'] = data
+        if data.status.status != 'Accepted':
+            raise RuntimeError(" ".join(data.status.warnings + data.status.errors))
+        if data.quicklook:  # Mark the directory as quicklook
+            quicklookfile.open("w").close()
+            result['quicklook'] = True
+        elif quicklookfile.exists():
+                # This directory just transitioned from quicklook to archival version
+            oldqlookdir = save_dir.joinpath("old_quicklook",obsid)
+            oldqlookdir.mkdir(exist_ok=True, parents=True)
+            for stalefile in obsoutdir.glob('**/*'):
+                    # Any file older than the time before the data was downloaded
+                if (stalefile.is_file() and stalefile.stat().st_mtime < nowts 
+                        and not stalefile.name.startswith(".")):
+                    stalefile.replace(oldqlookdir.joinpath(stalefile.name))
+            quicklookfile.unlink()
+            result.update(datafiles=data, quicklook=data.quicklook,
+                              outdir=Path(data.outdir), success=True, downloaded=True)
+        if not Path(data.outdir).is_dir():
+            raise RuntimeError(f"Data directory {data.outdir} missing")
+    except Exception as e:
+        warnings.warn(f"Did not download {obsid} {e}")
+        result['success'] = False
     return result
-
-    # if save_dir is not None:
-    #     os.chdir(current_dir)
 
 
 def test_remote_URL(url):
@@ -1139,52 +1124,6 @@ def from_heasarc(object_name=None, tablename='swiftmastr', **kwargs):
         warnings.simplefilter('ignore', ap.utils.exceptions.AstropyWarning)
         table = heasarc.query_object(object_name=object_name, mission=tablename, **kwargs)
     return table
-
-
-def find_data_legacy(observation, *, save_dir, details):
-    """Where should the data be locally and remotely
-    This is legacy code form before swifttools.swift_too came to my knowledge
-
-    Args:
-        observation (_type_): _description_
-        save_dir (_type_): _description_
-        details (_type_): _description_
-
-    Raises:
-        NotImplementedError: _description_
-
-    Returns:
-        _type_: _description_
-    """
-    if isinstance(observation, int):
-        observation = f"{observation:011d}"
-    if isinstance(observation, str):
-        obstable = from_heasarc(obsid=observation)
-        if len(obstable) > 0:
-            observation = obstable[0]
-    if isinstance(observation, ap.table.Row):
-        obsid = observation["OBSID"]
-        tstart = swiftbat.mjd2datetime(float(observation["START_TIME"]))
-        remoteurl = f"https://heasarc.gsfc.nasa.gov/FTP/swift/data/obs/{tstart:%Y_%m}/{obsid}"
-        localdir = save_dir.joinpath(obsid)
-        if test_remote_URL(remoteurl):
-            details.update(obsid=obsid, tstart=tstart, 
-                           remoteurl=remoteurl, cutdirs=6, 
-                           localdir=save_dir.joinpath(obsid),
-                           row=copy(observation),
-                           success=True)
-            return True
-    elif isinstance(observation, str) and len(observation) == 11:
-        data = swtoo.Data(obsid=observation, bat=True)
-
-        quicklook_available_url = "https://swift.gsfc.nasa.gov/data/swift/"
-        afstobs = swtoo.ObsQuery(obsid=observation) # As flown science timeline
-        # swtoo doc: https://www.swift.psu.edu/too_api/index.php?md=Introduction.md
-        if len(afstobs) > 0: # Found it
-            age = afstobs[0].begin - datetime.datetime.utcnow()
-            if age.total_seconds()/86400 < 30: #  If less than a month old
-                pass
-    raise NotImplementedError("Currently, can only ask for fully-processed observations in the swiftmastr table")
 
 
 def find_trigger_data():
