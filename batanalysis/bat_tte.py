@@ -164,7 +164,7 @@ class BatEvent(BatObservation):
 
 
 
-            #get the relevant information from the event file/TDRSS file
+            #get the relevant information from the event file/TDRSS file such as RA/DEC/trigger time
 
             #see if the event data has been energy calibrated
             if verbose:
@@ -173,7 +173,7 @@ class BatEvent(BatObservation):
             #look at the header of the event file(s) and see if they have:
             # GAINAPP =                 T / Gain correction has been applied
             # and GAINMETH= 'FIXEDDAC'           / Cubic ground gain/offset correction using DAC-b
-            for f in ev_file:
+            for f in self.event_files:
                 with fits.open(f) as file:
                     hdr=file['EVENTS'].header
                 if not hdr["GAINAPP"] or  "FIXEDDAC" not in hdr["GAINMETH"]:
@@ -183,8 +183,8 @@ class BatEvent(BatObservation):
 
         # if we will be doing spectra/light curves we need to do the mask weighting. This may be done by the SDC already.
         # If the SDC already did this, there will be BAT_RA and BAT_DEC header keywords in the event file(s)
-        #if not, the user can specify these values in the tdrss file or just pass them in here
-        #TODO: possible feature here is to be able to do mask weighting for multiple sources in the BAT FOV at the time
+        # if not, the user can specify these values in the tdrss file or just pass them to this constructor
+        # TODO: possible feature here is to be able to do mask weighting for multiple sources in the BAT FOV at the time
         # of the event data being collected.
 
         # at this point, we have set some things up and we can let the user define what they want to do for their light
@@ -282,6 +282,14 @@ class BatEvent(BatObservation):
 
         return None
 
+    def create_lightcurve(self, **kwargs):
+        """
+        This method returns a lightcurve object.
+
+        :return:
+        """
+
+        return None
 
 
 
