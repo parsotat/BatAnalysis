@@ -280,6 +280,8 @@ class BatEvent(BatObservation):
         :return:
         """
 
+        raise NotImplementedError("Applying the mask weighing has not yet been implemented.")
+
         return None
 
     def create_lightcurve(self, **kwargs):
@@ -288,6 +290,8 @@ class BatEvent(BatObservation):
 
         :return:
         """
+
+        raise NotImplementedError("Creating the lightcurve has not yet been implemented.")
 
         return None
 
@@ -299,6 +303,8 @@ class BatEvent(BatObservation):
         :return:
         """
 
+        raise NotImplementedError("Creating a spectrum has not yet been implemented.")
+
         return None
 
     def create_DPI(self, **kwargs):
@@ -309,5 +315,20 @@ class BatEvent(BatObservation):
         :return:
         """
 
-    
+        raise NotImplementedError("Creating the DPI has not yet been implemented.")
+
+        return None
+
+    def create_sky_image(self, **kwargs):
+        """
+        This method returns a sky image
+
+        :param kwargs:
+        :return:
+        """
+
+        raise NotImplementedError("Creating the sky image has not yet been implemented.")
+
+        return None
+
 
