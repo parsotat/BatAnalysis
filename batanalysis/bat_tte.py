@@ -33,7 +33,7 @@ except ModuleNotFoundError as err:
 
 class BatEvent(BatObservation):
 
-    def __init__(self, obs_id, transient_name=None, obs_dir=None, input_dict=None, recalc=False, verbose=False, load_dir=None):
+    def __init__(self, obs_id, transient_name=None, ra="event", dec="event", obs_dir=None, input_dict=None, recalc=False, verbose=False, load_dir=None):
 
         # make sure that the observation ID is a string
         if type(obs_id) is not str:
@@ -141,8 +141,45 @@ class BatEvent(BatObservation):
             else:
                 self.detector_quality_file=self.detector_quality_file[0]
 
+            #get the relevant information from the event file/TDRSS file such as RA/DEC/trigger time. Should also make
+            # sure that these values agree. If so good, otherwise need to choose a coordinate/use the user supplied coordinates
+            # and then rerun the auxil ray tracing
+            tdrss_centroid_file=[i for i in self.tdrss_files if "msbce" in str(i)]
+            #get the tdrss coordinates if the file exists
+            if len(tdrss_centroid_file) > 0:
+                with fits.open(tdrss_centroid_file[0]) as file:
+                    tdrss_ra = file[0].header["BRA_OBJ"]
+                    tdrss_dec = file[0].header["BDEC_OBJ"]
+
+            #get info from event file which must exist to get to this point
+            with fits.open(self.event_files[0]) as file:
+                event_ra = file[0].header["BAT_RA"]
+                event_dec = file[0].header["BAT_DEC"]
+
+            #by default, ra/dec="event" to use the coordinates set here by SDC but can use other coordinates
+            if "tdrss" in ra or "tdrss" in dec:
+                #use the TDRSS message value
+                self.ra=tdrss_ra
+                self.dec=tdrss_dec
+            elif "event" in ra or "event" in dec:
+                #use the event file RA/DEC
+                self.ra=event_ra
+                self.dec=event_dec
+            else:
+                if np.isreal(ra) and np.isreal(dec):
+                    self.ra=ra
+                    self.dec=dec
+                else:
+                    #the ra/dec values must be decimal degrees for the following analysis to work
+                    raise ValueError(f"The passed values of ra and dec are not decimal degrees. Please set these to appropriate values.")
+
+            #see if the RA/DEC that the user wants to use is what is in the event file
+            # if not, then we need to do the mask weighting again
+            coord_match=(self.ra == event_ra) and (self.dec == event_dec)
+
             #make sure that we have our auxiliary ray tracing file in order to do spectral fitting of the burst
-            if len(self.auxil_raytracing_file) < 1:
+            #also need to check of the coordinates we want are what is in the event file.
+            if len(self.auxil_raytracing_file) < 1 or not coord_match:
                 if verbose:
                     print(f"There seem to be no auxiliary ray tracing file for this trigger with observation ID" \
                 f"{self.obs_id} located at {self.obs_dir}. This file is necessary for the remaining processing.")
@@ -162,9 +199,6 @@ class BatEvent(BatObservation):
             else:
                 self.auxil_raytracing_file=self.auxil_raytracing_file[0]
 
-
-
-            #get the relevant information from the event file/TDRSS file such as RA/DEC/trigger time
 
             #see if the event data has been energy calibrated
             if verbose:
@@ -223,7 +257,8 @@ class BatEvent(BatObservation):
         The resulting quality mask is placed in the bat/hk/directory with the appropriate observation ID and code=bdqcb
 
         This should be taken care of by the SDC but this funciton will document how this can be done incase a detector
-        quality mask has not been created.
+        quality mask has not been created. Have confirmed that the bat/hk/*bdqcb* file is the same as what is outputted
+        by the website linked above
 
         :return: Path object to the detector quality mask
         """
