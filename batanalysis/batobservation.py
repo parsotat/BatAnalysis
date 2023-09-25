@@ -110,6 +110,21 @@ class BatObservation(object):
             print(e)
             raise RuntimeError(f"The call to Heasoft batbinevt failed with inputs {input_dict}.")
 
+    def _call_batmaskwtevt(self, input_dict):
+        """
+        Calls heasoftpy's batmaskwtevt with an error wrapper
+
+        :param input_dict: Dictionary of inputs that will be passed to heasoftpy's batmaskwtevt
+        :return: heasoftpy Result object from batmaskwtevt
+        """
+        # directly calls bathotpix
+        try:
+            return hsp.batmaskwtevt(**input_dict)
+        except Exception as e:
+            print(e)
+            raise RuntimeError(f"The call to Heasoft batmaskwtevt failed with inputs {input_dict}.")
+
+
 
 
 class Lightcurve(object):
