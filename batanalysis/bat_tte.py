@@ -114,6 +114,9 @@ class BatEvent(BatObservation):
             if len(self.event_files)<1:
                 raise FileNotFoundError(f"There seem to be no event files for this trigger with observation ID \
                 {self.obs_id} located at {self.obs_dir}. This file is necessary for the remaining processing.")
+            else:
+                self.event_files=self.event_files[0]
+
 
             #make sure that we have an enable disable map
             if len(self.enable_disable_file) < 1:
@@ -141,6 +144,12 @@ class BatEvent(BatObservation):
                     f"{self.obs_id} located at {self.obs_dir}. This file is necessary for the remaining processing.")
             else:
                 self.detector_quality_file=self.detector_quality_file[0]
+
+            # if we will be doing spectra/light curves we need to do the mask weighting. This may be done by the SDC already.
+            # If the SDC already did this, there will be BAT_RA and BAT_DEC header keywords in the event file(s)
+            # if not, the user can specify these values in the tdrss file or just pass them to this constructor
+            # TODO: possible feature here is to be able to do mask weighting for multiple sources in the BAT FOV at the time
+            # of the event data being collected.
 
             #get the relevant information from the event file/TDRSS file such as RA/DEC/trigger time. Should also make
             # sure that these values agree. If so good, otherwise need to choose a coordinate/use the user supplied coordinates
@@ -200,7 +209,6 @@ class BatEvent(BatObservation):
             else:
                 self.auxil_raytracing_file=self.auxil_raytracing_file[0]
 
-
             #see if the event data has been energy calibrated
             if verbose:
                 print('Checking to see if the event file has been energy calibrated.')
@@ -216,14 +224,9 @@ class BatEvent(BatObservation):
                     self.apply_energy_correction(f, verbose)
 
 
-        # if we will be doing spectra/light curves we need to do the mask weighting. This may be done by the SDC already.
-        # If the SDC already did this, there will be BAT_RA and BAT_DEC header keywords in the event file(s)
-        # if not, the user can specify these values in the tdrss file or just pass them to this constructor
-        # TODO: possible feature here is to be able to do mask weighting for multiple sources in the BAT FOV at the time
-        # of the event data being collected.
 
-        # at this point, we have set some things up and we can let the user define what they want to do for their light
-        # curves and spctra
+            # at this point, we have set some things up and we can let the user define what they want to do for their light
+            # curves and spctra
 
         else:
             load_file = Path(load_file).expanduser().resolve()
@@ -314,10 +317,15 @@ class BatEvent(BatObservation):
                       f"energy calibration needs to be applied.")
             # need to create this gain/offset file or get it somehow
 
-        raise AttributeError(f'The event file {ev_file} has not had the energy calibration applied and there is no gain/offset '
-                                 f'file for this trigger with observation ID \
-            {self.obs_id} located at {self.obs_dir}. This file is necessary for the remaining processing since an' \
-                      f"energy calibration needs to be applied.")
+            raise AttributeError(f'The event file {ev_file} has not had the energy calibration applied and there is no gain/offset '
+                                     f'file for this trigger with observation ID \
+                {self.obs_id} located at {self.obs_dir}. This file is necessary for the remaining processing since an' \
+                          f"energy calibration needs to be applied.")
+        else:
+            #if we do, then we need to call bateconvert
+            input_dict=dict(infile=str(self.event_files), calfile=str(self.gain_offset_file),
+                            residfile="CALDB", pulserfile="CALDB", fltpulserfile="CALDB")
+            self._call_bateconvert(input_dict)
 
         return None
 
@@ -326,10 +334,12 @@ class BatEvent(BatObservation):
         This method is meant to apply mask weighting for a source that is located at a certain position on the sky.
         An associated, necessary file that is produced is the auxiliary ray tracing file which is needed for spectral fitting.
 
-        Note that it modifies the event file.
+        Note that it modifies the event file and the event file needs to be uncompressed.
 
         :return:
         """
+
+        #batmaskwtevt infile=bat/event/sw01116441000bevshsp_uf.evt attitude=auxil/sw01116441000sat.fits.gz detmask=grb.mask ra= dec=
 
         raise NotImplementedError("Applying the mask weighing has not yet been implemented.")
 

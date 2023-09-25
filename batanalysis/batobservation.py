@@ -124,6 +124,21 @@ class BatObservation(object):
             print(e)
             raise RuntimeError(f"The call to Heasoft batmaskwtevt failed with inputs {input_dict}.")
 
+    def _call_bateconvert(self, input_dict):
+        """
+        Calls heasoftpy's bateconvert with an error wrapper
+
+        :param input_dict: Dictionary of inputs that will be passed to heasoftpy's bateconvert
+        :return: heasoftpy Result object from bateconvert
+        """
+        # directly calls bateconvert
+        try:
+            return hsp.bateconvert(**input_dict)
+        except Exception as e:
+            print(e)
+            raise RuntimeError(f"The call to Heasoft batmaskwtevt failed with inputs {input_dict}.")
+
+
 
 
 
