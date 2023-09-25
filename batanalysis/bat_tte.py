@@ -263,15 +263,29 @@ class BatEvent(BatObservation):
 
         :return: Path object to the detector quality mask
         """
+        try:
+            #Create DPI
+            #batbinevt bat/event/*bevshsp_uf.evt.gz grb.dpi DPI 0 u - weighted = no outunits = counts
+            output_dpi=self.obs_dir.joinpath("bat").joinpath("hk").joinpath('detector_quality.dpi')
+            input_dict=dict(infile=str(self.event_files[0]), outfile=str(output_dpi),
+                            outtype="DPI", timedel=0.0, timebinalg = "uniform", energybins = "-", weighted = "no", outunits = "counts")
+            binevt_return=self._call_batbinevt(input_dict)
 
-        #Create DPI
-        #batbinevt bat/event/*bevshsp_uf.evt.gz grb.dpi DPI 0 u - weighted = no outunits = counts
-        input_dict=dict()
+            #Get list of known problematic detectors
+            #bathotpix grb.dpi grb.mask detmask = bat/hk/sw01116441000bdecb.hk.gz
+            #get the
 
-        #Get list of known problematic detectors
-        #bathotpix grb.dpi grb.mask detmask = bat/hk/sw01116441000bdecb.hk.gz
+            output_detector_quality=self.obs_dir.joinpath("bat").joinpath("hk").joinpath(f'sw{self.obs_id}bdqcb.hk.gz')
+            input_dict = dict(infile=str(output_dpi),
+                              outfile=str(output_detector_quality),
+                              detmask = str(self.enable_disable_file)
+                              )
+            hotpix_return=self._call_bathotpix(input_dict)
 
-        raise NotImplementedError("Creating the detector quality mask has not yet been implemented.")
+            self.detector_quality_file=output_detector_quality
+        except Exception as e:
+            print(e)
+            raise RuntimeError("There was a runtime error in either batbinevt or bathotpix while creating th detector quality mask.")
 
         return None
 
