@@ -7,6 +7,7 @@ Tyler Parsotan April 5 2023
 """
 
 import os
+import gzip
 import shutil
 import sys
 from .batlib import datadir, dirtest, met2mjd, met2utc
@@ -116,6 +117,12 @@ class BatEvent(BatObservation):
                 {self.obs_id} located at {self.obs_dir}. This file is necessary for the remaining processing.")
             else:
                 self.event_files=self.event_files[0]
+                #also make sure that the file is gunzipped
+                with gzip.open(self.event_files, 'rb') as f_in:
+                    with open(test.parent.joinpath(test.stem), 'wb') as f_out:
+                        shutil.copyfileobj(f_in, f_out)
+
+                self.event_files=test.parent.joinpath(test.stem)
 
 
             #make sure that we have an enable disable map
@@ -322,7 +329,7 @@ class BatEvent(BatObservation):
                 {self.obs_id} located at {self.obs_dir}. This file is necessary for the remaining processing since an' \
                           f"energy calibration needs to be applied.")
         else:
-            #if we do, then we need to call bateconvert
+            #if we have the file, then we need to call bateconvert
             input_dict=dict(infile=str(self.event_files), calfile=str(self.gain_offset_file),
                             residfile="CALDB", pulserfile="CALDB", fltpulserfile="CALDB")
             self._call_bateconvert(input_dict)
