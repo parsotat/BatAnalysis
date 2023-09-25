@@ -291,5 +291,13 @@ class BatEvent(BatObservation):
 
         return None
 
+    def create_spectrum(self, **kwargs):
+        """
+        This method returns a spectrum object.
 
+        :param kwargs:
+        :return:
+        """
+
+        return None
 
