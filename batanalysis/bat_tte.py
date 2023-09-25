@@ -301,3 +301,13 @@ class BatEvent(BatObservation):
 
         return None
 
+    def create_DPI(self, **kwargs):
+        """
+        This method creates and returns a detector plane image.
+
+        :param kwargs:
+        :return:
+        """
+
+    
+
