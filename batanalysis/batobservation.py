@@ -58,6 +58,59 @@ class BatObservation(object):
             else:
                 raise FileNotFoundError('The directory %s does not contain the observation data correponding to ID: %s' % (obs_dir, self.obs_id))
 
+    def _set_local_pfile_dir(self, dir):
+        """
+        make the local pfile dir if it doesnt exist and set this value
+
+        :return: None
+        """
+        #make sure that it is a Path object
+        dir=Path(dir)
+
+        self._local_pfile_dir.mkdir(parents=True, exist_ok=True)
+        try:
+            hsp.local_pfiles(pfiles_dir=str(self._local_pfile_dir))
+        except AttributeError:
+            hsp.utils.local_pfiles(par_dir=str(self._local_pfile_dir))
+
+    def _get_local_pfile_dir(self):
+        """
+        Return the _local_pfile_dir attribute
+
+        :return: Returns the _local_pfile_dir Path object
+        """
+
+
+    def _call_bathotpix(self, input_dict):
+        """
+        Calls heasoftpy's bathotpix with an error wrapper
+
+        :param input_dict: Dictionary of inputs that will be passed to heasoftpy's bathotpix
+        :return: heasoftpy Result object from bathotpix
+        """
+
+        # directly calls bathotpix
+        try:
+            return hsp.bathotpix(**input_dict)
+        except Exception as e:
+            print(e)
+            raise RuntimeError(f"The call to Heasoft bathotpix failed with inputs: {input_dict}.")
+
+    def _call_batbinevent(self, input_dict):
+        """
+        Calls heasoftpy's batbinevt with an error wrapper
+
+        :param input_dict: Dictionary of inputs that will be passed to heasoftpy's batbinevt
+        :return: heasoftpy Result object from batbinevt
+        """
+        # directly calls bathotpix
+        try:
+            return hsp.batbinevt(**input_dict)
+        except Exception as e:
+            print(e)
+            raise RuntimeError(f"The call to Heasoft batbinevt failed with inputs {input_dict}.")
+
+
 
 class Lightcurve(object):
     """

@@ -66,14 +66,15 @@ class BatEvent(BatObservation):
 
         load_file = load_dir.joinpath("batevent.pickle")
         complete_file = load_dir.joinpath(".batevent_complete")
-        self._local_pfile_dir = load_dir.joinpath(".local_pfile")
+        self._set_local_pfile_dir = load_dir.joinpath(".local_pfile")
 
+        #THIS SHOULDNT BE NECESSARY NOW WITH THE BATOBSERVATION GET/SET
         # make the local pfile dir if it doesnt exist and set this value
-        self._local_pfile_dir.mkdir(parents=True, exist_ok=True)
-        try:
-            hsp.local_pfiles(pfiles_dir=str(self._local_pfile_dir))
-        except AttributeError:
-            hsp.utils.local_pfiles(par_dir=str(self._local_pfile_dir))
+        #self._local_pfile_dir.mkdir(parents=True, exist_ok=True)
+        #try:
+        #    hsp.local_pfiles(pfiles_dir=str(self._local_pfile_dir))
+        #except AttributeError:
+        #    hsp.utils.local_pfiles(par_dir=str(self._local_pfile_dir))
 
         # if load_file is None:
         # if the user wants to recalculate things or if there is no batevent.pickle file, or if there is no
@@ -264,10 +265,11 @@ class BatEvent(BatObservation):
         """
 
         #Create DPI
+        #batbinevt bat/event/*bevshsp_uf.evt.gz grb.dpi DPI 0 u - weighted = no outunits = counts
+        input_dict=dict()
 
         #Get list of known problematic detectors
-
-        #find noisy detectors
+        #bathotpix grb.dpi grb.mask detmask = bat/hk/sw01116441000bdecb.hk.gz
 
         raise NotImplementedError("Creating the detector quality mask has not yet been implemented.")
 
