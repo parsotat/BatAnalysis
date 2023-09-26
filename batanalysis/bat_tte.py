@@ -138,6 +138,18 @@ class BatEvent(BatObservation):
             else:
                 self.enable_disable_file=self.enable_disable_file[0]
 
+            #make sure that we have gain offset file
+            if len(self.gain_offset_file) < 1:
+                warnings.warn(f"There seem to be no gain/offset file for this trigger with observation ID \
+                {self.obs_id} located at {self.obs_dir}. This file is necessary for the remaining processing if an"
+                      f"energy calibration needs to be applied.")
+            elif len(self.gain_offset_file) > 1:
+                warnings.warn(f"There seem to be too many gain/offset files for this trigger with observation ID \
+                            {self.obs_id} located at {self.obs_dir}. One of these files is necessary for the remaining processing if an"
+                              f"energy calibration needs to be applied.")
+            else:
+                self.gain_offset_file=self.gain_offset_file[0]
+
             #make sure that we have a detector quality map
             if len(self.detector_quality_file) < 1:
                 if verbose:
@@ -180,9 +192,12 @@ class BatEvent(BatObservation):
 
             #by default, ra/dec="event" to use the coordinates set here by SDC but can use other coordinates
             if "tdrss" in ra or "tdrss" in dec:
-                #use the TDRSS message value
-                self.ra=tdrss_ra
-                self.dec=tdrss_dec
+                if len(tdrss_centroid_file) > 0:
+                    #use the TDRSS message value
+                    self.ra=tdrss_ra
+                    self.dec=tdrss_dec
+                else:
+                    raise ValueError("There is no TDRSS message coordinate. Please create a TDRSS file to use this option.")
             elif "event" in ra or "event" in dec:
                 #use the event file RA/DEC
                 self.ra=event_ra
@@ -264,7 +279,10 @@ class BatEvent(BatObservation):
             shutil.copy(self.enable_disable_file, auxil_dir)
             shutil.copy(self.detector_quality_file, auxil_dir)
             shutil.copy(self.attitude_file, auxil_dir)
-            shutil.copy(self.tdrss_files, auxil_dir)
+            #move all tdrss files for reference
+            for i in self.tdrss_files:
+                shutil.copy(i, auxil_dir)
+
             shutil.copy(self.gain_offset_file, auxil_dir)
 
             #save the new location of the files as attributes
@@ -273,7 +291,11 @@ class BatEvent(BatObservation):
             self.enable_disable_file = auxil_dir.joinpath(self.enable_disable_file.name)
             self.detector_quality_file = auxil_dir.joinpath(self.detector_quality_file.name)
             self.attitude_file = auxil_dir.joinpath(self.attitude_file.name)
-            self.tdrss_files = auxil_dir.joinpath(self.tdrss_files.name)
+            # change paths for all tdrss files
+            temp_tdrss_files=[]
+            for i in self.tdrss_files:
+                temp_tdrss_files.append(auxil_dir.joinpath(i.name))
+            self.tdrss_files=temp_tdrss_files
             self.gain_offset_file = auxil_dir.joinpath(self.gain_offset_file.name)
 
             # create the marker file that tells us that the __init__ method completed successfully
@@ -382,6 +404,12 @@ class BatEvent(BatObservation):
                                      f'file for this trigger with observation ID \
                 {self.obs_id} located at {self.obs_dir}. This file is necessary for the remaining processing since an' \
                           f"energy calibration needs to be applied.")
+        elif len(self.gain_offset_file) > 1:
+            raise AttributeError(
+                f'The event file {ev_file} has not had the energy calibration applied and there are too many gain/offset '
+                f'files for this trigger with observation ID \
+                            {self.obs_id} located at {self.obs_dir}. One of these files is necessary for the remaining processing since an' \
+                f"energy calibration needs to be applied.")
         else:
             #if we have the file, then we need to call bateconvert
             input_dict=dict(infile=str(self.event_files), calfile=str(self.gain_offset_file),
