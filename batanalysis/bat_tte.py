@@ -118,11 +118,12 @@ class BatEvent(BatObservation):
             else:
                 self.event_files=self.event_files[0]
                 #also make sure that the file is gunzipped
-                with gzip.open(self.event_files, 'rb') as f_in:
-                    with open(test.parent.joinpath(test.stem), 'wb') as f_out:
-                        shutil.copyfileobj(f_in, f_out)
+                if ".gz" in self.event_files.suffix:
+                    with gzip.open(self.event_files, 'rb') as f_in:
+                        with open(self.event_files.parent.joinpath(self.event_files.stem), 'wb') as f_out:
+                            shutil.copyfileobj(f_in, f_out)
 
-                self.event_files=test.parent.joinpath(test.stem)
+                    self.event_files=test.parent.joinpath(test.stem)
 
 
             #make sure that we have an enable disable map
@@ -158,6 +159,8 @@ class BatEvent(BatObservation):
             # TODO: possible feature here is to be able to do mask weighting for multiple sources in the BAT FOV at the time
             # of the event data being collected.
 
+            #TODO: need to get the GTI
+
             #get the relevant information from the event file/TDRSS file such as RA/DEC/trigger time. Should also make
             # sure that these values agree. If so good, otherwise need to choose a coordinate/use the user supplied coordinates
             # and then rerun the auxil ray tracing
@@ -169,9 +172,9 @@ class BatEvent(BatObservation):
                     tdrss_dec = file[0].header["BDEC_OBJ"]
 
             #get info from event file which must exist to get to this point
-            with fits.open(self.event_files[0]) as file:
-                event_ra = file[0].header["BAT_RA"]
-                event_dec = file[0].header["BAT_DEC"]
+            with fits.open(self.event_files) as file:
+                event_ra = file[0].header["RA_OBJ"]
+                event_dec = file[0].header["DEC_OBJ"]
 
             #by default, ra/dec="event" to use the coordinates set here by SDC but can use other coordinates
             if "tdrss" in ra or "tdrss" in dec:
@@ -223,17 +226,16 @@ class BatEvent(BatObservation):
             #look at the header of the event file(s) and see if they have:
             # GAINAPP =                 T / Gain correction has been applied
             # and GAINMETH= 'FIXEDDAC'           / Cubic ground gain/offset correction using DAC-b
-            for f in self.event_files:
-                with fits.open(f) as file:
-                    hdr=file['EVENTS'].header
-                if not hdr["GAINAPP"] or  "FIXEDDAC" not in hdr["GAINMETH"]:
-                    #need to run the energy conversion even though this should have been done by SDC
-                    self.apply_energy_correction(f, verbose)
+            with fits.open(self.event_files) as file:
+                hdr=file['EVENTS'].header
+            if not hdr["GAINAPP"] or  "FIXEDDAC" not in hdr["GAINMETH"]:
+                #need to run the energy conversion even though this should have been done by SDC
+                self.apply_energy_correction(verbose)
 
-
-
-            # at this point, we have set some things up and we can let the user define what they want to do for their light
-            # curves and spctra
+            # at this point, we have made sure that the events are energy calibrated, the mask weighting has been done for
+            # the coordinates of interest (assuming it is the triggered event)
+            # and we can let the user define what they want to do for their light
+            # curves and spctra. Need to determine how to organize this for any source in FOV to be analyzed.
 
         else:
             load_file = Path(load_file).expanduser().resolve()
@@ -281,10 +283,12 @@ class BatEvent(BatObservation):
                             outtype="DPI", timedel=0.0, timebinalg = "uniform", energybins = "-", weighted = "no", outunits = "counts")
             binevt_return=self._call_batbinevt(input_dict)
 
-            #Get list of known problematic detectors
-            #bathotpix grb.dpi grb.mask detmask = bat/hk/sw01116441000bdecb.hk.gz
-            #get the
+            #Get list of known problematic detectors, do we need to do this? This might be handled by the SDC
+            #eg batdetmask date=output_dpi outfile=master.detmask clobber=YES detmask= self.enable_disable_file
+            #then master.detmask gets passed as detmask parameter in bathotpix call
 
+            #get the hot pixels
+            #bathotpix grb.dpi grb.mask detmask = bat/hk/sw01116441000bdecb.hk.gz
             output_detector_quality=self.obs_dir.joinpath("bat").joinpath("hk").joinpath(f'sw{self.obs_id}bdqcb.hk.gz')
             input_dict = dict(infile=str(output_dpi),
                               outfile=str(output_detector_quality),
@@ -299,7 +303,7 @@ class BatEvent(BatObservation):
 
         return None
 
-    def apply_energy_correction(self, ev_file, verbose):
+    def apply_energy_correction(self, verbose):
         """
         This function applies the proper energy correction to the event file following the steps outlined here:
         https://swift.gsfc.nasa.gov/analysis/threads/bateconvertthread.html
@@ -363,7 +367,7 @@ class BatEvent(BatObservation):
 
         return None
 
-    def create_spectrum(self, **kwargs):
+    def create_pha(self, **kwargs):
         """
         This method returns a spectrum object.
 
