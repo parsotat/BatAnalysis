@@ -159,7 +159,7 @@ class BatEvent(BatObservation):
             # TODO: possible feature here is to be able to do mask weighting for multiple sources in the BAT FOV at the time
             # of the event data being collected.
 
-            #TODO: need to get the GTI
+            #TODO: need to get the GTI? May not need according to software guide?
 
             #get the relevant information from the event file/TDRSS file such as RA/DEC/trigger time. Should also make
             # sure that these values agree. If so good, otherwise need to choose a coordinate/use the user supplied coordinates
@@ -340,7 +340,7 @@ class BatEvent(BatObservation):
 
         return None
 
-    def apply_mask_weighting(self):
+    def apply_mask_weighting(self, ra=None, dec=None):
         """
         This method is meant to apply mask weighting for a source that is located at a certain position on the sky.
         An associated, necessary file that is produced is the auxiliary ray tracing file which is needed for spectral fitting.
@@ -351,9 +351,14 @@ class BatEvent(BatObservation):
         """
 
         #batmaskwtevt infile=bat/event/sw01116441000bevshsp_uf.evt attitude=auxil/sw01116441000sat.fits.gz detmask=grb.mask ra= dec=
+        if ra is None and dec is None:
+            ra=self.ra
+            dec=self.dec
 
-        raise NotImplementedError("Applying the mask weighing has not yet been implemented.")
-
+        input_dict=dict(infile=str(self.event_files), attitude=str(self.attitude_file), detmask=str(self.detector_quality_file),
+                        ra=ra, dec=dec, auxfile=str(self.auxil_raytracing_file))
+        self._call_batmaskwtevt(input_dict)
+        
         return None
 
     def create_lightcurve(self, **kwargs):
