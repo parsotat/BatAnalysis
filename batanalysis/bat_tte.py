@@ -34,7 +34,7 @@ except ModuleNotFoundError as err:
 
 class BatEvent(BatObservation):
 
-    def __init__(self, obs_id, transient_name=None, ra="event", dec="event", obs_dir=None, input_dict=None, recalc=False, verbose=False, load_dir=None):
+    def __init__(self, obs_id, save_dir=None, transient_name=None, ra="event", dec="event", obs_dir=None, input_dict=None, recalc=False, verbose=False, load_dir=None):
 
         # make sure that the observation ID is a string
         if type(obs_id) is not str:
@@ -65,6 +65,7 @@ class BatEvent(BatObservation):
             # just give dummy values that will be written over later
             load_dir = self.obs_dir
 
+
         load_file = load_dir.joinpath("batevent.pickle")
         complete_file = load_dir.joinpath(".batevent_complete")
         self._set_local_pfile_dir(load_dir.joinpath(".local_pfile"))
@@ -89,9 +90,10 @@ class BatEvent(BatObservation):
                     "The observation ID folder needs to contain the bat/event/, the bat/hk/, the bat/rate/, the auxil/, and tdrss/ subdirectories in order to " + \
                     "analyze BAT event data. One or many of these folders are missing.")
 
-            #save the necessary files that we will need through the processing/analysis steps
+            #save the necessary files that we will need through the processing/analysis steps. See
+            # https://swift.gsfc.nasa.gov/archive/archiveguide1_v2_2_apr2018.pdf for reference of files
             self.enable_disable_file=list(self.obs_dir.joinpath("bat").joinpath("hk").glob('*bdecb*'))
-            #the detector quality is combination of enable/disable detectors and currently (at tiem of trigger) hot detectors
+            #the detector quality is combination of enable/disable detectors and currently (at time of trigger) hot detectors
             # https://swift.gsfc.nasa.gov/analysis/threads/batqualmapthread.html
             self.detector_quality_file=list(self.obs_dir.joinpath("bat").joinpath("hk").glob('*bdqcb*'))
             self.event_files=list(self.obs_dir.joinpath("bat").joinpath("event").glob('*bevsh*_uf*'))
@@ -234,8 +236,56 @@ class BatEvent(BatObservation):
 
             # at this point, we have made sure that the events are energy calibrated, the mask weighting has been done for
             # the coordinates of interest (assuming it is the triggered event)
-            # and we can let the user define what they want to do for their light
+
+            # see if the savedir=None, if so set it to the determined load_dir. If the directory doesnt exist create it.
+            if save_dir is None:
+                save_dir = self.obs_dir.parent.joinpath(f"{obs_id}_eventresult")
+            else:
+                save_dir = Path(save_dir)
+
+            save_dir.mkdir(parents=True, exist_ok=True)
+
+            #Now we can create the necessary directories to hold the files in the save_dir directory
+            event_dir=save_dir.joinpath("events")
+            gti_dir=save_dir.joinpath("gti")
+            auxil_dir=save_dir.joinpath("auxil")
+            dpi_dir=save_dir.joinpath("dpi")
+            img_dir=save_dir.joinpath("gti")
+            lc_dir=save_dir.joinpath("lc")
+            pha_dir=save_dir.joinpath("pha")
+
+            for i in [event_dir, gti_dir, auxil_dir, dpi_dir, img_dir, lc_dir, pha_dir]:
+                i.mkdir(parents=True, exist_ok=True)
+
+            #copy the necessary files over, eg the event file, the quality mask, the attitude file, etc
+            shutil.copy(self.event_files, event_dir)
+            shutil.copy(self.auxil_raytracing_file, event_dir)
+
+            shutil.copy(self.enable_disable_file, auxil_dir)
+            shutil.copy(self.detector_quality_file, auxil_dir)
+            shutil.copy(self.attitude_file, auxil_dir)
+            shutil.copy(self.tdrss_files, auxil_dir)
+            shutil.copy(self.gain_offset_file, auxil_dir)
+
+            #save the new location of the files as attributes
+            self.event_files = event_dir.joinpath(self.event_files.name)
+            self.auxil_raytracing_file = event_dir.joinpath(self.auxil_raytracing_file.name)
+            self.enable_disable_file = auxil_dir.joinpath(self.enable_disable_file.name)
+            self.detector_quality_file = auxil_dir.joinpath(self.detector_quality_file.name)
+            self.attitude_file = auxil_dir.joinpath(self.attitude_file.name)
+            self.tdrss_files = auxil_dir.joinpath(self.tdrss_files.name)
+            self.gain_offset_file = auxil_dir.joinpath(self.gain_offset_file.name)
+
+            # create the marker file that tells us that the __init__ method completed successfully
+            complete_file.touch()
+
+            # save the state so we can load things later
+            self.save()
+
+            # Now we can let the user define what they want to do for their light
             # curves and spctra. Need to determine how to organize this for any source in FOV to be analyzed.
+
+
 
         else:
             load_file = Path(load_file).expanduser().resolve()
@@ -358,7 +408,7 @@ class BatEvent(BatObservation):
         input_dict=dict(infile=str(self.event_files), attitude=str(self.attitude_file), detmask=str(self.detector_quality_file),
                         ra=ra, dec=dec, auxfile=str(self.auxil_raytracing_file))
         self._call_batmaskwtevt(input_dict)
-        
+
         return None
 
     def create_lightcurve(self, **kwargs):
