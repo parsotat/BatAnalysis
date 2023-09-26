@@ -67,7 +67,7 @@ class BatEvent(BatObservation):
 
         load_file = load_dir.joinpath("batevent.pickle")
         complete_file = load_dir.joinpath(".batevent_complete")
-        self._set_local_pfile_dir = load_dir.joinpath(".local_pfile")
+        self._set_local_pfile_dir(load_dir.joinpath(".local_pfile"))
 
         #THIS SHOULDNT BE NECESSARY NOW WITH THE BATOBSERVATION GET/SET
         # make the local pfile dir if it doesnt exist and set this value

@@ -65,7 +65,7 @@ class BatObservation(object):
         :return: None
         """
         #make sure that it is a Path object
-        dir=Path(dir)
+        self._local_pfile_dir=Path(dir)
 
         self._local_pfile_dir.mkdir(parents=True, exist_ok=True)
         try:
@@ -79,6 +79,8 @@ class BatObservation(object):
 
         :return: Returns the _local_pfile_dir Path object
         """
+
+        return self._local_pfile_dir
 
 
     def _call_bathotpix(self, input_dict):
