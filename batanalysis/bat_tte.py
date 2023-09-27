@@ -472,19 +472,33 @@ class BatEvent(BatObservation):
             timedel= timedelta / np.timedelta64(1, 's') #convert to seconds
 
         if tstart is not None:
-            if type(tstart) is not Time or type(tstart) is not TimeDelta:
-                raise ValueError('The tstart variable needs to be an astropy Time or TimeDelta object.')
+            #test if its a number
+            if type(tstart) is not TimeDelta:
+                tstart=str(tstart)
+                try:
+                    tstart=float(tstart)
+                except ValueError as e:
+                    raise ValueError('The tstart variable needs to be an MET time float, a string of an MET time value, or a TimeDelta object.')
+            else:
+                tstart=self.trigtime_met+tstart.to_value("sec")
         else:
-            #get the start time from the earliest MET time in the event file
-            tstart=self.tstart_met
+            #get the start time from the earliest MET time in the event file using default batbinevt values
+            tstart="INDEF"
 
 
         if tstop is not None:
-            if type(tstop) is not Time or type(tstop) is not TimeDelta:
-                raise ValueError('The tstop variable needs to be an astropy Time or TimeDelta object.')
+            #test if its a number
+            if type(tstop) is not TimeDelta:
+                tstop=str(tstop)
+                try:
+                    tstop=float(tstop)
+                except ValueError as e:
+                    raise ValueError('The tstop variable needs to be an MET time float, a string of an MET time value, or a TimeDelta object.')
+            else:
+                tstop=self.trigtime_met+tstop.to_value("sec")
         else:
-            #get the end time
-            tstop=self.tstop_met
+            #get the end time from the latest MET time in the event file using default batbinevt values
+            tstop="INDEF"
 
         input_dict=dict(infile=str(self.event_files), outfile=str(outfile), outtype="LC", )
 

@@ -98,7 +98,7 @@ class BatObservation(object):
             print(e)
             raise RuntimeError(f"The call to Heasoft bathotpix failed with inputs: {input_dict}.")
 
-    def _call_batbinevent(self, input_dict):
+    def _call_batbinevt(self, input_dict):
         """
         Calls heasoftpy's batbinevt with an error wrapper
 
@@ -189,6 +189,12 @@ class Lightcurve(BatObservation):
         This method sets the appropriate weights for event data, for a
         given RA/DEC position. This may be necessary if a user is analyzing multiple sources for which event data has been
         obtained.
+
+        Note: event weightings need to be set if the RA/DEC of the light curve doesnt match what is in the event file
+
         :return:
         """
+
+
+
 
