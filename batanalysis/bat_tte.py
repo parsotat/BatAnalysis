@@ -470,13 +470,20 @@ class BatEvent(BatObservation):
         # detmask=../hk/sw00145675000bcbdq.hk.gz clobber=YES
 
         if outfile is None:
-            #make up a name for the light curve that hasnt been used already in the LC directory
-            lc_files=list(self.result_dir.joinpath("lc").glob("*.lc"))
-            base="lightcurve_"
-            count=0
-            while "f{base}{count}.lc" in lc_files:
-                count+=1
-            outfile=self.result_dir.joinpath("lc").joinpath("f{base}{count}.lc")
+            if not recalc:
+                #make up a name for the light curve that hasnt been used already in the LC directory
+                lc_files=list(self.result_dir.joinpath("lc").glob("*.lc"))
+                base="lightcurve_"
+                count=0
+                while f"{base}{count}.lc" in lc_files:
+                    count+=1
+                outfile=self.result_dir.joinpath("lc").joinpath(f"{base}{count}.lc")
+            else:
+                lc_files = list(self.result_dir.joinpath("lc").glob("*.lc"))
+                if len(lc_files)==1:
+                    outfile=lc_files[0]
+                else:
+                    raise ValueError(f"There are too many files which meet the criteria to be loaded. Please specify one of {lc_files}.")
         else:
             outfile=Path(outfile)
 
@@ -486,12 +493,12 @@ class BatEvent(BatObservation):
             input_dict = dict(infile=str(self.event_files), outfile=str(outfile), outtype="LC",
                               energybins="15-350", weighted="YES", timedel=0.064,
                               detmask=str(self.detector_quality_file),
-                              tstart="INDEF", tstop="INDEF", clobber="YES")
+                              tstart="INDEF", tstop="INDEF", clobber="YES", timebinalg="uniform")
             self._call_batbinevt(input_dict)
             lc = Lightcurve(self.event_files, outfile, self.detector_quality_file)
         else:
             lc=Lightcurve(self.event_files, outfile, self.detector_quality_file)
-            
+
         stop
 
 
