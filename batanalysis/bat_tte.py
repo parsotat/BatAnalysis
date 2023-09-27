@@ -452,7 +452,8 @@ class BatEvent(BatObservation):
         return None
 
     def create_lightcurve(self, outfile=None, timedelta=np.timedelta64(64, 'ms'), tstart=None, tstop=None,
-                          energybins=["15-25", "25-50", "50-100", "100-350", "15-350"], relative_time=False, recalc=True):
+                          energybins=["15-25", "25-50", "50-100", "100-350", "15-350"], recalc=True, mask_weighting=True,
+                          timebinalg="uniform"):
         """
         This method returns a lightcurve object which can be manipulated in different energies/timebins
 
@@ -465,7 +466,7 @@ class BatEvent(BatObservation):
         # timedel=1.0 timebinalg=u energybins=15-150
         # detmask=../hk/sw00145675000bcbdq.hk.gz clobber=YES
 
-        # error checking
+        # error checking for times
         if type(timedelta) is not np.timedelta64:
             raise ValueError('The timedelta variable needs to be a numpy timedelta64 object.')
         else:
@@ -485,7 +486,6 @@ class BatEvent(BatObservation):
             #get the start time from the earliest MET time in the event file using default batbinevt values
             tstart="INDEF"
 
-
         if tstop is not None:
             #test if its a number
             if type(tstop) is not TimeDelta:
@@ -500,7 +500,44 @@ class BatEvent(BatObservation):
             #get the end time from the latest MET time in the event file using default batbinevt values
             tstop="INDEF"
 
-        input_dict=dict(infile=str(self.event_files), outfile=str(outfile), outtype="LC", )
+        #error checking for timebinalg
+        if timebinalg not in ["uniform", "gti", "snr", "bayesian"]:
+            raise ValueError("The timebinalg must be set to uniform, gti, snr, or bayesian.")
+
+        # if we want custom intervals for binning:
+        if "gti" in timebinalg:
+            #create the gti file and feed that in
+            times=np.arange(tstart, tstop, timedelta)
+
+        else:
+            gtifile = "NONE"
+
+        #if we want bayesian blocks we need to first create a light curve and then run it though the bayesian blocks
+        # algorithm and return that
+        if "bayesian" in timebinalg:
+            timebinalg="uniform"
+            bayesian_reanalyze=True
+
+
+
+
+        #error checking for energies
+        if type(energybins) is not list:
+            energybins=list(energybins)
+            energybins=','.join(energybins)
+
+        #error checking for weighting
+        if type(mask_weighting) is bool:
+            if mask_weighting:
+                weighted = "YES"
+            else:
+                weighted = "NO"
+        else:
+            raise ValueError("The mask_weighting parameter should be a boolean value.")
+
+        input_dict=dict(infile=str(self.event_files), outfile=str(outfile), outtype="LC",
+                        energybins=energybins, weighted = weighted, timedel=timedel, detmask=str(self.detector_quality_file),
+                        tstart=tstart, tstop=tstop, )
 
 
 
