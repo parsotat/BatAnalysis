@@ -142,13 +142,13 @@ class BatObservation(object):
 
 
 
-class Lightcurve(object):
+class Lightcurve(BatObservation):
     """
     This is a general light curve class that contains typical information that a user may want from their lightcurve.
     This object is a wrapper around a light curve created from BAT event data.
     """
 
-    def __init__(self, eventfile,  ):
+    def __init__(self, eventfile,  lightcurve_file, detector_quality_mask):
         """
         This constructor reads in a fits file that contains light curve data for a given BAT event dataset. The fits file
         should have been created by a call to
@@ -157,25 +157,38 @@ class Lightcurve(object):
         """
 
 
-    def set_timebins(self):
+    def rebin_timebins(self):
         """
         This method allows for the dynamic rebinning of a light curve in time.
 
         :return:
         """
 
-    def set_energy_bins(self):
+    def rebin_energy_bins(self):
         """
         This method allows for the dynamic rebinning of a light curve in energy
 
         :return:
         """
 
-    def plot(self):
+    def _parse_lightcurve_file(self):
         """
-        This convenience funciton plots the light curve for the specified timebinning and/or energy binning
-
+        This method parses through a light curve file that has been created by batbinevent
         :return:
         """
 
+    def _parse_event_weights(self):
+        """
+        This method reads in the appropriate weights for event data once it has been applied to a event file, for a
+        given RA/DEC position
+        :return:
+        """
+
+    def _set_event_weights(self):
+        """
+        This method sets the appropriate weights for event data, for a
+        given RA/DEC position. This may be necessary if a user is analyzing multiple sources for which event data has been
+        obtained.
+        :return:
+        """
 

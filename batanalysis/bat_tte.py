@@ -34,7 +34,7 @@ except ModuleNotFoundError as err:
 
 class BatEvent(BatObservation):
 
-    def __init__(self, obs_id, save_dir=None, transient_name=None, ra="event", dec="event", obs_dir=None, input_dict=None, recalc=False, verbose=False, load_dir=None):
+    def __init__(self, obs_id, result_dir=None, transient_name=None, ra="event", dec="event", obs_dir=None, input_dict=None, recalc=False, verbose=False, load_dir=None):
 
         # make sure that the observation ID is a string
         if type(obs_id) is not str:
@@ -243,8 +243,13 @@ class BatEvent(BatObservation):
             #look at the header of the event file(s) and see if they have:
             # GAINAPP =                 T / Gain correction has been applied
             # and GAINMETH= 'FIXEDDAC'           / Cubic ground gain/offset correction using DAC-b
+            #also want to get the TSTART and TSTOP for use later
             with fits.open(self.event_files) as file:
                 hdr=file['EVENTS'].header
+                self.tstart_met=hdr["TSTART"]
+                self.tstop_met=hdr["TSTOP"]
+                self.telapse=hdr["TELAPSE"]
+                self.trigtime_met=hdr["TRIGTIME"]
             if not hdr["GAINAPP"] or  "FIXEDDAC" not in hdr["GAINMETH"]:
                 #need to run the energy conversion even though this should have been done by SDC
                 self.apply_energy_correction(verbose)
@@ -253,21 +258,21 @@ class BatEvent(BatObservation):
             # the coordinates of interest (assuming it is the triggered event)
 
             # see if the savedir=None, if so set it to the determined load_dir. If the directory doesnt exist create it.
-            if save_dir is None:
-                save_dir = self.obs_dir.parent.joinpath(f"{obs_id}_eventresult")
+            if result_dir is None:
+                self.result_dir = self.obs_dir.parent.joinpath(f"{obs_id}_eventresult")
             else:
-                save_dir = Path(save_dir)
+                self.result_dir = Path(result_dir)
 
-            save_dir.mkdir(parents=True, exist_ok=True)
+            self.result_dir.mkdir(parents=True, exist_ok=True)
 
             #Now we can create the necessary directories to hold the files in the save_dir directory
-            event_dir=save_dir.joinpath("events")
-            gti_dir=save_dir.joinpath("gti")
-            auxil_dir=save_dir.joinpath("auxil")
-            dpi_dir=save_dir.joinpath("dpi")
-            img_dir=save_dir.joinpath("gti")
-            lc_dir=save_dir.joinpath("lc")
-            pha_dir=save_dir.joinpath("pha")
+            event_dir=self.result_dir.joinpath("events")
+            gti_dir=self.result_dir.joinpath("gti")
+            auxil_dir=self.result_dir.joinpath("auxil")
+            dpi_dir=self.result_dir.joinpath("dpi")
+            img_dir=self.result_dir.joinpath("gti")
+            lc_dir=self.result_dir.joinpath("lc")
+            pha_dir=self.result_dir.joinpath("pha")
 
             for i in [event_dir, gti_dir, auxil_dir, dpi_dir, img_dir, lc_dir, pha_dir]:
                 i.mkdir(parents=True, exist_ok=True)
@@ -297,6 +302,13 @@ class BatEvent(BatObservation):
                 temp_tdrss_files.append(auxil_dir.joinpath(i.name))
             self.tdrss_files=temp_tdrss_files
             self.gain_offset_file = auxil_dir.joinpath(self.gain_offset_file.name)
+
+            #also update the local pfile dir
+            self._set_local_pfile_dir(self.result_dir.joinpath(".local_pfile"))
+
+            #want to get some other basic information for use later
+
+
 
             # create the marker file that tells us that the __init__ method completed successfully
             complete_file.touch()
@@ -439,14 +451,44 @@ class BatEvent(BatObservation):
 
         return None
 
-    def create_lightcurve(self, **kwargs):
+    def create_lightcurve(self, outfile=None, timedelta=np.timedelta64(64, 'ms'), tstart=None, tstop=None,
+                          energybins=["15-25", "25-50", "50-100", "100-350", "15-350"], relative_time=False, recalc=True):
         """
-        This method returns a lightcurve object.
+        This method returns a lightcurve object which can be manipulated in different energies/timebins
 
         :return:
         """
 
         raise NotImplementedError("Creating the lightcurve has not yet been implemented.")
+
+        #batbinevt infile=sw00145675000bevshsp_uf.evt.gz outfile=onesec.lc outtype=LC
+        # timedel=1.0 timebinalg=u energybins=15-150
+        # detmask=../hk/sw00145675000bcbdq.hk.gz clobber=YES
+
+        # error checking
+        if type(timedelta) is not np.timedelta64:
+            raise ValueError('The timedelta variable needs to be a numpy timedelta64 object.')
+        else:
+            timedel= timedelta / np.timedelta64(1, 's') #convert to seconds
+
+        if tstart is not None:
+            if type(tstart) is not Time or type(tstart) is not TimeDelta:
+                raise ValueError('The tstart variable needs to be an astropy Time or TimeDelta object.')
+        else:
+            #get the start time from the earliest MET time in the event file
+            tstart=self.tstart_met
+
+
+        if tstop is not None:
+            if type(tstop) is not Time or type(tstop) is not TimeDelta:
+                raise ValueError('The tstop variable needs to be an astropy Time or TimeDelta object.')
+        else:
+            #get the end time
+            tstop=self.tstop_met
+
+        input_dict=dict(infile=str(self.event_files), outfile=str(outfile), outtype="LC", )
+
+
 
         return None
 
