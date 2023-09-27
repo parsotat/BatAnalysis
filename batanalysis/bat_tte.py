@@ -10,8 +10,11 @@ import os
 import gzip
 import shutil
 import sys
+
+import batanalysis
+
 from .batlib import datadir, dirtest, met2mjd, met2utc
-from .batobservation import BatObservation
+from .batobservation import BatObservation, Lightcurve
 import glob
 from astropy.io import fits
 import numpy as np
@@ -460,11 +463,37 @@ class BatEvent(BatObservation):
         :return:
         """
 
-        raise NotImplementedError("Creating the lightcurve has not yet been implemented.")
+        #raise NotImplementedError("Creating the lightcurve has not yet been implemented.")
 
         #batbinevt infile=sw00145675000bevshsp_uf.evt.gz outfile=onesec.lc outtype=LC
         # timedel=1.0 timebinalg=u energybins=15-150
         # detmask=../hk/sw00145675000bcbdq.hk.gz clobber=YES
+
+        if outfile is None:
+            #make up a name for the light curve that hasnt been used already in the LC directory
+            lc_files=list(self.result_dir.joinpath("lc").glob("*.lc"))
+            base="lightcurve_"
+            count=0
+            while "f{base}{count}.lc" in lc_files:
+                count+=1
+            outfile=self.result_dir.joinpath("lc").joinpath("f{base}{count}.lc")
+        else:
+            outfile=Path(outfile)
+
+
+        if recalc or not outfile.exists():
+            # create a general light curve to modify or load one that was previously created
+            input_dict = dict(infile=str(self.event_files), outfile=str(outfile), outtype="LC",
+                              energybins="15-350", weighted="YES", timedel=0.064,
+                              detmask=str(self.detector_quality_file),
+                              tstart="INDEF", tstop="INDEF", clobber="YES")
+            self._call_batbinevt(input_dict)
+            lc = Lightcurve(self.event_files, outfile, self.detector_quality_file)
+        else:
+            lc=Lightcurve(self.event_files, outfile, self.detector_quality_file)
+            
+        stop
+
 
         # error checking for times
         if type(timedelta) is not np.timedelta64:
