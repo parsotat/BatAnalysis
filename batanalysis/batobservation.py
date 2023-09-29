@@ -7,6 +7,7 @@ Tyler Parsotan Jan 24 2022
 from .batlib import datadir
 from pathlib import Path
 from astropy.time import Time
+import astropy.units as u
 from datetime import datetime, timedelta
 import re
 import warnings
@@ -148,13 +149,30 @@ class Lightcurve(BatObservation):
     This object is a wrapper around a light curve created from BAT event data.
     """
 
-    def __init__(self, eventfile,  lightcurve_file, detector_quality_mask):
+    def __init__(self, eventfile,  lightcurve_file, detector_quality_mask, ra=None, dec=None):
         """
         This constructor reads in a fits file that contains light curve data for a given BAT event dataset. The fits file
         should have been created by a call to
 
         :param lightcurve_file:
         """
+
+        #save these variables
+        self.eventfile = eventfile
+        self.lightcurve_file = lightcurve_file
+        self.detector_quality_mask = detector_quality_mask
+
+        #set default RA/DEC coordinates correcpondent to the LC file which will be filled in later if it is set to None
+        self.lc_ra = ra
+        self.lc_dec = dec
+
+        #read info from the lightcurve file
+        self._parse_lightcurve_file()
+
+        #read in the information about the weights
+        self._parse_event_weights()
+
+
 
 
     def rebin_timebins(self):
@@ -177,12 +195,36 @@ class Lightcurve(BatObservation):
         :return:
         """
 
+        with fits.open(self.lightcurve_file) as f:
+            header=f[1].header
+            data=f[1].data
+
+        if self.lc_ra is None and self.lc_dec is None:
+            self.lc_ra = header["RA_OBJ"]
+            self.lc_dec = header["DEC_OBJ"]
+        else:
+            #test if the passed in coordinates are what they should be for the light curve file
+            #TODO: see if we are ~? arcmin close to one another
+            assert(np.isclose(self.lc_ra, header["RA_OBJ"]) and np.isclose(self.lc_dec, header["DEC_OBJ"]),
+                   f"The passedi in RA/DEC values ({self.lc_ra},{self.lc_dec}) do not match the values used to produce the "
+                   f"lightcurve which are ({header['RA_OBJ']},{header['DEC_OBJ']})")
+
+        #read in the data and save to data attribute which is a dictionary of the column names as keys and the numpy arrays as values
+        self.data={}
+        for i in data.columns:
+            self.data[i.name] = u.Quantity(data[i.name], i.unit)
+
+
+
+
     def _parse_event_weights(self):
         """
         This method reads in the appropriate weights for event data once it has been applied to a event file, for a
         given RA/DEC position
         :return:
         """
+        #with fits.open(self.):
+
 
     def _set_event_weights(self):
         """
@@ -193,6 +235,14 @@ class Lightcurve(BatObservation):
         Note: event weightings need to be set if the RA/DEC of the light curve doesnt match what is in the event file
 
         :return:
+        """
+
+    def _same_event_lc_coords(self):
+        """
+        This simple program reads in the event data coordinates and compares it to what is obained from the lightcurve
+        file that has been loaded in.
+
+        :return: Boolean
         """
 
 
