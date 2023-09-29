@@ -205,9 +205,8 @@ class Lightcurve(BatObservation):
         else:
             #test if the passed in coordinates are what they should be for the light curve file
             #TODO: see if we are ~? arcmin close to one another
-            assert(np.isclose(self.lc_ra, header["RA_OBJ"]) and np.isclose(self.lc_dec, header["DEC_OBJ"]),
-                   f"The passedi in RA/DEC values ({self.lc_ra},{self.lc_dec}) do not match the values used to produce the "
-                   f"lightcurve which are ({header['RA_OBJ']},{header['DEC_OBJ']})")
+            assert (np.isclose(self.lc_ra, header["RA_OBJ"]) and np.isclose(self.lc_dec, header["DEC_OBJ"])), \
+                   f"The passedi in RA/DEC values ({self.lc_ra},{self.lc_dec}) do not match the values used to produce the lightcurve which are ({header['RA_OBJ']},{header['DEC_OBJ']})"
 
         #read in the data and save to data attribute which is a dictionary of the column names as keys and the numpy arrays as values
         self.data={}
