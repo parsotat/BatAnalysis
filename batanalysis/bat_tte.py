@@ -230,7 +230,7 @@ class BatEvent(BatObservation):
                 #TODO: improvement will be that when BAT is slewing that this file will need to be remade for each time interval
                 # and will also have to consider drmgen and mask weighing for each timestep
 
-                #self.auxil_raytracing_file = self.apply_mask_weighting()
+                #self.auxil_raytracing_file = self.apply_mask_weighting(self.ra, self.dec)
                 raise FileNotFoundError(f"There seem to be no auxiliary ray tracing file for this trigger with observation ID" \
                                 f"{self.obs_id} located at {self.obs_dir}. This file is necessary for the remaining processing.")
             elif len(self.auxil_raytracing_file) > 1:
@@ -459,10 +459,27 @@ class BatEvent(BatObservation):
         if ra is None and dec is None:
             ra=self.ra
             dec=self.dec
+        else:
+            #set the new ra/dec values
+            self.ra=ra
+            self.dec-dec
 
         input_dict=dict(infile=str(self.event_files), attitude=str(self.attitude_file), detmask=str(self.detector_quality_file),
                         ra=ra, dec=dec, auxfile=str(self.auxil_raytracing_file))
         self._call_batmaskwtevt(input_dict)
+
+        #modify the event file header with the RA/DEC of the weights that were applied, if they are different
+        with fits.open(self.event_files, mode='update') as file:
+            event_ra = file[0].header["RA_OBJ"]
+            event_dec = file[0].header["DEC_OBJ"]
+            if event_ra != self.ra and event_dec != self.dec:
+                #update the event file RA/DEC_OBJ values everywhere
+                for i in file:
+                    i.header["RA_OBJ"]=self.ra
+                    i.header["DEC_OBJ"]=self.dec
+
+        #reread in the event file data
+        self._parse_event_file()
 
         return None
 
