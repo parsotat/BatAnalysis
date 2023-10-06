@@ -115,8 +115,8 @@ class BatObservation(object):
 
     def _call_batmaskwtevt(self, input_dict):
         """
-        Calls heasoftpy's batmaskwtevt with an error wrapper, TODO: apply keyword correction for auxfile via
-        batupdatephakw
+        Calls heasoftpy's batmaskwtevt with an error wrapper,
+        TODO: apply keyword correction for spectrum file (using the auxfile) via batupdatephakw
 
         :param input_dict: Dictionary of inputs that will be passed to heasoftpy's batmaskwtevt
         :return: heasoftpy Result object from batmaskwtevt
@@ -173,7 +173,7 @@ class Lightcurve(BatObservation):
         #read in the information about the weights
         self._get_event_weights()
 
-
+        #were done getting all the info that we need. From here, the user can rebin the timebins and the energy bins
 
 
     def rebin_timebins(self):
@@ -193,12 +193,20 @@ class Lightcurve(BatObservation):
     def _parse_lightcurve_file(self):
         """
         This method parses through a light curve file that has been created by batbinevent
+
+        NOTE: A special value of timepixr=-1 (the default used when constructing light curves) specifies that
+              timepixr=0.0 for uniformly binned light curves and
+              timepixr=0.5 for non-unformly binned light curves. We recommend using the unambiguous TIME_CENT in the
+              tbins attribute to prevent any confusion instead of the data["TIME"] values
+
         :return:
         """
 
         with fits.open(self.lightcurve_file) as f:
             header=f[1].header
             data=f[1].data
+            energies=f["EBOUNDS"].data
+            energies_header=f["EBOUNDS"].header
 
         if self.lc_ra is None and self.lc_dec is None:
             self.lc_ra = header["RA_OBJ"]
@@ -213,6 +221,31 @@ class Lightcurve(BatObservation):
         self.data={}
         for i in data.columns:
             self.data[i.name] = u.Quantity(data[i.name], i.unit)
+
+        #fill in the energy bin info
+        self.ebins={}
+        for i in energies.columns:
+            if "CHANNEL" in i.name:
+                self.ebins["INDEX"] = energies[i.name]
+            elif "E" in i.name:
+                self.ebins[i.name]=u.Quantity(energies[i.name], i.unit)
+
+        #fill in the time info separately
+        timepixr=header["TIMEPIXR"]
+        #see if there is a time delta column exists for variable time bin widths
+        if "TIMEDEL" not in self.data.keys():
+            dt=header["TIMEDEL"]*u.s
+        else:
+            dt=self.data["TIMEDEL"]
+
+
+        self.tbins = {}
+        #TIME + (0.5-TIMEPIXR)*TIMEDEL
+        self.tbins["TIME_CENT"] = self.data["TIME"] + (0.5-timepixr)*dt
+        self.tbins["TIME_START"] = self.data["TIME"] - timepixr*dt
+        self.tbins["TIME_STOP"] = self.data["TIME"] + (1-timepixr)*dt
+
+
 
 
 
