@@ -24,6 +24,7 @@ import sys
 import re
 from pathlib import Path
 from astropy.time import Time
+import astropy.units as u
 from datetime import datetime, timedelta
 import re
 import warnings
@@ -309,9 +310,8 @@ class BatEvent(BatObservation):
             #also update the local pfile dir
             self._set_local_pfile_dir(self.result_dir.joinpath(".local_pfile"))
 
-            #want to get some other basic information for use later
-
-
+            #want to get some other basic information for use later, including all the photon data
+            self._parse_event_file()
 
             # create the marker file that tells us that the __init__ method completed successfully
             complete_file.touch()
@@ -328,6 +328,17 @@ class BatEvent(BatObservation):
             load_file = Path(load_file).expanduser().resolve()
             self.load(load_file)
 
+    def _parse_event_file(self):
+        """
+        This funciton reads in the data from the event file
+        :return:
+        """
+
+        self.data = {}
+        with fits.open(self.event_files) as file:
+            data=file[1].data
+            for i in data.columns:
+                self.data[i.name] = u.Quantity(data[i.name], i.unit)
 
     def load(self, f):
         """
@@ -439,6 +450,7 @@ class BatEvent(BatObservation):
         An associated, necessary file that is produced is the auxiliary ray tracing file which is needed for spectral fitting.
 
         Note that it modifies the event file and the event file needs to be uncompressed.
+        Note the event file RA_OBJ and DEC_OBJ header values are not modified with a call to batmaskwtevt
 
         :return:
         """
