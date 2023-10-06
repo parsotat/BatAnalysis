@@ -115,7 +115,8 @@ class BatObservation(object):
 
     def _call_batmaskwtevt(self, input_dict):
         """
-        Calls heasoftpy's batmaskwtevt with an error wrapper
+        Calls heasoftpy's batmaskwtevt with an error wrapper, TODO: apply keyword correction for auxfile via
+        batupdatephakw
 
         :param input_dict: Dictionary of inputs that will be passed to heasoftpy's batmaskwtevt
         :return: heasoftpy Result object from batmaskwtevt
@@ -149,7 +150,7 @@ class Lightcurve(BatObservation):
     This object is a wrapper around a light curve created from BAT event data.
     """
 
-    def __init__(self, eventfile,  lightcurve_file, detector_quality_mask, ra=None, dec=None):
+    def __init__(self, event_file,  lightcurve_file, detector_quality_mask, ra=None, dec=None):
         """
         This constructor reads in a fits file that contains light curve data for a given BAT event dataset. The fits file
         should have been created by a call to
@@ -158,7 +159,7 @@ class Lightcurve(BatObservation):
         """
 
         #save these variables
-        self.eventfile = eventfile
+        self.event_file = event_file
         self.lightcurve_file = lightcurve_file
         self.detector_quality_mask = detector_quality_mask
 
@@ -224,7 +225,7 @@ class Lightcurve(BatObservation):
 
         #read in all the info for the weights and save it such that we can use these weights in the future for
         #redoing lightcurve calculation
-        with fits.open(self.eventfile) as file:
+        with fits.open(self.event_file) as file:
             self._event_weights=file[1].data["MASK_WEIGHT"]
 
 
@@ -256,7 +257,7 @@ class Lightcurve(BatObservation):
         with fits.open(self.event_file) as file:
             event_ra = file[0].header["RA_OBJ"]
             event_dec = file[0].header["DEC_OBJ"]
-            coord_match = (event_ra == self.lc_ra) and (event_dec == self.dec)
+            coord_match = (event_ra == self.lc_ra) and (event_dec == self.lc_dec)
 
         return coord_match
 
