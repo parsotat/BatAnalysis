@@ -170,7 +170,7 @@ class Lightcurve(BatObservation):
         self._parse_lightcurve_file()
 
         #read in the information about the weights
-        self._set_event_weights()
+        self._get_event_weights()
 
 
 
@@ -240,6 +240,11 @@ class Lightcurve(BatObservation):
         :return:
         """
 
+        if not self._same_event_lc_coords():
+            #read in the event file and replace the values in the MASK_WEIGHT with the appropriate values in self._event_weights
+            with fits.open(self.event_file, mode="update") as file:
+                file[1].data["MASK_WEIGHT"]=self._event_weights
+
     def _same_event_lc_coords(self):
         """
         This simple program reads in the event data coordinates and compares it to what is obained from the lightcurve
@@ -247,6 +252,13 @@ class Lightcurve(BatObservation):
 
         :return: Boolean
         """
+
+        with fits.open(self.event_file) as file:
+            event_ra = file[0].header["RA_OBJ"]
+            event_dec = file[0].header["DEC_OBJ"]
+            coord_match = (event_ra == self.lc_ra) and (event_dec == self.dec)
+
+        return coord_match
 
 
 

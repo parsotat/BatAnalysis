@@ -462,24 +462,28 @@ class BatEvent(BatObservation):
         else:
             #set the new ra/dec values
             self.ra=ra
-            self.dec-dec
+            self.dec=dec
 
         input_dict=dict(infile=str(self.event_files), attitude=str(self.attitude_file), detmask=str(self.detector_quality_file),
-                        ra=ra, dec=dec, auxfile=str(self.auxil_raytracing_file))
+                        ra=ra, dec=dec, auxfile=str(self.auxil_raytracing_file), clobber="YES")
         self._call_batmaskwtevt(input_dict)
 
         #modify the event file header with the RA/DEC of the weights that were applied, if they are different
         with fits.open(self.event_files, mode='update') as file:
             event_ra = file[0].header["RA_OBJ"]
             event_dec = file[0].header["DEC_OBJ"]
-            if event_ra != self.ra and event_dec != self.dec:
+            if event_ra != self.ra or event_dec != self.dec:
                 #update the event file RA/DEC_OBJ values everywhere
                 for i in file:
                     i.header["RA_OBJ"]=self.ra
                     i.header["DEC_OBJ"]=self.dec
+                file.flush()
 
         #reread in the event file data
         self._parse_event_file()
+
+        #TODO how to handle a different auxiliary ray tracing file bieng produced here? what is there is none before?
+        #how do we handle the name of the file?
 
         return None
 
