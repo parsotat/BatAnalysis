@@ -958,7 +958,7 @@ class BatSurvey(BatObservation):
                     pointing_file_sources = file[1].data['NAME']
 
                     # decode it
-                    pointing_file_sources = [i.decode('utf-8') for i in pointing_file_sources]
+                    pointing_file_sources = [i for i in pointing_file_sources]
 
                     # iterate over each passed in source
                     for s in sources:
