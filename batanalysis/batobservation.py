@@ -240,14 +240,10 @@ class Lightcurve(BatObservation):
 
 
         self.tbins = {}
-        #TIME + (0.5-TIMEPIXR)*TIMEDEL
+        #see https://heasarc.gsfc.nasa.gov/ftools/caldb/help/batbinevt.html
         self.tbins["TIME_CENT"] = self.data["TIME"] + (0.5-timepixr)*dt
         self.tbins["TIME_START"] = self.data["TIME"] - timepixr*dt
         self.tbins["TIME_STOP"] = self.data["TIME"] + (1-timepixr)*dt
-
-
-
-
 
     def _get_event_weights(self):
         """
