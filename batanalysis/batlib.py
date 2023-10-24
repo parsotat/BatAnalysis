@@ -156,7 +156,7 @@ def create_custom_catalog(src_name_list, src_ra_list, src_dec_list, src_glon_lis
         src_glat_list = [src_glat_list]
 
     #name sure that the source names are decoded strings
-    src_name_list = [i.decode('utf-8') for i in src_name_list]
+    src_name_list = [i.encode('ascii') for i in src_name_list]
 
     # set default for catalog name and location
     catalog_name=Path(catalog_name)
