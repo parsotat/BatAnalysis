@@ -150,7 +150,7 @@ class Lightcurve(BatObservation):
     This object is a wrapper around a light curve created from BAT event data.
     """
 
-    def __init__(self, event_file,  lightcurve_file, detector_quality_mask, ra=None, dec=None):
+    def __init__(self, event_file,  lightcurve_file, detector_quality_mask, ra=None, dec=None, lc_input_dict=None):
         """
         This constructor reads in a fits file that contains light curve data for a given BAT event dataset. The fits file
         should have been created by a call to
@@ -202,8 +202,16 @@ class Lightcurve(BatObservation):
                     raise ValueError(
                         'All elements of the passed in energybins variable must be a string. Please make sure this condition is met.')
 
-            # ebins=','.join(energybins)
-            # above is comented out since we run this line for both logic paths
+            #need to get emin and emax values, assume that these are in keV already when converting to astropy quantities
+            emin=[]
+            emax=[]
+            for i in energybins:
+                energies=i.split('-')
+                emin.append(energies[0])
+                emax.append(energies[1])
+            emin = u.Quantity(emin, u.keV)
+            emax = u.Quantity(emax, u.keV)
+
         else:
             # make sure that both emin and emax are defined and have the same number of elements
             if (emin is None and emax is not None) or (emax is None and emin is not None):
@@ -226,7 +234,9 @@ class Lightcurve(BatObservation):
         # create the full string
         ebins = ','.join(energybins)
 
-        # need to see if the energybins are different (and even need to be calculated)
+        # need to see if the energybins are different (and even need to be calculated), if so do the recalculation
+        if np.intersect1d(emin, self.ebins['E_MIN']).size != self.ebins['E_MIN'].size or np.intersect1d(emax, self.ebins['E_MAX']).size != self.ebins['E_MAX'].size:
+            lc_return = self._call_batbinevt(input_dict)
 
     def _parse_lightcurve_file(self):
         """
