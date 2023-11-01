@@ -182,8 +182,10 @@ class Lightcurve(BatObservation):
                 raise RuntimeError('The creation of the lightcurve failed with message: {lc.bat_lc_result.stderr}')
 
         else:
+            #set the self.lc_input_dict = None so the parsing of the lightcurve tries to also load in the
+            #parameters passed into batbinevt to create the lightcurve
             #try to parse the existing lightcurve file to see what parameters were passed to batbinevt to construct the file
-            stop
+            self.lc_input_dict = None
 
         #set default RA/DEC coordinates correcpondent to the LC file which will be filled in later if it is set to None
         self.lc_ra = ra
@@ -320,6 +322,55 @@ class Lightcurve(BatObservation):
         self.tbins["TIME_CENT"] = self.data["TIME"] + (0.5-timepixr)*dt
         self.tbins["TIME_START"] = self.data["TIME"] - timepixr*dt
         self.tbins["TIME_STOP"] = self.data["TIME"] + (1-timepixr)*dt
+
+        #if self.lc_input_dict ==None, then we will need to try to read in the hisotry of parameters passed into batbinevt
+        # to create the lightcurve file. thsi usually is needed when we first parse a file so we know what things are if we need to
+        # do some sort of rebinning.
+
+        #were looking for something like:
+        # START PARAMETER list for batbinevt_1.48 at 2023-11-01T20:38:05
+        #
+        # P1 infile = /Users/tparsota/Documents/01116441000_eventresult/events/sw0
+        # P1 1116441000bevshsp_uf.evt
+        # P2 outfile = 01116441000_eventresult/lc/lightcurve_0.lc
+        # P3 outtype = LC
+        # P4 timedel = 0.064
+        # P5 timebinalg = uniform
+        # P6 energybins = 15-350
+        # P7 gtifile = NONE
+        # P8 ecol = ENERGY
+        # P9 weighted = YES
+        # P10 outunits = INDEF
+        # P11 timepixr = -1.0
+        # P12 maskwt = NONE
+        # P13 tstart = INDEF
+        # P14 tstop = INDEF
+        # P15 snrthresh = 6.0
+        # P16 detmask = /Users/tparsota/Documents/01116441000_eventresult/auxil/sw
+        # P16 01116441000bdqcb.hk.gz
+        # P17 tcol = TIME
+        # P18 countscol = DPH_COUNTS
+        # P19 xcol = DETX
+        # P20 ycol = DETY
+        # P21 maskwtcol = MASK_WEIGHT
+        # P22 ebinquant = 0.1
+        # P23 delzeroes = no
+        # P24 minfracexp = 0.1
+        # P25 min_dph_frac_overlap = 0.999
+        # P26 min_dph_time_overlap = 0.0
+        # P27 max_dph_time_nonoverlap = 0.5
+        # P28 buffersize = 16384
+        # P29 clobber = yes
+        # P30 chatter = 2
+        # P31 history = yes
+        # P32 mode = ql
+        # END PARAMETER list for batbinevt_1.48
+
+        if self.lc_input_dict is None:
+            test = hsp.HSPTask('batbinevt')
+            default_params_dict=test.default_params
+            for i in header["HISTORY"]:
+                stop
 
     def _get_event_weights(self):
         """
