@@ -59,7 +59,7 @@ def curdir():
     return cdir
 
 
-def datadir(new=None, mkdir=False, makepersistent=False, tdrss=False) -> Path:
+def datadir(new=None, mkdir=False, makepersistent=False, tdrss=False, trend=False) -> Path:
     """Return the data directory (optionally changing and creating it)
 
     Args:
@@ -73,16 +73,16 @@ def datadir(new=None, mkdir=False, makepersistent=False, tdrss=False) -> Path:
     datadirnamefile = Path("~/.swift/swift_datadir_name").expanduser()
 
     if new is not None:
-        new = Path(new).expanduser().resolve()
+        newdir = Path(new).expanduser().resolve()
         if mkdir:
-            new.mkdir(parents=True, exist_ok=True)
-            new.joinpath("tdrss").mkdir(exist_ok=True)
-            new.joinpath("trend").mkdir(exist_ok=True)
+            newdir.mkdir(parents=True, exist_ok=True)
+            newdir.joinpath('tdrss').mkdir(exist_ok=True)
+            newdir.joinpath('trend').mkdir(exist_ok=True)
         if makepersistent:
             persistfile = datadirnamefile
-            persistfile.parent.mkdir(exist_ok=True)  # make ~/.swift if necessary
-            persistfile.open("wt").write(str(new))
-        _datadir = new
+            persistfile.parent.mkdir(exist_ok=True)     # make ~/.swift if necessary
+            persistfile.open("wt").write(str(newdir))
+        _datadir = newdir
 
     if not globals().get("_datadir", False):
         # Not previously initialized
@@ -99,7 +99,9 @@ def datadir(new=None, mkdir=False, makepersistent=False, tdrss=False) -> Path:
 
     assert isinstance(_datadir, Path)
     if tdrss:
-        return _datadir.joinpath("tdrss")
+        return _datadir.joinpath('tdrss')
+    if trend:
+        return _datadir.joinpath('trend')
     return _datadir
 
 
@@ -1230,7 +1232,114 @@ def from_heasarc(object_name=None, tablename="swiftmastr", **kwargs):
     return table
 
 
-def find_trigger_data():
+"""
+The term 'trigger data' refers to any data that is on a per-trigger basis (most notably
+Time Tagged Event TTE (aka event-by-event) data that is produced for each
+successful trigger, false trigger, or requested event dump.
+It also includes data from successful GRB triggers and TTE data that
+has been requested by ground command.
+
+This can be found on the servers in several places:
+
+
+
+
+Quicklook Triggers (triggers within the previous month or two):
+    https://swift.gsfc.nasa.gov/data/swift/qltdrss/<trighigh>xx/<trigfull>000/
+        Where trigfull is the full 8-digit trigger number and 
+        trighigh is the top 6 digits (i.e. int(trighigh // 100))
+    When copied to local disk, they go are copied to
+            datadir()/tdrss/qltdrss/<trighigh>xx/<trigfull>000/
+    The start times corresponding to triggers in quicklook data are in files
+        https://swift.gsfc.nasa.gov/data/swift/qltdrss/metadata/<trighigh>xx-starttimes.txt
+        
+Quicklook Observation TTE (command-requested TTE (such as from GUANO) and successful trigger):
+    https://swift.gsfc.nasa.gov/data/swift/sw<obsid>.<qlver>/bat/event/sw<obsid>bevsh{po,sl}_uf.evt
+    where qlver is the version number of downloads/reprocessings for the current quicklook data.
+    For a successful trigger, the event data is in the OBSID <trigfull>000 and
+    later sequences numbers (e.g. <trigfull>001, <trigfull>002...)
+    The list of currently availabe sw<obsid>.<qlseq> is at the data availble page
+    https://swift.gsfc.nasa.gov/data/swift/
+    If the wrong qlseq is chosen, you get a 404 error when you try to download
+    The <obsid> is the obsid of the observation when the event dump was requested,
+    even if the data itself was from the 
+
+https://swift.gsfc.nasa.gov/cgi-bin/sdc/browse?file=/data/swift/sw00016204001.004/bat/event/sw00016204001bevshpo_uf.evt.gz&dataset=swiftql
+
+            
+The archive guide lists the following file infixes, where the full filename
+is `sw<obsid><infix>.<suffix>{.<qlid>,}{.gz,}` where
+    obsid is the 11-digit observation ID, usually [trigfull]000
+    infix specifies the filetype, suffix is 'fits' unless otherwise noted,
+    (a suffix other than 'fits' can be used even if the file format is fits)
+    qlid is the processing serial number for quicklook data (only in quicklook files)
+The infixes and suffixes:
+    msbal.fits: BAT alert
+    msbce.fits: BAT centroid
+    msbno.fits: BAT no position found
+    msb.lc: BAT lightcurve
+    msbat.hk: BAT attitude
+    msbevtssp.hk: BAT timestamps
+    msbevtlsp.hk: BAT telemetered events (long format TTE by special command request)
+    msbevshp_uf.evt: BAT Time Tagged Events
+    msx*    Various XRT data (see archive guide)
+    mspob.cat: File listing for the directory
+
+
+"""
+
+def download_swift_trigger_data(triggers=None, triggerrange=None, triggertime=None, timewindow=300, fetch=False, match=False, **query):
+    """Find data corresponding to trigger on remote server and local disk
+
+    Looks up triggers in the 'swifttdrss' table, then downloads the selected triggers
+    to local disk
+    https://heasarc.gsfc.nasa.gov/W3Browse/swift/swifttdrss.html
+
+    Because there are so many triggers (hundreds per day) the downloaded
+    local directory structure is split into months as is used on the Heasarc site
+
+    Currently, this only covers data delivered to HEASARC, and not quicklook data.
+
+    **query arguments are used to restrict the entries.  For example
+        Target_ID="99999..100000;1234567", Time_seconds="123456789..124000000"
+    where Target_ID is the trignum (no leading zeros), Time_seconds is the trigger MET
+    without UTCF correction, while Time (use ISO8601) is corrected UTC
+    '..' gives a range, ';' gives an or'd choice
+    
+    Args:
+        :param triggers (int|Iterable[int], optional): Specific trigger number. Defaults to None.
+        :param triggerrange (Tuple[int,int], optional): inclusive range of trigger nubmers. Defaults to None.
+        :param triggertime (datetime.datetime, optional): _description_. Defaults to None.
+        :param timewindow (float, optional): Number of seconds +/- triggertime. Defaults to 300.
+        :param fetch (bool, optional): copy from server to local disk, if necessary
+        :param match (str|list[str], optional): Filename patterns to match
+        :param **query (dict(parameter:terms)): Conditions on the swifttdrss table
+    Raises:
+        NotImplementedError: _description_
+    """
+    trigfield = 'Target_ID'
+    triggerconditions = [query.pop(trigfield)] if trigfield in query else []
+    if triggers is not None:
+        if np.isscalar(triggers):
+            triggers = [triggers]
+        triggerconditions.extend([str(trigger) for trigger in triggers])
+    if triggerrange is not None:
+        triggerconditions.append(f"{triggerrange[0]}..{triggerrange[1]}")
+    if triggerconditions:
+        query[trigfield] = ";".join()
+    if triggertime:
+        if 'Time' in query:
+            raise RuntimeError("Do not specify both 'Time' conditions and a triggertime")
+        tstart, tend = [triggertime + datetime.timedelta(seconds = minplus * timewindow)
+                        for minplus in (-1,1)]
+        query['Time'] = f"{tstart:%Y-%m-%dT%H:M:S}..{tend:%Y-%m-%dT%H:M:S}"
+    query.setdefault('fields', 'all')
+    
+    triggertable = from_heasarc(tablename='swifttdrss', **query)
+    result = {}
+    for trigger in triggertable['TARGET_ID']:
+        result[trigger] = swtoo.Swift_Data(obsid=trigger, outdir="/tmp", tdrss=True)
+        
     raise NotImplementedError
 
 
