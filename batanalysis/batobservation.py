@@ -150,7 +150,7 @@ class Lightcurve(BatObservation):
     This object is a wrapper around a light curve created from BAT event data.
     """
 
-    def __init__(self, event_file,  lightcurve_file, detector_quality_mask, ra=None, dec=None, lc_input_dict=None):
+    def __init__(self, event_file,  lightcurve_file, detector_quality_mask, ra=None, dec=None, lc_input_dict=None, recalc=False):
         """
         This constructor reads in a fits file that contains light curve data for a given BAT event dataset. The fits file
         should have been created by a call to
@@ -162,6 +162,28 @@ class Lightcurve(BatObservation):
         self.event_file = event_file
         self.lightcurve_file = lightcurve_file
         self.detector_quality_mask = detector_quality_mask
+
+        #need to see if we have to construct the lightcurve if the file doesnt exist
+        if not self.lightcurve_file.exists() or recalc:
+            #see if the input dict is None so we can set these defaults, otherwise save the requested inputs for use later
+            if lc_input_dict is None:
+                self.lc_input_dict = dict(infile=str(self.event_file), outfile=str(self.lightcurve_file), outtype="LC",
+                              energybins="15-350", weighted="YES", timedel=0.064,
+                              detmask=str(self.detector_quality_mask),
+                              tstart="INDEF", tstop="INDEF", clobber="YES", timebinalg="uniform")
+            else:
+                self.lc_input_dict = lc_input_dict
+
+            #create the lightcurve
+            self.bat_lc_result = self._call_batbinevt(self.lc_input_dict)
+
+            #make sure that this calculation ran successfully
+            if self.bat_lc_result.returncode != 0:
+                raise RuntimeError('The creation of the lightcurve failed with message: {lc.bat_lc_result.stderr}')
+
+        else:
+            #try to parse the existing lightcurve file to see what parameters were passed to batbinevt to construct the file
+            stop
 
         #set default RA/DEC coordinates correcpondent to the LC file which will be filled in later if it is set to None
         self.lc_ra = ra
@@ -236,7 +258,13 @@ class Lightcurve(BatObservation):
 
         # need to see if the energybins are different (and even need to be calculated), if so do the recalculation
         if np.intersect1d(emin, self.ebins['E_MIN']).size != self.ebins['E_MIN'].size or np.intersect1d(emax, self.ebins['E_MAX']).size != self.ebins['E_MAX'].size:
-            lc_return = self._call_batbinevt(input_dict)
+            #the lc_input_dict wil need to be modified with new Energybins
+            #self.lc_input_dict=dict()
+
+            lc_return = self._call_batbinevt(self.lc_input_dict)
+
+            #make sure that the lc_return was successful
+            stop
 
     def _parse_lightcurve_file(self):
         """

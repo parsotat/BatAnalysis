@@ -521,16 +521,7 @@ class BatEvent(BatObservation):
             lc_file=Path(lc_file)
 
 
-        if recalc or not lc_file.exists():
-            # create a general light curve to modify or load one that was previously created
-            input_dict = dict(infile=str(self.event_files), outfile=str(lc_file), outtype="LC",
-                              energybins="15-350", weighted="YES", timedel=0.064,
-                              detmask=str(self.detector_quality_file),
-                              tstart="INDEF", tstop="INDEF", clobber="YES", timebinalg="uniform")
-            self._call_batbinevt(input_dict)
-            lc = Lightcurve(self.event_files, lc_file, self.detector_quality_file)
-        else:
-            lc=Lightcurve(self.event_files, lc_file, self.detector_quality_file)
+        lc = Lightcurve(self.event_files, lc_file, self.detector_quality_file, recalc=recalc)
 
         stop
 
