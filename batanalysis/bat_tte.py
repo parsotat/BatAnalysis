@@ -518,7 +518,7 @@ class BatEvent(BatObservation):
                 else:
                     raise ValueError(f"There are too many files which meet the criteria to be loaded. Please specify one of {lc_files}.")
         else:
-            lc_file=Path(lc_file)
+            lc_file=Path(lc_file).expanduser().resolve()
 
 
         lc = Lightcurve(self.event_files, lc_file, self.detector_quality_file, recalc=recalc)
