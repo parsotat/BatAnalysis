@@ -487,7 +487,7 @@ class BatEvent(BatObservation):
 
         return None
 
-    def create_lightcurve(self, lcfile=None, timedelta=np.timedelta64(64, 'ms'), tstart=None, tstop=None,
+    def create_lightcurve(self, lc_file=None, timedelta=np.timedelta64(64, 'ms'), tstart=None, tstop=None,
                           energybins=["15-25", "25-50", "50-100", "100-350", "15-350"], recalc=True, mask_weighting=True,
                           timebinalg="uniform"):
         """
@@ -502,7 +502,7 @@ class BatEvent(BatObservation):
         # timedel=1.0 timebinalg=u energybins=15-150
         # detmask=../hk/sw00145675000bcbdq.hk.gz clobber=YES
 
-        if lcfile is None:
+        if lc_file is None:
             if not recalc:
                 #make up a name for the light curve that hasnt been used already in the LC directory
                 lc_files=list(self.result_dir.joinpath("lc").glob("*.lc"))
@@ -510,7 +510,7 @@ class BatEvent(BatObservation):
                 count=0
                 while f"{base}{count}.lc" in lc_files:
                     count+=1
-                lcfile=self.result_dir.joinpath("lc").joinpath(f"{base}{count}.lc")
+                lc_file=self.result_dir.joinpath("lc").joinpath(f"{base}{count}.lc")
             else:
                 lc_files = list(self.result_dir.joinpath("lc").glob("*.lc"))
                 if len(lc_files)==1:
@@ -518,19 +518,19 @@ class BatEvent(BatObservation):
                 else:
                     raise ValueError(f"There are too many files which meet the criteria to be loaded. Please specify one of {lc_files}.")
         else:
-            lcfile=Path(lcfile)
+            lc_file=Path(lc_file)
 
 
-        if recalc or not lcfile.exists():
+        if recalc or not lc_file.exists():
             # create a general light curve to modify or load one that was previously created
-            input_dict = dict(infile=str(self.event_files), outfile=str(lcfile), outtype="LC",
+            input_dict = dict(infile=str(self.event_files), outfile=str(lc_file), outtype="LC",
                               energybins="15-350", weighted="YES", timedel=0.064,
                               detmask=str(self.detector_quality_file),
                               tstart="INDEF", tstop="INDEF", clobber="YES", timebinalg="uniform")
             self._call_batbinevt(input_dict)
-            lc = Lightcurve(self.event_files, lcfile, self.detector_quality_file)
+            lc = Lightcurve(self.event_files, lc_file, self.detector_quality_file)
         else:
-            lc=Lightcurve(self.event_files, lcfile, self.detector_quality_file)
+            lc=Lightcurve(self.event_files, lc_file, self.detector_quality_file)
 
         stop
 

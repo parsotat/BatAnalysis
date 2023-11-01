@@ -183,12 +183,50 @@ class Lightcurve(BatObservation):
         :return:
         """
 
-    def rebin_energy_bins(self):
+    def rebin_energybins(self, energybins=["15-25", "25-50", "50-100", "100-350", "15-350"], emin=None, emax=None):
         """
         This method allows for the dynamic rebinning of a light curve in energy
 
         :return:
         """
+
+        # see if the user specified either the energy bins directly or emin/emax separately
+        if emin is None and emax is None:
+            # make sure that energybins is a list
+            if type(energybins) is not list:
+                energybins = [energybins]
+
+            # verify that all elements are strings
+            for i in energybins:
+                if type(i) is not str:
+                    raise ValueError(
+                        'All elements of the passed in energybins variable must be a string. Please make sure this condition is met.')
+
+            # ebins=','.join(energybins)
+            # above is comented out since we run this line for both logic paths
+        else:
+            # make sure that both emin and emax are defined and have the same number of elements
+            if (emin is None and emax is not None) or (emax is None and emin is not None):
+                raise ValueError('Both emin and emax must be defined.')
+
+            if len(emin) != len(emax):
+                raise ValueError('Both emin and emax must have the same length.')
+
+            # see if they are astropy quantity items with units
+            if type(emin) is not u.Quantity:
+                emin = u.Quantity(emin, u.keV)
+            if type(emax) is not u.Quantity:
+                emax = u.Quantity(emax, u.keV)
+
+            # create our energybins input to batbinevt
+            energybins = []
+            for min, max in zip(emin.to(u.keV), emax.to(u.keV)):
+                energybins.append(f"{min.value}-{max.value}")
+
+        # create the full string
+        ebins = ','.join(energybins)
+
+        # need to see if the energybins are different (and even need to be calculated)
 
     def _parse_lightcurve_file(self):
         """
@@ -290,6 +328,19 @@ class Lightcurve(BatObservation):
 
         return coord_match
 
+    def _call_batbinevt(self, input_dict):
+        """
+        Calls heasoftpy's batbinevt with an error wrapper, ensures that this bins the event data to produce a lightcurve
+
+        :param input_dict: Dictionary of inputs that will be passed to heasoftpy's batbinevt
+        :return: heasoftpy Result object from batbinevt
+        """
+        # directly calls bathotpix
+        try:
+            return hsp.batbinevt(**input_dict)
+        except Exception as e:
+            print(e)
+            raise RuntimeError(f"The call to Heasoft batbinevt failed with inputs {input_dict}.")
 
 
 
