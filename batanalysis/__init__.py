@@ -1,9 +1,9 @@
 __all__ = [
-    'batobservation'
-    'bat_survey'
-    'bat_tte'
-    'batlib'
-    'plotting'
+    'batobservation',
+    'bat_survey',
+    'bat_tte',
+    'batlib',
+    'plotting',
     'mosaic'
 ]
 
