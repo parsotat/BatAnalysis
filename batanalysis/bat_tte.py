@@ -488,7 +488,7 @@ class BatEvent(BatObservation):
         return None
 
     def create_lightcurve(self, lc_file=None, timedelta=np.timedelta64(64, 'ms'), tstart=None, tstop=None,
-                          energybins=["15-25", "25-50", "50-100", "100-350", "15-350"], recalc=True, mask_weighting=True,
+                          energybins=["15-25", "25-50", "50-100", "100-350"], recalc=True, mask_weighting=True,
                           timebinalg="uniform"):
         """
         This method returns a lightcurve object which can be manipulated in different energies/timebins
@@ -522,7 +522,7 @@ class BatEvent(BatObservation):
 
 
         lc = Lightcurve(self.event_files, lc_file, self.detector_quality_file, recalc=recalc)
-        lc.rebin_energybins(energybins=energybins)
+        #lc.rebin_energybins(energybins=energybins)
 
         stop
 

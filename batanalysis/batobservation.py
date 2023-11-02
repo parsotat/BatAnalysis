@@ -397,7 +397,7 @@ class Lightcurve(BatObservation):
 
                 if start_processing and "START" not in i and len(i)>0:
                     values=i.split(" ")
-                    print(i, values, "=" in values)
+                    #print(i, values, "=" in values)
 
                     parameter_num=values[0]
                     parameter=values[1]
