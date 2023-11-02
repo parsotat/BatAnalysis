@@ -522,7 +522,7 @@ class BatEvent(BatObservation):
 
 
         lc = Lightcurve(self.event_files, lc_file, self.detector_quality_file, recalc=recalc)
-        lc.rebin_energybins()
+        lc.rebin_energybins(energybins=energybins)
 
         stop
 

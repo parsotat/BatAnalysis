@@ -11,6 +11,7 @@ import astropy.units as u
 from datetime import datetime, timedelta
 import re
 import warnings
+import matplotlib.pyplot as plt
 
 # for python>3.6
 try:
@@ -521,7 +522,102 @@ class Lightcurve(BatObservation):
         self.data["ERROR"] = new_rate_err
 
 
+    def plot(self, energybins=None, plot_counts=False, plot_exposure_fraction=False, time_unit="MET", T0=None):
+        """
+        This method automatically plots the lightcurve, the user can specify if a certain energy range should be plotted
+        T0 has to be in same units as time_unit
+        :return:
+        """
 
+        #make sure that energybins is a u.Quantity object
+        if energybins is not None and type(energybins) is not u.Quantity:
+            if type(energybins) is list:
+                energybins = u.Quantity(energybins, u.keV)
+
+        #have error checking
+        if "MET" not in time_unit and "UTC" not in time_unit and "MJD" not in time_unit:
+            raise ValueError("This method plots event data only using MET, UTC, or MJD time")
+
+        if "MET" in time_unit:
+            times = self.tbins["TIME_CENT"]
+        elif "MJD" in time_unit:
+            times = met2mjd(self.tbins["TIME_CENT"].value)
+        else:
+            times = met2utc(self.tbins["TIME_CENT"].value)
+
+        #get the number of axes we may need
+        num_plots=1
+        num_plots += (plot_counts + plot_exposure_fraction)
+        fig, ax = plt.subplots(num_plots, sharex=True)
+
+        #assign the axes for each type of plot we may want
+        axes_queue = [i for i in range(num_plots)]
+
+        if num_plots>1:
+            ax_rate=ax[axes_queue[0]]
+            axes_queue.pop(0)
+
+            if plot_counts:
+                ax_count=ax[axes_queue[0]]
+                axes_queue.pop(0)
+
+            if plot_exposure_fraction:
+                ax_exposure=ax[axes_queue[0]]
+                axes_queue.pop(0)
+        else:
+            ax_rate = ax
+
+
+        #plot everything for the rates by default
+        for e_idx, emin, emax in zip(self.ebins["INDEX"], self.ebins["E_MIN"], self.ebins["E_MAX"]):
+            plotting=True
+            if energybins is not None:
+                #need to see if the energy range is what the user wants
+                if emin == energybins.min() and emax == energybins.max():
+                    plotting = True
+                else:
+                    plotting = False
+
+            if plotting:
+                #use the proper indexing for the array
+                if len(self.ebins["INDEX"]) > 1:
+                    rate=self.data["RATE"][:,e_idx]
+                    rate_error=self.data["ERROR"][:, e_idx]
+                else:
+                    rate = self.data["RATE"]
+                    rate_error = self.data["ERROR"]
+
+                ax_rate.plot(times, rate, ds='steps-mid', label=f'{emin.value}-{emax}')
+                ax_rate.errorbar(times, rate_error, ls='None')
+
+        if num_plots>1:
+            ax_rate.legend()
+
+        if plot_counts:
+            ax_count.plot(times, self.data["TOTCOUNTS"], ds='steps-mid')
+            ax_count.set_ylabel('Total counts')
+
+
+        if plot_exposure_fraction:
+            ax_exposure.plot(times, self.data["FRACEXP"], ds='steps-mid')
+            ax_count.set_ylabel('Fractional Exposure')
+
+        if T0 is not None:
+            #plot the trigger time for all panels
+            if num_plots>1:
+                for axis in ax:
+                    axis.axvline(T0, 0,1, ls='--', label=f"T0={T0:.2f}", color='k')
+            else:
+                ax_rate.axvline(T0, 0,1, ls='--', label=f"T0={T0:.2f}", color='k')
+
+        if num_plots > 1:
+            ax[1].legend()
+        else:
+            ax_rate.legend()
+
+
+        #fig.savefig("test.pdf")
+        return fig, ax
 
 
 
