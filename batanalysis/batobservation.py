@@ -261,8 +261,6 @@ class Lightcurve(BatObservation):
         # create the full string
         ebins = ','.join(energybins)
 
-        stop
-
         # need to see if the energybins are different (and even need to be calculated), if so do the recalculation
         if not np.array_equal(emin, self.ebins['E_MIN']) or not np.array_equal(emax, self.ebins['E_MAX']):
             #the lc_input_dict wil need to be modified with new Energybins
