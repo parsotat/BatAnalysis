@@ -207,7 +207,7 @@ class Lightcurve(BatObservation):
         :return:
         """
 
-    def rebin_energybins(self, energybins=["15-25", "25-50", "50-100", "100-350"], emin=None, emax=None):
+    def rebin_energybins(self, energybins=["15-25", "25-50", "50-100", "100-350"], emin=None, emax=None, calc_energy_integrated=True):
         """
         This method allows for the dynamic rebinning of a light curve in energy
 
@@ -279,6 +279,9 @@ class Lightcurve(BatObservation):
 
                 #reparse the lightcurve file to get the info
                 self._parse_lightcurve_file()
+
+                if calc_energy_integrated:
+                    self._calc_energy_integrated()
 
     def _parse_lightcurve_file(self):
         """
@@ -471,5 +474,58 @@ class Lightcurve(BatObservation):
         except Exception as e:
             print(e)
             raise RuntimeError(f"The call to Heasoft batbinevt failed with inputs {input_dict}.")
+
+    def _calc_energy_integrated(self):
+        """
+        This method just goes though the count rates in each energy bin that has been precalulated and adds them up.
+        It also calcualtes the errors. These arrays are added to self.data appropriately and the total energy min/max is
+        added to self.ebins
+
+        :return:
+        """
+
+        #calculate the total count rate and error
+        integrated_count_rate=self.data["RATE"].sum(axis=1)
+        integrated_count_rate_err=np.sqrt(np.sum(self.data["ERROR"]**2, axis=1))
+
+        #get the energy info
+        min_e = self.ebins["E_MIN"].min()
+        max_e = self.ebins["E_MAX"].max()
+        max_energy_index = self.ebins["INDEX"].max()
+
+        #append energy integrated count rate, the error, and the additional energy bin to the respective dicts
+        new_energy_bin_size=self.ebins["INDEX"].size+1
+        new_e_index=np.arange(new_energy_bin_size, dtype=self.ebins["INDEX"].dtype)
+
+        new_emin=np.zeros(new_energy_bin_size)*self.ebins["E_MIN"].unit
+        new_emin[:-1]=self.ebins["E_MIN"]
+        new_emin[-1] = min_e
+
+        new_emax=np.zeros_like(new_emin) #the zeros_like gets the units from the array that is passed in
+        new_emax[:-1]=self.ebins["E_MAX"]
+        new_emax[-1] = max_e
+
+        new_rate=np.zeros((self.data["RATE"].shape[0], new_energy_bin_size))*self.data["RATE"].unit
+        new_rate_err=np.zeros_like(new_rate)
+
+        new_rate[:,:-1] = self.data["RATE"]
+        new_rate[:,-1] = integrated_count_rate
+
+        new_rate_err[:,:-1] = self.data["ERROR"]
+        new_rate_err[:,-1] = integrated_count_rate_err
+
+        #save the updated arrays
+        self.ebins["INDEX"] = new_e_index
+        self.ebins["E_MIN"] = new_emin
+        self.ebins["E_MAX"] = new_emax
+
+        self.data["RATE"] = new_rate
+        self.data["ERROR"] = new_rate_err
+
+
+
+
+
+
 
 
