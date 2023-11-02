@@ -179,7 +179,7 @@ class Lightcurve(BatObservation):
 
             #make sure that this calculation ran successfully
             if self.bat_lc_result.returncode != 0:
-                raise RuntimeError('The creation of the lightcurve failed with message: {lc.bat_lc_result.stderr}')
+                raise RuntimeError(f'The creation of the lightcurve failed with message: {lc.bat_lc_result.output}')
 
         else:
             #set the self.lc_input_dict = None so the parsing of the lightcurve tries to also load in the
@@ -207,9 +207,12 @@ class Lightcurve(BatObservation):
         :return:
         """
 
-    def rebin_energybins(self, energybins=["15-25", "25-50", "50-100", "100-350", "15-350"], emin=None, emax=None):
+    def rebin_energybins(self, energybins=["15-25", "25-50", "50-100", "100-350"], emin=None, emax=None):
         """
         This method allows for the dynamic rebinning of a light curve in energy
+
+        energybins cannot have any overlapping energybins eg cant have energybins=["15-25", "25-50", "50-100", "100-350", "15-350"]
+        since the last energy bins overlaps with the others. (this is very inconvenient but can be fixed by adding things up)
 
         :return:
         """
@@ -231,8 +234,8 @@ class Lightcurve(BatObservation):
             emax=[]
             for i in energybins:
                 energies=i.split('-')
-                emin.append(energies[0])
-                emax.append(energies[1])
+                emin.append(float(energies[0]))
+                emax.append(float(energies[1]))
             emin = u.Quantity(emin, u.keV)
             emax = u.Quantity(emax, u.keV)
 
@@ -258,15 +261,24 @@ class Lightcurve(BatObservation):
         # create the full string
         ebins = ','.join(energybins)
 
-        # need to see if the energybins are different (and even need to be calculated), if so do the recalculation
-        if np.intersect1d(emin, self.ebins['E_MIN']).size != self.ebins['E_MIN'].size or np.intersect1d(emax, self.ebins['E_MAX']).size != self.ebins['E_MAX'].size:
-            #the lc_input_dict wil need to be modified with new Energybins
-            #self.lc_input_dict=dict()
+        stop
 
+        # need to see if the energybins are different (and even need to be calculated), if so do the recalculation
+        if not np.array_equal(emin, self.ebins['E_MIN']) or not np.array_equal(emax, self.ebins['E_MAX']):
+            #the lc_input_dict wil need to be modified with new Energybins
+            self.lc_input_dict["energybins"]=ebins
+
+            #the LC _call_batbinevt method ensures that  outtype = LC and that clobber=YES
             lc_return = self._call_batbinevt(self.lc_input_dict)
 
             #make sure that the lc_return was successful
-            stop
+            if lc_return.returncode != 0:
+                raise RuntimeError(f'The creation of the lightcurve failed with message: {lc_return.output}')
+            else:
+                self.bat_lc_result = lc_return
+
+                #reparse the lightcurve file to get the info
+                self._parse_lightcurve_file()
 
     def _parse_lightcurve_file(self):
         """
@@ -450,12 +462,14 @@ class Lightcurve(BatObservation):
         :param input_dict: Dictionary of inputs that will be passed to heasoftpy's batbinevt
         :return: heasoftpy Result object from batbinevt
         """
-        # directly calls bathotpix
+
+        input_dict["clobber"] = "YES"
+        input_dict["outtype"] = "LC"
+
         try:
             return hsp.batbinevt(**input_dict)
         except Exception as e:
             print(e)
             raise RuntimeError(f"The call to Heasoft batbinevt failed with inputs {input_dict}.")
-
 
 
