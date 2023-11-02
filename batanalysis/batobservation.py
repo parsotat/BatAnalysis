@@ -367,10 +367,36 @@ class Lightcurve(BatObservation):
         # END PARAMETER list for batbinevt_1.48
 
         if self.lc_input_dict is None:
+            #get the default names of the parameters for batbinevt including its name 9which should never change)
             test = hsp.HSPTask('batbinevt')
-            default_params_dict=test.default_params
+            default_params_dict=test.default_params.copy()
+            taskname=test.taskname
+            start_processing=None
+
             for i in header["HISTORY"]:
-                stop
+                if taskname in i and start_processing is None:
+                    #then set a switch for us to start looking at things
+                    start_processing = True
+                elif taskname in i and start_processing is True:
+                    #we want to stop processing things
+                    start_processing = False
+
+                if start_processing and "START" not in i and len(i)>0:
+                    values=i.split(" ")
+                    print(i, values, "=" in values)
+
+                    parameter_num=values[0]
+                    parameter=values[1]
+                    if "=" not in values:
+                        #this belongs with the previous parameter and is a line continuation
+                        default_params_dict[old_parameter] = default_params_dict[old_parameter] + values[-1]
+                    else:
+                        default_params_dict[parameter] = values[-1]
+
+                    old_parameter=parameter
+
+            self.lc_input_dict = default_params_dict.copy()
+
 
     def _get_event_weights(self):
         """
