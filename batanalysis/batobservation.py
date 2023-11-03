@@ -200,13 +200,53 @@ class Lightcurve(BatObservation):
 
         #were done getting all the info that we need. From here, the user can rebin the timebins and the energy bins
 
-
-    def rebin_timebins(self):
+    @unit.quantity_input(timebins=['time'], tmin=['time'], tmax=['time'])
+    def rebin_timebins(self, timebinalg="uniform", timebins=None, tmin=None, tmax=None, T0=None, is_relative=False, timedelta=np.timedelta64(64, 'ms')):
         """
         This method allows for the dynamic rebinning of a light curve in time.
 
+        timebin_alg
+
         :return:
         """
+
+        #create a temp copy incase the time rebinning doesnt complete successfully
+        tmp_lc_input_dict=self.lc_input_dict.copy()
+
+        #see if the timebinalg is properly set approporiately
+        #if "uniform" not in timebinalg or "snr" not in timebinalg or "bayesian" not in timebinalg:
+        if timebinalg not in ["uniform", "snr", "highsnr", "bayesian"]:
+            raise ValueError('The timebinalg only accepts the following values: uniform, snr, highsnr, and bayesian (for bayesian blocks).')
+
+        #if timebinalg == uniform/snr/highsnr, make sure that we have a timedelta that is a np.timedelta object
+        if "uniform" in timebinalg or "snr" in timebinalg:
+            if type(timedelta) is not np.timedelta64:
+                raise ValueError('The timedelta variable needs to be a numpy timedelta64 object.')
+
+        #test if is_relative is false and make sure that T0 is defined
+        if is_relative and T0 is None:
+            raise ValueError('The is_relative value is set to True however there is no T0 that is defined '+
+                             '(ie the time from which the time bins are defined relative to is not specified).')
+
+        #if timebins, or tmin and tmax are defined then we ignore the timebinalg parameter
+        #if tmin and tmax are specified while timebins is also specified then ignore timebins
+
+        #do error checking on tmin/tmax
+        if (tmin is None and tmax is not None) or (tmax is None and tmin is not None):
+            raise ValueError('Both emin and emax must be defined.')
+
+        if tmin is not None and tmax is not None:
+            if len(tmin) != len(tmax):
+                raise ValueError('Both tmin and tmax must have the same length.')
+
+            #now try to construct single array of all timebin edges in seconds
+            timebins=np.zeros(len(tmin)+1)*u.s
+            timebins[:-1] = tmin
+            timebins[-1] = tmax[-1]
+
+
+
+
 
     def rebin_energybins(self, energybins=["15-25", "25-50", "50-100", "100-350"], emin=None, emax=None, calc_energy_integrated=True):
         """
@@ -262,19 +302,24 @@ class Lightcurve(BatObservation):
         # create the full string
         ebins = ','.join(energybins)
 
+        #create a temp dict to hold the energy rebinning parameters to pass to heasoftpy. If things dont run
+        # successfully then the updated parameter list will not be saved
+        tmp_lc_input_dict = self.lc_input_dict.copy()
+
         # need to see if the energybins are different (and even need to be calculated), if so do the recalculation
         if not np.array_equal(emin, self.ebins['E_MIN']) or not np.array_equal(emax, self.ebins['E_MAX']):
-            #the lc_input_dict wil need to be modified with new Energybins
-            self.lc_input_dict["energybins"]=ebins
+            #the tmp_lc_input_dict wil need to be modified with new Energybins
+            tmp_lc_input_dict["energybins"]=ebins
 
             #the LC _call_batbinevt method ensures that  outtype = LC and that clobber=YES
-            lc_return = self._call_batbinevt(self.lc_input_dict)
+            lc_return = self._call_batbinevt(tmp_lc_input_dict)
 
             #make sure that the lc_return was successful
             if lc_return.returncode != 0:
                 raise RuntimeError(f'The creation of the lightcurve failed with message: {lc_return.output}')
             else:
                 self.bat_lc_result = lc_return
+                self.lc_input_dict = tmp_lc_input_dict
 
                 #reparse the lightcurve file to get the info
                 self._parse_lightcurve_file()
@@ -473,6 +518,14 @@ class Lightcurve(BatObservation):
         except Exception as e:
             print(e)
             raise RuntimeError(f"The call to Heasoft batbinevt failed with inputs {input_dict}.")
+
+    def _call_battblocks(self):
+        """
+        This method calls battblocks for bayesian blocks binning of a lightcurve
+
+        :return:
+        """
+
 
     def _calc_energy_integrated(self):
         """
