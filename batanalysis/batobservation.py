@@ -302,10 +302,7 @@ class Lightcurve(BatObservation):
             self.lc_input_dict = tmp_lc_input_dict
 
             #reparse the lightcurve file to get the info
-            self._parse_lightcurve_file()
-
-            if calc_energy_integrated:
-                self._calc_energy_integrated()
+            self._parse_lightcurve_file(calc_energy_integrated=calc_energy_integrated)
 
 
 
@@ -391,12 +388,10 @@ class Lightcurve(BatObservation):
                 self.lc_input_dict = tmp_lc_input_dict
 
                 #reparse the lightcurve file to get the info
-                self._parse_lightcurve_file()
+                self._parse_lightcurve_file(calc_energy_integrated=calc_energy_integrated)
 
-                if calc_energy_integrated:
-                    self._calc_energy_integrated()
 
-    def _parse_lightcurve_file(self):
+    def _parse_lightcurve_file(self, calc_energy_integrated=True):
         """
         This method parses through a light curve file that has been created by batbinevent
 
@@ -407,6 +402,11 @@ class Lightcurve(BatObservation):
 
         :return:
         """
+
+        #error checking for calc_energy_integrated
+        if type(calc_energy_integrated) is not bool:
+            raise ValueError("The calc_energy_integrated parameter should be a boolean value.")
+
 
         with fits.open(self.lightcurve_file) as f:
             header=f[1].header
@@ -525,7 +525,8 @@ class Lightcurve(BatObservation):
 
             self.lc_input_dict = default_params_dict.copy()
 
-        #TODO: put energy integrated option here and check to see that there isnt just one energy bin
+        if calc_energy_integrated:
+            self._calc_energy_integrated()
 
 
     def _get_event_weights(self):
@@ -607,43 +608,46 @@ class Lightcurve(BatObservation):
         :return:
         """
 
-        #calculate the total count rate and error
-        integrated_count_rate=self.data["RATE"].sum(axis=1)
-        integrated_count_rate_err=np.sqrt(np.sum(self.data["ERROR"]**2, axis=1))
+        #if we have more than 1 energy bin then we can calculate an energy integrated count rate, etc
+        #otherwise we dont have to do anything since theres only one energy bin
+        if self.data["RATE"].ndim > 1:
+            #calculate the total count rate and error
+            integrated_count_rate=self.data["RATE"].sum(axis=1)
+            integrated_count_rate_err=np.sqrt(np.sum(self.data["ERROR"]**2, axis=1))
 
-        #get the energy info
-        min_e = self.ebins["E_MIN"].min()
-        max_e = self.ebins["E_MAX"].max()
-        max_energy_index = self.ebins["INDEX"].max()
+            #get the energy info
+            min_e = self.ebins["E_MIN"].min()
+            max_e = self.ebins["E_MAX"].max()
+            max_energy_index = self.ebins["INDEX"].max()
 
-        #append energy integrated count rate, the error, and the additional energy bin to the respective dicts
-        new_energy_bin_size=self.ebins["INDEX"].size+1
-        new_e_index=np.arange(new_energy_bin_size, dtype=self.ebins["INDEX"].dtype)
+            #append energy integrated count rate, the error, and the additional energy bin to the respective dicts
+            new_energy_bin_size=self.ebins["INDEX"].size+1
+            new_e_index=np.arange(new_energy_bin_size, dtype=self.ebins["INDEX"].dtype)
 
-        new_emin=np.zeros(new_energy_bin_size)*self.ebins["E_MIN"].unit
-        new_emin[:-1]=self.ebins["E_MIN"]
-        new_emin[-1] = min_e
+            new_emin=np.zeros(new_energy_bin_size)*self.ebins["E_MIN"].unit
+            new_emin[:-1]=self.ebins["E_MIN"]
+            new_emin[-1] = min_e
 
-        new_emax=np.zeros_like(new_emin) #the zeros_like gets the units from the array that is passed in
-        new_emax[:-1]=self.ebins["E_MAX"]
-        new_emax[-1] = max_e
+            new_emax=np.zeros_like(new_emin) #the zeros_like gets the units from the array that is passed in
+            new_emax[:-1]=self.ebins["E_MAX"]
+            new_emax[-1] = max_e
 
-        new_rate=np.zeros((self.data["RATE"].shape[0], new_energy_bin_size))*self.data["RATE"].unit
-        new_rate_err=np.zeros_like(new_rate)
+            new_rate=np.zeros((self.data["RATE"].shape[0], new_energy_bin_size))*self.data["RATE"].unit
+            new_rate_err=np.zeros_like(new_rate)
 
-        new_rate[:,:-1] = self.data["RATE"]
-        new_rate[:,-1] = integrated_count_rate
+            new_rate[:,:-1] = self.data["RATE"]
+            new_rate[:,-1] = integrated_count_rate
 
-        new_rate_err[:,:-1] = self.data["ERROR"]
-        new_rate_err[:,-1] = integrated_count_rate_err
+            new_rate_err[:,:-1] = self.data["ERROR"]
+            new_rate_err[:,-1] = integrated_count_rate_err
 
-        #save the updated arrays
-        self.ebins["INDEX"] = new_e_index
-        self.ebins["E_MIN"] = new_emin
-        self.ebins["E_MAX"] = new_emax
+            #save the updated arrays
+            self.ebins["INDEX"] = new_e_index
+            self.ebins["E_MIN"] = new_emin
+            self.ebins["E_MAX"] = new_emax
 
-        self.data["RATE"] = new_rate
-        self.data["ERROR"] = new_rate_err
+            self.data["RATE"] = new_rate
+            self.data["ERROR"] = new_rate_err
 
 
     def plot(self, energybins=None, plot_counts=False, plot_exposure_fraction=False, time_unit="MET", T0=None):
