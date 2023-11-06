@@ -1746,3 +1746,80 @@ def make_fake_tdrss_message(
     tdrss_header.writeto(tdrss_file)
 
     return tdrss_file
+
+def create_gti_file(timebin_edges, output_filename, T0=None, is_relative=False, overwrite=True):
+    """
+    This convenience function creates a gti file from a set of timebin edges.
+
+    See BAT Software guide v6.3, section 5.6.7
+
+    :param timebin_edges:
+    :return:
+    """
+
+    if type(output_filename) is not Path:
+        filename=Path(output_filename).expanduser().resolve()
+
+    if type(timebin_edges) is not np.array:
+        timebin_edges=np.array(timebin_edges)
+
+    #make sure that the array is a float as well.
+    timebin_edges = timebin_edges.astype("float")
+
+    #test if is_relative is false and make sure that T0 is defined
+    if is_relative and T0 is None:
+        raise ValueError('The is_relative value is set to True however there is no T0 that is defined '+
+                         '(ie the time from which the time bins are defined relative to is not specified).')
+
+    if is_relative:
+        timebin_edges += T0
+
+    tmin=np.zeros(timebin_edges.size-1)
+    tmax=np.zeros_like(tmin)
+
+    tmin=timebin_edges[:-1]
+    tmax=timebin_edges[1:]
+
+    #now create the file
+
+    #create fake primary header
+    pha_primary = fits.PrimaryHDU()
+
+    #create real gti info
+    gti_tmin = fits.Column(name='START', format='1D', unit='s', array=tmin)
+    gti_tmax = fits.Column(name='STOP', format='1D', unit='s', array=tmax)
+
+    gti_cols = fits.ColDefs([gti_tmin, gti_tmax])
+
+    gti_tbhdu = fits.BinTableHDU.from_columns(gti_cols)
+
+    gti_tbhdu.name = "GTI"
+
+    gti_thdulist = fits.HDUList([pha_primary, gti_tbhdu])
+
+    gti_thdulist.writeto(str(output_filename), overwrite=overwrite)
+
+    #open it in update mode to add header info
+    with fits.open(str(output_filename), mode='update') as gti_hdulist:
+        for i in gti_hdulist:
+            hdr=i.header
+            hdr["MJDREFI"] = (51910, "Swift reference epoch: days")
+            hdr["MJDREFF"] = (0.00074287037, "Swift reference epoch: fractional days")
+            hdr["TIMEZERO"] = (0.0, "Time offset value")
+            hdr["TRIGTIME"] = (T0, "Trigger time in MET")
+
+        gti_hdulist.flush()
+
+    return output_filename
+
+
+
+
+
+
+
+
+
+
+
+

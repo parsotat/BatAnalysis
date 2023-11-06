@@ -3,8 +3,17 @@ This file contains the batobservation class which contains information pertainin
 
 Tyler Parsotan Jan 24 2022
 """
-
-from .batlib import datadir
+import os
+import shutil
+import sys
+from .batlib import datadir, dirtest, met2mjd, met2utc, create_gti_file
+import glob
+from astropy.io import fits
+import numpy as np
+import subprocess
+import pickle
+import sys
+import re
 from pathlib import Path
 from astropy.time import Time
 import astropy.units as u
@@ -286,6 +295,8 @@ class Lightcurve(BatObservation):
 
         tmp_lc_input_dict['timedel'] = timedelta / np.timedelta64(1, 's') #convert to seconds
 
+        #if we are doing battblocks or the user has passed in timebins/tmin/tmax then we have to create a good time interval file
+        #if (tmin is not None and tmax is not None) or timebins is not None:
 
 
         #stop
@@ -753,6 +764,11 @@ class Lightcurve(BatObservation):
         return fig, ax
 
 
+    def _create_custom_timebins(self, timebins, T0=None, is_relative=False, overwrite=True):
+        """
+        This method creates custom time bins from a user defined set of time bin edges
 
+        :return:
+        """
 
 
