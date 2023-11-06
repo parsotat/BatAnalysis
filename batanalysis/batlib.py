@@ -335,7 +335,7 @@ def calc_response(phafilename, srcname=None, indir=None, outdir=None):
     :param phafilename: String that denotes the location and name of the PHA file that the user would like to calculate
         the response matrix for.
     :param srcname: String denoting the source name (no spaces). The source name must match with the one that is in the phafilename.
-    :param indir: String denoting the full path/to/the/input-directory. By default it takes the current directory. 
+    :param indir: String denoting the full path/to/the/input-directory. By default it takes the current directory.
     :param outdir: String denoting the full path/to/the/output-directory. By default it takes the current directory
     :return: Heasoftpy "Result" object obtained from calling heasoftpy batdrmgen. The "Result" object is the entire output, which
 helps to debug in case of an error.
@@ -369,7 +369,7 @@ helps to debug in case of an error.
             raise ValueError('The file name %s needs to be a string and must have an extension of .pha .' % (str(filename)))
 
 
-    
+
     #get the cwd
         current_dir=Path.cwd()
 
@@ -404,17 +404,17 @@ def fit_spectrum(phafilename,surveyobservation, plotting=True, generic_model=Non
     Fits a spectrum that is loaded in from a BAT pha file. The header of the PHA file must have the associated
     response information.
 
-    User has to pass a phafilename and the BatSurvey object "surveyobservation" (mandatory). 
+    User has to pass a phafilename and the BatSurvey object "surveyobservation" (mandatory).
     The user should have already run the "batsurvey" command and created the surveyobservation object.
- 
-    The user can specfiy their own spectral model that is XSPEC compatible. 
+
+    The user can specfiy their own spectral model that is XSPEC compatible.
     To learn about how to specify a spectral model in pyXspec the user can
     look at the following link: https://heasarc.gsfc.nasa.gov/xanadu/xspec/python/html/index.html
 
     For e.g, to specify a model one has to do the following:
     model=xsp.Model(generic_model,setPars={1:45,2:"123,-1"}) Here -1 stands for "frozen".
 
-    User has to specify cflux in their model. This is mandatory because we use this same function (and hence the user specified model) 
+    User has to specify cflux in their model. This is mandatory because we use this same function (and hence the user specified model)
     to test any detection in the BAT energy band.
 
 
@@ -422,10 +422,10 @@ def fit_spectrum(phafilename,surveyobservation, plotting=True, generic_model=Non
     cflux*(powerlaw): with Cflux E_min=14 keV (Frozen), E_max=195 keV (Frozen), flux=-12 (initial value),
     powerlaw Gamma=2 Free, and norm=frozen. Powerlaw norm kept frozen.
 
-   
-    
+
+
     :param phafilename: String that denotes the location and name of the PHA file.
-    :param surveyobservation: Object denoting the batsurvey observation object which contains all the 
+    :param surveyobservation: Object denoting the batsurvey observation object which contains all the
      necessary information related to this observation.
     :param plotting: Boolean statement, if the user wants to plot the spectrum.
     :param generic_model: String with XSPEC compatible model, which must include cflux.
@@ -480,19 +480,19 @@ def fit_spectrum(phafilename,surveyobservation, plotting=True, generic_model=Non
     #if pha_dir != '':
     if str(pha_dir) != str(current_dir):
         os.chdir(pha_dir)
-    
+
     xsp.AllData -= "*"
     s = xsp.Spectrum(pha_file)  # from xspec import * has been done at the top. This is a spectrum object
     # s.ignore("**-15,150-**")	#Ignoring energy ranges below 15 and above 150 keV.
 
-    
+
     # Define model
 
     if generic_model is not None:  #User provides a string of model, and a Dictionary for the initial values
         if type(generic_model) is str:
 
             if "cflux" in generic_model: #The user must provide the cflux, or else we will not be able to predict of there is a statistical detection (in the next function).
-	    
+
                 try:
                     model=xsp.Model(generic_model,setPars=setPars) #Set the initial value for the fitting using the Model object attribute
 
@@ -501,7 +501,7 @@ def fit_spectrum(phafilename,surveyobservation, plotting=True, generic_model=Non
                     raise ValueError("The model needs to be specified correctly")
 
 
-            else: 
+            else:
                 raise ValueError("The model needs cflux in order to calulate error on the flux in 14-195 keV")
 
 
@@ -527,7 +527,7 @@ def fit_spectrum(phafilename,surveyobservation, plotting=True, generic_model=Non
          p5.frozen = True
 
 
-           
+
 
                 # model_components=model.componentNames  #This is a list of the model components
 		#Check if the model is XSPEC compatible : Done
@@ -614,7 +614,7 @@ def fit_spectrum(phafilename,surveyobservation, plotting=True, generic_model=Non
     #fluxerr_hilim =p3.error[1]
     #pyxspec_error_string=p3.error[2]   #The string which says if everything is correct. Should be checked if there is non-normal value.
     #flux = p3.values[0]
-    
+
     #cd back
     #if pha_dir != '':
     if str(pha_dir) != str(current_dir):
@@ -625,22 +625,22 @@ def fit_spectrum(phafilename,surveyobservation, plotting=True, generic_model=Non
 def calculate_detection(surveyobservation,source_id, pl_index=2, nsigma=3,bkg_nsigma=5, plot_fit=False,verbose=True):
     """
     This function uses the fitting function and statistically checks if there is any significant detection (at a specfied confidence).
-    If there is no detection, then the function re-calculates the PHA with a bkg_nsigma times the background to calculate the 
+    If there is no detection, then the function re-calculates the PHA with a bkg_nsigma times the background to calculate the
     upper limit on the flux, at a certain confidence level (given by the user specified bkg_nsigma).
 
     We deal with two cases:
-       
-     (1) Non-detection:  Checking if nsigma error on  The 14-195 keV flux is consistent with the equation (measured flux - nsigma*error)<=0, 
+
+     (1) Non-detection:  Checking if nsigma error on  The 14-195 keV flux is consistent with the equation (measured flux - nsigma*error)<=0,
      then return: upper limit=True
      and then recalculate the PHA +response again.... with count rate= bkg_nsigma*BKG_VAR
 
      (2) Detection: If (measured flux - nsigma*error)>=0 then return: "detection has been measured"
 
-     This operates on the entire batsurvey object (corresponding to a batobservation id), 
-     and we want to see if there is a detection for 'any number of pointings for a given source' in that batobservation id. 
+     This operates on the entire batsurvey object (corresponding to a batobservation id),
+     and we want to see if there is a detection for 'any number of pointings for a given source' in that batobservation id.
 
      Note that it operates ONLY on one source.
-     For different sources one can specify separate detection threshold ('sigma') for different sources. 
+     For different sources one can specify separate detection threshold ('sigma') for different sources.
      Thus we have kept this function to operate only ONE source at a time.
 
     :param surveyobservation: Object denoting the batsurvey observation object which contains all the necessary information related to this observation.
@@ -680,9 +680,9 @@ def calculate_detection(surveyobservation,source_id, pl_index=2, nsigma=3,bkg_ns
 
     flux_upperlim=[]
 
-    phafilename_list=surveyobservation.get_pha_filenames(id_list=[source_id],pointing_id_list=pointing_ids) #By specifying the source_id, we now have the specific PHA filename list corresponding to the pointing_id_list for this given bat survey observation.	
-   
-    for i in range(len(phafilename_list))  :  #Loop over all phafilename_list, 
+    phafilename_list=surveyobservation.get_pha_filenames(id_list=[source_id],pointing_id_list=pointing_ids) #By specifying the source_id, we now have the specific PHA filename list corresponding to the pointing_id_list for this given bat survey observation.
+
+    for i in range(len(phafilename_list))  :  #Loop over all phafilename_list,
 
         #pha_dir, pha_file=os.path.split(phafilename_list[i])
         pha_dir = phafilename_list[i].parent
@@ -734,7 +734,7 @@ def calculate_detection(surveyobservation,source_id, pl_index=2, nsigma=3,bkg_ns
             except:
                 #This is a MosaicBatSurvey object which already has the default associated response file
                 pass
-        
+
             xsp.AllData -= "*"
 
             s = xsp.Spectrum(bkgnsigma_upper_limit_pha_file)
@@ -789,13 +789,13 @@ def calculate_detection(surveyobservation,source_id, pl_index=2, nsigma=3,bkg_ns
             surveyobservation.set_pointing_info(pointing_id, "model_params", model_params, source_id=source_id)
 
             surveyobservation.set_pointing_info(pointing_id,"nsigma_lg10flux_upperlim",np.log10(s.flux[0]),source_id=source_id)
-            
+
             #pointing_id=pha_file.split(".")[0].split("_")[-1]
             #surveyobservation.pointing_info[pointing_id]["flux"]=0
             #surveyobservation.pointing_info[pointing_id]["flux_lolim"]=0
             #surveyobservation.pointing_info[pointing_id]["flux_hilim"]=s.flux[0]
 
-    
+
         else:  # Detection
 
 
@@ -843,7 +843,7 @@ def print_parameters(obs_list, source_id, values=["met_time","utc_time", "exposu
 
     if save_file.exists() and overwrite:
         save_file.unlink()
- 
+
     if type(obs_list) is not list:
         obs_list=[obs_list]
 
@@ -1053,7 +1053,7 @@ def download_swiftdata(observations,  reload=False, fetch=True, jobs=10,
     obsids = list({o:None for o in obsids}.keys())
     nowts = datetime.datetime.now().timestamp()
     kwargs['fetch'] = fetch
-    download_partialfunc = functools.partial(_download_single_observation, reload=reload, bat=bat, auxil=auxil, log=log, 
+    download_partialfunc = functools.partial(_download_single_observation, reload=reload, bat=bat, auxil=auxil, log=log,
                                          uvot=uvot, xrt=xrt, tdrss=tdrss, save_dir=save_dir, nowts=nowts, **kwargs)
     if jobs == 1:
         results = {}
@@ -1067,14 +1067,14 @@ def download_swiftdata(observations,  reload=False, fetch=True, jobs=10,
 
 def _download_single_observation(obsid, *, reload, bat, auxil, log, uvot, xrt, tdrss, save_dir, nowts, **kwargs):
     """Helper function--not for general use
-    
+
     Downloads files for a single OBSID, given parameters from download_swiftdata()
     after encapsulation as a partial function for threading.
 
     Args:
         obsid (str): Observation ID to download
         (remaining arguments are as in download_swiftdata())
-        
+
 
     Raises:
         RuntimeError: If missing local directory.  Other exceptions are presented as warnings and
@@ -1103,7 +1103,7 @@ def _download_single_observation(obsid, *, reload, bat, auxil, log, uvot, xrt, t
             oldqlookdir.mkdir(exist_ok=True, parents=True)
             for stalefile in obsoutdir.glob('**/*'):
                     # Any file older than the time before the data was downloaded
-                if (stalefile.is_file() and stalefile.stat().st_mtime < nowts 
+                if (stalefile.is_file() and stalefile.stat().st_mtime < nowts
                         and not stalefile.name.startswith(".")):
                     stalefile.replace(oldqlookdir.joinpath(stalefile.name))
             quicklookfile.unlink()
@@ -1126,7 +1126,7 @@ def from_heasarc(object_name=None, tablename='swiftmastr', **kwargs):
     with warnings.catch_warnings():
         warnings.simplefilter('ignore', ap.utils.exceptions.AstropyWarning)
         table = heasarc.query_object(object_name=object_name, mission=tablename, **kwargs)
-    return table
+    return table[table['BAT_EXPOSURE']>0]
 
 
 def find_trigger_data():
