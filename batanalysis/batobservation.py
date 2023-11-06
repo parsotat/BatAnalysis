@@ -290,6 +290,8 @@ class Lightcurve(BatObservation):
 
         #stop
 
+        #before doing the recalculation, make sure that the proper weights are in the event file
+        self._set_event_weights()
 
         #the LC _call_batbinevt method ensures that  outtype = LC and that clobber=YES
         lc_return = self._call_batbinevt(tmp_lc_input_dict)
@@ -376,6 +378,9 @@ class Lightcurve(BatObservation):
         if not np.array_equal(emin, self.ebins['E_MIN']) or not np.array_equal(emax, self.ebins['E_MAX']):
             #the tmp_lc_input_dict wil need to be modified with new Energybins
             tmp_lc_input_dict["energybins"]=ebins
+
+            # before doing the recalculation, make sure that the proper weights are in the event file
+            self._set_event_weights()
 
             #the LC _call_batbinevt method ensures that  outtype = LC and that clobber=YES
             lc_return = self._call_batbinevt(tmp_lc_input_dict)
