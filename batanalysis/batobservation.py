@@ -151,7 +151,7 @@ class Lightcurve(BatObservation):
     This object is a wrapper around a light curve created from BAT event data.
     """
 
-    def __init__(self, event_file,  lightcurve_file, detector_quality_mask, ra=None, dec=None, lc_input_dict=None, recalc=False):
+    def __init__(self, event_file,  lightcurve_file, detector_quality_mask, ra=None, dec=None, lc_input_dict=None, recalc=False, mask_weighting=True):
         """
         This constructor reads in a fits file that contains light curve data for a given BAT event dataset. The fits file
         should have been created by a call to
@@ -164,6 +164,11 @@ class Lightcurve(BatObservation):
         self.lightcurve_file = lightcurve_file
         self.detector_quality_mask = detector_quality_mask
 
+        #error checking for weighting
+        if type(mask_weighting) is not bool:
+            raise ValueError("The mask_weighting parameter should be a boolean value.")
+
+
         #need to see if we have to construct the lightcurve if the file doesnt exist
         if not self.lightcurve_file.exists() or recalc:
             #see if the input dict is None so we can set these defaults, otherwise save the requested inputs for use later
@@ -172,6 +177,13 @@ class Lightcurve(BatObservation):
                               energybins="15-350", weighted="YES", timedel=0.064,
                               detmask=str(self.detector_quality_mask),
                               tstart="INDEF", tstop="INDEF", clobber="YES", timebinalg="uniform")
+
+                #specify if we want mask weighting
+                if mask_weighting:
+                    self.lc_input_dict["weighted"] = "YES"
+                else:
+                    self.lc_input_dict["weighted"] = "NO"
+
             else:
                 self.lc_input_dict = lc_input_dict
 
@@ -200,8 +212,9 @@ class Lightcurve(BatObservation):
 
         #were done getting all the info that we need. From here, the user can rebin the timebins and the energy bins
 
-    @unit.quantity_input(timebins=['time'], tmin=['time'], tmax=['time'])
-    def rebin_timebins(self, timebinalg="uniform", timebins=None, tmin=None, tmax=None, T0=None, is_relative=False, timedelta=np.timedelta64(64, 'ms')):
+    @u.quantity_input(timebins=['time'], tmin=['time'], tmax=['time'])
+    def rebin_timebins(self, timebinalg="uniform", timebins=None, tmin=None, tmax=None, T0=None, is_relative=False,
+                       timedelta=np.timedelta64(64, 'ms'), snrthresh=None, calc_energy_integrated=True):
         """
         This method allows for the dynamic rebinning of a light curve in time.
 
@@ -213,6 +226,16 @@ class Lightcurve(BatObservation):
         #create a temp copy incase the time rebinning doesnt complete successfully
         tmp_lc_input_dict=self.lc_input_dict.copy()
 
+        #error checking for calc_energy_integrated
+        if type(is_relative) is not bool:
+            raise ValueError("The is_relative parameter should be a boolean value.")
+
+        #error checking for calc_energy_integrated
+        if type(calc_energy_integrated) is not bool:
+            raise ValueError("The calc_energy_integrated parameter should be a boolean value.")
+
+
+
         #see if the timebinalg is properly set approporiately
         #if "uniform" not in timebinalg or "snr" not in timebinalg or "bayesian" not in timebinalg:
         if timebinalg not in ["uniform", "snr", "highsnr", "bayesian"]:
@@ -222,6 +245,10 @@ class Lightcurve(BatObservation):
         if "uniform" in timebinalg or "snr" in timebinalg:
             if type(timedelta) is not np.timedelta64:
                 raise ValueError('The timedelta variable needs to be a numpy timedelta64 object.')
+
+        #need to make sure that snrthresh is set for "snr" timebinalg
+        if "snr" in timebinalg and snrthresh is None:
+            raise ValueError(f'The snrthresh value should be set since timebinalg is set to be {snrthresh}.')
 
         #test if is_relative is false and make sure that T0 is defined
         if is_relative and T0 is None:
@@ -244,6 +271,43 @@ class Lightcurve(BatObservation):
             timebins[:-1] = tmin
             timebins[-1] = tmax[-1]
 
+        #See if we need to add T0 to everything
+        if is_relative:
+            timebins += T0
+
+        #should have everything that we need to do the rebinning for a uniform/snr related rebinning
+        #first need to update the tmp_lc_input_dict
+        if "uniform" in timebinalg or "snr" in timebinalg:
+            tmp_lc_input_dict['timebinalg'] = timebinalg
+
+            # if we have snr we also need to modify the snrthreshold
+            if "snr" in timebinalg:
+                tmp_lc_input_dict['snrthresh'] = snrthresh
+
+        tmp_lc_input_dict['timedel'] = timedelta / np.timedelta64(1, 's') #convert to seconds
+
+
+
+        #stop
+
+
+        #the LC _call_batbinevt method ensures that  outtype = LC and that clobber=YES
+        lc_return = self._call_batbinevt(tmp_lc_input_dict)
+
+        #make sure that the lc_return was successful
+        if lc_return.returncode != 0:
+            raise RuntimeError(f'The creation of the lightcurve failed with message: {lc_return.output}')
+        else:
+            self.bat_lc_result = lc_return
+            self.lc_input_dict = tmp_lc_input_dict
+
+            #reparse the lightcurve file to get the info
+            self._parse_lightcurve_file()
+
+            if calc_energy_integrated:
+                self._calc_energy_integrated()
+
+
 
 
 
@@ -257,6 +321,11 @@ class Lightcurve(BatObservation):
 
         :return:
         """
+
+        #error checking for calc_energy_integrated
+        if type(calc_energy_integrated) is not bool:
+            raise ValueError("The calc_energy_integrated parameter should be a boolean value.")
+
 
         # see if the user specified either the energy bins directly or emin/emax separately
         if emin is None and emax is None:
@@ -455,6 +524,8 @@ class Lightcurve(BatObservation):
                     old_parameter=parameter
 
             self.lc_input_dict = default_params_dict.copy()
+
+        #TODO: put energy integrated option here and check to see that there isnt just one energy bin
 
 
     def _get_event_weights(self):

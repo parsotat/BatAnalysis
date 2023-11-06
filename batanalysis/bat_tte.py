@@ -523,7 +523,7 @@ class BatEvent(BatObservation):
 
         lc = Lightcurve(self.event_files, lc_file, self.detector_quality_file, recalc=recalc)
         #lc.rebin_energybins(energybins=energybins)
-        lc.rebin_timebins()
+        lc.rebin_timebins(timedelta=np.timedelta64(1, 's'))
         stop
 
 
@@ -579,13 +579,6 @@ class BatEvent(BatObservation):
             timebinalg="uniform"
             bayesian_reanalyze=True
 
-
-
-
-        #error checking for energies
-        if type(energybins) is not list:
-            energybins=list(energybins)
-            energybins=','.join(energybins)
 
         #error checking for weighting
         if type(mask_weighting) is bool:
