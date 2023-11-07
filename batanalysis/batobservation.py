@@ -223,7 +223,7 @@ class Lightcurve(BatObservation):
         #were done getting all the info that we need. From here, the user can rebin the timebins and the energy bins
 
     @u.quantity_input(timebins=['time'], tmin=['time'], tmax=['time'])
-    def rebin_timebins(self, timebinalg="uniform", timebins=None, tmin=None, tmax=None, T0=None, is_relative=False,
+    def set_timebins(self, timebinalg="uniform", timebins=None, tmin=None, tmax=None, T0=None, is_relative=False,
                        timedelta=np.timedelta64(64, 'ms'), snrthresh=None, calc_energy_integrated=True):
         """
         This method allows for the dynamic rebinning of a light curve in time.
@@ -327,7 +327,7 @@ class Lightcurve(BatObservation):
 
 
 
-    def rebin_energybins(self, energybins=["15-25", "25-50", "50-100", "100-350"], emin=None, emax=None, calc_energy_integrated=True):
+    def set_energybins(self, energybins=["15-25", "25-50", "50-100", "100-350"], emin=None, emax=None, calc_energy_integrated=True):
         """
         This method allows for the dynamic rebinning of a light curve in energy
 
@@ -779,5 +779,5 @@ class Lightcurve(BatObservation):
         #use the same filename as for the lightcurve file but replace suffix with gti
         output_filename=self.lightcurve_file.with_suffix('.gti')
 
-        return create_gti_file(timebin_edges, output_filename, T0=None, is_relative=False, overwrite=True)
+        return create_gti_file(timebins, output_filename, T0=None, is_relative=False, overwrite=True)
 
