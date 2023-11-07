@@ -158,6 +158,8 @@ class Lightcurve(BatObservation):
     """
     This is a general light curve class that contains typical information that a user may want from their lightcurve.
     This object is a wrapper around a light curve created from BAT event data.
+
+    TODO: make this flexible enough to read in the raw rates lightcurves if necessary
     """
 
     def __init__(self, event_file,  lightcurve_file, detector_quality_mask, ra=None, dec=None, lc_input_dict=None, recalc=False, mask_weighting=True):
@@ -292,7 +294,13 @@ class Lightcurve(BatObservation):
 
         #if we are doing battblocks or the user has passed in timebins/tmin/tmax then we have to create a good time interval file
         # otherwise proceed with normal rebinning
-        if (tmin is not None and tmax is not None) or timebins is not None:
+        if "bayesian" in timebinalg:
+            #we need to call battblocks to get the good time interval file
+            self.timebins_file = self._call_battblocks()
+            tmp_lc_input_dict['timebinalg'] = "gti"
+            tmp_lc_input_dict['gtifile'] = str(self.timebins_file)
+
+        elif ((tmin is not None and tmax is not None) or timebins is not None):
             self.timebins_file = self._create_custom_timebins(timebins)
             tmp_lc_input_dict['timebinalg'] = "gti"
             tmp_lc_input_dict['gtifile'] = str(self.timebins_file)
@@ -601,30 +609,6 @@ class Lightcurve(BatObservation):
 
         return coord_match
 
-    def _call_batbinevt(self, input_dict):
-        """
-        Calls heasoftpy's batbinevt with an error wrapper, ensures that this bins the event data to produce a lightcurve
-
-        :param input_dict: Dictionary of inputs that will be passed to heasoftpy's batbinevt
-        :return: heasoftpy Result object from batbinevt
-        """
-
-        input_dict["clobber"] = "YES"
-        input_dict["outtype"] = "LC"
-
-        try:
-            return hsp.batbinevt(**input_dict)
-        except Exception as e:
-            print(e)
-            raise RuntimeError(f"The call to Heasoft batbinevt failed with inputs {input_dict}.")
-
-    def _call_battblocks(self):
-        """
-        This method calls battblocks for bayesian blocks binning of a lightcurve
-
-        :return:
-        """
-
 
     def _calc_energy_integrated(self):
         """
@@ -775,15 +759,51 @@ class Lightcurve(BatObservation):
         return fig, ax
 
 
-    def _create_custom_timebins(self, timebins):
+    def _create_custom_timebins(self, timebins, output_file=None):
         """
         This method creates custom time bins from a user defined set of time bin edges
 
         This method is here so the call to create a gti can be phased out eventually.
         :return:
         """
-        #use the same filename as for the lightcurve file but replace suffix with gti
-        output_filename=self.lightcurve_file.with_suffix('.gti')
 
-        return create_gti_file(timebins, output_filename, T0=None, is_relative=False, overwrite=True)
+        if output_file is None:
+            #use the same filename as for the lightcurve file but replace suffix with gti and put it in gti subdir instead of lc
+            new_path = self.lightcurve_file.parts
+            new_name=self.lightcurve_file.name.replace("lc", "gti")
 
+            output_file=Path(*new_path[:self.lightcurve_file.parts.index('lc')]).joinpath("gti").joinpath(new_name)
+
+        return create_gti_file(timebins, output_file, T0=None, is_relative=False, overwrite=True)
+
+    def _call_battblocks(self):
+        """
+        This method calls battblocks for bayesian blocks binning of a lightcurve
+
+        :return:
+        """
+
+        try:
+            return hsp.battblocks(**input_dict)
+        except Exception as e:
+            print(e)
+            raise RuntimeError(f"The call to Heasoft battblocks failed with inputs {input_dict}.")
+
+
+
+    def _call_batbinevt(self, input_dict):
+        """
+        Calls heasoftpy's batbinevt with an error wrapper, ensures that this bins the event data to produce a lightcurve
+
+        :param input_dict: Dictionary of inputs that will be passed to heasoftpy's batbinevt
+        :return: heasoftpy Result object from batbinevt
+        """
+
+        input_dict["clobber"] = "YES"
+        input_dict["outtype"] = "LC"
+
+        try:
+            return hsp.batbinevt(**input_dict)
+        except Exception as e:
+            print(e)
+            raise RuntimeError(f"The call to Heasoft batbinevt failed with inputs {input_dict}.")
