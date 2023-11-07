@@ -296,7 +296,7 @@ class Lightcurve(BatObservation):
         # otherwise proceed with normal rebinning
         if "bayesian" in timebinalg:
             #we need to call battblocks to get the good time interval file
-            self.timebins_file = self._call_battblocks()
+            self.timebins_file, battblocks_return = self._call_battblocks()
             tmp_lc_input_dict['timebinalg'] = "gti"
             tmp_lc_input_dict['gtifile'] = str(self.timebins_file)
 
@@ -578,6 +578,7 @@ class Lightcurve(BatObservation):
 
 
 
+
     def _set_event_weights(self):
         """
         This method sets the appropriate weights for event data, for a
@@ -593,6 +594,7 @@ class Lightcurve(BatObservation):
             #read in the event file and replace the values in the MASK_WEIGHT with the appropriate values in self._event_weights
             with fits.open(self.event_file, mode="update") as file:
                 file[1].data["MASK_WEIGHT"]=self._event_weights
+                file.flush()
 
     def _same_event_lc_coords(self):
         """
@@ -776,18 +778,55 @@ class Lightcurve(BatObservation):
 
         return create_gti_file(timebins, output_file, T0=None, is_relative=False, overwrite=True)
 
-    def _call_battblocks(self):
+    def _call_battblocks(self, output_file=None, save_durations=False):
         """
         This method calls battblocks for bayesian blocks binning of a lightcurve
 
         :return:
         """
 
+        #get the set of default values which we will modify
+        #stop
+        test = hsp.HSPTask('battblocks')
+        input_dict = test.default_params.copy()
+
+        if output_file is None:
+            #use the same filename as for the lightcurve file but replace suffix with gti and put it in gti subdir instead of lc
+            new_path = self.lightcurve_file.parts
+            new_name=self.lightcurve_file.name.replace("lc", "gti")
+
+            output_file=Path(*new_path[:self.lightcurve_file.parts.index('lc')]).joinpath("gti").joinpath(new_name)
+
+        #modify some of the inputs here
+        input_dict["infile"] = str(self.event_file)
+        input_dict["outfile"] = str(output_file)
+
+        #these are used by batgrbproducts:
+        input_dict["bkgsub"] = "YES"
+        input_dict["clobber"] = "YES"
+        input_dict["tlookback"] = 10
+
+
+        if save_durations:
+            dur_output_file = output_file.parent / output_file.name.replace("gti", "dur")
+            input_dict["durfile"] = str(dur_output_file)
+
         try:
-            return hsp.battblocks(**input_dict)
+            battblocks_return = hsp.battblocks(**input_dict)
+
+            if battblocks_return.returncode != 0:
+                raise RuntimeError(f'The call to Heasoft battblocks failed with message: {battblocks_return.output}')
+
+            if save_durations:
+                stop
+
+            return output_file, battblocks_return
+
         except Exception as e:
             print(e)
             raise RuntimeError(f"The call to Heasoft battblocks failed with inputs {input_dict}.")
+
+
 
 
 
