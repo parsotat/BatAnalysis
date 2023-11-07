@@ -283,7 +283,11 @@ class Lightcurve(BatObservation):
 
         #See if we need to add T0 to everything
         if is_relative:
-            timebins += T0
+            #see if T0 is Quantity class
+            if type(T0) is u.Quantity:
+                timebins += T0
+            else:
+                timebins += T0 * u.s
 
         #should have everything that we need to do the rebinning for a uniform/snr related rebinning
         #first need to update the tmp_lc_input_dict

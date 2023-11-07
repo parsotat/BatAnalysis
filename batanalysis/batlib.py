@@ -17,7 +17,10 @@ import datetime
 import dpath
 from concurrent.futures import ThreadPoolExecutor
 import functools
-import swiftbat.swutil as sbu
+import astropy.units as u
+
+
+# from xspec import *
 
 # for python>3.6
 try:
@@ -1763,22 +1766,27 @@ def create_gti_file(timebin_edges, output_filename, T0=None, is_relative=False, 
     if type(timebin_edges) is not np.array:
         timebin_edges=np.array(timebin_edges)
 
-    #make sure that the array is a float as well.
-    timebin_edges = timebin_edges.astype("float")
+    if type(timebin_edges) is not u.Quantity:
+        timebin_edges=u.Quantity(timebin_edges, u.s)
 
     #test if is_relative is false and make sure that T0 is defined
     if is_relative and T0 is None:
         raise ValueError('The is_relative value is set to True however there is no T0 that is defined '+
                          '(ie the time from which the time bins are defined relative to is not specified).')
 
+    # See if we need to add T0 to everything
     if is_relative:
-        timebin_edges += T0
+        # see if T0 is Quantity class
+        if type(T0) is u.Quantity:
+            timebin_edges += T0
+        else:
+            timebin_edges += T0 * u.s
 
     tmin=np.zeros(timebin_edges.size-1)
     tmax=np.zeros_like(tmin)
 
-    tmin=timebin_edges[:-1]
-    tmax=timebin_edges[1:]
+    tmin=timebin_edges[:-1].value
+    tmax=timebin_edges[1:].value
 
     #now create the file
 
