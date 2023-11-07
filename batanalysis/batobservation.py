@@ -289,24 +289,26 @@ class Lightcurve(BatObservation):
             else:
                 timebins += T0 * u.s
 
-        #should have everything that we need to do the rebinning for a uniform/snr related rebinning
-        #first need to update the tmp_lc_input_dict
-        if "uniform" in timebinalg or "snr" in timebinalg:
-            tmp_lc_input_dict['timebinalg'] = timebinalg
-
-            # if we have snr we also need to modify the snrthreshold
-            if "snr" in timebinalg:
-                tmp_lc_input_dict['snrthresh'] = snrthresh
-
-        tmp_lc_input_dict['timedel'] = timedelta / np.timedelta64(1, 's') #convert to seconds
 
         #if we are doing battblocks or the user has passed in timebins/tmin/tmax then we have to create a good time interval file
+        # otherwise proceed with normal rebinning
         if (tmin is not None and tmax is not None) or timebins is not None:
             self.timebins_file = self._create_custom_timebins(timebins)
+            tmp_lc_input_dict['timebinalg'] = "gti"
             tmp_lc_input_dict['gtifile'] = str(self.timebins_file)
         else:
             tmp_lc_input_dict['gtifile'] = "NONE"
 
+            # should have everything that we need to do the rebinning for a uniform/snr related rebinning
+            # first need to update the tmp_lc_input_dict
+            if "uniform" in timebinalg or "snr" in timebinalg:
+                tmp_lc_input_dict['timebinalg'] = timebinalg
+
+                # if we have snr we also need to modify the snrthreshold
+                if "snr" in timebinalg:
+                    tmp_lc_input_dict['snrthresh'] = snrthresh
+
+            tmp_lc_input_dict['timedel'] = timedelta / np.timedelta64(1, 's')  # convert to seconds
 
             #stop
 
