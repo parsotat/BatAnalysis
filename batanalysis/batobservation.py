@@ -169,6 +169,7 @@ class Lightcurve(BatObservation):
         """
 
         #save these variables
+        #TODO: make sure that they are Path objects
         self.event_file = event_file
         self.lightcurve_file = lightcurve_file
         self.detector_quality_mask = detector_quality_mask
@@ -228,7 +229,7 @@ class Lightcurve(BatObservation):
         This method allows for the dynamic rebinning of a light curve in time.
 
         timebin_alg
-
+        TODO: make tmin/tmax also be able to take single times to denote min/max times to calc LC for
         :return:
         """
 
@@ -296,10 +297,14 @@ class Lightcurve(BatObservation):
         tmp_lc_input_dict['timedel'] = timedelta / np.timedelta64(1, 's') #convert to seconds
 
         #if we are doing battblocks or the user has passed in timebins/tmin/tmax then we have to create a good time interval file
-        #if (tmin is not None and tmax is not None) or timebins is not None:
+        if (tmin is not None and tmax is not None) or timebins is not None:
+            self.timebins_file = self._create_custom_timebins(timebins)
+            tmp_lc_input_dict['gtifile'] = str(self.timebins_file)
+        else:
+            tmp_lc_input_dict['gtifile'] = "NONE"
 
 
-        #stop
+            #stop
 
         #before doing the recalculation, make sure that the proper weights are in the event file
         self._set_event_weights()
@@ -764,11 +769,15 @@ class Lightcurve(BatObservation):
         return fig, ax
 
 
-    def _create_custom_timebins(self, timebins, T0=None, is_relative=False, overwrite=True):
+    def _create_custom_timebins(self, timebins):
         """
         This method creates custom time bins from a user defined set of time bin edges
 
+        This method is here so the call to create a gti can be phased out eventually.
         :return:
         """
+        #use the same filename as for the lightcurve file but replace suffix with gti
+        output_filename=self.lightcurve_file.with_suffix('.gti')
 
+        return create_gti_file(timebin_edges, output_filename, T0=None, is_relative=False, overwrite=True)
 
