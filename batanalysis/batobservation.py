@@ -222,6 +222,9 @@ class Lightcurve(BatObservation):
         #read in the information about the weights
         self._get_event_weights()
 
+        #set the duration info to None for now until the user calls battblocks
+        self.tdurs = None
+
         #were done getting all the info that we need. From here, the user can rebin the timebins and the energy bins
 
     @u.quantity_input(timebins=['time'], tmin=['time'], tmax=['time'])
@@ -850,6 +853,32 @@ class Lightcurve(BatObservation):
 
         return output_file, battblocks_return
 
+    def _parse_durations(self, duration_file):
+        """
+        This method reads in a duration file that is produced by battblocks.
+
+        The data columns are name START/STOP but for uniformity will rename to TSTART/TSTOP
+
+        :return:
+        """
+
+        # read in the data and save to data attribute which is a dictionary of the column names as keys and the numpy arrays as values
+        dur_data = {}
+        with fits.open(duration_file) as file:
+            #skip the primary since it contains no info, the other extensions have the T90, backgrounds, etc
+            for f in file[1:]:
+                header = f.header
+                data = f.data
+                dur_quantity=f.name.split("_")[-1]
+
+                dur_data[dur_quantity] = {}
+
+                for i in data.columns:
+                    # there is only 1 time in each data column so index data[0] and convert START/STOP to TSTART/TSTOP
+                    dur_data[dur_quantity][f"T{i.name}"] = u.Quantity(data[i.name][0], i.unit)
+
+        self.tdurs=dur_data
+
     def _call_batbinevt(self, input_dict):
         """
         Calls heasoftpy's batbinevt with an error wrapper, ensures that this bins the event data to produce a lightcurve
@@ -866,3 +895,36 @@ class Lightcurve(BatObservation):
         except Exception as e:
             print(e)
             raise RuntimeError(f"The call to Heasoft batbinevt failed with inputs {input_dict}.")
+
+    def get_duration(self, duration_str):
+        """
+
+        This method allows for eacy access to the durations that may hav been calculated with
+
+        :return:
+        """
+
+        if self.tdurs is not None:
+            try:
+                data = self.tdurs[duration_str]
+            except KeyError as e:
+                print(e)
+                raise ValueError(f"The duration {duration_str} has not been calculated by battblocks.")
+        else:
+            raise RuntimeError("There are not durations (T90, T50, etc) associated with this lightcurve. Please rerun set_timebins with timebinalg = bayesian.")
+
+        return data["TSTART"], data["TSTOP"], data["TSTOP"]-data["TSTART"]
+
+    @u.quantity_input(tstart=['time'], tstop=['time'])
+    def set_duration(self, duration_str, tstart, tstop):
+        """
+        This method allows users to set durations that were calculated. 
+
+        :param duration_str:
+        :param tstart:
+        :param tstop:
+        :return:
+        """
+
+        self.tdurs[duration_str]["TSTART"] = tstart
+        self.tdurs[duration_str]["TSTOP"] = tstop
