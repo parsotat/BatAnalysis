@@ -808,7 +808,7 @@ class Lightcurve(BatObservation):
 
 
         #get the set of default values which we will modify
-        stop
+        #stop
         test = hsp.HSPTask('battblocks')
         input_dict = test.default_params.copy()
 
@@ -873,9 +873,12 @@ class Lightcurve(BatObservation):
 
                 dur_data[dur_quantity] = {}
 
-                for i in data.columns:
+                #already know there are only 2 columns with START/STOP times
+                #for i in data.columns:
                     # there is only 1 time in each data column so index data[0] and convert START/STOP to TSTART/TSTOP
-                    dur_data[dur_quantity][f"T{i.name}"] = u.Quantity(data[i.name][0], i.unit)
+                #    dur_data[dur_quantity][f"T{i.name}"] = u.Quantity(data[i.name][0], i.unit)
+
+                self.set_duration(dur_quantity, u.Quantity(data[data.columns[0].name][0], data.columns[0].unit), u.Quantity(data[data.columns[1].name][0], data.columns[1].unit))
 
         self.tdurs=dur_data
 

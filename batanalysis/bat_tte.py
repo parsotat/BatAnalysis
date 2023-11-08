@@ -522,7 +522,7 @@ class BatEvent(BatObservation):
 
 
         lc = Lightcurve(self.event_files, lc_file, self.detector_quality_file, recalc=recalc)
-        lc.set_energybins(energybins=energybins)
+        #lc.set_energybins(energybins=energybins)
         #lc.set_timebins(timedelta=timedelta)
         lc.set_timebins(timebinalg="bayesian")
         stop
