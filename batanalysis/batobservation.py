@@ -780,13 +780,32 @@ class Lightcurve(BatObservation):
 
     def _call_battblocks(self, output_file=None, save_durations=False):
         """
-        This method calls battblocks for bayesian blocks binning of a lightcurve
+        This method calls battblocks for bayesian blocks binning of a lightcurve. This rebins the lightcurve into a 64 ms
+        energy integrated energy bin (based on current ebins) to calculate the bayesian block time bins and then restores the lightcurve back to what it was
 
         :return:
         """
 
+        if len(self.ebins["INDEX"]) > 1:
+            recalc_energy=True
+            #need to rebin to a single energy and save current energy bins
+            old_ebins=self.ebins.copy()
+            #see if we have the enrgy integrated bin included in the arrays:
+            if (self.ebins["E_MIN"][0] == self.ebins["E_MIN"][-1]) and (self.ebins["E_MAX"][0] == self.ebins["E_MAX"][-1]):
+                self.set_energybins(emin=self.ebins["E_MIN"][-1], emax=self.ebins["E_MAX"][-1])
+                calc_energy_integrated = True #this is for recalculating the lightcurve later in the method
+            else:
+                self.set_energybins(emin=self.ebins["E_MIN"][-0], emax=self.ebins["E_MAX"][-1])
+                calc_energy_integrated = False
+        else:
+            recalc_energy=False
+
+        #set the time binning to be 64 ms. This time binning will be over written anyways so dont need to restore anything
+        self.set_timebins()
+
+
         #get the set of default values which we will modify
-        #stop
+        stop
         test = hsp.HSPTask('battblocks')
         input_dict = test.default_params.copy()
 
@@ -798,7 +817,7 @@ class Lightcurve(BatObservation):
             output_file=Path(*new_path[:self.lightcurve_file.parts.index('lc')]).joinpath("gti").joinpath(new_name)
 
         #modify some of the inputs here
-        input_dict["infile"] = str(self.event_file)
+        input_dict["infile"] = str(self.lightcurve_file) #this should ideally be a 64 ms lightcurve of a single energy bin
         input_dict["outfile"] = str(output_file)
 
         #these are used by batgrbproducts:
@@ -814,21 +833,22 @@ class Lightcurve(BatObservation):
         try:
             battblocks_return = hsp.battblocks(**input_dict)
 
-            if battblocks_return.returncode != 0:
-                raise RuntimeError(f'The call to Heasoft battblocks failed with message: {battblocks_return.output}')
-
-            if save_durations:
-                stop
-
-            return output_file, battblocks_return
-
         except Exception as e:
             print(e)
             raise RuntimeError(f"The call to Heasoft battblocks failed with inputs {input_dict}.")
 
+        # reset the energy bins to what they were before
+        if recalc_energy:
+            self.set_energybins(emin=old_ebins["E_MIN"], emax=old_ebins["E_MAX"],
+                                calc_energy_integrated=calc_energy_integrated)
 
+        if battblocks_return.returncode != 0:
+            raise RuntimeError(f'The call to Heasoft battblocks failed with message: {battblocks_return.output}')
 
+        if save_durations:
+            stop
 
+        return output_file, battblocks_return
 
     def _call_batbinevt(self, input_dict):
         """
