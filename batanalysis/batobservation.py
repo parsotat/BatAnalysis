@@ -849,7 +849,7 @@ class Lightcurve(BatObservation):
             raise RuntimeError(f'The call to Heasoft battblocks failed with message: {battblocks_return.output}')
 
         if save_durations:
-            self._parse_durations()
+            self._parse_durations(dur_output_file)
 
         return output_file, battblocks_return
 
