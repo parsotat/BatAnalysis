@@ -386,19 +386,23 @@ class Lightcurve(BatObservation):
             if (emin is None and emax is not None) or (emax is None and emin is not None):
                 raise ValueError('Both emin and emax must be defined.')
 
-            if len(emin) != len(emax):
-                raise ValueError('Both emin and emax must have the same length.')
-
             # see if they are astropy quantity items with units
             if type(emin) is not u.Quantity:
                 emin = u.Quantity(emin, u.keV)
             if type(emax) is not u.Quantity:
                 emax = u.Quantity(emax, u.keV)
 
+            if emin.size != emax.size:
+                raise ValueError('Both emin and emax must have the same length.')
+
+
             # create our energybins input to batbinevt
-            energybins = []
-            for min, max in zip(emin.to(u.keV), emax.to(u.keV)):
-                energybins.append(f"{min.value}-{max.value}")
+            if emin.size > 1:
+                energybins = []
+                for min, max in zip(emin.to(u.keV), emax.to(u.keV)):
+                    energybins.append(f"{min.value}-{max.value}")
+            else:
+                energybins=[f"{emin.to(u.keV).value}-{emax.to(u.keV).value}"]
 
         # create the full string
         ebins = ','.join(energybins)
@@ -794,11 +798,11 @@ class Lightcurve(BatObservation):
             #need to rebin to a single energy and save current energy bins
             old_ebins=self.ebins.copy()
             #see if we have the enrgy integrated bin included in the arrays:
-            if (self.ebins["E_MIN"][0] == self.ebins["E_MIN"][-1]) and (self.ebins["E_MAX"][0] == self.ebins["E_MAX"][-1]):
+            if (self.ebins["E_MIN"][0] == self.ebins["E_MIN"][-1]) and (self.ebins["E_MAX"][-2] == self.ebins["E_MAX"][-1]):
                 self.set_energybins(emin=self.ebins["E_MIN"][-1], emax=self.ebins["E_MAX"][-1])
                 calc_energy_integrated = True #this is for recalculating the lightcurve later in the method
             else:
-                self.set_energybins(emin=self.ebins["E_MIN"][-0], emax=self.ebins["E_MAX"][-1])
+                self.set_energybins(emin=self.ebins["E_MIN"][0], emax=self.ebins["E_MAX"][-1])
                 calc_energy_integrated = False
         else:
             recalc_energy=False
@@ -842,7 +846,14 @@ class Lightcurve(BatObservation):
 
         # reset the energy bins to what they were before
         if recalc_energy:
-            self.set_energybins(emin=old_ebins["E_MIN"], emax=old_ebins["E_MAX"],
+            if calc_energy_integrated:
+                min_ebins = old_ebins["E_MIN"][:-1]
+                max_ebins = old_ebins["E_MAX"][:-1]
+            else:
+                min_ebins = old_ebins["E_MIN"]
+                max_ebins = old_ebins["E_MAX"]
+
+            self.set_energybins(emin=min_ebins, emax=max_ebins,
                                 calc_energy_integrated=calc_energy_integrated)
 
         if battblocks_return.returncode != 0:
