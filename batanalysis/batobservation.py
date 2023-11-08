@@ -849,7 +849,7 @@ class Lightcurve(BatObservation):
             raise RuntimeError(f'The call to Heasoft battblocks failed with message: {battblocks_return.output}')
 
         if save_durations:
-            stop
+            self._parse_durations()
 
         return output_file, battblocks_return
 
@@ -918,7 +918,7 @@ class Lightcurve(BatObservation):
     @u.quantity_input(tstart=['time'], tstop=['time'])
     def set_duration(self, duration_str, tstart, tstop):
         """
-        This method allows users to set durations that were calculated. 
+        This method allows users to set durations that were calculated.
 
         :param duration_str:
         :param tstart:
@@ -926,5 +926,16 @@ class Lightcurve(BatObservation):
         :return:
         """
 
+        #if we havent created a dict , do so now
+        if self.tdurs is None:
+            self.tdurs={}
+
+        #see if we can access the key of interest, otherwise we need to create it
+        try:
+            data = self.tdurs[duration_str]
+        except KeyError as e:
+            self.tdurs[duration_str]={}
+
+        #now save values appropriately
         self.tdurs[duration_str]["TSTART"] = tstart
         self.tdurs[duration_str]["TSTOP"] = tstop

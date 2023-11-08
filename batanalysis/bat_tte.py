@@ -522,8 +522,8 @@ class BatEvent(BatObservation):
 
 
         lc = Lightcurve(self.event_files, lc_file, self.detector_quality_file, recalc=recalc)
-        #lc.set_energybins(energybins=energybins)
-        lc.set_timebins(timedelta=np.timedelta64(1, 's'))
+        lc.set_energybins(energybins=energybins)
+        #lc.set_timebins(timedelta=timedelta)
         lc.set_timebins(timebinalg="bayesian")
         stop
 
@@ -574,25 +574,8 @@ class BatEvent(BatObservation):
         else:
             gtifile = "NONE"
 
-        #if we want bayesian blocks we need to first create a light curve and then run it though the bayesian blocks
-        # algorithm and return that
-        if "bayesian" in timebinalg:
-            timebinalg="uniform"
-            bayesian_reanalyze=True
 
 
-        #error checking for weighting
-        if type(mask_weighting) is bool:
-            if mask_weighting:
-                weighted = "YES"
-            else:
-                weighted = "NO"
-        else:
-            raise ValueError("The mask_weighting parameter should be a boolean value.")
-
-        input_dict=dict(infile=str(self.event_files), outfile=str(outfile), outtype="LC",
-                        energybins=energybins, weighted = weighted, timedel=timedel, detmask=str(self.detector_quality_file),
-                        tstart=tstart, tstop=tstop, )
 
 
 
