@@ -278,13 +278,16 @@ class Lightcurve(BatObservation):
             raise ValueError('Both emin and emax must be defined.')
 
         if tmin is not None and tmax is not None:
-            if len(tmin) != len(tmax):
+            if tmin.size != tmax.size:
                 raise ValueError('Both tmin and tmax must have the same length.')
 
             #now try to construct single array of all timebin edges in seconds
-            timebins=np.zeros(len(tmin)+1)*u.s
+            timebins=np.zeros(tmin.size+1)*u.s
             timebins[:-1] = tmin
-            timebins[-1] = tmax[-1]
+            if tmin.size > 1:
+                timebins[-1] = tmax[-1]
+            else:
+                timebins[-1] = tmax
 
         #See if we need to add T0 to everything
         if is_relative:
@@ -303,7 +306,20 @@ class Lightcurve(BatObservation):
             tmp_lc_input_dict['timebinalg'] = "gti"
             tmp_lc_input_dict['gtifile'] = str(self.timebins_file)
 
-        elif ((tmin is not None and tmax is not None) or timebins is not None):
+            #make sure there are no predefined tstart/tstop
+            tmp_lc_input_dict['tstart'] = "INDEF"
+            tmp_lc_input_dict['tstop'] = "INDEF"
+
+
+        elif (timebins is not None and timebins.size > 2):
+            #tmin is not None and tmax.size > 1 and
+            #already checked that tmin && tmax are not 1 and have the same size
+            #if they are defined and they are more than 1 element then we have a series of timebins otherwise we just have the
+
+            tmp_lc_input_dict['tstart'] = "INDEF"
+            tmp_lc_input_dict['tstop'] = "INDEF"
+
+            # start/stop times of the lightcurve
             self.timebins_file = self._create_custom_timebins(timebins)
             tmp_lc_input_dict['timebinalg'] = "gti"
             tmp_lc_input_dict['gtifile'] = str(self.timebins_file)
@@ -321,7 +337,11 @@ class Lightcurve(BatObservation):
 
             tmp_lc_input_dict['timedel'] = timedelta / np.timedelta64(1, 's')  # convert to seconds
 
-            #stop
+            #see if we have the min/max times defined
+            if (tmin is not None and tmax.size == 1):
+                tmp_lc_input_dict['tstart'] = timebins[0].value
+                tmp_lc_input_dict['tstop'] = timebins[1].value
+
 
         #before doing the recalculation, make sure that the proper weights are in the event file
         self._set_event_weights()
