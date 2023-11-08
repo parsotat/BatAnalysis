@@ -229,7 +229,7 @@ class Lightcurve(BatObservation):
 
     @u.quantity_input(timebins=['time'], tmin=['time'], tmax=['time'])
     def set_timebins(self, timebinalg="uniform", timebins=None, tmin=None, tmax=None, T0=None, is_relative=False,
-                       timedelta=np.timedelta64(64, 'ms'), snrthresh=None, calc_energy_integrated=True):
+                       timedelta=np.timedelta64(64, 'ms'), snrthresh=None, calc_energy_integrated=True, save_durations=True):
         """
         This method allows for the dynamic rebinning of a light curve in time.
 
@@ -299,7 +299,7 @@ class Lightcurve(BatObservation):
         # otherwise proceed with normal rebinning
         if "bayesian" in timebinalg:
             #we need to call battblocks to get the good time interval file
-            self.timebins_file, battblocks_return = self._call_battblocks()
+            self.timebins_file, battblocks_return = self._call_battblocks(save_durations=save_durations)
             tmp_lc_input_dict['timebinalg'] = "gti"
             tmp_lc_input_dict['gtifile'] = str(self.timebins_file)
 
