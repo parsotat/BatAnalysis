@@ -863,7 +863,6 @@ class Lightcurve(BatObservation):
         """
 
         # read in the data and save to data attribute which is a dictionary of the column names as keys and the numpy arrays as values
-        dur_data = {}
         with fits.open(duration_file) as file:
             #skip the primary since it contains no info, the other extensions have the T90, backgrounds, etc
             for f in file[1:]:
@@ -871,16 +870,9 @@ class Lightcurve(BatObservation):
                 data = f.data
                 dur_quantity=f.name.split("_")[-1]
 
-                dur_data[dur_quantity] = {}
-
-                #already know there are only 2 columns with START/STOP times
-                #for i in data.columns:
-                    # there is only 1 time in each data column so index data[0] and convert START/STOP to TSTART/TSTOP
-                #    dur_data[dur_quantity][f"T{i.name}"] = u.Quantity(data[i.name][0], i.unit)
-
+                # there is only 1 time in each data column so index data[0] and convert START/STOP to TSTART/TSTOP
                 self.set_duration(dur_quantity, u.Quantity(data[data.columns[0].name][0], data.columns[0].unit), u.Quantity(data[data.columns[1].name][0], data.columns[1].unit))
 
-        self.tdurs=dur_data
 
     def _call_batbinevt(self, input_dict):
         """
