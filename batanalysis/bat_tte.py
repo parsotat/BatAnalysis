@@ -524,8 +524,6 @@ class BatEvent(BatObservation):
 
         self.lightcurve=lc
 
-        #stop
-
         return None
 
     def create_pha(self, **kwargs):
@@ -540,6 +538,8 @@ class BatEvent(BatObservation):
         """
 
         raise NotImplementedError("Creating a spectrum has not yet been implemented.")
+
+
 
         return None
 

@@ -963,3 +963,18 @@ class Lightcurve(BatObservation):
         #now save values appropriately
         self.tdurs[duration_str]["TSTART"] = tstart
         self.tdurs[duration_str]["TSTOP"] = tstop
+
+    class Spectrum(BatObservation):
+        def __init__(self, event_file,  pha_file, detector_quality_mask, ra=None, dec=None, pha_input_dict=None, recalc=False, mask_weighting=True):
+            """
+
+            :param event_file:
+            :param pha_file:
+            :param detector_quality_mask:
+            :param ra:
+            :param dec:
+            :param pha_input_dict:
+            :param recalc:
+            :param mask_weighting:
+            """
+            stop
