@@ -753,8 +753,8 @@ class Lightcurve(BatObservation):
                     rate = self.data["RATE"]
                     rate_error = self.data["ERROR"]
 
-                ax_rate.plot(times, rate, ds='steps-mid', label=f'{emin.value}-{emax}')
-                ax_rate.errorbar(times, rate_error, ls='None')
+                line = ax_rate.plot(times, rate, ds='steps-mid', label=f'{emin.value}-{emax}')
+                ax_rate.errorbar(times, rate, yerr=rate_error, ls='None', color=line[-1].get_color())
 
         if num_plots>1:
             ax_rate.legend()
