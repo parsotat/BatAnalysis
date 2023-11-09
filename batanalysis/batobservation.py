@@ -992,17 +992,34 @@ class Lightcurve(BatObservation):
         self.tdurs[duration_str]["TSTART"] = tstart
         self.tdurs[duration_str]["TSTOP"] = tstop
 
-    class Spectrum(BatObservation):
-        def __init__(self, event_file,  pha_file, detector_quality_mask, ra=None, dec=None, pha_input_dict=None, recalc=False, mask_weighting=True):
-            """
+class Spectrum(BatObservation):
+    def __init__(self, event_file,  pha_file, detector_quality_mask, ra=None, dec=None, pha_input_dict=None, recalc=False, mask_weighting=True):
+        """
 
-            :param event_file:
-            :param pha_file:
-            :param detector_quality_mask:
-            :param ra:
-            :param dec:
-            :param pha_input_dict:
-            :param recalc:
-            :param mask_weighting:
-            """
-            stop
+        :param event_file:
+        :param pha_file:
+        :param detector_quality_mask:
+        :param ra:
+        :param dec:
+        :param pha_input_dict:
+        :param recalc:
+        :param mask_weighting:
+        """
+        stop
+
+    def _call_batbinevt(self, input_dict):
+        """
+        Calls heasoftpy's batbinevt with an error wrapper, ensures that this bins the event data to produce a lightcurve
+
+        :param input_dict: Dictionary of inputs that will be passed to heasoftpy's batbinevt
+        :return: heasoftpy Result object from batbinevt
+        """
+
+        input_dict["clobber"] = "YES"
+        input_dict["outtype"] = "PHA"
+
+        try:
+            return hsp.batbinevt(**input_dict)
+        except Exception as e:
+            print(e)
+            raise RuntimeError(f"The call to Heasoft batbinevt failed with inputs {input_dict}.")
