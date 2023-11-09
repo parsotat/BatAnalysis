@@ -688,7 +688,7 @@ class Lightcurve(BatObservation):
             self.data["ERROR"] = new_rate_err
 
 
-    def plot(self, energybins=None, plot_counts=False, plot_exposure_fraction=False, time_unit="MET", T0=None):
+    def plot(self, energybins=None, plot_counts=False, plot_exposure_fraction=False, time_unit="MET", T0=None, plot_relative=False):
         """
         This method automatically plots the lightcurve, the user can specify if a certain energy range should be plotted
         T0 has to be in same units as time_unit
@@ -704,12 +704,33 @@ class Lightcurve(BatObservation):
         if "MET" not in time_unit and "UTC" not in time_unit and "MJD" not in time_unit:
             raise ValueError("This method plots event data only using MET, UTC, or MJD time")
 
+        if plot_relative and "MET" not in time_unit:
+            raise ValueError("The plot_relative switch can only be set to True with time_unit=MET.")
+
+
         if "MET" in time_unit:
             times = self.tbins["TIME_CENT"]
+            xlabel = "MET (s)"
+
+            if plot_relative:
+                if T0 is None:
+                    raise ValueError('The plot_relative value is set to True however there is no T0 that is defined ' +
+                                     '(ie the time from which the time bins are defined relative to is not specified).')
+                else:
+                    # see if T0 is Quantity class
+                    if type(T0) is not u.Quantity:
+                        T0 *= u.s
+
+                    times = times - T0
+                    xlabel = f"MET - T0 (T0= {T0})"
+
+
         elif "MJD" in time_unit:
             times = met2mjd(self.tbins["TIME_CENT"].value)
+            xlabel = "MJD"
         else:
             times = met2utc(self.tbins["TIME_CENT"].value)
+            xlabel = "UTC"
 
         #get the number of axes we may need
         num_plots=1
@@ -761,15 +782,15 @@ class Lightcurve(BatObservation):
 
         if plot_counts:
             ax_count.plot(times, self.data["TOTCOUNTS"], ds='steps-mid')
-            ax_count.set_ylabel('Total counts')
+            ax_count.set_ylabel('Total counts (ct)')
 
 
         if plot_exposure_fraction:
             ax_exposure.plot(times, self.data["FRACEXP"], ds='steps-mid')
             ax_count.set_ylabel('Fractional Exposure')
 
-        if T0 is not None:
-            #plot the trigger time for all panels
+        if T0 is not None and not plot_relative:
+            #plot the trigger time for all panels if we dont want the plotted times to be relative
             if num_plots>1:
                 for axis in ax:
                     axis.axvline(T0, 0,1, ls='--', label=f"T0={T0:.2f}", color='k')
@@ -778,8 +799,15 @@ class Lightcurve(BatObservation):
 
         if num_plots > 1:
             ax[1].legend()
+            ax[-1].set_xlabel(xlabel)
         else:
             ax_rate.legend()
+            ax_rate.set_xlabel(xlabel)
+
+        if "RATE" in self.data.keys():
+            ax_rate.set_ylabel('Rate (ct/s)')
+        else:
+            ax_rate.set_ylabel('Counts (ct)')
 
 
         #fig.savefig("test.pdf")
