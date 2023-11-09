@@ -495,9 +495,6 @@ class BatEvent(BatObservation):
 
         :return:
         """
-
-        #raise NotImplementedError("Creating the lightcurve has not yet been implemented.")
-
         #batbinevt infile=sw00145675000bevshsp_uf.evt.gz outfile=onesec.lc outtype=LC
         # timedel=1.0 timebinalg=u energybins=15-150
         # detmask=../hk/sw00145675000bcbdq.hk.gz clobber=YES
@@ -521,63 +518,13 @@ class BatEvent(BatObservation):
             lc_file=Path(lc_file).expanduser().resolve()
 
 
-        lc = Lightcurve(self.event_files, lc_file, self.detector_quality_file, recalc=recalc)
+        lc = Lightcurve(self.event_files, lc_file, self.detector_quality_file, recalc=recalc, mask_weighting=mask_weighting)
+        lc.set_timebins(timebinalg=timebinalg, timedelta=timedelta, tmin=tstart, tmax=tstop)
         lc.set_energybins(energybins=energybins)
-        #lc.set_timebins(timedelta=timedelta)
-        lc.set_timebins(timebinalg="bayesian")
-        stop
 
+        self.lightcurve=lc
 
-        # error checking for times
-        if type(timedelta) is not np.timedelta64:
-            raise ValueError('The timedelta variable needs to be a numpy timedelta64 object.')
-        else:
-            timedel= timedelta / np.timedelta64(1, 's') #convert to seconds
-
-        if tstart is not None:
-            #test if its a number
-            if type(tstart) is not TimeDelta:
-                tstart=str(tstart)
-                try:
-                    tstart=float(tstart)
-                except ValueError as e:
-                    raise ValueError('The tstart variable needs to be an MET time float, a string of an MET time value, or a TimeDelta object.')
-            else:
-                tstart=self.trigtime_met+tstart.to_value("sec")
-        else:
-            #get the start time from the earliest MET time in the event file using default batbinevt values
-            tstart="INDEF"
-
-        if tstop is not None:
-            #test if its a number
-            if type(tstop) is not TimeDelta:
-                tstop=str(tstop)
-                try:
-                    tstop=float(tstop)
-                except ValueError as e:
-                    raise ValueError('The tstop variable needs to be an MET time float, a string of an MET time value, or a TimeDelta object.')
-            else:
-                tstop=self.trigtime_met+tstop.to_value("sec")
-        else:
-            #get the end time from the latest MET time in the event file using default batbinevt values
-            tstop="INDEF"
-
-        #error checking for timebinalg
-        if timebinalg not in ["uniform", "gti", "snr", "bayesian"]:
-            raise ValueError("The timebinalg must be set to uniform, gti, snr, or bayesian.")
-
-        # if we want custom intervals for binning:
-        if "gti" in timebinalg:
-            #create the gti file and feed that in
-            times=np.arange(tstart, tstop, timedelta)
-
-        else:
-            gtifile = "NONE"
-
-
-
-
-
+        #stop
 
         return None
 

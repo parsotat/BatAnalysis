@@ -171,10 +171,9 @@ class Lightcurve(BatObservation):
         """
 
         #save these variables
-        #TODO: make sure that they are Path objects
-        self.event_file = event_file
-        self.lightcurve_file = lightcurve_file
-        self.detector_quality_mask = detector_quality_mask
+        self.event_file = Path(event_file).expanduser().resolve()
+        self.lightcurve_file = Path(lightcurve_file).expanduser().resolve()
+        self.detector_quality_mask = Path(detector_quality_mask).expanduser().resolve()
 
         #error checking for weighting
         if type(mask_weighting) is not bool:
@@ -234,7 +233,6 @@ class Lightcurve(BatObservation):
         This method allows for the dynamic rebinning of a light curve in time.
 
         timebin_alg
-        TODO: make tmin/tmax also be able to take single times to denote min/max times to calc LC for
         :return:
         """
 
