@@ -270,8 +270,7 @@ class Lightcurve(BatObservation):
 
     @u.quantity_input(timebins=['time'], tmin=['time'], tmax=['time'])
     def set_timebins(self, timebinalg="uniform", timebins=None, tmin=None, tmax=None, T0=None, is_relative=False,
-                       timedelta=np.timedelta64(64, 'ms'), snrthresh=None, calc_energy_integrated=None,
-                     save_durations=True):
+                       timedelta=np.timedelta64(64, 'ms'), snrthresh=None, save_durations=True):
         """
         This method allows for the rebinning of the lightcurve in time. The timebins can be uniform, snr-based,
         custom defined, or based on bayesian blocks (using battblocks). The time binning is done dymaically and the
@@ -321,10 +320,6 @@ class Lightcurve(BatObservation):
         :param timedelta: numpy.timedelta64 object denoting the size of the timebinning. This value is used when
         :param snrthresh: float representing the snr threshold associated with the timebinalg="snr" or timebinalg="highsnr"
             parameter values. See above description of the timebinalg parameter to see how this snrthresh parameter is used.
-        :param calc_energy_integrated: Boolean to denote wether the energy integrated light curve should be calculated
-            based off the min and max energies that were passed in. If a single energy bin is requested for the rebinning
-            then this argument does nothing. NOTE This is depreciated since we dynamically determine if the energy integrated
-            lightcurve was previously calculated and stick with that.
         :param save_durations: Boolean switch denoting if the T90, T50, and other durations calculated by the battblocks
             algorithm should be saved. If they are, this information will be located in the tdurs attribute. This calculation
             is only possible if timebinalg="bayesian". (More information can be found from the battblocks HEASoft documentation)
@@ -337,10 +332,6 @@ class Lightcurve(BatObservation):
         #error checking for calc_energy_integrated
         if type(is_relative) is not bool:
             raise ValueError("The is_relative parameter should be a boolean value.")
-
-        #error checking for calc_energy_integrated
-        if type(calc_energy_integrated) is not bool:
-            raise ValueError("The calc_energy_integrated parameter should be a boolean value.")
 
         #see if the timebinalg is properly set approporiately
         #if "uniform" not in timebinalg or "snr" not in timebinalg or "bayesian" not in timebinalg:
