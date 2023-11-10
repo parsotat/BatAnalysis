@@ -155,20 +155,62 @@ class BatObservation(object):
 
 
 class Lightcurve(BatObservation):
+
     """
     This is a general light curve class that contains typical information that a user may want from their lightcurve.
     This object is a wrapper around a light curve created from BAT event data.
 
     TODO: make this flexible enough to read in the raw rates lightcurves if necessary
     """
+    
 
-    def __init__(self, event_file,  lightcurve_file, detector_quality_mask, ra=None, dec=None, lc_input_dict=None, recalc=False, mask_weighting=True):
+    def __init__(self, event_file,  lightcurve_file, detector_quality_mask, ra=None, dec=None, lc_input_dict=None,
+                 recalc=False, mask_weighting=True):
         """
-        This constructor reads in a fits file that contains light curve data for a given BAT event dataset. The fits file
-        should have been created by a call to
+        This constructor either creates a lightcurve fits file based off of a passed in event file where mask weighting
+        has been applied and the detector quality mask has been constructed. Alternatively, this method can read in a
+        previously calculated lightcurve. If recalc=True, then the lightcuve can be recalculated using the passed in
+        lc_input_dict or a default input_dict defined as:
 
-        :param lightcurve_file:
+        dict(infile=str(event_file), outfile=str(lightcurve_file), outtype="LC",
+                              energybins="15-350", weighted="YES", timedel=0.064,
+                              detmask=str(detector_quality_mask),
+                              tstart="INDEF", tstop="INDEF", clobber="YES", timebinalg="uniform")
+
+        The ra/dec of the source that this lightcurve was constructed for (and for which the weighting was applied to
+        the event file), can be specified or it can be dynamically read from the lightcurve file.
+
+        :param event_file: Path object for the event file with mask weighting already applied, from which we will construct
+            the lightcurve or read the previously ocnstructed lightcurve file
+        :param lightcurve_file: path object of the lightcurve file that will be read in, if previously calculated,
+            or the location/name of the new lightcurve file that will contain the newly calculated lightcurve.
+        :param detector_quality_mask: Path object for the detector quality mask that was constructed for the associated
+            event file
+        :param ra: None or float representing the decimal degree RA value of the source for which the mask weighting was
+            applied to the passed in event file. A value of None indicates that the RA of the source will be obtained
+            from the calculated lightcurve which is then saved to lightcurve_file
+        :param dec: None or float representing the decimal degree DEC value of the source for which the mask weighting was
+            applied to the passed in event file. A value of None indicates that the DEC of the source will be obtained
+            from the calculated lightcurve which is then saved to lightcurve_file
+        :param lc_input_dict: None or a dict of values that will be passed to batbinevt in the creation of the lightcurve.
+            If a lightcurve is being read in from one that was previously created, the prior parameters that were used to
+            calculate the lightcurve will be used.
+            If lc_input_dict is None, this will be set to:
+                dict(infile=str(event_file), outfile=str(lightcurve_file), outtype="LC",
+                                  energybins="15-350", weighted="YES", timedel=0.064,
+                                  detmask=str(detector_quality_mask),
+                                  tstart="INDEF", tstop="INDEF", clobber="YES", timebinalg="uniform")
+            See HEASoft docmentation on batbinevt to see what these parameters mean. Alternatively, these defaults can
+            be used in the inital call and time/energy rebinning can be done using the set_timebins and set_energybins
+            methods associated with the Lightcurve object.
+        :param recalc: Boolean to denote if the lightcurve specified by lightcurve_file should be recalculated with the
+            lc_input_dict values (either those passed in or those that are defined by default)
+        :param mask_weighting: Boolean to denote if mask weighting should be applied. By default this is set to True,
+            however if a source if out of the BAT field of view the mask weighting will produce a lightcurve of 0 counts.
+            Setting mask_weighting=False in this case ignores the position of the source and allows the pure rates/counts
+            to be calculated.
         """
+
 
         #save these variables
         self.event_file = Path(event_file).expanduser().resolve()
@@ -228,12 +270,65 @@ class Lightcurve(BatObservation):
 
     @u.quantity_input(timebins=['time'], tmin=['time'], tmax=['time'])
     def set_timebins(self, timebinalg="uniform", timebins=None, tmin=None, tmax=None, T0=None, is_relative=False,
-                       timedelta=np.timedelta64(64, 'ms'), snrthresh=None, calc_energy_integrated=True, save_durations=True):
+                       timedelta=np.timedelta64(64, 'ms'), snrthresh=None, calc_energy_integrated=None,
+                     save_durations=True):
         """
-        This method allows for the dynamic rebinning of a light curve in time.
+        This method allows for the rebinning of the lightcurve in time. The timebins can be uniform, snr-based,
+        custom defined, or based on bayesian blocks (using battblocks). The time binning is done dymaically and the
+        information for the rebinned lightcurve is automatically updated in the data attribute (which holds the light
+        curve information itself including rates/counts, errors, fracitonal exposure, total counts, etc),
+        and the tbins attibute with the time bin edges and the time bin centers.
 
-        timebin_alg
-        :return:
+        :param timebinalg: a string that can be set to "uniform", "snr", "highsnr", or "bayesian"
+            "uniform" will do a uniform time binning from the specified tmin to tmax with the size of the bin set by
+                the timedelta parameter.
+            "snr" will bin the lightcurve until a maximum snr threshold is achieved, as is specified by the snrthresh parameter,
+                or the width of the timebin becomes the size of timedelta
+            "highsnr" will bin the lightcurve with a minimum bin size specified by the timedelta parameter. Longer
+                timebin widths will be used if the source is not deteted at the snr level specified by the snrthresh parameter
+            "bayesian" will use the battblocks bayesian algorithm to calculate the timebins based off of the energy
+                energy integrated lightcurve with 64 ms time binning. Then the lightcurve will be binned in time to the
+                tiembins determined by the battblocks algorithm. Using this option also allows for the calculation of
+                T90, T50, background time periods, etc if the save_durations parameter =True (more information can
+                be found from the battblocks HEASoft documentation).
+            NOTE: more information can be found by looking at the HEASoft documentation for batbinevt and battblocks
+        :param timebins: astropy.units.Quantity denoting the array of time bin edges. Units will usually be in seconds
+            for this. The values can be relative to the specified T0. If so, then the T0 needs to be specified and
+            the is_relative parameter should be True.
+        :param tmin: astropy.units.Quantity denoting the minimum values of the timebin edges that the user would like
+            the lightcurve to be binned into. Units will usually be in seconds for this. The values can be relative to
+            the specified T0. If so, then the T0 needs to be specified andthe is_relative parameter should be True.
+            NOTE: if tmin/tmax are specified then anything passed to the timebins parameter is ignored.
+
+            If the length of tmin is 1 then this denotes the time when the binned lightcurve should start. For this single
+            value, it can also be defined relative to T0. If so, then the T0 needs to be specified and the is_relative parameter
+            should be True.
+
+            NOTE: if tmin/tmax are specified then anything passed to the timebins parameter is ignored.
+        :param tmax:astropy.units.Quantity denoting the maximum values of the timebin edges that the user would like
+            the lightcurve to be binned into. Units will usually be in seconds for this. The values can be relative to
+            the specified T0. If so, then the T0 needs to be specified andthe is_relative parameter should be True.
+            NOTE: if tmin/tmax are specified then anything passed to the timebins parameter is ignored.
+
+            If the length of tmin is 1 then this denotes the time when the binned lightcurve should end. For this single
+            value, it can also be defined relative to T0. If so, then the T0 needs to be specified and the is_relative parameter
+            should be True.
+
+            NOTE: if tmin/tmax are specified then anything passed to the timebins parameter is ignored.
+        :param T0: float or an astropy.units.Quantity object with some tiem of interest (eg trigger time)
+        :param is_relative: Boolean switch denoting if the T0 that is passed in should be added to the
+            timebins/tmin/tmax that were passed in.
+        :param timedelta: numpy.timedelta64 object denoting the size of the timebinning. This value is used when
+        :param snrthresh: float representing the snr threshold associated with the timebinalg="snr" or timebinalg="highsnr"
+            parameter values. See above description of the timebinalg parameter to see how this snrthresh parameter is used.
+        :param calc_energy_integrated: Boolean to denote wether the energy integrated light curve should be calculated
+            based off the min and max energies that were passed in. If a single energy bin is requested for the rebinning
+            then this argument does nothing. NOTE This is depreciated since we dynamically determine if the energy integrated
+            lightcurve was previously calculated and stick with that.
+        :param save_durations: Boolean switch denoting if the T90, T50, and other durations calculated by the battblocks
+            algorithm should be saved. If they are, this information will be located in the tdurs attribute. This calculation
+            is only possible if timebinalg="bayesian". (More information can be found from the battblocks HEASoft documentation)
+        :return: None
         """
 
         #create a temp copy incase the time rebinning doesnt complete successfully
@@ -246,8 +341,6 @@ class Lightcurve(BatObservation):
         #error checking for calc_energy_integrated
         if type(calc_energy_integrated) is not bool:
             raise ValueError("The calc_energy_integrated parameter should be a boolean value.")
-
-
 
         #see if the timebinalg is properly set approporiately
         #if "uniform" not in timebinalg or "snr" not in timebinalg or "bayesian" not in timebinalg:
@@ -267,6 +360,17 @@ class Lightcurve(BatObservation):
         if is_relative and T0 is None:
             raise ValueError('The is_relative value is set to True however there is no T0 that is defined '+
                              '(ie the time from which the time bins are defined relative to is not specified).')
+
+        #see if we need to calculate energy integrated light curve at end of rebinning
+        if len(self.ebins["INDEX"]) > 1:
+            #see if we have the enrgy integrated bin included in the arrays:
+            if (self.ebins["E_MIN"][0] == self.ebins["E_MIN"][-1]) and (self.ebins["E_MAX"][-2] == self.ebins["E_MAX"][-1]):
+                calc_energy_integrated = True #this is for recalculating the lightcurve later in the method
+            else:
+                calc_energy_integrated = False
+        else:
+            calc_energy_integrated = False
+
 
         #if timebins, or tmin and tmax are defined then we ignore the timebinalg parameter
         #if tmin and tmax are specified while timebins is also specified then ignore timebins
@@ -357,19 +461,26 @@ class Lightcurve(BatObservation):
             #reparse the lightcurve file to get the info
             self._parse_lightcurve_file(calc_energy_integrated=calc_energy_integrated)
 
-
-
-
-
-
+    @u.quantity_input(emin=['energy'], emax=['energy'])
     def set_energybins(self, energybins=["15-25", "25-50", "50-100", "100-350"], emin=None, emax=None, calc_energy_integrated=True):
         """
-        This method allows for the dynamic rebinning of a light curve in energy
+        This method allows the energy binning to be set for the lightcurve. The energy rebinning is done automatically
+        and the information for the rebinned lightcurve is automatically updated in the data attribute (which holds the
+        light curve information itself including rates/counts, errors, fracitonal exposure, total counts, etc) and the
+        ebins attribute which holds the energybins associated with the lightcurve.
 
-        energybins cannot have any overlapping energybins eg cant have energybins=["15-25", "25-50", "50-100", "100-350", "15-350"]
-        since the last energy bins overlaps with the others. (this is very inconvenient but can be fixed by adding things up)
-
-        :return:
+        :param energybins: a list or single string denoting the energy bins in keV that the lightcurve shoudl be binned into
+            The string should be formatted as "15-25" where the dash is necessary. A list should be formatted as multiple
+            elements of the strings, where none of the energy ranges overlap.
+        :param emin: a list or a astropy.unit.Quantity object of 1 or more elements. These are the minimum edges of the
+            energy bins that the user would like. NOTE: If emin/emax are specified, the energybins parameter is ignored.
+        :param emax: a list or a astropy.unit.Quantity object of 1 or more elements. These are the maximum edges of the
+            energy bins that the user would like. It shoudl have the same number of elements as emin.
+            NOTE: If emin/emax are specified, the energybins parameter is ignored.
+        :param calc_energy_integrated: Boolean to denote wether the energy integrated light curve should be calculated
+            based off the min and max energies that were passed in. If a single energy bin is requested for the rebinning
+            then this argument does nothing.
+        :return: None.
         """
 
         #error checking for calc_energy_integrated
@@ -453,14 +564,20 @@ class Lightcurve(BatObservation):
 
     def _parse_lightcurve_file(self, calc_energy_integrated=True):
         """
-        This method parses through a light curve file that has been created by batbinevent
+        This method parses through a light curve file that has been created by batbinevent. The information included in
+        the lightcurve file is read into the RA/DEC attributes (and checked to make sure that this is the lightcurve that
+        the user wants to load in), the data attribute (which holds the light curve information itself including rates/counts,
+        errors, fracitonal exposure, total counts, etc), the ebins attribute which holds the energybins associated with
+        the lightcurve, the tbins attibute with the time bin edges and the time bin centers
 
         NOTE: A special value of timepixr=-1 (the default used when constructing light curves) specifies that
               timepixr=0.0 for uniformly binned light curves and
               timepixr=0.5 for non-unformly binned light curves. We recommend using the unambiguous TIME_CENT in the
               tbins attribute to prevent any confusion instead of the data["TIME"] values
 
-        :return:
+        :param calc_energy_integrated: Boolean to denote if the energy integrated lightcurve should be calculated or not.
+            By default, it is calculated unless the user has created a lightcurve of only 1 energy bin.
+        :return: None
         """
 
         #error checking for calc_energy_integrated
@@ -592,8 +709,10 @@ class Lightcurve(BatObservation):
     def _get_event_weights(self):
         """
         This method reads in the appropriate weights for event data once it has been applied to a event file, for a
-        given RA/DEC position
-        :return:
+        given RA/DEC position. This should only need to be done once, when the user has applied mask weighting
+        in the BatEvent object and is creating a lightcurve.
+
+        :return: None
         """
 
         #read in all the info for the weights and save it such that we can use these weights in the future for
@@ -607,12 +726,13 @@ class Lightcurve(BatObservation):
     def _set_event_weights(self):
         """
         This method sets the appropriate weights for event data, for a
-        given RA/DEC position. This may be necessary if a user is analyzing multiple sources for which event data has been
+        given RA/DEC position. The weights are rewritten to the event file in the "MASK_WEIGHT" column.
+        This may be necessary if a user is analyzing multiple sources for which event data has been
         obtained.
 
         Note: event weightings need to be set if the RA/DEC of the light curve doesnt match what is in the event file
 
-        :return:
+        :return: None
         """
 
         if not self._same_event_lc_coords():
@@ -623,7 +743,7 @@ class Lightcurve(BatObservation):
 
     def _same_event_lc_coords(self):
         """
-        This simple program reads in the event data coordinates and compares it to what is obained from the lightcurve
+        This method reads in the event data coordinates and compares it to what is obained from the lightcurve
         file that has been loaded in.
 
         :return: Boolean
@@ -643,7 +763,10 @@ class Lightcurve(BatObservation):
         It also calcualtes the errors. These arrays are added to self.data appropriately and the total energy min/max is
         added to self.ebins
 
-        :return:
+        NOTE: This method can be expanded in the future to be an independent way of rebinning the lightcurves in
+            energy without any calls to heasoftpy
+
+        :return: None
         """
 
         #if we have more than 1 energy bin then we can calculate an energy integrated count rate, etc
@@ -690,9 +813,18 @@ class Lightcurve(BatObservation):
 
     def plot(self, energybins=None, plot_counts=False, plot_exposure_fraction=False, time_unit="MET", T0=None, plot_relative=False):
         """
-        This method automatically plots the lightcurve, the user can specify if a certain energy range should be plotted
-        T0 has to be in same units as time_unit
-        :return:
+        This convenience method allows the user to plot the rate/count lightcurve.
+
+        :param energybins: None or a list or an astropy.units.Quantity object of 2 elements denoting the min and maximum
+            of the energy bin that the user wants to plot. None defaults to plotting all the energy bins that have been
+            created already. If a list is passed in the units of the min and max values are assumed to be keV.
+        :param plot_counts: Boolean to denote if the total counts should be plotted alongside the rate/count lightcurve
+        :param plot_exposure_fraction: Boolean to denote if the exposure fraction should be plotted alongside the rate/count lightcurve
+        :param time_unit: string denoting the timeunit of the x-axis of the plot. This can be "MET", "MJD", or "UTC"
+        :param T0: float or an astropy.units.Quantity with some tiem of interest (eg trigger time)
+        :param plot_relative: Boolean switch denoting if the T0 that is passed in should be subtracted from the times.
+            Thsi option is only applicable to time_unit="MET".
+        :return: matplotlib figure, matplotlib axis for the plot
         """
 
         #make sure that energybins is a u.Quantity object
@@ -816,10 +948,16 @@ class Lightcurve(BatObservation):
 
     def _create_custom_timebins(self, timebins, output_file=None):
         """
-        This method creates custom time bins from a user defined set of time bin edges
+        This method creates custom time bins from a user defined set of time bin edges. The created fits file with the
+        timebins of interest will by default have the same name as the lightcurve file, however it will have a "gti" suffix instead of
+        a "lc" suffix and it will be stored in the gti subdirectory of the event results directory.
 
-        This method is here so the call to create a gti can be phased out eventually.
-        :return:
+        Note: This method is here so the call to create a gti file with custom timebins can be phased out eventually.
+
+        :param timebins: a astropy.unit.Quantity object with the
+        :param output_file: None or a Path object to where the output *.gti file will be saved to. A value of None
+            defaults to the above description
+        :return: Path object of the created good time intervals file
         """
 
         if output_file is None:
@@ -834,9 +972,15 @@ class Lightcurve(BatObservation):
     def _call_battblocks(self, output_file=None, save_durations=False):
         """
         This method calls battblocks for bayesian blocks binning of a lightcurve. This rebins the lightcurve into a 64 ms
-        energy integrated energy bin (based on current ebins) to calculate the bayesian block time bins and then restores the lightcurve back to what it was
+        energy integrated energy bin (based on current ebins) to calculate the bayesian block time bins and then
+        restores the lightcurve back to the prior energy binning.
 
-        :return:
+        :param output_file: Path object of the file that will be created by battblocks with the good time intervals of
+            interest
+        :param save_durations: Boolean determining if battblocks should calculate durations such as T90, T50, background
+            durations, etc and save those to a file. This file, if created, will be read in and saved to the tdurs attribute.
+            This file will be saved to the gti subdirectory of the event results directory.
+        :return: output_file Path object, HEASoftpy results object from battblocks call
         """
 
         if len(self.ebins["INDEX"]) > 1:
@@ -914,9 +1058,8 @@ class Lightcurve(BatObservation):
         """
         This method reads in a duration file that is produced by battblocks.
 
-        The data columns are name START/STOP but for uniformity will rename to TSTART/TSTOP
-
-        :return:
+        :param duration_file: a Path object to the battblocks produced durations file that will be read in
+        :return: None
         """
 
         # read in the data and save to data attribute which is a dictionary of the column names as keys and the numpy arrays as values
@@ -950,10 +1093,14 @@ class Lightcurve(BatObservation):
 
     def get_duration(self, duration_str):
         """
+        This method allows a user to get the start MET time, stop MET time, and difference between the two for the
+        specified duration of interest. This string should be a dictionary key that has been saved previously otherwise
+        a ValueError will be raised. If there is no tdurs attibute that has been filled with data, then a RuntimeError will be
+        raised.
 
-        This method allows for eacy access to the durations that may hav been calculated with
-
-        :return:
+        :param duration_str: string of a duration quantity that has been saved for the lightcurve. This should be an existing
+            key in the tdurs attrubute of the lightcurve.
+        :return: start time in MET, stop time in MET, (stop time in MET) - (start time in MET)
         """
 
         if self.tdurs is not None:
@@ -972,10 +1119,10 @@ class Lightcurve(BatObservation):
         """
         This method allows users to set durations that were calculated.
 
-        :param duration_str:
-        :param tstart:
-        :param tstop:
-        :return:
+        :param duration_str: a string to denote the duration value that will be saved
+        :param tstart: a astropy.unit.Quantity object that denotes the start time in MET of the duration that will be saved
+        :param tstop: a astropy.unit.Quantity object that denotes the end time in MET of the duration that will be saved
+        :return: None
         """
 
         #if we havent created a dict , do so now
