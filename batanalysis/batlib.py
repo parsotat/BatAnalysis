@@ -1707,12 +1707,13 @@ def make_fake_tdrss_message(
     This function creates a fake TDRSS message file that specifies a few important pieces of information which can be
     used in the BAT TTE data processing pipeline.
 
-    :param obs_id:
-    :param trig_time:
-    :param trig_stop:
-    :param ra_obj:
-    :param dec_obj:
-    :param obs_dir:
+    :param obs_id: string of the observation ID associated with the event data that will be analyzed
+    :param trig_time: float of the MET trigger start time
+    :param trig_stop: float of the MET trigger stop time
+    :param ra_obj: float decimal degree of the source's RA
+    :param dec_obj: float decimal degree of the source's DEC
+    :param obs_dir: None or a Path object to where the observation ID directory is located with the data that will be
+        analyzed
     :return: The path object to the location of the created tdrss message file
     """
 
@@ -1756,14 +1757,21 @@ def create_gti_file(timebin_edges, output_filename, T0=None, is_relative=False, 
 
     See BAT Software guide v6.3, section 5.6.7
 
-    :param timebin_edges:
-    :return:
+    :param timebin_edges: a list or astropy.unit.Quantity object with the edges of the timebins that the user would like.
+        Units will usually be in seconds for this. The values can be relative to the specified T0. If so, then the T0
+        needs to be specified and the is_relative parameter should be True.
+    :param output_filename: Path object of the directory/filename where the good time interval file will be saved.
+    :param T0: float or an astropy.units.Quantity object with some MET time of interest (eg trigger time)
+    :param is_relative: Boolean switch denoting if the T0 that is passed in should be added to the
+            timebins that were passed in.
+    :param overwrite: Boolean denoting if the file specified by output_filename shoudl be overwritten (if it already exists)
+    :return: Path object to the created/overwritten outputfile
     """
 
     if type(output_filename) is not Path:
         filename=Path(output_filename).expanduser().resolve()
 
-    if type(timebin_edges) is not np.array:
+    if type(timebin_edges) is not np.array and type(timebin_edges) is not u.Quantity:
         timebin_edges=np.array(timebin_edges)
 
     if type(timebin_edges) is not u.Quantity:

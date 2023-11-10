@@ -162,7 +162,7 @@ class Lightcurve(BatObservation):
 
     TODO: make this flexible enough to read in the raw rates lightcurves if necessary
     """
-    
+
 
     def __init__(self, event_file,  lightcurve_file, detector_quality_mask, ra=None, dec=None, lc_input_dict=None,
                  recalc=False, mask_weighting=True):
@@ -954,7 +954,7 @@ class Lightcurve(BatObservation):
 
         Note: This method is here so the call to create a gti file with custom timebins can be phased out eventually.
 
-        :param timebins: a astropy.unit.Quantity object with the
+        :param timebins: a astropy.unit.Quantity object with the edges of the timebins that the user would like
         :param output_file: None or a Path object to where the output *.gti file will be saved to. A value of None
             defaults to the above description
         :return: Path object of the created good time intervals file
