@@ -49,8 +49,8 @@ _gcenters = np.array(
         [-90, 0],  # Galactic equatorial belt 3
         [180, 0],  # Galactic equatorial belt 4
         [0, 90],  # North galactic polar cap
-        [0, -90],
-    ],  # South galactic polar cap
+        [0, -90],  # South galactic polar cap
+    ],
     dtype="float64",
 )
 
