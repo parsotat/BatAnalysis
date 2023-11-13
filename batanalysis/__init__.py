@@ -1,11 +1,4 @@
-__all__ = [
-    'batobservation',
-    'bat_survey',
-    'bat_tte',
-    'batlib',
-    'plotting',
-    'mosaic'
-]
+__all__ = ["batobservation", "bat_survey", "bat_tte", "batlib", "plotting", "mosaic"]
 
 from ._version import __version__
 
