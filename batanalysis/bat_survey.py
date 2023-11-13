@@ -1182,7 +1182,7 @@ class BatSurvey(BatObservation):
                             "Found more than one matched time, please double check the time interval."
                         )
                         print(
-                            "This method does not add up the counts for more than once time intervals."
+                            "This method does not add up the counts for more than one time intervals."
                         )
                         sys.exit(0)
             except FileNotFoundError as e:
