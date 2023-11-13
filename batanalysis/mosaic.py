@@ -827,7 +827,7 @@ def write_mosaic(
             for j in range(len(emin)):
                 # if this is the variance or sky flux image need ot add energy related header keys
                 total_header["BENRGYBN"] = (
-                    f"E_{np.int(emin[j]):03}_{np.int(emax[j]):03}",
+                    f"E_{int(emin[j]):03}_{int(emax[j]):03}",
                     "BAT mosaic energy bin (keV)",
                 )
                 total_header["E_MIN"] = (emin[j], " [keV] Lower energy bin edge")
@@ -836,7 +836,7 @@ def write_mosaic(
                 if j == 0:
                     total_header["EXTEND"] = ("T", "File contains extensions")
                     total_header["HDUNAME"] = (
-                        f"E_{np.int(emin[j]):03}_{np.int(emax[j]):03}",
+                        f"E_{int(emin[j]):03}_{int(emax[j]):03}",
                         "BAT mosaic energy bin (keV)",
                     )
                     fits.writeto(str(savefile), img[:, :, i, j], total_header)
@@ -845,7 +845,7 @@ def write_mosaic(
                         total_header.remove("EXTEND")
                         total_header.remove("HDUNAME")
                     total_header["EXTNAME"] = (
-                        f"E_{np.int(emin[j]):03}_{np.int(emax[j]):03}",
+                        f"E_{int(emin[j]):03}_{int(emax[j]):03}",
                         "BAT mosaic energy bin (keV)",
                     )
                     fits.append(str(savefile), img[:, :, i, j], total_header)
