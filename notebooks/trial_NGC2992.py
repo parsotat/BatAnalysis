@@ -25,13 +25,11 @@ table_everything = ba.from_heasarc(**queryargs)
 
 minexposure = 1000  # cm^2 after cos adjust
 exposures = np.array(
-    [
-        object_batsource.exposure(ra=row["RA"], dec=row["DEC"], roll=row["ROLL_ANGLE"])[
-            0
-        ]
+    [object_batsource.exposure(ra=row["RA"],
+                               dec=row["DEC"], 
+                               roll=row["ROLL_ANGLE"])[0]
         for row in table_everything
-    ]
-)
+    ])
 table_exposed = table_everything[exposures > minexposure]
 print(
     f"Finding everything finds {len(table_everything)} observations, of which {len(table_exposed)} have more than {minexposure:0} cm^2 coded"

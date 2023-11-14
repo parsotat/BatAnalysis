@@ -33,13 +33,11 @@ minexposure = 1000  # cm^2 after cos adjust
 
 # calculate the exposure with partial coding
 exposures = np.array(
-    [
-        object_batsource.exposure(ra=row["RA"], dec=row["DEC"], roll=row["ROLL_ANGLE"])[
-            0
-        ]
+    [object_batsource.exposure(ra=row["RA"],
+                               dec=row["DEC"], 
+                               roll=row["ROLL_ANGLE"])[0]
         for row in table_everything
-    ]
-)
+    ])
 
 # select the observations that have greater than the minimum desired exposure
 table_exposed = table_everything[exposures > minexposure]
