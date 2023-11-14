@@ -33,17 +33,18 @@ except ModuleNotFoundError as err:
     # Error handling
     print(err)
 
-#try:
+# try:
 #    import xspec as xsp
-#except ModuleNotFoundError as err:
-    # Error handling
+# except ModuleNotFoundError as err:
+# Error handling
 #    print(err)
 
 import swiftbat.swutil as sbu
 import swiftbat
 
 
-_orig_pdir=os.getenv('PFILES')
+_orig_pdir = os.getenv("PFILES")
+
 
 def dirtest(directory, clean_dir=True):
     """
@@ -54,18 +55,18 @@ def dirtest(directory, clean_dir=True):
     :return: None
     """
 
-    directory=Path(directory)
+    directory = Path(directory)
 
     # see if the directory exists
     if directory.exists():
         if clean_dir:
             # remove the directory and recreate it
             shutil.rmtree(directory)
-            #os.mkdir(directory)
+            # os.mkdir(directory)
             directory.mkdir(parents=True)
     else:
         # create it
-        #os.mkdir(directory)
+        # os.mkdir(directory)
         directory.mkdir(parents=True)
 
 
@@ -73,7 +74,7 @@ def curdir():
     """
     Get the current working directory. Is legacy, since moving to use the pathlib module.
     """
-    cdir = os.getcwd() + '/'
+    cdir = os.getcwd() + "/"
     return cdir
 
 
@@ -93,20 +94,22 @@ def datadir(new=None, mkdir=False, makepersistent=False, tdrss=False) -> Path:
         new = Path(new).expanduser().resolve()
         if mkdir:
             new.mkdir(parents=True, exist_ok=True)
-            new.joinpath('tdrss').mkdir(exist_ok=True)
-            new.joinpath('trend').mkdir(exist_ok=True)
+            new.joinpath("tdrss").mkdir(exist_ok=True)
+            new.joinpath("trend").mkdir(exist_ok=True)
         if makepersistent:
             persistfile = datadirnamefile
-            persistfile.parent.mkdir(exist_ok=True)     # make ~/.swift if necessary
+            persistfile.parent.mkdir(exist_ok=True)  # make ~/.swift if necessary
             persistfile.open("wt").write(str(new))
         _datadir = new
 
-    if not globals().get('_datadir', False):
+    if not globals().get("_datadir", False):
         # Not previously initialized
         try:
             _datadir = Path(datadirnamefile.open().read())
             if not _datadir.exists():
-                raise RuntimeError(f'Persistent data directory "{_datadir}" does not exist')
+                raise RuntimeError(
+                    f'Persistent data directory "{_datadir}" does not exist'
+                )
         except FileNotFoundError:
             # No persistent directory exists.  Use cwd
             _datadir = Path.cwd()
@@ -114,12 +117,20 @@ def datadir(new=None, mkdir=False, makepersistent=False, tdrss=False) -> Path:
 
     assert isinstance(_datadir, Path)
     if tdrss:
-        return _datadir.joinpath('tdrss')
+        return _datadir.joinpath("tdrss")
     return _datadir
 
-def create_custom_catalog(src_name_list, src_ra_list, src_dec_list, src_glon_list, src_glat_list,
-                          catalog_name='custom_catalog.cat', catalog_dir=None,
-                          catnum_init=32767):
+
+def create_custom_catalog(
+    src_name_list,
+    src_ra_list,
+    src_dec_list,
+    src_glon_list,
+    src_glat_list,
+    catalog_name="custom_catalog.cat",
+    catalog_dir=None,
+    catnum_init=32767,
+):
     """
     This creates a catalog file for a number of sources that the user is interested in. Merges the created catalog with
     a past BAT survey catalog which includes typical bright sources observed by BAT. This allows the sources to be
@@ -138,10 +149,17 @@ def create_custom_catalog(src_name_list, src_ra_list, src_dec_list, src_glon_lis
     :return: Path object pointing to the new catalog file
     """
 
-    #Add check to make sure that input is not tuple
-    if type(src_name_list) is tuple or type(src_ra_list) is tuple or type(src_dec_list) is tuple or \
-            type(src_glon_list) is tuple or type(src_glat_list) is tuple:
-        raise ValueError("The inputs cannot be tuples, either single values or lists are accepted.")
+    # Add check to make sure that input is not tuple
+    if (
+        type(src_name_list) is tuple
+        or type(src_ra_list) is tuple
+        or type(src_dec_list) is tuple
+        or type(src_glon_list) is tuple
+        or type(src_glat_list) is tuple
+    ):
+        raise ValueError(
+            "The inputs cannot be tuples, either single values or lists are accepted."
+        )
 
     # make the inputs lists if they are not
     if type(src_name_list) is not list:
@@ -155,53 +173,88 @@ def create_custom_catalog(src_name_list, src_ra_list, src_dec_list, src_glon_lis
     if type(src_glat_list) is not list:
         src_glat_list = [src_glat_list]
 
-    #name sure that the source names are ascii strings
-    src_name_list = [i.encode('ascii') for i in src_name_list]
+    # name sure that the source names are ascii strings
+    src_name_list = [i.encode("ascii") for i in src_name_list]
 
     # set default for catalog name and location
-    catalog_name=Path(catalog_name)
+    catalog_name = Path(catalog_name)
     if catalog_dir is None:
         catalog_dir = Path.cwd()
     else:
-        catalog_dir=Path(catalog_dir)
+        catalog_dir = Path(catalog_dir)
 
-    prev_name=catalog_name.stem
-    cat = catalog_dir.joinpath(prev_name+"_prev.cat") #os.path.join(catalog_dir, prev_name+"_prev.cat")
-    final_cat = catalog_dir.joinpath(catalog_name) #os.path.join(catalog_dir, catalog_name)
+    prev_name = catalog_name.stem
+    cat = catalog_dir.joinpath(
+        prev_name + "_prev.cat"
+    )  # os.path.join(catalog_dir, prev_name+"_prev.cat")
+    final_cat = catalog_dir.joinpath(
+        catalog_name
+    )  # os.path.join(catalog_dir, catalog_name)
 
     # create the columns of file
-    c1 = fits.Column(name='CATNUM', array=np.array([i for i in range(catnum_init - len(src_name_list), catnum_init)]),
-                     format='I')  # 2 byte integer
-    c2 = fits.Column(name='NAME', array=np.array(src_name_list), format='30A')
-    c3 = fits.Column(name='RA_OBJ', array=np.array(src_ra_list), format='D', unit="deg", disp="F9.5")
-    c4 = fits.Column(name='DEC_OBJ', array=np.array(src_dec_list), format='D', unit="deg", disp="F9.5")
-    c5 = fits.Column(name='GLON_OBJ', array=np.array(src_glon_list), format='D', unit="deg", disp="F9.5")
-    c6 = fits.Column(name='GLAT_OBJ', array=np.array(src_glat_list), format='D', unit="deg", disp="F9.5")
-    c7 = fits.Column(name='ALWAYS_CLEAN', array=np.array([0] * len(src_name_list)), format='1L')  # 1 byte logical
+    c1 = fits.Column(
+        name="CATNUM",
+        array=np.array(
+            [i for i in range(catnum_init - len(src_name_list), catnum_init)]
+        ),
+        format="I",
+    )  # 2 byte integer
+    c2 = fits.Column(name="NAME", array=np.array(src_name_list), format="30A")
+    c3 = fits.Column(
+        name="RA_OBJ", array=np.array(src_ra_list), format="D", unit="deg", disp="F9.5"
+    )
+    c4 = fits.Column(
+        name="DEC_OBJ",
+        array=np.array(src_dec_list),
+        format="D",
+        unit="deg",
+        disp="F9.5",
+    )
+    c5 = fits.Column(
+        name="GLON_OBJ",
+        array=np.array(src_glon_list),
+        format="D",
+        unit="deg",
+        disp="F9.5",
+    )
+    c6 = fits.Column(
+        name="GLAT_OBJ",
+        array=np.array(src_glat_list),
+        format="D",
+        unit="deg",
+        disp="F9.5",
+    )
+    c7 = fits.Column(
+        name="ALWAYS_CLEAN", array=np.array([0] * len(src_name_list)), format="1L"
+    )  # 1 byte logical
 
     cols = fits.ColDefs([c1, c2, c3, c4, c5, c6, c7])
     hdu = fits.BinTableHDU.from_columns(cols)
     hdu.writeto(str(cat))
 
     # need to get the file name off to get the dir this file is located in
-    dir = Path(__file__[::-1].partition('/')[-1][::-1])
-    #hsp.ftmerge(infile="%s %s" % (os.path.join(dir, 'data/survey6b_2.cat'), str(cat)), outfile=str(final_cat))
-    hsp.ftmerge(infile="%s %s" % (str(dir.joinpath('data').joinpath('survey6b_2.cat')), str(cat)), outfile=str(final_cat))
+    dir = Path(__file__[::-1].partition("/")[-1][::-1])
+    # hsp.ftmerge(infile="%s %s" % (os.path.join(dir, 'data/survey6b_2.cat'), str(cat)), outfile=str(final_cat))
+    hsp.ftmerge(
+        infile="%s %s"
+        % (str(dir.joinpath("data").joinpath("survey6b_2.cat")), str(cat)),
+        outfile=str(final_cat),
+    )
 
-
-    os.system("rm %s"%(str(cat)))
-    #cat.unlink()
+    os.system("rm %s" % (str(cat)))
+    # cat.unlink()
 
     return final_cat
 
+
 def _source_name_converter(name):
-    '''
+    """
     This function converts a source name to one that may correspond to the file name found in a merged_pointings_lc directory.
     This function is needed due to the name change with the batsurvey-catmux script.
 
     :param name: a string or list of strings of dfferent source names
     :return: string or list of strings
-    '''
+    """
 
     return " "
 
@@ -220,15 +273,17 @@ def combine_survey_lc(survey_obsid_list, output_dir=None, clean_dir=True):
     if type(survey_obsid_list) is not list:
         survey_obsid_list = [survey_obsid_list]
 
-    #get the main directory where we shoudl create the total_lc directory
+    # get the main directory where we shoudl create the total_lc directory
     if output_dir is None:
-        output_dir = survey_obsid_list[0].result_dir.parent.joinpath("total_lc")  #os.path.join(main_dir, "total_lc")
+        output_dir = survey_obsid_list[0].result_dir.parent.joinpath(
+            "total_lc"
+        )  # os.path.join(main_dir, "total_lc")
     else:
-        output_dir=Path(output_dir).expanduser().resolve()
+        output_dir = Path(output_dir).expanduser().resolve()
 
-    #if not os.path.isdir(output_dir):
+    # if not os.path.isdir(output_dir):
     #    raise ValueError('The directory %s needs to exist for this function to save its results.' % (output_dir))
-    #if the directory doesnt exist, create it otherwise over write it
+    # if the directory doesnt exist, create it otherwise over write it
     dirtest(output_dir, clean_dir=clean_dir)
 
     # make the local pfile dir if it doesnt exist and set this value
@@ -239,17 +294,21 @@ def combine_survey_lc(survey_obsid_list, output_dir=None, clean_dir=True):
     except AttributeError:
         hsp.utils.local_pfiles(par_dir=str(_local_pfile_dir))
 
-    ret=[]
+    ret = []
     for obs in survey_obsid_list:
         for i in obs.pointing_flux_files:
-            dictionary = dict(keycolumn="NAME", infile=str(i), outfile= str(output_dir.joinpath("%s.cat"))  ) #os.path.join(output_dir, "%s.cat"))
+            dictionary = dict(
+                keycolumn="NAME",
+                infile=str(i),
+                outfile=str(output_dir.joinpath("%s.cat")),
+            )  # os.path.join(output_dir, "%s.cat"))
 
             # there is a bug in the heasoftpy code so try to explicitly call it for now
             ret.append(hsp.batsurvey_catmux(**dictionary))
-            #input_string = "batsurvey-catmux "
-            #for i in dictionary:
+            # input_string = "batsurvey-catmux "
+            # for i in dictionary:
             #    input_string = input_string + "%s=%s " % (str(i), dictionary[i])
-            #os.system(input_string)
+            # os.system(input_string)
 
     return output_dir
 
@@ -273,25 +332,25 @@ def read_lc_data(filename, energy_band_index=None, T0=0):
     rate_err = []
     snr = []
 
-    filename=str(filename)
+    filename = str(filename)
     lc_fits = fits.open(filename)
     lc_fits_data = lc_fits[1].data
 
-    time_array = lc_fits_data.field('TIME')
-    timestop_array = lc_fits_data.field('TIME_STOP')
-    exposure_array = lc_fits_data.field('EXPOSURE')
-    rate_array = lc_fits_data.field('RATE')
-    rate_err_array = lc_fits_data.field('RATE_ERR')
-    bkg_var_array = lc_fits_data.field('BKG_VAR')
-    snr_array = lc_fits_data.field('VECTSNR')
+    time_array = lc_fits_data.field("TIME")
+    timestop_array = lc_fits_data.field("TIME_STOP")
+    exposure_array = lc_fits_data.field("EXPOSURE")
+    rate_array = lc_fits_data.field("RATE")
+    rate_err_array = lc_fits_data.field("RATE_ERR")
+    bkg_var_array = lc_fits_data.field("BKG_VAR")
+    snr_array = lc_fits_data.field("VECTSNR")
 
     for i in range(len(lc_fits_data)):
-        time_start = (time_array[i] - T0) #this is in MET
-        time_stop = (timestop_array[i] - T0)
+        time_start = time_array[i] - T0  # this is in MET
+        time_stop = timestop_array[i] - T0
         time_mid = (time_start + time_stop) / 2.0
-        #time_mid = time_mid / (24 * 60 * 60) #comment because we want to leave units as MET
+        # time_mid = time_mid / (24 * 60 * 60) #comment because we want to leave units as MET
         time_err_num = (time_stop - time_start) / 2.0
-        #time_err_num = time_err_num / (24 * 60 * 60) #comment because we want to leave units as MET
+        # time_err_num = time_err_num / (24 * 60 * 60) #comment because we want to leave units as MET
 
         time.append(time_mid)
         time_err.append(time_err_num)
@@ -301,7 +360,7 @@ def read_lc_data(filename, energy_band_index=None, T0=0):
             rate_err.append(rate_err_array[i][energy_band_index - 1])
             snr.append(snr_array[i][energy_band_index - 1])
         else:
-            if len(rate_array[i])>8:
+            if len(rate_array[i]) > 8:
                 rate.append(rate_array[i][-1])
                 rate_err.append(rate_err_array[i][-1])
                 snr.append(snr_array[i][-1])
@@ -330,31 +389,32 @@ def read_lc_data(filename, energy_band_index=None, T0=0):
 
 def calc_response(phafilename, srcname=None, indir=None, outdir=None):
     """
-    This function generates the response matrix for a given pha file by calling batdrmgen (this is a HEASOFT function).
+        This function generates the response matrix for a given pha file by calling batdrmgen (this is a HEASOFT function).
 
-    :param phafilename: String that denotes the location and name of the PHA file that the user would like to calculate
-        the response matrix for.
-    :param srcname: String denoting the source name (no spaces). The source name must match with the one that is in the phafilename.
-    :param indir: String denoting the full path/to/the/input-directory. By default it takes the current directory. 
-    :param outdir: String denoting the full path/to/the/output-directory. By default it takes the current directory
-    :return: Heasoftpy "Result" object obtained from calling heasoftpy batdrmgen. The "Result" object is the entire output, which
-helps to debug in case of an error.
+        :param phafilename: String that denotes the location and name of the PHA file that the user would like to calculate
+            the response matrix for.
+        :param srcname: String denoting the source name (no spaces). The source name must match with the one that is in the phafilename.
+        :param indir: String denoting the full path/to/the/input-directory. By default it takes the current directory.
+        :param outdir: String denoting the full path/to/the/output-directory. By default it takes the current directory
+        :return: Heasoftpy "Result" object obtained from calling heasoftpy batdrmgen. The "Result" object is the entire output, which
+    helps to debug in case of an error.
     """
 
-
     if type(phafilename) is not list:
-        phafilename=[phafilename]
+        phafilename = [phafilename]
 
-    #when passing in tht whole filename, the paths mess up the conection between the response file and the pha file since
+    # when passing in tht whole filename, the paths mess up the conection between the response file and the pha file since
     # there seems to be some character limit to this header value. Therefore we need to cd to the directory that the PHA
-    #file lives in and create the .rsp file and then cd back to the original location.
+    # file lives in and create the .rsp file and then cd back to the original location.
 
-    #make sure that all elements are paths
-    phafilename=[Path(i) for i in phafilename]
+    # make sure that all elements are paths
+    phafilename = [Path(i) for i in phafilename]
 
-    #we are passing in a whole filepath or
+    # we are passing in a whole filepath or
     # we are already located in the PHA directory and are mabe calculating the upperlimit bkg spectrum
-    _local_pfile_dir = phafilename[0].resolve().parents[1].joinpath(".local_pfile") #Path(f"/tmp/met2mjd_{os.times().elapsed}")
+    _local_pfile_dir = (
+        phafilename[0].resolve().parents[1].joinpath(".local_pfile")
+    )  # Path(f"/tmp/met2mjd_{os.times().elapsed}")
     _local_pfile_dir.mkdir(parents=True, exist_ok=True)
     try:
         hsp.local_pfiles(pfiles_dir=str(_local_pfile_dir))
@@ -363,58 +423,73 @@ helps to debug in case of an error.
 
     # Check if the phafilename is a string and if it has an extension .pha. If NOT then exit
     for filename in phafilename:
+        # if type(filename) is not str or '.pha' not in os.path.splitext(filename)[1]:
+        if ".pha" not in filename.name:
+            raise ValueError(
+                "The file name %s needs to be a string and must have an extension of .pha ."
+                % (str(filename))
+            )
 
-        #if type(filename) is not str or '.pha' not in os.path.splitext(filename)[1]:
-        if '.pha' not in filename.name:
-            raise ValueError('The file name %s needs to be a string and must have an extension of .pha .' % (str(filename)))
+        # get the cwd
+        current_dir = Path.cwd()
 
+        # get the directory that we have to cd to and the name of the file
+        # pha_dir, pha_file=os.path.split(filename)
+        pha_dir = filename.parent
+        pha_file = filename.name
 
-    
-    #get the cwd
-        current_dir=Path.cwd()
-
-    #get the directory that we have to cd to and the name of the file
-        #pha_dir, pha_file=os.path.split(filename)
-        pha_dir=filename.parent
-        pha_file=filename.name
-
-    #cd to that dir
-        #if str(pha_dir) != '':
+        # cd to that dir
+        # if str(pha_dir) != '':
         if str(pha_dir) != str(current_dir):
             os.chdir(pha_dir)
 
-    # Split the filename by extension, so as to remove the .pha and replace it with .rsp
-        out = filename.stem + '.rsp' #pha_file.split(".")[0] + '.rsp', remove this since sources can have '.' in name
+        # Split the filename by extension, so as to remove the .pha and replace it with .rsp
+        out = (
+            filename.stem + ".rsp"
+        )  # pha_file.split(".")[0] + '.rsp', remove this since sources can have '.' in name
 
-    #create drm
-        output=hsp.batdrmgen(infile=pha_file, outfile=out, chatter=2, clobber="YES", hkfile="NONE")
+        # create drm
+        output = hsp.batdrmgen(
+            infile=pha_file, outfile=out, chatter=2, clobber="YES", hkfile="NONE"
+        )
 
-
-    #cd back
-        #if pha_dir != '':
+        # cd back
+        # if pha_dir != '':
         if str(pha_dir) != str(current_dir):
             os.chdir(current_dir)
 
-    #shutil.rmtree(_local_pfile_dir)
+    # shutil.rmtree(_local_pfile_dir)
 
     return output
 
-def fit_spectrum(phafilename,surveyobservation, plotting=True, generic_model=None,setPars=None, indir=None, outdir=None, use_cstat=True, fit_iterations=1000,verbose=True):
+
+def fit_spectrum(
+    phafilename,
+    surveyobservation,
+    plotting=True,
+    generic_model=None,
+    setPars=None,
+    indir=None,
+    outdir=None,
+    use_cstat=True,
+    fit_iterations=1000,
+    verbose=True,
+):
     """
     Fits a spectrum that is loaded in from a BAT pha file. The header of the PHA file must have the associated
     response information.
 
-    User has to pass a phafilename and the BatSurvey object "surveyobservation" (mandatory). 
+    User has to pass a phafilename and the BatSurvey object "surveyobservation" (mandatory).
     The user should have already run the "batsurvey" command and created the surveyobservation object.
- 
-    The user can specfiy their own spectral model that is XSPEC compatible. 
+
+    The user can specfiy their own spectral model that is XSPEC compatible.
     To learn about how to specify a spectral model in pyXspec the user can
     look at the following link: https://heasarc.gsfc.nasa.gov/xanadu/xspec/python/html/index.html
 
     For e.g, to specify a model one has to do the following:
     model=xsp.Model(generic_model,setPars={1:45,2:"123,-1"}) Here -1 stands for "frozen".
 
-    User has to specify cflux in their model. This is mandatory because we use this same function (and hence the user specified model) 
+    User has to specify cflux in their model. This is mandatory because we use this same function (and hence the user specified model)
     to test any detection in the BAT energy band.
 
 
@@ -422,10 +497,10 @@ def fit_spectrum(phafilename,surveyobservation, plotting=True, generic_model=Non
     cflux*(powerlaw): with Cflux E_min=14 keV (Frozen), E_max=195 keV (Frozen), flux=-12 (initial value),
     powerlaw Gamma=2 Free, and norm=frozen. Powerlaw norm kept frozen.
 
-   
-    
+
+
     :param phafilename: String that denotes the location and name of the PHA file.
-    :param surveyobservation: Object denoting the batsurvey observation object which contains all the 
+    :param surveyobservation: Object denoting the batsurvey observation object which contains all the
      necessary information related to this observation.
     :param plotting: Boolean statement, if the user wants to plot the spectrum.
     :param generic_model: String with XSPEC compatible model, which must include cflux.
@@ -446,103 +521,108 @@ def fit_spectrum(phafilename,surveyobservation, plotting=True, generic_model=Non
     except ModuleNotFoundError as err:
         # Error handling
         print(err)
-        raise ModuleNotFoundError('The pyXspec package needs to installed to fit spectra with this function.')
+        raise ModuleNotFoundError(
+            "The pyXspec package needs to installed to fit spectra with this function."
+        )
 
-    #In the next few steps we will get into the directory where the PHA files and rsp files are located
+    # In the next few steps we will get into the directory where the PHA files and rsp files are located
     # Do the fitting and then get out to our current directory: current_dir
-    #get the cwd.
-    phafilename=Path(phafilename)
-    current_dir=Path.cwd()
-    #plt.ion()
+    # get the cwd.
+    phafilename = Path(phafilename)
+    current_dir = Path.cwd()
+    # plt.ion()
 
-# Check if the phafilename is a string and if it has an extension .pha. If NOT then exit
-    #if type(phafilename) is not str or '.pha' not in  os.path.splitext(phafilename)[1]:
-    if '.pha' not in phafilename.name:
-        raise ValueError('The file name %s needs to be a string and must have an extension of .pha .' % (str(phafilename)))
+    # Check if the phafilename is a string and if it has an extension .pha. If NOT then exit
+    # if type(phafilename) is not str or '.pha' not in  os.path.splitext(phafilename)[1]:
+    if ".pha" not in phafilename.name:
+        raise ValueError(
+            "The file name %s needs to be a string and must have an extension of .pha ."
+            % (str(phafilename))
+        )
 
-
-    #get the directory that we have to cd to and the name of the file
-    #pha_dir, pha_file=os.path.split(phafilename)
+    # get the directory that we have to cd to and the name of the file
+    # pha_dir, pha_file=os.path.split(phafilename)
     pha_dir = phafilename.parent
     pha_file = phafilename.name
 
     # The old statement: pointing_id=pha_file.split(".")[0].split("_")[-1] didnt work if source_id has period in it
-    pointing_id=  phafilename.stem.split("_")[-1]
+    pointing_id = phafilename.stem.split("_")[-1]
 
-    if len(pha_file.split("_survey"))>1:
-        #weve got a pha for a normal survey catalog
-        source_id=pha_file.split("_survey")[0]  #This is the source name compatible with the catalog
+    if len(pha_file.split("_survey")) > 1:
+        # weve got a pha for a normal survey catalog
+        source_id = pha_file.split("_survey")[
+            0
+        ]  # This is the source name compatible with the catalog
     else:
-        #we've got a mosaic survey result
-        source_id=pha_file.split("_mosaic")[0]
+        # we've got a mosaic survey result
+        source_id = pha_file.split("_mosaic")[0]
 
-    #cd to that dir
-    #if pha_dir != '':
+    # cd to that dir
+    # if pha_dir != '':
     if str(pha_dir) != str(current_dir):
         os.chdir(pha_dir)
-    
+
     xsp.AllData -= "*"
-    s = xsp.Spectrum(pha_file)  # from xspec import * has been done at the top. This is a spectrum object
+    s = xsp.Spectrum(
+        pha_file
+    )  # from xspec import * has been done at the top. This is a spectrum object
     # s.ignore("**-15,150-**")	#Ignoring energy ranges below 15 and above 150 keV.
 
-    
     # Define model
 
-    if generic_model is not None:  #User provides a string of model, and a Dictionary for the initial values
+    if (
+        generic_model is not None
+    ):  # User provides a string of model, and a Dictionary for the initial values
         if type(generic_model) is str:
-
-            if "cflux" in generic_model: #The user must provide the cflux, or else we will not be able to predict of there is a statistical detection (in the next function).
-	    
+            if (
+                "cflux" in generic_model
+            ):  # The user must provide the cflux, or else we will not be able to predict of there is a statistical detection (in the next function).
                 try:
-                    model=xsp.Model(generic_model,setPars=setPars) #Set the initial value for the fitting using the Model object attribute
+                    model = xsp.Model(
+                        generic_model, setPars=setPars
+                    )  # Set the initial value for the fitting using the Model object attribute
 
                 except Exception as e:
                     print(e)
                     raise ValueError("The model needs to be specified correctly")
 
-
-            else: 
-                raise ValueError("The model needs cflux in order to calulate error on the flux in 14-195 keV")
-
-
+            else:
+                raise ValueError(
+                    "The model needs cflux in order to calulate error on the flux in 14-195 keV"
+                )
 
     else:
+        # If User does not pass any model
 
-         # If User does not pass any model
+        model = xsp.Model("cflux*po")
+        p1 = model(1)  # cflux      Emin = 14 keV
+        p2 = model(2)  # cflux      Emax = 195 keV
+        p3 = model(3)  # cflux      lg10Flux
+        p4 = model(4)  # Photon index Gamma
+        p5 = model(5)  # Powerlaw norm
 
-         model = xsp.Model("cflux*po")
-         p1 = model(1)  # cflux      Emin = 14 keV
-         p2 = model(2)  # cflux      Emax = 195 keV
-         p3 = model(3)  # cflux      lg10Flux
-         p4 = model(4)  # Photon index Gamma
-         p5 = model(5)  # Powerlaw norm
+        # Setting the vlaues and freezing them.
 
-         # Setting the vlaues and freezing them.
+        p1.values = 14  # already frozen
+        p2.values = 195  # already frozen
+        p4.values = 2
+        p4.frozen = False
+        p5.values = 0.001
+        p5.frozen = True
 
-         p1.values = 14  # already frozen
-         p2.values = 195  # already frozen
-         p4.values = 2
-         p4.frozen = False
-         p5.values = 0.001
-         p5.frozen = True
+        # model_components=model.componentNames  #This is a list of the model components
+    # Check if the model is XSPEC compatible : Done
+    # Listing down the model parameters in a dictionary: parm1: Value, param2: Value....
+    # If no initial values given , default XSPEC values to be used.
+    # We will manipulate these param values to "set a value" or "freeze/thaw" a value, set a range for these viable values.
+    # We can call the best fit param values, after fit.
 
-
-           
-
-                # model_components=model.componentNames  #This is a list of the model components
-		#Check if the model is XSPEC compatible : Done
-		#Listing down the model parameters in a dictionary: parm1: Value, param2: Value....
-		# If no initial values given , default XSPEC values to be used.
-        	#We will manipulate these param values to "set a value" or "freeze/thaw" a value, set a range for these viable values.
-		#We can call the best fit param values, after fit.
-
-
-       # Fitting the data with this model
+    # Fitting the data with this model
 
     if use_cstat:
         xsp.Fit.statMethod = "cstat"
     else:
-        xsp.Fit.statMethod= "chi"
+        xsp.Fit.statMethod = "chi"
 
     # Stop fit at nIterations and do not query.
     xsp.Fit.query = "no"
@@ -550,97 +630,120 @@ def fit_spectrum(phafilename,surveyobservation, plotting=True, generic_model=Non
     xsp.Fit.nIterations = fit_iterations
     xsp.Fit.renorm()
 
-    #try to do the fitting if it doesnt work fill in np.nan values for things
+    # try to do the fitting if it doesnt work fill in np.nan values for things
     try:
         xsp.Fit.perform()
         if verbose:
             xsp.AllModels.show()
             xsp.Fit.show()
 
-
         # Get coordinates from XSPEC plot to use in matplotlib:
-        xsp.Plot.device = '/null'
-        xsp.Plot('data')
+        xsp.Plot.device = "/null"
+        xsp.Plot("data")
         chans = xsp.Plot.x()
         rates = xsp.Plot.y()
-        xerr=xsp.Plot.xErr()
-        yerr=xsp.Plot.yErr()
+        xerr = xsp.Plot.xErr()
+        yerr = xsp.Plot.yErr()
         folded = xsp.Plot.model()
 
         # Plot using Matplotlib:
-        f, ax=plt.subplots()
-        ax.errorbar(x=chans,xerr=xerr,y=rates,yerr=yerr,fmt='ro')
-        ax.plot(chans, folded,"k-")
-        ax.set_xlabel('Energy (keV)')
-        ax.set_ylabel('counts/cm^2/sec/keV')
-        ax.set_xscale('log')
-        ax.set_yscale('log')
-        f.savefig(phafilename.parent.joinpath(phafilename.stem+".pdf"))     #phafilename.split('.')[0]+'.pdf')
+        f, ax = plt.subplots()
+        ax.errorbar(x=chans, xerr=xerr, y=rates, yerr=yerr, fmt="ro")
+        ax.plot(chans, folded, "k-")
+        ax.set_xlabel("Energy (keV)")
+        ax.set_ylabel("counts/cm^2/sec/keV")
+        ax.set_xscale("log")
+        ax.set_yscale("log")
+        f.savefig(
+            phafilename.parent.joinpath(phafilename.stem + ".pdf")
+        )  # phafilename.split('.')[0]+'.pdf')
         if plotting:
             plt.show()
 
         # Capturing the Flux and its error. saved to the model object, can be obtained by calling model(1).error, model(2).error
-        model_params=dict()
-        for i in range(1,model.nParameters+1):
-            xsp.Fit.error("2.706 %d"%(i))
-
-            #get the name of the parameter
-            par_name=model(i).name
-            model_params[par_name]=dict(val=model(i).values[0], lolim=model(i).error[0], hilim=model(i).error[1], errflag=model(i).error[-1])
-        surveyobservation.set_pointing_info(pointing_id,"model_params", model_params, source_id=source_id)
-
-    except Exception as Error_with_Xspec_fitting:
-        #this is probably that XSPEC cannot fit because of negative counts
-        if verbose:
-            print (Error_with_Xspec_fitting)
-
-        #need to fill in nan values for all the model params and 'TTTTTTTTT' for the error flag
         model_params = dict()
         for i in range(1, model.nParameters + 1):
+            xsp.Fit.error("2.706 %d" % (i))
 
             # get the name of the parameter
             par_name = model(i).name
-            model_params[par_name] = dict(val=np.nan, lolim=np.nan, hilim=np.nan,
-                                          errflag='TTTTTTTTT')
-        surveyobservation.set_pointing_info(pointing_id, "model_params", model_params, source_id=source_id)
+            model_params[par_name] = dict(
+                val=model(i).values[0],
+                lolim=model(i).error[0],
+                hilim=model(i).error[1],
+                errflag=model(i).error[-1],
+            )
+        surveyobservation.set_pointing_info(
+            pointing_id, "model_params", model_params, source_id=source_id
+        )
+
+    except Exception as Error_with_Xspec_fitting:
+        # this is probably that XSPEC cannot fit because of negative counts
+        if verbose:
+            print(Error_with_Xspec_fitting)
+
+        # need to fill in nan values for all the model params and 'TTTTTTTTT' for the error flag
+        model_params = dict()
+        for i in range(1, model.nParameters + 1):
+            # get the name of the parameter
+            par_name = model(i).name
+            model_params[par_name] = dict(
+                val=np.nan, lolim=np.nan, hilim=np.nan, errflag="TTTTTTTTT"
+            )
+        surveyobservation.set_pointing_info(
+            pointing_id, "model_params", model_params, source_id=source_id
+        )
 
     # Incorporating the model names, parameters, errors into the BatSurvey object.
-    xsp.Xset.save(phafilename.stem+".xcm") #pha_file.split(".")[0]
-    xspec_savefile = phafilename.parent.joinpath(phafilename.stem+".xcm")  #os.path.join(pha_dir, pha_file.split(".")[0] + ".xcm")
-    surveyobservation.set_pointing_info(pointing_id, "xspec_model", xspec_savefile, source_id=source_id)
+    xsp.Xset.save(phafilename.stem + ".xcm")  # pha_file.split(".")[0]
+    xspec_savefile = phafilename.parent.joinpath(
+        phafilename.stem + ".xcm"
+    )  # os.path.join(pha_dir, pha_file.split(".")[0] + ".xcm")
+    surveyobservation.set_pointing_info(
+        pointing_id, "xspec_model", xspec_savefile, source_id=source_id
+    )
 
-    #xsp.Fit.error("2.706 3")
-    #fluxerr_lolim = p3.error[0]
-    #fluxerr_hilim =p3.error[1]
-    #pyxspec_error_string=p3.error[2]   #The string which says if everything is correct. Should be checked if there is non-normal value.
-    #flux = p3.values[0]
-    
-    #cd back
-    #if pha_dir != '':
+    # xsp.Fit.error("2.706 3")
+    # fluxerr_lolim = p3.error[0]
+    # fluxerr_hilim =p3.error[1]
+    # pyxspec_error_string=p3.error[2]   #The string which says if everything is correct. Should be checked if there is non-normal value.
+    # flux = p3.values[0]
+
+    # cd back
+    # if pha_dir != '':
     if str(pha_dir) != str(current_dir):
         os.chdir(current_dir)
 
-    #return flux, (fluxerr_lolim, fluxerr_hilim), pyxspec_error_string
+    # return flux, (fluxerr_lolim, fluxerr_hilim), pyxspec_error_string
 
-def calculate_detection(surveyobservation,source_id, pl_index=2, nsigma=3,bkg_nsigma=5, plot_fit=False,verbose=True):
+
+def calculate_detection(
+    surveyobservation,
+    source_id,
+    pl_index=2,
+    nsigma=3,
+    bkg_nsigma=5,
+    plot_fit=False,
+    verbose=True,
+):
     """
     This function uses the fitting function and statistically checks if there is any significant detection (at a specfied confidence).
-    If there is no detection, then the function re-calculates the PHA with a bkg_nsigma times the background to calculate the 
+    If there is no detection, then the function re-calculates the PHA with a bkg_nsigma times the background to calculate the
     upper limit on the flux, at a certain confidence level (given by the user specified bkg_nsigma).
 
     We deal with two cases:
-       
-     (1) Non-detection:  Checking if nsigma error on  The 14-195 keV flux is consistent with the equation (measured flux - nsigma*error)<=0, 
+
+     (1) Non-detection:  Checking if nsigma error on  The 14-195 keV flux is consistent with the equation (measured flux - nsigma*error)<=0,
      then return: upper limit=True
      and then recalculate the PHA +response again.... with count rate= bkg_nsigma*BKG_VAR
 
      (2) Detection: If (measured flux - nsigma*error)>=0 then return: "detection has been measured"
 
-     This operates on the entire batsurvey object (corresponding to a batobservation id), 
-     and we want to see if there is a detection for 'any number of pointings for a given source' in that batobservation id. 
+     This operates on the entire batsurvey object (corresponding to a batobservation id),
+     and we want to see if there is a detection for 'any number of pointings for a given source' in that batobservation id.
 
      Note that it operates ONLY on one source.
-     For different sources one can specify separate detection threshold ('sigma') for different sources. 
+     For different sources one can specify separate detection threshold ('sigma') for different sources.
      Thus we have kept this function to operate only ONE source at a time.
 
     :param surveyobservation: Object denoting the batsurvey observation object which contains all the necessary information related to this observation.
@@ -657,34 +760,37 @@ def calculate_detection(surveyobservation,source_id, pl_index=2, nsigma=3,bkg_ns
     except ModuleNotFoundError as err:
         # Error handling
         print(err)
-        raise ModuleNotFoundError('The pyXspec package needs to installed to determine if a source has been detected with this function.')
+        raise ModuleNotFoundError(
+            "The pyXspec package needs to installed to determine if a source has been detected with this function."
+        )
 
+    # flux=np.power(10,flux)
+    # fluxerr=np.power(10,flux)- np.power(10,(flux-fluxerr))
 
-    #flux=np.power(10,flux)
-    #fluxerr=np.power(10,flux)- np.power(10,(flux-fluxerr))
+    current_dir = Path.cwd()
 
+    # get the directory that we have to cd to and the name of the file
+    # pha_dir,_=os.path.split(surveyobservation.get_pha_filenames(id_list=[source_id])[0])
+    pha_dir = surveyobservation.get_pha_filenames(id_list=[source_id])[0].parent
+    # original_pha_file_list= surveyobservation.pha_file_names_list.copy()
 
-    current_dir=Path.cwd()
+    pointing_ids = (
+        surveyobservation.get_pointing_ids()
+    )  # This is a list of pointing_ids in this bat survey observation
 
-    #get the directory that we have to cd to and the name of the file
-    #pha_dir,_=os.path.split(surveyobservation.get_pha_filenames(id_list=[source_id])[0])
-    pha_dir=surveyobservation.get_pha_filenames(id_list=[source_id])[0].parent
-    #original_pha_file_list= surveyobservation.pha_file_names_list.copy()
-
-    pointing_ids=surveyobservation.get_pointing_ids() #This is a list of pointing_ids in this bat survey observation
-
-    #cd to that dir
-    #if pha_dir != '':
+    # cd to that dir
+    # if pha_dir != '':
     if str(pha_dir) != str(current_dir):
         os.chdir(pha_dir)
 
-    flux_upperlim=[]
+    flux_upperlim = []
 
-    phafilename_list=surveyobservation.get_pha_filenames(id_list=[source_id],pointing_id_list=pointing_ids) #By specifying the source_id, we now have the specific PHA filename list corresponding to the pointing_id_list for this given bat survey observation.	
-   
-    for i in range(len(phafilename_list))  :  #Loop over all phafilename_list, 
+    phafilename_list = surveyobservation.get_pha_filenames(
+        id_list=[source_id], pointing_id_list=pointing_ids
+    )  # By specifying the source_id, we now have the specific PHA filename list corresponding to the pointing_id_list for this given bat survey observation.
 
-        #pha_dir, pha_file=os.path.split(phafilename_list[i])
+    for i in range(len(phafilename_list)):  # Loop over all phafilename_list,
+        # pha_dir, pha_file=os.path.split(phafilename_list[i])
         pha_dir = phafilename_list[i].parent
         pha_file = phafilename_list[i].name
 
@@ -692,9 +798,11 @@ def calculate_detection(surveyobservation,source_id, pl_index=2, nsigma=3,bkg_ns
         pointing_id = phafilename_list[i].stem.split("_")[-1]
 
         # Within the pointing dictionar we have the "key" called "Xspec_model" which has the parameters, values and errors.
-        error_issues = False #preset this here
+        error_issues = False  # preset this here
         try:
-            pointing_dict= surveyobservation.get_pointing_info(pointing_id,source_id=source_id)
+            pointing_dict = surveyobservation.get_pointing_info(
+                pointing_id, source_id=source_id
+            )
             # xsp.Xset.restore(os.path.split(pointing_dict['xspec_model'])[1])
             # model=xsp.AllModels(1)
             model = pointing_dict["model_params"]["lg10Flux"]
@@ -702,39 +810,59 @@ def calculate_detection(surveyobservation,source_id, pl_index=2, nsigma=3,bkg_ns
             fluxerr_lolim = model["lolim"]  # .cflux.lg10Flux.error[0]      #Error
             fluxerr_uplim = model["hilim"]  # .cflux.lg10Flux.error[1]
 
-            avg_flux_err = 0.5 * (((10 ** fluxerr_uplim) - (10 ** flux)) + ((10 ** flux) - (10 ** fluxerr_lolim)))
-            print('The condition here is', 10**(flux),[10**fluxerr_lolim, 10**fluxerr_uplim], nsigma, avg_flux_err, ((10**flux) - nsigma * avg_flux_err))
+            avg_flux_err = 0.5 * (
+                ((10**fluxerr_uplim) - (10**flux))
+                + ((10**flux) - (10**fluxerr_lolim))
+            )
+            print(
+                "The condition here is",
+                10 ** (flux),
+                [10**fluxerr_lolim, 10**fluxerr_uplim],
+                nsigma,
+                avg_flux_err,
+                ((10**flux) - nsigma * avg_flux_err),
+            )
 
-
-            #check the errors for any issues:
+            # check the errors for any issues:
             if "T" in model["errflag"]:
                 error_issues = True
 
         except ValueError:
-            #the fitting wasnt not successful and the dictionary was not created but want to enter the upper limit if
-            #statement
-            fluxerr_lolim=0
-            flux=1
-            nsigma=1
-            avg_flux_err=1
+            # the fitting wasnt not successful and the dictionary was not created but want to enter the upper limit if
+            # statement
+            fluxerr_lolim = 0
+            flux = 1
+            nsigma = 1
+            avg_flux_err = 1
 
-        if fluxerr_lolim==0 or ( ((10**flux) - nsigma * avg_flux_err) <= 0) or np.isnan(flux) or error_issues:
-
-            print("No detection, just upperlimits for the spectrum:",pha_file)
-        # Here redo the PHA calculation with 5*BKG_VAR
-            surveyobservation.calculate_pha(calc_upper_lim=True, bkg_nsigma=bkg_nsigma, id_list=source_id,single_pointing=pointing_id)
+        if (
+            fluxerr_lolim == 0
+            or (((10**flux) - nsigma * avg_flux_err) <= 0)
+            or np.isnan(flux)
+            or error_issues
+        ):
+            print("No detection, just upperlimits for the spectrum:", pha_file)
+            # Here redo the PHA calculation with 5*BKG_VAR
+            surveyobservation.calculate_pha(
+                calc_upper_lim=True,
+                bkg_nsigma=bkg_nsigma,
+                id_list=source_id,
+                single_pointing=pointing_id,
+            )
 
             # can also do surveyobservation.get_pha_filenames(id_list=source_id,pointing_id_list=pointing_id, getupperlim=True)
             # to get the created upperlimit file. Will do this because it is more robust
-            #bkgnsigma_upper_limit_pha_file= pha_file.split(".")[0]+'_bkgnsigma_%d'%(bkg_nsigma) + '_upperlim.pha'
-            bkgnsigma_upper_limit_pha_file = surveyobservation.get_pha_filenames(id_list=source_id ,pointing_id_list=pointing_id, getupperlim=True)[0].name
+            # bkgnsigma_upper_limit_pha_file= pha_file.split(".")[0]+'_bkgnsigma_%d'%(bkg_nsigma) + '_upperlim.pha'
+            bkgnsigma_upper_limit_pha_file = surveyobservation.get_pha_filenames(
+                id_list=source_id, pointing_id_list=pointing_id, getupperlim=True
+            )[0].name
 
             try:
                 calc_response(bkgnsigma_upper_limit_pha_file)
             except:
-                #This is a MosaicBatSurvey object which already has the default associated response file
+                # This is a MosaicBatSurvey object which already has the default associated response file
                 pass
-        
+
             xsp.AllData -= "*"
 
             s = xsp.Spectrum(bkgnsigma_upper_limit_pha_file)
@@ -742,15 +870,14 @@ def calculate_detection(surveyobservation,source_id, pl_index=2, nsigma=3,bkg_ns
             xsp.Fit.statMethod = "cstat"
 
             model = xsp.Model("po")
-            #p1 = m1(1)  # cflux      Emin = 15 keV
-            #p2 = m1(2)  # cflux      Emax = 150 keV
-            #p3 = m1(3)  # cflux      lg10Flux
+            # p1 = m1(1)  # cflux      Emin = 15 keV
+            # p2 = m1(2)  # cflux      Emax = 150 keV
+            # p3 = m1(3)  # cflux      lg10Flux
             p4 = model(1)  # Photon index Gamma
             p5 = model(2)  # Powerlaw norm
 
-
-            #p1.values = 15  # already frozen
-            #p2.values = 150  # already frozen
+            # p1.values = 15  # already frozen
+            # p2.values = 150  # already frozen
             p4.frozen = True
             p4.values = pl_index
             p5.values = 0.001
@@ -758,7 +885,9 @@ def calculate_detection(surveyobservation,source_id, pl_index=2, nsigma=3,bkg_ns
 
             if verbose:
                 print("******************************************************")
-                print(f"Fitting the {bkg_nsigma} times bkg of the spectrum {bkgnsigma_upper_limit_pha_file}")
+                print(
+                    f"Fitting the {bkg_nsigma} times bkg of the spectrum {bkgnsigma_upper_limit_pha_file}"
+                )
 
             xsp.Fit.nIterations = 100
             xsp.Fit.perform()
@@ -772,55 +901,66 @@ def calculate_detection(surveyobservation,source_id, pl_index=2, nsigma=3,bkg_ns
                 print("******************************************************")
                 print("******************************************************")
 
-                print (s.flux)
+                print(s.flux)
 
             # Capturing the simple model. saved to the model object, can be obtained by calling model(1).error, model(2).error
-            #if the original fit had failed b/c of negative counts
-            #try:
+            # if the original fit had failed b/c of negative counts
+            # try:
             #    pointing_dict = surveyobservation.get_pointing_info(pointing_id, source_id=source_id)
-            #except ValueError:
+            # except ValueError:
             model_params = dict()
             for i in range(1, model.nParameters + 1):
-
                 # get the name of the parameter
                 par_name = model(i).name
-                model_params[par_name] = dict(val=model(i).values[0], lolim=model(i).error[0], hilim=model(i).error[1],
-                                              errflag='TTTTTTTTT')
-            surveyobservation.set_pointing_info(pointing_id, "model_params", model_params, source_id=source_id)
+                model_params[par_name] = dict(
+                    val=model(i).values[0],
+                    lolim=model(i).error[0],
+                    hilim=model(i).error[1],
+                    errflag="TTTTTTTTT",
+                )
+            surveyobservation.set_pointing_info(
+                pointing_id, "model_params", model_params, source_id=source_id
+            )
 
-            surveyobservation.set_pointing_info(pointing_id,"nsigma_lg10flux_upperlim",np.log10(s.flux[0]),source_id=source_id)
-            
-            #pointing_id=pha_file.split(".")[0].split("_")[-1]
-            #surveyobservation.pointing_info[pointing_id]["flux"]=0
-            #surveyobservation.pointing_info[pointing_id]["flux_lolim"]=0
-            #surveyobservation.pointing_info[pointing_id]["flux_hilim"]=s.flux[0]
+            surveyobservation.set_pointing_info(
+                pointing_id,
+                "nsigma_lg10flux_upperlim",
+                np.log10(s.flux[0]),
+                source_id=source_id,
+            )
 
-    
+            # pointing_id=pha_file.split(".")[0].split("_")[-1]
+            # surveyobservation.pointing_info[pointing_id]["flux"]=0
+            # surveyobservation.pointing_info[pointing_id]["flux_lolim"]=0
+            # surveyobservation.pointing_info[pointing_id]["flux_hilim"]=s.flux[0]
+
         else:  # Detection
-
-
             if verbose:
-                print("A detection has been measured at the %d sigma level"%(nsigma))
-            #pointing_id=pha_file.split(".")[0].split("_")[-1]
-            #surveyobservation.pointing_info[pointing_id]["flux"]=flux[i]
-            #surveyobservation.pointing_info[pointing_id]["flux_lolim"]=fluxerr_lolim[i]
-            #surveyobservation.pointing_info[pointing_id]["flux_hilim"]=fluxerr_hilim[i]
+                print("A detection has been measured at the %d sigma level" % (nsigma))
+            # pointing_id=pha_file.split(".")[0].split("_")[-1]
+            # surveyobservation.pointing_info[pointing_id]["flux"]=flux[i]
+            # surveyobservation.pointing_info[pointing_id]["flux_lolim"]=fluxerr_lolim[i]
+            # surveyobservation.pointing_info[pointing_id]["flux_hilim"]=fluxerr_hilim[i]
 
-
-
-
-    #cd back
-    #if pha_dir != '':
+    # cd back
+    # if pha_dir != '':
     if str(pha_dir) != str(current_dir):
         os.chdir(current_dir)
 
+    return flux_upperlim  # This is a list for all the Valid non-detection pointings
 
-    return  flux_upperlim   	#This is a list for all the Valid non-detection pointings
 
-
-def print_parameters(obs_list, source_id, values=["met_time","utc_time", "exposure"], energy_range=[14,195], \
-                     latex_table=False, savetable=False, save_file="output.txt", overwrite=True, add_obs_id=True):
-
+def print_parameters(
+    obs_list,
+    source_id,
+    values=["met_time", "utc_time", "exposure"],
+    energy_range=[14, 195],
+    latex_table=False,
+    savetable=False,
+    save_file="output.txt",
+    overwrite=True,
+    add_obs_id=True,
+):
     """
     Convenience function to plot various survey data pieces of information in a formatted file/table
 
@@ -839,39 +979,41 @@ def print_parameters(obs_list, source_id, values=["met_time","utc_time", "exposu
     :return: None
     """
 
-    save_file=Path(save_file)
+    save_file = Path(save_file)
 
     if save_file.exists() and overwrite:
         save_file.unlink()
- 
+
     if type(obs_list) is not list:
-        obs_list=[obs_list]
+        obs_list = [obs_list]
 
     if add_obs_id:
-        #make sure that the values list has obs_id and pointing_id in it
+        # make sure that the values list has obs_id and pointing_id in it
         if "pointing_id" not in values:
             values.insert(0, "pointing_id")
 
         if "obs_id" not in values:
             values.insert(0, "obs_id")
 
-    #get all the data that we need
-    all_data = concatenate_data(obs_list, source_id, values, energy_range=energy_range)[source_id]
+    # get all the data that we need
+    all_data = concatenate_data(obs_list, source_id, values, energy_range=energy_range)[
+        source_id
+    ]
 
     if savetable and save_file is not None:
-        #open the file to write the output to
-        f=open(str(save_file),"w")
+        # open the file to write the output to
+        f = open(str(save_file), "w")
 
-    #dont allow xspec to prompt
-    #xsp.Xset.allowPrompting = False
+    # dont allow xspec to prompt
+    # xsp.Xset.allowPrompting = False
 
-    #sort the obs ids by time of 1st pointing id
-    #all_met=[i.pointing_info[i.pointing_ids[0]]["met_time"] for i in obs_list]
-    #sorted_obs_idx=np.argsort(all_met)
+    # sort the obs ids by time of 1st pointing id
+    # all_met=[i.pointing_info[i.pointing_ids[0]]["met_time"] for i in obs_list]
+    # sorted_obs_idx=np.argsort(all_met)
 
-    outstr= " " #Obs ID  \t Pointing ID\t"
+    outstr = " "  # Obs ID  \t Pointing ID\t"
     for i in values:
-        outstr+= f"{i: ^31}\t"   #"\t%s"%(i)
+        outstr += f"{i: ^31}\t"  # "\t%s"%(i)
 
     if not savetable:
         print(outstr)
@@ -879,102 +1021,101 @@ def print_parameters(obs_list, source_id, values=["met_time","utc_time", "exposu
         f.writelines([str(outstr), "\n"])
 
     if latex_table:
-        nchar=29
+        nchar = 29
     else:
-        nchar=30
+        nchar = 30
 
     outstr = ""
     for i in range(len(all_data[list(all_data.keys())[0]])):
-
         for key in values:
-            val=all_data[key]
+            val = all_data[key]
             if "id" in key:
-                #if we have just one observation ID then we still want to print the obs_id for the first entry in list
-                #if we dont then we need to make sure that the printed value is not the same as the one prior
-                if i==0 or val[i] != val[i-1]:
-                    print_val=val[i]
+                # if we have just one observation ID then we still want to print the obs_id for the first entry in list
+                # if we dont then we need to make sure that the printed value is not the same as the one prior
+                if i == 0 or val[i] != val[i - 1]:
+                    print_val = val[i]
                 else:
-                    print_val=''
+                    print_val = ""
             else:
                 print_val = val[i]
 
-            #see if there are errrors associated with the key
-            if key+"_lolim" in all_data.keys():
-                #get the errors
-                lolim=all_data[key+"_lolim"][i]
+            # see if there are errrors associated with the key
+            if key + "_lolim" in all_data.keys():
+                # get the errors
+                lolim = all_data[key + "_lolim"][i]
                 hilim = all_data[key + "_hilim"][i]
 
                 if not np.isnan(lolim) and not np.isnan(hilim):
-                    middle_str=''
-                    if len(str(val[i]).split('e')) > 1:
-                        base = int(str(val[i]).split('e')[-1])
+                    middle_str = ""
+                    if len(str(val[i]).split("e")) > 1:
+                        base = int(str(val[i]).split("e")[-1])
 
                         if latex_table:
-                            middle_str += '$'
+                            middle_str += "$"
 
-                        middle_str += f'{val[i] / 10 ** base:-.3}^{{{hilim / 10 ** base:+.2}}}_{{{-1 * lolim / 10 ** base:+.2}}}'
+                        middle_str += f"{val[i] / 10 ** base:-.3}^{{{hilim / 10 ** base:+.2}}}_{{{-1 * lolim / 10 ** base:+.2}}}"
 
                         if latex_table:
                             middle_str += f" \\times "
                         else:
-                            middle_str += f' x '
+                            middle_str += f" x "
 
-                        middle_str += f'10^{{{base:+}}}'
+                        middle_str += f"10^{{{base:+}}}"
 
                         if latex_table:
-                            middle_str += '$'
+                            middle_str += "$"
 
                         print_val = middle_str
 
                     else:
-                        print_val=''
+                        print_val = ""
                         if latex_table:
-                            print_val += '$'
+                            print_val += "$"
 
-                        print_val += f'{val[i]:-.3}' +f'^{{{hilim :+.2}}}_{{{-1 * lolim :+.2}}}'
+                        print_val += (
+                            f"{val[i]:-.3}" + f"^{{{hilim :+.2}}}_{{{-1 * lolim :+.2}}}"
+                        )
 
                         if latex_table:
-                            print_val += '$'
+                            print_val += "$"
 
-
-                    outstr += f"{print_val: ^{nchar}}" +"\t"
+                    outstr += f"{print_val: ^{nchar}}" + "\t"
                 else:
-                    middle_str=''
-                    if len(str(val[i]).split('e')) > 1:
-                        base = int(str(val[i]).split('e')[-1])
+                    middle_str = ""
+                    if len(str(val[i]).split("e")) > 1:
+                        base = int(str(val[i]).split("e")[-1])
 
                         if latex_table:
-                            middle_str += '$'
+                            middle_str += "$"
 
-                        middle_str += f'{val[i] / 10 ** base:-.3}'
+                        middle_str += f"{val[i] / 10 ** base:-.3}"
 
                         if latex_table:
                             middle_str += f" \\times "
                         else:
-                            middle_str += f' x '
+                            middle_str += f" x "
 
-                        middle_str += f'10^{{{base:+}}}'
+                        middle_str += f"10^{{{base:+}}}"
 
                         if latex_table:
-                            middle_str += '$'
+                            middle_str += "$"
 
-                        print_val=middle_str
+                        print_val = middle_str
 
                     outstr += f"{print_val: ^{nchar}}\t"
             else:
                 outstr += f"{print_val: ^{nchar}}\t"
 
-
             if latex_table:
                 outstr += " & "
 
         if latex_table:
-            outstr=outstr[:-2]
+            outstr = outstr[:-2]
             outstr += " \\\\"
         outstr += "\n"
 
     if savetable and save_file is not None:
-        f.writelines([str(outstr),"\n"])
+        f.writelines([str(outstr), "\n"])
         f.close()
     else:
         print(outstr)
@@ -983,9 +1124,20 @@ def print_parameters(obs_list, source_id, values=["met_time","utc_time", "exposu
         f.close()
 
 
-def download_swiftdata(observations,  reload=False, fetch=True, jobs=10,
-                        bat=True, auxil=True, log=False, uvot=False, xrt=False, tdrss=True,
-                        save_dir=None, **kwargs) -> dict:
+def download_swiftdata(
+    observations,
+    reload=False,
+    fetch=True,
+    jobs=10,
+    bat=True,
+    auxil=True,
+    log=False,
+    uvot=False,
+    xrt=False,
+    tdrss=True,
+    save_dir=None,
+    **kwargs,
+) -> dict:
     """
     Download Swift data from HEASARC or quicklook sites to a local mirror directory.
 
@@ -1036,12 +1188,12 @@ def download_swiftdata(observations,  reload=False, fetch=True, jobs=10,
         observations = [observations]
     obsids = []
     for entry in observations:
-        try:    # swiftmastr observation table
+        try:  # swiftmastr observation table
             entry = entry["OBSID"]
         except:
             pass
-        try: # swifttools.ObsQuery
-            entry = entry.obsid   # f"{entry.targetid:08d}{entry.seg:03d}"
+        try:  # swifttools.ObsQuery
+            entry = entry.obsid  # f"{entry.targetid:08d}{entry.seg:03d}"
         except:
             pass
         if isinstance(entry, int):
@@ -1050,11 +1202,22 @@ def download_swiftdata(observations,  reload=False, fetch=True, jobs=10,
             raise RuntimeError(f"Can't convert {entry} to OBSID string")
         obsids.append(entry)
     # Remove duplicate obsids, but otherwise keep in order.
-    obsids = list({o:None for o in obsids}.keys())
+    obsids = list({o: None for o in obsids}.keys())
     nowts = datetime.datetime.now().timestamp()
-    kwargs['fetch'] = fetch
-    download_partialfunc = functools.partial(_download_single_observation, reload=reload, bat=bat, auxil=auxil, log=log, 
-                                         uvot=uvot, xrt=xrt, tdrss=tdrss, save_dir=save_dir, nowts=nowts, **kwargs)
+    kwargs["fetch"] = fetch
+    download_partialfunc = functools.partial(
+        _download_single_observation,
+        reload=reload,
+        bat=bat,
+        auxil=auxil,
+        log=log,
+        uvot=uvot,
+        xrt=xrt,
+        tdrss=tdrss,
+        save_dir=save_dir,
+        nowts=nowts,
+        **kwargs,
+    )
     if jobs == 1:
         results = {}
         for obsid in obsids:
@@ -1062,19 +1225,25 @@ def download_swiftdata(observations,  reload=False, fetch=True, jobs=10,
             results[obsid] = result
     else:
         with ThreadPoolExecutor(max_workers=jobs) as executor:
-            results = {result['obsid']: result for result in executor.map(download_partialfunc, obsids)}
+            results = {
+                result["obsid"]: result
+                for result in executor.map(download_partialfunc, obsids)
+            }
     return results
 
-def _download_single_observation(obsid, *, reload, bat, auxil, log, uvot, xrt, tdrss, save_dir, nowts, **kwargs):
+
+def _download_single_observation(
+    obsid, *, reload, bat, auxil, log, uvot, xrt, tdrss, save_dir, nowts, **kwargs
+):
     """Helper function--not for general use
-    
+
     Downloads files for a single OBSID, given parameters from download_swiftdata()
     after encapsulation as a partial function for threading.
 
     Args:
         obsid (str): Observation ID to download
         (remaining arguments are as in download_swiftdata())
-        
+
 
     Raises:
         RuntimeError: If missing local directory.  Other exceptions are presented as warnings and
@@ -1084,36 +1253,53 @@ def _download_single_observation(obsid, *, reload, bat, auxil, log, uvot, xrt, t
         _type_: _description_
     """
     obsoutdir = save_dir.joinpath(obsid)
-    quicklookfile = obsoutdir.joinpath('.quicklook')
+    quicklookfile = obsoutdir.joinpath(".quicklook")
     result = dict(obsid=obsid, success=True, obsoutdir=obsoutdir, quicklook=False)
     try:
         clobber = reload or quicklookfile.exists()
-        data = swtoo.Swift_Data(obsid=obsid, clobber=clobber,
-                            bat=bat, log=log, auxil=auxil, uvot=uvot, xrt=xrt, tdrss=tdrss,
-                            outdir=str(save_dir), **kwargs)
-        result['data'] = data
-        if data.status.status != 'Accepted':
+        data = swtoo.Swift_Data(
+            obsid=obsid,
+            clobber=clobber,
+            bat=bat,
+            log=log,
+            auxil=auxil,
+            uvot=uvot,
+            xrt=xrt,
+            tdrss=tdrss,
+            outdir=str(save_dir),
+            **kwargs,
+        )
+        result["data"] = data
+        if data.status.status != "Accepted":
             raise RuntimeError(" ".join(data.status.warnings + data.status.errors))
         if data.quicklook:  # Mark the directory as quicklook
             quicklookfile.open("w").close()
-            result['quicklook'] = True
+            result["quicklook"] = True
         elif quicklookfile.exists():
-                # This directory just transitioned from quicklook to archival version
-            oldqlookdir = save_dir.joinpath("old_quicklook",obsid)
+            # This directory just transitioned from quicklook to archival version
+            oldqlookdir = save_dir.joinpath("old_quicklook", obsid)
             oldqlookdir.mkdir(exist_ok=True, parents=True)
-            for stalefile in obsoutdir.glob('**/*'):
-                    # Any file older than the time before the data was downloaded
-                if (stalefile.is_file() and stalefile.stat().st_mtime < nowts 
-                        and not stalefile.name.startswith(".")):
+            for stalefile in obsoutdir.glob("**/*"):
+                # Any file older than the time before the data was downloaded
+                if (
+                    stalefile.is_file()
+                    and stalefile.stat().st_mtime < nowts
+                    and not stalefile.name.startswith(".")
+                ):
                     stalefile.replace(oldqlookdir.joinpath(stalefile.name))
             quicklookfile.unlink()
-            result.update(datafiles=data, quicklook=data.quicklook,
-                              outdir=Path(data.outdir), success=True, downloaded=True)
+            result.update(
+                datafiles=data,
+                quicklook=data.quicklook,
+                outdir=Path(data.outdir),
+                success=True,
+                downloaded=True,
+            )
         if not Path(data.outdir).is_dir():
             raise RuntimeError(f"Data directory {data.outdir} missing")
     except Exception as e:
         warnings.warn(f"Did not download {obsid} {e}")
-        result['success'] = False
+        result["success"] = False
     return result
 
 
@@ -1121,16 +1307,19 @@ def test_remote_URL(url):
     return requests.head(url).status_code < 400
 
 
-def from_heasarc(object_name=None, tablename='swiftmastr', **kwargs):
-    heasarc=Heasarc()
+def from_heasarc(object_name=None, tablename="swiftmastr", **kwargs):
+    heasarc = Heasarc()
     with warnings.catch_warnings():
-        warnings.simplefilter('ignore', ap.utils.exceptions.AstropyWarning)
-        table = heasarc.query_object(object_name=object_name, mission=tablename, **kwargs)
+        warnings.simplefilter("ignore", ap.utils.exceptions.AstropyWarning)
+        table = heasarc.query_object(
+            object_name=object_name, mission=tablename, **kwargs
+        )
     return table
 
 
 def find_trigger_data():
     raise NotImplementedError
+
 
 def met2mjd(met_time):
     """
@@ -1142,28 +1331,33 @@ def met2mjd(met_time):
     """
 
     try:
-        val=sbu.met2mjd(met_time, correct=True)
+        val = sbu.met2mjd(met_time, correct=True)
     except (ModuleNotFoundError, RuntimeError):
-        #_local_pfile_dir=Path(f"/tmp/met2mjd_{os.times().elapsed}")
-        #_local_pfile_dir.mkdir(parents=True, exist_ok=True)
-        #try:
+        # _local_pfile_dir=Path(f"/tmp/met2mjd_{os.times().elapsed}")
+        # _local_pfile_dir.mkdir(parents=True, exist_ok=True)
+        # try:
         #    hsp.local_pfiles(pfiles_dir=str(_local_pfile_dir))
-        #except AttributeError:
+        # except AttributeError:
         #    hsp.utils.local_pfiles(par_dir=str(_local_pfile_dir))
 
         # calculate times in UTC and MJD units as well
-        inputs = dict(intime=str(met_time), insystem="MET", informat="s", outsystem="UTC",
-                      outformat="m")  # output in MJD
+        inputs = dict(
+            intime=str(met_time),
+            insystem="MET",
+            informat="s",
+            outsystem="UTC",
+            outformat="m",
+        )  # output in MJD
         o = hsp.swifttime(**inputs)
-        #stop
-        val=float(o.params["outtime"])
-        #shutil.rmtree(_local_pfile_dir)
+        # stop
+        val = float(o.params["outtime"])
+        # shutil.rmtree(_local_pfile_dir)
 
-    atime = Time(val, format="mjd", scale='utc')
+    atime = Time(val, format="mjd", scale="utc")
     return atime.value
 
-def met2utc(met_time, mjd_time=None):
 
+def met2utc(met_time, mjd_time=None):
     """
     A convenience function that calculates the UTC time from a Swift MET time. Ths function first converts the time to
     MJD, which either uses the swiftbat code base which is quicker or the heasoftpy swifttime function which is slower,
@@ -1175,10 +1369,11 @@ def met2utc(met_time, mjd_time=None):
     :return: a numpy datetime64 object of the MET time with the Swift clock correction applied
     """
     if mjd_time is None:
-        mjd_time=met2mjd(met_time)
+        mjd_time = met2mjd(met_time)
 
-    atime = Time(mjd_time, format="mjd", scale='utc')
+    atime = Time(mjd_time, format="mjd", scale="utc")
     return atime.datetime64
+
 
 def save_progress(obs_list):
     """
@@ -1188,10 +1383,11 @@ def save_progress(obs_list):
     :return: None
     """
     if type(obs_list) is not list:
-        obs_list=[obs_list]
+        obs_list = [obs_list]
 
     for i in obs_list:
         i.save()
+
 
 def set_pdir(pdir):
     """
@@ -1203,14 +1399,15 @@ def set_pdir(pdir):
     :return:
     """
 
-    #if its not None, make sure that its a string that can be passed to heasoftpy. None will
+    # if its not None, make sure that its a string that can be passed to heasoftpy. None will
     if pdir is not None:
-        pdir=str(pdir)
+        pdir = str(pdir)
 
     try:
         hsp.local_pfiles(pfiles_dir=pdir)
     except AttributeError:
         hsp.utils.local_pfiles(par_dir=pdir)
+
 
 def reset_pdir():
     """
@@ -1218,9 +1415,12 @@ def reset_pdir():
 
     :return:
     """
-    os.environ['PFILES'] = _orig_pdir
+    os.environ["PFILES"] = _orig_pdir
 
-def concatenate_data(bat_observation, source_ids, keys, energy_range=[14,195], chronological_order=True):
+
+def concatenate_data(
+    bat_observation, source_ids, keys, energy_range=[14, 195], chronological_order=True
+):
     """
     This convenience function collects the data that was requested by the user as passed into the keys variable. The data
     is returned in the form of a dictionary with the same keys and numpy arrays of all the concatenated data. if the user asks
@@ -1238,14 +1438,14 @@ def concatenate_data(bat_observation, source_ids, keys, energy_range=[14,195], c
     :return: dict with the keys specified by the user and numpy lists as the concatenated values for each key
     """
 
-    #make sure that the keys are a list
+    # make sure that the keys are a list
     if type(keys) is not list:
         # it is a single string:
         keys = [keys]
 
-    #see if the user has the rates included in here
+    # see if the user has the rates included in here
     if "rate" in keys:
-        #see if the rates_err is already included. If not add it.
+        # see if the rates_err is already included. If not add it.
         if "rate_err" not in keys:
             keys.append("rate_err")
 
@@ -1253,186 +1453,235 @@ def concatenate_data(bat_observation, source_ids, keys, energy_range=[14,195], c
         # it is a single string:
         source_ids = [source_ids]
 
-    #create a dict from the keys for soure and what the user is interested in
-    concat_data=dict().fromkeys(source_ids)
+    # create a dict from the keys for soure and what the user is interested in
+    concat_data = dict().fromkeys(source_ids)
     for i in concat_data.keys():
-        concat_data[i]=dict().fromkeys(keys)
+        concat_data[i] = dict().fromkeys(keys)
         for j in concat_data[i].keys():
-            concat_data[i][j]=[]
+            concat_data[i][j] = []
 
-
-    #deterine the energy range that may be of interest. This can be none for total E range or one of the basic 8 channel
-    #energies or a range that spans more than one energy range of the 8 channels.
-    if np.isclose([14,195], energy_range).sum() == 2:
-        e_range_idx = [-1] #this is just the last index of the arrays for counts, etc
+    # deterine the energy range that may be of interest. This can be none for total E range or one of the basic 8 channel
+    # energies or a range that spans more than one energy range of the 8 channels.
+    if np.isclose([14, 195], energy_range).sum() == 2:
+        e_range_idx = [-1]  # this is just the last index of the arrays for counts, etc
     else:
-        #get the index
-        obs_min_erange_idx=bat_observation[0].emin.index(np.min(energy_range))
+        # get the index
+        obs_min_erange_idx = bat_observation[0].emin.index(np.min(energy_range))
         obs_max_erange_idx = bat_observation[0].emax.index(np.max(energy_range))
-        e_range_idx = np.arange(obs_min_erange_idx, obs_max_erange_idx+1)
+        e_range_idx = np.arange(obs_min_erange_idx, obs_max_erange_idx + 1)
 
     if chronological_order:
-        #sort the obs ids by time of 1st pointing id
-        all_met=[i.pointing_info[i.pointing_ids[0]]["met_time"] for i in bat_observation]
-        sorted_obs_idx=np.argsort(all_met)
+        # sort the obs ids by time of 1st pointing id
+        all_met = [
+            i.pointing_info[i.pointing_ids[0]]["met_time"] for i in bat_observation
+        ]
+        sorted_obs_idx = np.argsort(all_met)
     else:
         sorted_obs_idx = np.arange(len(bat_observation))
 
-    #iterate over observation IDs
+    # iterate over observation IDs
     for idx in sorted_obs_idx:
-        obs=bat_observation[idx]
+        obs = bat_observation[idx]
         try:
-            #have obs id for normal survey object
-            observation_id=obs.obs_id
+            # have obs id for normal survey object
+            observation_id = obs.obs_id
         except AttributeError:
-            #dont have obs_id for mosaic survey object
-            observation_id='mosaic'
+            # dont have obs_id for mosaic survey object
+            observation_id = "mosaic"
 
         if chronological_order:
-            #sort the pointing IDs too
-            sorted_pointing_ids=np.sort(obs.pointing_ids)
+            # sort the pointing IDs too
+            sorted_pointing_ids = np.sort(obs.pointing_ids)
         else:
-            sorted_pointing_ids=obs.pointing_ids
+            sorted_pointing_ids = obs.pointing_ids
 
-        #iterate over pointings
+        # iterate over pointings
         for pointings in sorted_pointing_ids:
-            #iterate over sources
+            # iterate over sources
             for source in concat_data.keys():
-                #see if the source exists in the observation
+                # see if the source exists in the observation
                 if source in obs.get_pointing_info(pointings).keys():
-                    #iterate over the keys of interest
+                    # iterate over the keys of interest
                     for user_key in keys:
-                        save_val=np.nan
+                        save_val = np.nan
 
-                        #see if the user wants observation ID or pointing ID
+                        # see if the user wants observation ID or pointing ID
                         if "obs" in user_key:
-                            save_val=observation_id
+                            save_val = observation_id
                             concat_data[source][user_key].append(save_val)
-                            save_val=np.inf #set to a crazy number so we dont get errors with np.isnan for a string
+                            save_val = (
+                                np.inf
+                            )  # set to a crazy number so we dont get errors with np.isnan for a string
 
                         if "pointing" in user_key:
-                            save_val=pointings
+                            save_val = pointings
                             concat_data[source][user_key].append(save_val)
-                            save_val=np.inf #set to a crazy number so we dont get errors with np.isnan for a string
+                            save_val = (
+                                np.inf
+                            )  # set to a crazy number so we dont get errors with np.isnan for a string
 
-                        #search in all
+                        # search in all
                         continue_search = True
-                        for dictionary in [obs.get_pointing_info(pointings), obs.get_pointing_info(pointings, source_id=source)]:
-                            if continue_search and np.isnan(save_val) and \
-                                    len(dpath.search(obs.get_pointing_info(pointings, source_id=source)["model_params"], user_key))==0 \
-                                    and ("flux" not in user_key.lower()) and ("index" not in user_key.lower()):
+                        for dictionary in [
+                            obs.get_pointing_info(pointings),
+                            obs.get_pointing_info(pointings, source_id=source),
+                        ]:
+                            if (
+                                continue_search
+                                and np.isnan(save_val)
+                                and len(
+                                    dpath.search(
+                                        obs.get_pointing_info(
+                                            pointings, source_id=source
+                                        )["model_params"],
+                                        user_key,
+                                    )
+                                )
+                                == 0
+                                and ("flux" not in user_key.lower())
+                                and ("index" not in user_key.lower())
+                            ):
                                 try:
                                     # if this is a rate/rate_err/snr need to calcualate these quantities based on the returned array
                                     if "rate" in user_key or "snr" in user_key:
-                                        rate, rate_err, snr=obs.get_count_rate(e_range_idx, pointings, source)
+                                        rate, rate_err, snr = obs.get_count_rate(
+                                            e_range_idx, pointings, source
+                                        )
                                         if "rate_err" in user_key:
-                                            save_val=rate_err
+                                            save_val = rate_err
                                         elif "rate" in user_key:
-                                            save_val=rate
+                                            save_val = rate
                                         elif "snr" in user_key:
-                                            save_val=snr
+                                            save_val = snr
 
                                     else:
                                         save_val = dpath.get(dictionary, user_key)
 
                                 except KeyError:
-                                # if the key doest exist dont do anything but add np.nan
-                                    save_val =np.nan
-                                    #this key for rate, rate_err, SNR doesnt exist probably because the source wasnt
-                                    #detected so dont eneter the outer if statement again 9which will keep saving np.nan
+                                    # if the key doest exist dont do anything but add np.nan
+                                    save_val = np.nan
+                                    # this key for rate, rate_err, SNR doesnt exist probably because the source wasnt
+                                    # detected so dont eneter the outer if statement again 9which will keep saving np.nan
                                     if "rate" in user_key or "snr" in user_key:
-                                        continue_search=False
+                                        continue_search = False
 
                                 # save the value to the appropriate list under the appropriate key
                                 concat_data[source][user_key].append(save_val)
 
-                        #see if the values are for the model fit
-                        if continue_search and np.sum(np.isnan(save_val))>0 and "model_params" in obs.get_pointing_info(pointings, source_id=source).keys():
-                            #can have obs.get_pointing_info(pointings, source_id=source)["model_params"]
-                            #but it can be None if the source isnt detected
-                            #if obs.get_pointing_info(pointings, source_id=source)["model_params"] is not None:
-                            #have to modify the name of the flux related quantity here
-                            if ("flux" in user_key.lower()):
-                                real_user_key="lg10Flux"
+                        # see if the values are for the model fit
+                        if (
+                            continue_search
+                            and np.sum(np.isnan(save_val)) > 0
+                            and "model_params"
+                            in obs.get_pointing_info(pointings, source_id=source).keys()
+                        ):
+                            # can have obs.get_pointing_info(pointings, source_id=source)["model_params"]
+                            # but it can be None if the source isnt detected
+                            # if obs.get_pointing_info(pointings, source_id=source)["model_params"] is not None:
+                            # have to modify the name of the flux related quantity here
+                            if "flux" in user_key.lower():
+                                real_user_key = "lg10Flux"
                             else:
-                                real_user_key=user_key
+                                real_user_key = user_key
 
-                            #try to access the dictionary key
+                            # try to access the dictionary key
                             try:
-                                save_val = dpath.get(obs.get_pointing_info(pointings, source_id=source)["model_params"], real_user_key)
+                                save_val = dpath.get(
+                                    obs.get_pointing_info(pointings, source_id=source)[
+                                        "model_params"
+                                    ],
+                                    real_user_key,
+                                )
                             except KeyError:
                                 # if the key doest exist dont do anything but add np.nan
                                 save_val = np.nan
-                                #if the value that we want is flux but we only have an upper limit then we have to get
+                                # if the value that we want is flux but we only have an upper limit then we have to get
                                 # the nsigma_lg10flux_upperlim value
                                 if real_user_key == "lg10Flux":
-                                    real_user_key="nsigma_lg10flux_upperlim"
-                                    #see if there is a nsigma_lg10flux_upperlim
+                                    real_user_key = "nsigma_lg10flux_upperlim"
+                                    # see if there is a nsigma_lg10flux_upperlim
                                     try:
                                         save_val = dpath.get(
-                                            obs.get_pointing_info(pointings, source_id=source),
-                                            real_user_key)
+                                            obs.get_pointing_info(
+                                                pointings, source_id=source
+                                            ),
+                                            real_user_key,
+                                        )
                                     except KeyError:
                                         # if the key doest exist dont do anything but add np.nan
                                         save_val = np.nan
 
-                            #need to calculate the error on the value
-                            #first do the case of flux upper limit
-                            if real_user_key=="nsigma_lg10flux_upperlim":
-                                save_value = 10 ** save_val
-                                #there is no upper/lower error since we have an upper limit
-                                error=np.ones(2)*np.nan
-                                is_upper_lim=True
+                            # need to calculate the error on the value
+                            # first do the case of flux upper limit
+                            if real_user_key == "nsigma_lg10flux_upperlim":
+                                save_value = 10**save_val
+                                # there is no upper/lower error since we have an upper limit
+                                error = np.ones(2) * np.nan
+                                is_upper_lim = True
                             else:
                                 is_upper_lim = False
                                 if real_user_key == "lg10Flux":
-                                    save_value=10**save_val['val']
-                                    error = np.array([10 ** save_val['lolim'], 10 ** save_val['hilim']])
+                                    save_value = 10 ** save_val["val"]
+                                    error = np.array(
+                                        [
+                                            10 ** save_val["lolim"],
+                                            10 ** save_val["hilim"],
+                                        ]
+                                    )
                                     error = np.abs(save_value - error)
                                 else:
                                     try:
-                                        save_value = save_val['val']
-                                        error = np.array([save_val['lolim'], save_val['hilim']])
+                                        save_value = save_val["val"]
+                                        error = np.array(
+                                            [save_val["lolim"], save_val["hilim"]]
+                                        )
 
-                                        if 'T' in save_val["errflag"]:
+                                        if "T" in save_val["errflag"]:
                                             error = np.ones(2) * np.nan
                                         else:
                                             error = np.abs(save_value - error)
 
                                     except TypeError:
-                                        #this is the last resort for catching any keys that arent found in the dict so we may
-                                        #have save_val be = np.nan and we will get TypeError trying to call it as a dict
+                                        # this is the last resort for catching any keys that arent found in the dict so we may
+                                        # have save_val be = np.nan and we will get TypeError trying to call it as a dict
                                         save_value = np.nan
-                                        error = np.ones(2)*np.nan
+                                        error = np.ones(2) * np.nan
 
                             # save the value to the appropriate list under the appropriate key
                             concat_data[source][user_key].append(save_value)
 
-                            #save the errors as well. We may need to create the dictionary key for the error/upperlimit
-                            user_key_lolim=user_key+"_lolim"
-                            user_key_hilim=user_key+"_hilim"
+                            # save the errors as well. We may need to create the dictionary key for the error/upperlimit
+                            user_key_lolim = user_key + "_lolim"
+                            user_key_hilim = user_key + "_hilim"
                             user_key_upperlim = user_key + "_upperlim"
                             try:
                                 concat_data[source][user_key_lolim].append(error[0])
                                 concat_data[source][user_key_hilim].append(error[1])
-                                concat_data[source][user_key_upperlim].append(is_upper_lim)
+                                concat_data[source][user_key_upperlim].append(
+                                    is_upper_lim
+                                )
                             except KeyError:
-                                concat_data[source][user_key_lolim]=[]
-                                concat_data[source][user_key_hilim]=[]
-                                concat_data[source][user_key_upperlim]=[]
+                                concat_data[source][user_key_lolim] = []
+                                concat_data[source][user_key_hilim] = []
+                                concat_data[source][user_key_upperlim] = []
 
                                 concat_data[source][user_key_lolim].append(error[0])
                                 concat_data[source][user_key_hilim].append(error[1])
-                                concat_data[source][user_key_upperlim].append(is_upper_lim)
+                                concat_data[source][user_key_upperlim].append(
+                                    is_upper_lim
+                                )
 
-    #turn things into numpy array for easier handling
+    # turn things into numpy array for easier handling
     for src_key in concat_data.keys():
         for key, val in concat_data[src_key].items():
-            concat_data[src_key][key]=np.array(val)
+            concat_data[src_key][key] = np.array(val)
 
     return concat_data
 
-def make_fake_tdrss_message(obs_id, trig_time, trig_stop, ra_obj, dec_obj, obs_dir=None):
+
+def make_fake_tdrss_message(
+    obs_id, trig_time, trig_stop, ra_obj, dec_obj, obs_dir=None
+):
     """
     This function creates a fake TDRSS message file that specifies a few important peices of information which can be
     used in the BAT TTE data processing pipeline.
@@ -1448,31 +1697,31 @@ def make_fake_tdrss_message(obs_id, trig_time, trig_stop, ra_obj, dec_obj, obs_d
 
     from .batobservation import BatObservation
 
-    #see if the observation directory exists
-    obs=BatObservation(obs_id, obs_dir=obs_dir)
+    # see if the observation directory exists
+    obs = BatObservation(obs_id, obs_dir=obs_dir)
 
-    #see if the tdrss directory exists. If not, then create it
-    #create the tdrss message filename
-    tdrss_dir=obs.obs_dir.joinpath('tdrss')
+    # see if the tdrss directory exists. If not, then create it
+    # create the tdrss message filename
+    tdrss_dir = obs.obs_dir.joinpath("tdrss")
     tdrss_dir.mkdir(parents=True, exist_ok=True)
-    tdrss_file = tdrss_dir.joinpath(f'sw{obs.obs_dir.stem}msbce_test.fits.gz')
+    tdrss_file = tdrss_dir.joinpath(f"sw{obs.obs_dir.stem}msbce_test.fits.gz")
 
-    #get the trigger id from the observation id
-    trig_id=obs.obs_dir.stem[1:-3]
+    # get the trigger id from the observation id
+    trig_id = obs.obs_dir.stem[1:-3]
 
     hdr = fits.Header()
-    hdr['CREATOR'] = ('BatAnalysis', ' Program that created FITS file')
-    hdr['OBS_ID'] = (obs_id, 'Observation ID')
-    hdr['TARG_ID'] = (trig_id, 'Target ID')
-    hdr['TRIGGER'] = (trig_id, 'Trigger Number')
-    hdr['TRIGTIME'] = (trig_time, '[s] MET TRIGger Time')
-    hdr['DATETRIG'] = (f'{met2utc(trig_time):.23}', 'Corrected UTC date of the trigger')
-    hdr['BRA_OBJ'] = (ra_obj, '[deg] BAT RA location of GRB or Object')
-    hdr['BDEC_OBJ'] = (dec_obj, '[deg] BAT DEC location of GRB or Object')
-    hdr['TRIGSTOP'] = (trig_stop, '[s] Trigger MET STOP time')
-    hdr['BACKSTRT'] = (0.0, '[s] BACKground STaRT time')
-    hdr['BACKSTOP'] = (0.0, '[s] BACKground STOP time')
-    hdr['IMAGETRG'] = ('T', 'Image Trigger occured?')
+    hdr["CREATOR"] = ("BatAnalysis", " Program that created FITS file")
+    hdr["OBS_ID"] = (obs_id, "Observation ID")
+    hdr["TARG_ID"] = (trig_id, "Target ID")
+    hdr["TRIGGER"] = (trig_id, "Trigger Number")
+    hdr["TRIGTIME"] = (trig_time, "[s] MET TRIGger Time")
+    hdr["DATETRIG"] = (f"{met2utc(trig_time):.23}", "Corrected UTC date of the trigger")
+    hdr["BRA_OBJ"] = (ra_obj, "[deg] BAT RA location of GRB or Object")
+    hdr["BDEC_OBJ"] = (dec_obj, "[deg] BAT DEC location of GRB or Object")
+    hdr["TRIGSTOP"] = (trig_stop, "[s] Trigger MET STOP time")
+    hdr["BACKSTRT"] = (0.0, "[s] BACKground STaRT time")
+    hdr["BACKSTOP"] = (0.0, "[s] BACKground STOP time")
+    hdr["IMAGETRG"] = ("T", "Image Trigger occured?")
 
     tdrss_header = fits.PrimaryHDU(header=hdr)
 

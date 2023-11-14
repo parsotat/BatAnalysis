@@ -3,10 +3,23 @@ This file holds convience functions for conveniently analyzing batches of observ
 """
 import os
 
-from .batlib import dirtest, datadir, calc_response, calculate_detection, fit_spectrum, download_swiftdata
+from .batlib import (
+    dirtest,
+    datadir,
+    calc_response,
+    calculate_detection,
+    fit_spectrum,
+    download_swiftdata,
+)
 from .batlib import combine_survey_lc as serial_combine_survey_lc
 from .bat_survey import MosaicBatSurvey, BatSurvey
-from .mosaic import _mosaic_loop, merge_mosaics, finalize_mosaic, read_correctionsmap, read_skygrids
+from .mosaic import (
+    _mosaic_loop,
+    merge_mosaics,
+    finalize_mosaic,
+    read_correctionsmap,
+    read_skygrids,
+)
 
 from joblib import Parallel, delayed
 from pathlib import Path
@@ -16,17 +29,27 @@ from astropy.table import Table, vstack
 import shutil
 import numpy as np
 
+
 def _remove_pfiles():
     """
     This function removes the pfiles located in ~/pfiles so there is no conflict with the pfiles when running things in parallel
     :return:
     """
-    direc=Path("~/pfiles").expanduser().resolve()
+    direc = Path("~/pfiles").expanduser().resolve()
 
     if len(sorted(direc.glob("*"))) > 0:
         os.system(f"rm {direc}/*")
 
-def _create_BatSurvey(obs_id, obs_dir=None, input_dict=None, recalc=False, load_dir=None, patt_noise_dir=None, verbose=False):
+
+def _create_BatSurvey(
+    obs_id,
+    obs_dir=None,
+    input_dict=None,
+    recalc=False,
+    load_dir=None,
+    patt_noise_dir=None,
+    verbose=False,
+):
     """
     The inner loop that attempts to run batsurvey on a survey observation ID. If ther eis a load file saved already, it
     will try to load the BATSurvey object otherwise it will call batsurvey. This will return a BATSurvey object if the
@@ -49,20 +72,36 @@ def _create_BatSurvey(obs_id, obs_dir=None, input_dict=None, recalc=False, load_
 
     print(f"Working on Obsid {obs_id}")
     try:
-        obs = BatSurvey(obs_id, obs_dir=obs_dir, recalc=recalc, load_dir=load_dir, input_dict=input_dict, verbose=verbose,\
-                        patt_noise_dir=patt_noise_dir)
-        #see if there is already a .pickle file, if there is not or if the user wants to recalc, then do the save
-        if not obs.result_dir.joinpath('batsurvey.pickle').exists() or recalc:
+        obs = BatSurvey(
+            obs_id,
+            obs_dir=obs_dir,
+            recalc=recalc,
+            load_dir=load_dir,
+            input_dict=input_dict,
+            verbose=verbose,
+            patt_noise_dir=patt_noise_dir,
+        )
+        # see if there is already a .pickle file, if there is not or if the user wants to recalc, then do the save
+        if not obs.result_dir.joinpath("batsurvey.pickle").exists() or recalc:
             obs.save()
     except ValueError as ve:
         print(f"{ve}")
-        obs=None
+        obs = None
 
     print(f"Done with Obsid {obs_id}")
 
     return obs
 
-def batsurvey_analysis(obs_id_list, input_dict=None, recalc=False, load_dir=None, patt_noise_dir=None, verbose=False, nprocs=1):
+
+def batsurvey_analysis(
+    obs_id_list,
+    input_dict=None,
+    recalc=False,
+    load_dir=None,
+    patt_noise_dir=None,
+    verbose=False,
+    nprocs=1,
+):
     """
     Calls batsurvey for a set of observation IDs. Can process the observations in parallel if nprocs does not equal one.
 
@@ -83,15 +122,36 @@ def batsurvey_analysis(obs_id_list, input_dict=None, recalc=False, load_dir=None
 
     _remove_pfiles()
 
-    obs=Parallel(n_jobs=nprocs)(delayed(_create_BatSurvey)(i, obs_dir=datadir(), recalc=recalc, load_dir=load_dir, input_dict=input_dict,
-                                                           patt_noise_dir=patt_noise_dir, verbose=verbose) for i in obs_id_list)
+    obs = Parallel(n_jobs=nprocs)(
+        delayed(_create_BatSurvey)(
+            i,
+            obs_dir=datadir(),
+            recalc=recalc,
+            load_dir=load_dir,
+            input_dict=input_dict,
+            patt_noise_dir=patt_noise_dir,
+            verbose=verbose,
+        )
+        for i in obs_id_list
+    )
 
-    final_obs=[i for i in obs if i is not None]
+    final_obs = [i for i in obs if i is not None]
 
     return final_obs
 
-def _spectrum_analysis(obs, source_name, recalc=False, generic_model=None, setPars=None, fit_iterations=1000, \
-                       use_cstat=True, ul_pl_index=2, nsigma=3,bkg_nsigma=5):
+
+def _spectrum_analysis(
+    obs,
+    source_name,
+    recalc=False,
+    generic_model=None,
+    setPars=None,
+    fit_iterations=1000,
+    use_cstat=True,
+    ul_pl_index=2,
+    nsigma=3,
+    bkg_nsigma=5,
+):
     """
     Calculate and fit a spectrum for a source at a single pointing.
 
@@ -117,25 +177,31 @@ def _spectrum_analysis(obs, source_name, recalc=False, generic_model=None, setPa
     """
 
     if recalc:
-        val=True
+        val = True
     else:
         try:
-            #otherwise check if theere are no pha files or no model_params key for any of the pointings
+            # otherwise check if theere are no pha files or no model_params key for any of the pointings
             pointing_id_test = 0
             for i in obs.get_pointing_ids():
-                pointing_id_test += ("model_params" in obs.get_pointing_info(i, source_name))
-            val=(len(obs.get_pha_filenames()) <= 0) or (len(obs.get_pointing_ids()) != pointing_id_test)
+                pointing_id_test += "model_params" in obs.get_pointing_info(
+                    i, source_name
+                )
+            val = (len(obs.get_pha_filenames()) <= 0) or (
+                len(obs.get_pointing_ids()) != pointing_id_test
+            )
 
-            #if this is true then we should set recalc=True to redo the calculations for this observation ID
+            # if this is true then we should set recalc=True to redo the calculations for this observation ID
             if val:
-                recalc=True
+                recalc = True
         except ValueError:
             val = True
 
-
     if val:
         if isinstance(obs, MosaicBatSurvey):
-            print("Running calculations for mosaic", obs.get_pointing_info("mosaic")["utc_time"])
+            print(
+                "Running calculations for mosaic",
+                obs.get_pointing_info("mosaic")["utc_time"],
+            )
         else:
             print("Running calculations for observation id", obs.obs_id)
 
@@ -146,38 +212,73 @@ def _spectrum_analysis(obs, source_name, recalc=False, generic_model=None, setPa
         try:
             obs.calculate_pha(id_list=source_name, clean_dir=recalc)
             pha_list = obs.get_pha_filenames(id_list=source_name)
-            if len(pha_list)>0:
+            if len(pha_list) > 0:
                 if not isinstance(obs, MosaicBatSurvey):
                     calc_response(pha_list)
 
                 # delete the upper limit key if necessary
                 for i in obs.get_pointing_ids():
                     try:
-                        obs.get_pointing_info(i, source_name).pop('nsigma_lg10flux_upperlim', None)
+                        obs.get_pointing_info(i, source_name).pop(
+                            "nsigma_lg10flux_upperlim", None
+                        )
                     except ValueError:
-                        #if the suorce doesnt exist, just continue
+                        # if the suorce doesnt exist, just continue
                         pass
 
-                 # Loop over individual PHA pointings
+                # Loop over individual PHA pointings
                 for pha in pha_list:
-                    fit_spectrum(pha, obs, use_cstat=use_cstat, plotting=False, verbose=False, generic_model=generic_model,setPars=setPars, fit_iterations=fit_iterations)
+                    fit_spectrum(
+                        pha,
+                        obs,
+                        use_cstat=use_cstat,
+                        plotting=False,
+                        verbose=False,
+                        generic_model=generic_model,
+                        setPars=setPars,
+                        fit_iterations=fit_iterations,
+                    )
 
-                calculate_detection(obs, source_name, pl_index=ul_pl_index, nsigma=nsigma,bkg_nsigma=bkg_nsigma, verbose=False)
+                calculate_detection(
+                    obs,
+                    source_name,
+                    pl_index=ul_pl_index,
+                    nsigma=nsigma,
+                    bkg_nsigma=bkg_nsigma,
+                    verbose=False,
+                )
                 obs.save()
             else:
-                print(f"The source {source_name} was not found in the image and thus does not have a PHA file to analyze.")
+                print(
+                    f"The source {source_name} was not found in the image and thus does not have a PHA file to analyze."
+                )
                 for i in obs.get_pointing_ids():
-                    obs.set_pointing_info(i, "model_params", None, source_id=source_name)
+                    obs.set_pointing_info(
+                        i, "model_params", None, source_id=source_name
+                    )
                 obs.save()
         except FileNotFoundError as e:
             print(e)
             print(
-                f'This means that the batsurvey script didnt deem there to be good enough statistics for {source_name} in this observation ID.')
+                f"This means that the batsurvey script didnt deem there to be good enough statistics for {source_name} in this observation ID."
+            )
 
     return obs
 
-def batspectrum_analysis(batsurvey_obs_list, source_name, recalc=False, generic_model=None,setPars=None, \
-                         fit_iterations=1000, use_cstat=True, ul_pl_index=2, nsigma=3,bkg_nsigma=5, nprocs=1):
+
+def batspectrum_analysis(
+    batsurvey_obs_list,
+    source_name,
+    recalc=False,
+    generic_model=None,
+    setPars=None,
+    fit_iterations=1000,
+    use_cstat=True,
+    ul_pl_index=2,
+    nsigma=3,
+    bkg_nsigma=5,
+    nprocs=1,
+):
     """
     Calculates and fits the spectra for a single source across many BAT Survey observations in parallel.
 
@@ -208,20 +309,41 @@ def batspectrum_analysis(batsurvey_obs_list, source_name, recalc=False, generic_
 
     not_list = False
     if type(batsurvey_obs_list) is not list:
-        not_list=True
-        batsurvey_obs_list=[batsurvey_obs_list]
+        not_list = True
+        batsurvey_obs_list = [batsurvey_obs_list]
 
-    obs=Parallel(n_jobs=nprocs)(
-        delayed(_spectrum_analysis)(i, source_name=source_name, recalc=recalc, use_cstat=use_cstat, generic_model=generic_model,\
-                                    setPars=setPars, fit_iterations=fit_iterations, ul_pl_index=ul_pl_index, nsigma=nsigma,bkg_nsigma=bkg_nsigma) for i in batsurvey_obs_list)
+    obs = Parallel(n_jobs=nprocs)(
+        delayed(_spectrum_analysis)(
+            i,
+            source_name=source_name,
+            recalc=recalc,
+            use_cstat=use_cstat,
+            generic_model=generic_model,
+            setPars=setPars,
+            fit_iterations=fit_iterations,
+            ul_pl_index=ul_pl_index,
+            nsigma=nsigma,
+            bkg_nsigma=bkg_nsigma,
+        )
+        for i in batsurvey_obs_list
+    )
 
-    #if this wasnt a list, just return the single object otherwise return the list
+    # if this wasnt a list, just return the single object otherwise return the list
     if not_list:
         return obs[0]
     else:
         return obs
 
-def batmosaic_analysis(batsurvey_obs_list, outventory_file, time_bins, catalog_file=None, total_mosaic_savedir=None, recalc=False, nprocs=1):
+
+def batmosaic_analysis(
+    batsurvey_obs_list,
+    outventory_file,
+    time_bins,
+    catalog_file=None,
+    total_mosaic_savedir=None,
+    recalc=False,
+    nprocs=1,
+):
     """
     Calculates the mosaic images in parallel.
 
@@ -252,23 +374,36 @@ def batmosaic_analysis(batsurvey_obs_list, outventory_file, time_bins, catalog_f
     corrections_map = read_correctionsmap()
     ra_skygrid, dec_skygrid = read_skygrids()
 
-    #get the lower and upper time limits
-    start_t=time_bins[:-1]
-    end_t=time_bins[1:]
+    # get the lower and upper time limits
+    start_t = time_bins[:-1]
+    end_t = time_bins[1:]
 
     if recalc:
-        #make sure that the time bins are cleared
+        # make sure that the time bins are cleared
         for i in start_t:
-            binned_savedir = outventory_file.parent.joinpath(f"mosaic_{i.astype('datetime64[D]')}")
+            binned_savedir = outventory_file.parent.joinpath(
+                f"mosaic_{i.astype('datetime64[D]')}"
+            )
             dirtest(binned_savedir)
 
-    all_mosaic_survey=Parallel(n_jobs=nprocs)(
-        delayed(_mosaic_loop)(outventory_file, start, end, corrections_map, ra_skygrid, dec_skygrid, batsurvey_obs_list, \
-                              recalc=recalc, verbose=True) for start, end in zip(start_t, end_t))    #i in range(len(start_t)))
+    all_mosaic_survey = Parallel(n_jobs=nprocs)(
+        delayed(_mosaic_loop)(
+            outventory_file,
+            start,
+            end,
+            corrections_map,
+            ra_skygrid,
+            dec_skygrid,
+            batsurvey_obs_list,
+            recalc=recalc,
+            verbose=True,
+        )
+        for start, end in zip(start_t, end_t)
+    )  # i in range(len(start_t)))
 
-    final_mosaics=[i for i in all_mosaic_survey if i is not None]
+    final_mosaics = [i for i in all_mosaic_survey if i is not None]
 
-    #if batcelldetect hasnt been run yet do so
+    # if batcelldetect hasnt been run yet do so
     for i in final_mosaics:
         if not i.result_dir.joinpath("sources_tot.cat").exists():
             i.detect_sources(catalog_file=catalog_file)
@@ -276,20 +411,24 @@ def batmosaic_analysis(batsurvey_obs_list, outventory_file, time_bins, catalog_f
 
     intermediate_mosaic_dir_list = [i.result_dir for i in final_mosaics]
 
-    #see if the total mosaic has been created and saved (ie there is a .batsurvey file in that directory) if there isnt,
+    # see if the total mosaic has been created and saved (ie there is a .batsurvey file in that directory) if there isnt,
     # then do the full calculation or if we set recalc=True then also do the full calculation
     if total_mosaic_savedir is None:
-        total_mosaic_savedir=intermediate_mosaic_dir_list[0].parent.joinpath("total_mosaic")
+        total_mosaic_savedir = intermediate_mosaic_dir_list[0].parent.joinpath(
+            "total_mosaic"
+        )
     else:
-        total_mosaic_savedir=Path(total_mosaic_savedir)
+        total_mosaic_savedir = Path(total_mosaic_savedir)
 
-    if not total_mosaic_savedir.joinpath('batsurvey.pickle').exists() or recalc:
-        #merge all the mosaics together to get the full 'time integrated' images and convert to final files with proper units
-        total_dir=merge_mosaics(intermediate_mosaic_dir_list, savedir=total_mosaic_savedir)
+    if not total_mosaic_savedir.joinpath("batsurvey.pickle").exists() or recalc:
+        # merge all the mosaics together to get the full 'time integrated' images and convert to final files with proper units
+        total_dir = merge_mosaics(
+            intermediate_mosaic_dir_list, savedir=total_mosaic_savedir
+        )
         finalize_mosaic(total_dir)
         total_mosaic = MosaicBatSurvey(total_dir)
     else:
-        total_mosaic=MosaicBatSurvey(total_mosaic_savedir)
+        total_mosaic = MosaicBatSurvey(total_mosaic_savedir)
 
     # if batcelldetect hasnt been run yet do so
     if not total_mosaic.result_dir.joinpath("sources_tot.cat").exists():
@@ -297,6 +436,7 @@ def batmosaic_analysis(batsurvey_obs_list, outventory_file, time_bins, catalog_f
         total_mosaic.save()
 
     return final_mosaics, total_mosaic
+
 
 """
 def download_swiftdata(table,  reload=False,
@@ -310,75 +450,94 @@ def download_swiftdata(table,  reload=False,
 
     return download_status
 """
-def download_swiftdata(table,  reload=False,
-                        bat=True, auxil=True, log=False, uvot=False, xrt=False,
-                        save_dir=None, nprocs=1):
 
 
-    #create temporary functions that will be called separately to download the data
-    dl = lambda x: download_swiftdata(x,  reload=reload,
-                        bat=bat, auxil=auxil, log=log, uvot=uvot, xrt=xrt,
-                        save_dir=save_dir)
+def download_swiftdata(
+    table,
+    reload=False,
+    bat=True,
+    auxil=True,
+    log=False,
+    uvot=False,
+    xrt=False,
+    save_dir=None,
+    nprocs=1,
+):
+    # create temporary functions that will be called separately to download the data
+    dl = lambda x: download_swiftdata(
+        x,
+        reload=reload,
+        bat=bat,
+        auxil=auxil,
+        log=log,
+        uvot=uvot,
+        xrt=xrt,
+        save_dir=save_dir,
+    )
 
     # Run the function threaded. nprocs at a time.
     results = ThreadPool(nprocs).imap_unordered(dl, table)
 
-    #combine the results into a dictionary that is typically output from download_swiftdata
-    all_results={}
+    # combine the results into a dictionary that is typically output from download_swiftdata
+    all_results = {}
     for i in results:
         all_results.update(i)
 
     return all_results
 
-def combine_survey_lc(survey_obsid_list, output_dir=None, clean_dir=True, nprocs=1):
 
+def combine_survey_lc(survey_obsid_list, output_dir=None, clean_dir=True, nprocs=1):
     if type(survey_obsid_list) is not list:
         survey_obsid_list = [survey_obsid_list]
 
-    #create a list of subdirectories to hold parallelized catmux results
-    sub_dirs=[survey_obsid_list[0].result_dir.parent.joinpath(f"total_lc_{i}") for i in range(nprocs)]
+    # create a list of subdirectories to hold parallelized catmux results
+    sub_dirs = [
+        survey_obsid_list[0].result_dir.parent.joinpath(f"total_lc_{i}")
+        for i in range(nprocs)
+    ]
 
-    #setup the lc_dir
+    # setup the lc_dir
     if output_dir is None:
-        lc_dir=survey_obsid_list[0].result_dir.parent.joinpath("total_lc")
+        lc_dir = survey_obsid_list[0].result_dir.parent.joinpath("total_lc")
     else:
-        lc_dir=Path(output_dir)
+        lc_dir = Path(output_dir)
 
-    #reset/make the lc_dir if necessary
+    # reset/make the lc_dir if necessary
     dirtest(lc_dir, clean_dir=clean_dir)
 
-    #create a list of sublists of the observations
-    sublist=np.array_split(survey_obsid_list, nprocs)
+    # create a list of sublists of the observations
+    sublist = np.array_split(survey_obsid_list, nprocs)
 
-    #combine the subsets of survey data
-    all_catmux=Parallel(n_jobs=nprocs)(
-        delayed(serial_combine_survey_lc)(list(surveys), output_dir=direc, clean_dir=clean_dir) for direc, surveys in zip(sub_dirs, sublist))    #i in range(len(start_t)))
+    # combine the subsets of survey data
+    all_catmux = Parallel(n_jobs=nprocs)(
+        delayed(serial_combine_survey_lc)(
+            list(surveys), output_dir=direc, clean_dir=clean_dir
+        )
+        for direc, surveys in zip(sub_dirs, sublist)
+    )  # i in range(len(start_t)))
 
-
-    #combine the files in the subdirectories
-    source_names=[]
+    # combine the files in the subdirectories
+    source_names = []
     for i in sub_dirs:
-        files=sorted(list(i.glob("*.cat")))
+        files = sorted(list(i.glob("*.cat")))
         for j in files:
             source_names.append(j.name)
 
-    #get the unique file names
-    uniq_source_names=np.unique(source_names)
-    #data=dict().fromkeys(list(uniq_source_names)) maybe dont need this
+    # get the unique file names
+    uniq_source_names = np.unique(source_names)
+    # data=dict().fromkeys(list(uniq_source_names)) maybe dont need this
 
-    #concatenate the subdirectories
+    # concatenate the subdirectories
     for name in uniq_source_names:
-        data=[]
+        data = []
         for i in sub_dirs:
             if i.joinpath(f"{name}").exists():
                 data.append(Table.read(i.joinpath(f"{name}")))
-        all_data=vstack(data)
+        all_data = vstack(data)
         all_data.write(lc_dir.joinpath(f"{name}"), format="fits")
 
-    #remove the subdirectories
+    # remove the subdirectories
     for i in sub_dirs:
         shutil.rmtree(i)
 
     return lc_dir
-
-

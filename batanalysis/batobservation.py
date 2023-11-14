@@ -27,12 +27,11 @@ except ModuleNotFoundError as err:
     # Error handling
     print(err)
 
-#try:
-    #import xspec as xsp
-#except ModuleNotFoundError as err:
-    # Error handling
-    #print(err)
-
+# try:
+# import xspec as xsp
+# except ModuleNotFoundError as err:
+# Error handling
+# print(err)
 
 
 class BatObservation(object):
@@ -40,6 +39,7 @@ class BatObservation(object):
     A general Bat Observation object that holds information about the observation ID and the directory of the observation
     ID. This class ensures that the observation ID directory exists and throws an error if it does not.
     """
+
     def __init__(self, obs_id, obs_dir=None):
         """
         Constructor for the BatObservation object.
@@ -53,21 +53,25 @@ class BatObservation(object):
             obs_dir = Path(obs_dir).expanduser().resolve()
             # the use has provided a directory to where the bat observation id folder is kept
             # test to see if the folder exists there
-            if  obs_dir.joinpath(self.obs_id).is_dir():
-                self.obs_dir = obs_dir.joinpath(self.obs_id) # os.path.join(obs_dir , self.obs_id)
+            if obs_dir.joinpath(self.obs_id).is_dir():
+                self.obs_dir = obs_dir.joinpath(
+                    self.obs_id
+                )  # os.path.join(obs_dir , self.obs_id)
             else:
                 raise FileNotFoundError(
-                    'The directory %s does not contain the observation data corresponding to ID: %s' % (obs_dir, self.obs_id))
+                    "The directory %s does not contain the observation data corresponding to ID: %s"
+                    % (obs_dir, self.obs_id)
+                )
         else:
-            obs_dir = datadir()  #Path.cwd()
+            obs_dir = datadir()  # Path.cwd()
 
             if obs_dir.joinpath(self.obs_id).is_dir():
-                #os.path.isdir(os.path.join(obs_dir , self.obs_id)):
-                self.obs_dir = obs_dir.joinpath(self.obs_id) #self.obs_dir = os.path.join(obs_dir , self.obs_id)
+                # os.path.isdir(os.path.join(obs_dir , self.obs_id)):
+                self.obs_dir = obs_dir.joinpath(
+                    self.obs_id
+                )  # self.obs_dir = os.path.join(obs_dir , self.obs_id)
             else:
-                raise FileNotFoundError('The directory %s does not contain the observation data correponding to ID: %s' % (obs_dir, self.obs_id))
-
-
-
-
-
+                raise FileNotFoundError(
+                    "The directory %s does not contain the observation data correponding to ID: %s"
+                    % (obs_dir, self.obs_id)
+                )
