@@ -539,6 +539,7 @@ class BatEvent(BatObservation):
 
         raise NotImplementedError("Creating a spectrum has not yet been implemented.")
 
+        self.spectrum=spectrum
 
 
         return None

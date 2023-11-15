@@ -6,7 +6,7 @@ Tyler Parsotan Jan 24 2022
 import os
 import shutil
 import sys
-from .batlib import datadir, dirtest, met2mjd, met2utc, create_gti_file
+from .batlib import datadir, dirtest, met2mjd, met2utc, create_gti_file, calc_response
 import glob
 from astropy.io import fits
 import numpy as np
@@ -1161,3 +1161,31 @@ class Spectrum(BatObservation):
         except Exception as e:
             print(e)
             raise RuntimeError(f"The call to Heasoft batbinevt failed with inputs {input_dict}.")
+
+    def _call_batphasyserr(self):
+        """
+        Calls heasoftpy's batphasyserr which applies systematic errors to the 80 channel PHA spectrum. The systematic
+        errors live in CALDB at: https://heasarc.gsfc.nasa.gov/FTP/caldb/data/swift/bat/cpf/swbsyserr20030101v003.fits
+
+        :return:
+        """
+        return None
+
+    def _call_batupdatephakw(self):
+        """
+        Calls heasoftpy's batupdatephakw which applies geometrical corrections to the PHA spectrum which is especially
+        important is BAT is slewing during an observation and the source position is changing.
+
+        :return:
+        """
+
+        return None
+
+    def _call_batdrmgen(self):
+        """
+        This calls heasoftpy's batdrmgen which produces the associated drm for fitting the PHA file.
+
+        :return:
+        """
+
+        return calc_response()
