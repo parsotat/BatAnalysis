@@ -530,12 +530,35 @@ class BatEvent(BatObservation):
         """
         This method returns a spectrum object.
 
-        TODO: apply keyword correction for spectrum file (using the auxfile) via batupdatephakw
-        TODO: apply systematic error for spectrum file  via batphasyserr
-
         :param kwargs:
         :return:
         """
+        #batbinevt infile=sw00145675000bevshsp_uf.evt.gz outfile=onesec.lc outtype=PHA
+        # timedel=0.0 timebinalg=u energybins=CALDB
+        # detmask=../hk/sw00145675000bcbdq.hk.gz clobber=YES
+
+        if pha_file is None:
+            if not recalc:
+                #make up a name for the light curve that hasnt been used already in the LC directory
+                pha_file=list(self.result_dir.joinpath("pha").glob("*.pha"))
+                base="spectrum_"
+                count=0
+                while f"{base}{count}.lc" in pha_file:
+                    count+=1
+                pha_file=self.result_dir.joinpath("pha").joinpath(f"{base}{count}.pha")
+            else:
+                pha_files = list(self.result_dir.joinpath("pha").glob("*.pha"))
+                if len(pha_files)==1:
+                    outfile=pha_files[0]
+                else:
+                    raise ValueError(f"There are too many files which meet the criteria to be loaded. Please specify one of {pha_files}.")
+        else:
+            pha_file=Path(pha_file).expanduser().resolve()
+
+
+
+        spectrum = Spectrum(pha_file, self.event_files, self.detector_quality_file, self.auxil_raytracing_file, recalc=recalc)
+
 
         raise NotImplementedError("Creating a spectrum has not yet been implemented.")
 
