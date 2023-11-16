@@ -164,7 +164,7 @@ class Lightcurve(BatObservation):
     """
 
 
-    def __init__(self, event_file,  lightcurve_file, detector_quality_mask, ra=None, dec=None, lc_input_dict=None,
+    def __init__(self, lightcurve_file, event_file, detector_quality_mask, ra=None, dec=None, lc_input_dict=None,
                  recalc=False, mask_weighting=True):
         """
         This constructor either creates a lightcurve fits file based off of a passed in event file where mask weighting
@@ -1131,7 +1131,7 @@ class Lightcurve(BatObservation):
         self.tdurs[duration_str]["TSTOP"] = tstop
 
 class Spectrum(BatObservation):
-    def __init__(self, event_file,  pha_file, detector_quality_mask, ra=None, dec=None, pha_input_dict=None, recalc=False, mask_weighting=True):
+    def __init__(self, pha_file, event_file, detector_quality_mask, auxiliary_file, ra=None, dec=None, pha_input_dict=None, recalc=False, mask_weighting=True):
         """
 
         :param event_file:

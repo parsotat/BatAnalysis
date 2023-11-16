@@ -518,7 +518,7 @@ class BatEvent(BatObservation):
             lc_file=Path(lc_file).expanduser().resolve()
 
 
-        lc = Lightcurve(self.event_files, lc_file, self.detector_quality_file, recalc=recalc, mask_weighting=mask_weighting)
+        lc = Lightcurve(lc_file, self.event_files, self.detector_quality_file, recalc=recalc, mask_weighting=mask_weighting)
         lc.set_timebins(timebinalg=timebinalg, timedelta=timedelta, tmin=tstart, tmax=tstop)
         lc.set_energybins(energybins=energybins)
 
