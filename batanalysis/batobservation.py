@@ -1167,7 +1167,7 @@ class Spectrum(BatObservation):
                 self.pha_input_dict = dict(infile=str(self.event_file), outfile=str(self.pha_file), outtype="PHA",
                               energybins="CALDB", weighted="YES", timedel=0.0,
                               detmask=str(self.detector_quality_mask),
-                              tstart="INDEF", tstop="INDEF", clobber="YES")
+                              tstart="INDEF", tstop="INDEF", clobber="YES", timebinalg="uniform")
 
             else:
                 self.pha_input_dict = pha_input_dict
@@ -1338,12 +1338,8 @@ class Spectrum(BatObservation):
         :return: None
         """
 
-        #error checking for calc_energy_integrated
-        if type(calc_energy_integrated) is not bool:
-            raise ValueError("The calc_energy_integrated parameter should be a boolean value.")
 
-
-        with fits.open(self.lightcurve_file) as f:
+        with fits.open(self.pha_file) as f:
             header=f[1].header
             data=f[1].data
             energies=f["EBOUNDS"].data

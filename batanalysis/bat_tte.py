@@ -477,6 +477,14 @@ class BatEvent(BatObservation):
                 for i in file:
                     i.header["RA_OBJ"]=self.ra
                     i.header["DEC_OBJ"]=self.dec
+
+                    #the BAT_RA/BAT_DEC keys have to updated too since this is something
+                    #that the software manual points out should be updated
+                    i.header["BAT_RA"]=self.ra
+                    i.header["BAT_DEC"]=self.dec
+
+
+
                 file.flush()
 
         #reread in the event file data
