@@ -914,7 +914,7 @@ class Lightcurve(BatObservation):
 
         if plot_exposure_fraction:
             ax_exposure.plot(times, self.data["FRACEXP"], ds='steps-mid')
-            ax_count.set_ylabel('Fractional Exposure')
+            ax_exposure.set_ylabel('Fractional Exposure')
 
         if T0 is not None and not plot_relative:
             #plot the trigger time for all panels if we dont want the plotted times to be relative
