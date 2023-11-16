@@ -210,6 +210,10 @@ class Lightcurve(BatObservation):
             Setting mask_weighting=False in this case ignores the position of the source and allows the pure rates/counts
             to be calculated.
         """
+        #NOTE: Lots of similarities here as with the spectrum since we are using batbinevt as the base. If there are any
+        #issues with the lightcurve object, then we should make sure that these same problems do not occur in the
+        #spectrum object and vice versa
+
 
 
         #save these variables
@@ -1131,19 +1135,82 @@ class Lightcurve(BatObservation):
         self.tdurs[duration_str]["TSTOP"] = tstop
 
 class Spectrum(BatObservation):
-    def __init__(self, pha_file, event_file, detector_quality_mask, auxiliary_file, ra=None, dec=None, pha_input_dict=None, recalc=False, mask_weighting=True):
+    def __init__(self, pha_file, event_file, detector_quality_mask, auxil_raytracing_file, ra=None, dec=None,
+                 pha_input_dict=None, recalc=False):
         """
 
-        :param event_file:
         :param pha_file:
+        :param event_file:
         :param detector_quality_mask:
+        :param auxiliary_file:
         :param ra:
         :param dec:
         :param pha_input_dict:
         :param recalc:
         :param mask_weighting:
         """
-        stop
+        #NOTE: Lots of similarities here as with the lightcurve since we are using batbinevt as the base. If there are any
+        #issues with the lightcurve object, then we should make sure that these same problems do not occur in the
+        #spectrum object and vice versa
+
+        #save these variables
+        self.pha_file = Path(pha_file).expanduser().resolve()
+        self.event_file = Path(event_file).expanduser().resolve()
+        self.detector_quality_mask = Path(detector_quality_mask).expanduser().resolve()
+        self.auxil_raytracing_file = Path(auxil_raytracing_file).expanduser().resolve()
+
+        #need to see if we have to construct the lightcurve if the file doesnt exist
+        if not self.pha_file.exists() or recalc:
+            #see if the input dict is None so we can set these defaults, otherwise save the requested inputs for use later
+            if pha_input_dict is None:
+                self.pha_input_dict = dict(infile=str(self.event_file), outfile=str(self.lightcurve_file), outtype="PHA",
+                              energybins="15-350", weighted="YES", timedel=0.064,
+                              detmask=str(self.detector_quality_mask),
+                              tstart="INDEF", tstop="INDEF", clobber="YES", timebinalg="uniform")
+
+            else:
+                self.pha_input_dict = pha_input_dict
+
+            #create the pha
+            self._create_pha(self.pha_input_dict)
+        else:
+            #set the self.lc_input_dict = None so the parsing of the pha file tries to also load in the
+            #parameters passed into batbinevt to create the pha file
+            #try to parse the existing pha file to see what parameters were passed to batbinevt to construct the file
+            self.pha_input_dict = None
+
+        #set default RA/DEC coordinates correcpondent to the LC file which will be filled in later if it is set to None
+        self.lc_ra = ra
+        self.lc_dec = dec
+
+        #read info from the lightcurve file
+        self._parse_pha_file()
+
+        #read in the information about the weights
+        self._get_event_weights()
+
+        #were done getting all the info that we need. From here, the user can rebin the timebins and the energy bins
+
+    def _create_pha(self, batbinevt_input_dict):
+        """
+        This method calls all necessary bits of creating a PHA file:
+        _call_batbinevt, _call_batphasyserr, & _call_batupdatephakw.
+
+        :param batbinevt_input_dict:
+        :return: None
+        """
+
+        # create the pha
+        self.bat_pha_result = self._call_batbinevt(batbinevt_input_dict)
+
+        # make sure that this calculation ran successfully
+        if self.bat_pha_result.returncode != 0:
+            raise RuntimeError(f'The creation of the PHA file failed with message: {lc.bat_pha_result.output}')
+        else:
+            self._call_batphasyserr()
+            self._call_batupdatephakw()
+
+
 
     def _call_batbinevt(self, input_dict):
         """
@@ -1169,7 +1236,13 @@ class Spectrum(BatObservation):
 
         :return:
         """
-        return None
+        input_dict=dict(infile=str(self.pha_file), syserrfile="CALDB")
+
+        try:
+            return hsp.batphasyserr(**input_dict)
+        except Exception as e:
+            print(e)
+            raise RuntimeError(f"The call to Heasoft batphasyserr failed with inputs {input_dict}.")
 
     def _call_batupdatephakw(self):
         """
@@ -1179,7 +1252,13 @@ class Spectrum(BatObservation):
         :return:
         """
 
-        return None
+        input_dict=dict(infile=str(self.pha_file), auxfile=str(self.auxil_raytracing_file))
+
+        try:
+            return hsp.batupdatephakw(**input_dict)
+        except Exception as e:
+            print(e)
+            raise RuntimeError(f"The call to Heasoft batupdatephakw failed with inputs {input_dict}.")
 
     def _call_batdrmgen(self):
         """
