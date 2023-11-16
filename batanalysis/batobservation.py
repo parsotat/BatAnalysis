@@ -1344,6 +1344,7 @@ class Spectrum(BatObservation):
             data=f[1].data
             energies=f["EBOUNDS"].data
             energies_header=f["EBOUNDS"].header
+            times=f["STDGTI"].data
 
         if self.lc_ra is None and self.lc_dec is None:
             self.lc_ra = header["RA_OBJ"]
@@ -1368,64 +1369,62 @@ class Spectrum(BatObservation):
                 self.ebins[i.name]=u.Quantity(energies[i.name], i.unit)
 
         #fill in the time info separately
-        timepixr=header["TIMEPIXR"]
-        #see if there is a time delta column exists for variable time bin widths
-        if "TIMEDEL" not in self.data.keys():
-            dt=header["TIMEDEL"]*u.s
-        else:
-            dt=self.data["TIMEDEL"]
-
-
         self.tbins = {}
-        #see https://heasarc.gsfc.nasa.gov/ftools/caldb/help/batbinevt.html
-        self.tbins["TIME_CENT"] = self.data["TIME"] + (0.5-timepixr)*dt
-        self.tbins["TIME_START"] = self.data["TIME"] - timepixr*dt
-        self.tbins["TIME_STOP"] = self.data["TIME"] + (1-timepixr)*dt
 
-        #if self.lc_input_dict ==None, then we will need to try to read in the hisotry of parameters passed into batbinevt
-        # to create the lightcurve file. thsi usually is needed when we first parse a file so we know what things are if we need to
+        #if there is only 1 time bin (and one spectrum) this is sufficient
+        #see https://heasarc.gsfc.nasa.gov/ftools/caldb/help/batbinevt.html
+        #also convert START/STOP to TSTART/TSTOP for consistency between classes
+        for i in times.columns:
+            self.tbins[f"T{i.name}"] = u.Quantity(times[i.name], i.unit)
+
+        #if there are many timebins then the different timebins are contained in the data variable
+        # TODO: Add code to read in timebins for multiple timebins specified
+
+        #if self.pha_input_dict ==None, then we will need to try to read in the hisotry of parameters passed into batbinevt
+        # to create the pha file. thsi usually is needed when we first parse a file so we know what things are if we need to
         # do some sort of rebinning.
 
         #were looking for something like:
-        # START PARAMETER list for batbinevt_1.48 at 2023-11-01T20:38:05
+        #   START PARAMETER list for batbinevt_1.48 at 2023-11-16T18:47:52
         #
-        # P1 infile = /Users/tparsota/Documents/01116441000_eventresult/events/sw0
-        # P1 1116441000bevshsp_uf.evt
-        # P2 outfile = 01116441000_eventresult/lc/lightcurve_0.lc
-        # P3 outtype = LC
-        # P4 timedel = 0.064
-        # P5 timebinalg = uniform
-        # P6 energybins = 15-350
-        # P7 gtifile = NONE
-        # P8 ecol = ENERGY
-        # P9 weighted = YES
-        # P10 outunits = INDEF
-        # P11 timepixr = -1.0
-        # P12 maskwt = NONE
-        # P13 tstart = INDEF
-        # P14 tstop = INDEF
-        # P15 snrthresh = 6.0
-        # P16 detmask = /Users/tparsota/Documents/01116441000_eventresult/auxil/sw
-        # P16 01116441000bdqcb.hk.gz
-        # P17 tcol = TIME
-        # P18 countscol = DPH_COUNTS
-        # P19 xcol = DETX
-        # P20 ycol = DETY
-        # P21 maskwtcol = MASK_WEIGHT
-        # P22 ebinquant = 0.1
-        # P23 delzeroes = no
-        # P24 minfracexp = 0.1
-        # P25 min_dph_frac_overlap = 0.999
-        # P26 min_dph_time_overlap = 0.0
-        # P27 max_dph_time_nonoverlap = 0.5
-        # P28 buffersize = 16384
-        # P29 clobber = yes
-        # P30 chatter = 2
-        # P31 history = yes
-        # P32 mode = ql
-        # END PARAMETER list for batbinevt_1.48
+        #   P1 infile = /Users/tparsota/Documents/01116441000_eventresult/events/sw0
+        #   P1 1116441000bevshsp_uf.evt
+        #   P2 outfile = /Users/tparsota/Documents/01116441000_eventresult/pha/spect
+        #   P2 rum_0.pha
+        #   P3 outtype = PHA
+        #   P4 timedel = 0.0
+        #   P5 timebinalg = uniform
+        #   P6 energybins = CALDB
+        #   P7 gtifile = NONE
+        #   P8 ecol = ENERGY
+        #   P9 weighted = YES
+        #   P10 outunits = INDEF
+        #   P11 timepixr = -1.0
+        #   P12 maskwt = NONE
+        #   P13 tstart = INDEF
+        #   P14 tstop = INDEF
+        #   P15 snrthresh = 6.0
+        #   P16 detmask = /Users/tparsota/Documents/01116441000_eventresult/auxil/sw
+        #   P16 01116441000bdqcb.hk.gz
+        #   P17 tcol = TIME
+        #   P18 countscol = DPH_COUNTS
+        #   P19 xcol = DETX
+        #   P20 ycol = DETY
+        #   P21 maskwtcol = MASK_WEIGHT
+        #   P22 ebinquant = 0.1
+        #   P23 delzeroes = no
+        #   P24 minfracexp = 0.1
+        #   P25 min_dph_frac_overlap = 0.999
+        #   P26 min_dph_time_overlap = 0.0
+        #   P27 max_dph_time_nonoverlap = 0.5
+        #   P28 buffersize = 16384
+        #   P29 clobber = yes
+        #   P30 chatter = 2
+        #   P31 history = yes
+        #   P32 mode = ql
+        #   END PARAMETER list for batbinevt_1.48
 
-        if self.lc_input_dict is None:
+        if self.pha_input_dict is None:
             #get the default names of the parameters for batbinevt including its name 9which should never change)
             test = hsp.HSPTask('batbinevt')
             default_params_dict=test.default_params.copy()
@@ -1454,9 +1453,7 @@ class Spectrum(BatObservation):
 
                     old_parameter=parameter
 
-            self.lc_input_dict = default_params_dict.copy()
+            self.pha_input_dict = default_params_dict.copy()
 
-        if calc_energy_integrated:
-            self._calc_energy_integrated()
 
 
