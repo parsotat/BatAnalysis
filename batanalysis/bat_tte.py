@@ -14,7 +14,7 @@ import sys
 import batanalysis
 
 from .batlib import datadir, dirtest, met2mjd, met2utc
-from .batobservation import BatObservation, Lightcurve
+from .batobservation import BatObservation, Lightcurve, Spectrum
 import glob
 from astropy.io import fits
 import numpy as np
@@ -526,7 +526,9 @@ class BatEvent(BatObservation):
 
         return None
 
-    def create_pha(self, **kwargs):
+    def create_pha(self, pha_file=None, timedelta=np.timedelta64(64, 'ms'), tstart=None, tstop=None,
+                    energybins=["15-25", "25-50", "50-100", "100-350"], recalc=True, mask_weighting=True,
+                    timebinalg="uniform"):
         """
         This method returns a spectrum object.
 
