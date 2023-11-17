@@ -1633,6 +1633,7 @@ class Spectrum(BatObservation):
             #also convert START/STOP to TIME_START/TIME_STOP for consistency between classes
             for i in times.columns:
                 self.tbins[f"TIME_{i.name}"] = u.Quantity(times[i.name], i.unit)
+            self.tbins["TIME_CENT"] = 0.5*(self.tbins[f"TIME_START"]+self.tbins[f"TIME_STOP"])
 
         #if self.pha_input_dict ==None, then we will need to try to read in the hisotry of parameters passed into batbinevt
         # to create the pha file. thsi usually is needed when we first parse a file so we know what things are if we need to
@@ -1733,3 +1734,14 @@ class Spectrum(BatObservation):
 
         return create_gti_file(timebins, output_file, T0=None, is_relative=False, overwrite=True)
 
+    def get_spectrum(self):
+        """
+        This method allows a user to get the spectrum that they specify. If there is just one spectrum (for one timebin)
+        Then this is the only spectrum to return by default. If there is more than one spectrum (for multiple time bins)
+        then the user has to specify which spectrum they want.
+
+        :return:
+        """
+
+        if self.tbins['TIME_CENT']:
+            stop
