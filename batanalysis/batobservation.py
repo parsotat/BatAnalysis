@@ -1378,9 +1378,6 @@ class Spectrum(BatObservation):
         :param emax: a list or a astropy.unit.Quantity object of 1 or more elements. These are the maximum edges of the
             energy bins that the user would like. It shoudl have the same number of elements as emin.
             NOTE: If emin/emax are specified, the energybins parameter is ignored.
-        :param calc_energy_integrated: Boolean to denote wether the energy integrated light curve should be calculated
-            based off the min and max energies that were passed in. If a single energy bin is requested for the rebinning
-            then this argument does nothing.
         :return: None.
         """
 
@@ -1461,7 +1458,8 @@ class Spectrum(BatObservation):
             # all error handling is in _create_pha so we are all good if we get here to save the dict
             self.pha_input_dict = tmp_pha_input_dict
 
-
+            # reparse the pha file to get the info
+            self._parse_pha_file()
 
     def _call_batbinevt(self, input_dict):
         """
@@ -1734,3 +1732,4 @@ class Spectrum(BatObservation):
             output_file=Path(*new_path[:self.lightcurve_file.parts.index('pha')]).joinpath("gti").joinpath(new_name)
 
         return create_gti_file(timebins, output_file, T0=None, is_relative=False, overwrite=True)
+
