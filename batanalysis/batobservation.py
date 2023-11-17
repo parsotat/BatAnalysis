@@ -1202,14 +1202,262 @@ class Spectrum(BatObservation):
         """
 
         # create the pha
-        self.bat_pha_result = self._call_batbinevt(batbinevt_input_dict)
+        tmp_bat_pha_result = self._call_batbinevt(batbinevt_input_dict)
 
         # make sure that this calculation ran successfully
-        if self.bat_pha_result.returncode != 0:
+        if tmp_bat_pha_result.returncode != 0:
             raise RuntimeError(f'The creation of the PHA file failed with message: {lc.bat_pha_result.output}')
         else:
+            self.bat_pha_result = tmp_bat_pha_result
             self._call_batphasyserr()
             self._call_batupdatephakw()
+
+    @u.quantity_input(timebins=['time'], tmin=['time'], tmax=['time'])
+    def set_timebins(self, timebinalg="uniform", timebins=None, tmin=None, tmax=None, T0=None, is_relative=False,
+                       timedelta=np.timedelta64(64, 'ms'), snrthresh=None):
+        """
+        This method allows for the rebinning of the lightcurve in time. The timebins can be uniform, snr-based,
+        custom defined, or based on bayesian blocks (using battblocks). The time binning is done dymaically and the
+        information for the rebinned lightcurve is automatically updated in the data attribute (which holds the light
+        curve information itself including rates/counts, errors, fracitonal exposure, total counts, etc),
+        and the tbins attibute with the time bin edges and the time bin centers.
+
+        :param timebinalg: a string that can be set to "uniform", "snr", "highsnr", or "bayesian"
+            "uniform" will do a uniform time binning from the specified tmin to tmax with the size of the bin set by
+                the timedelta parameter.
+            "snr" will bin the lightcurve until a maximum snr threshold is achieved, as is specified by the snrthresh parameter,
+                or the width of the timebin becomes the size of timedelta
+            NOTE: more information can be found by looking at the HEASoft documentation for batbinevt and battblocks
+        :param timebins: astropy.units.Quantity denoting the array of time bin edges. Units will usually be in seconds
+            for this. The values can be relative to the specified T0. If so, then the T0 needs to be specified and
+            the is_relative parameter should be True.
+        :param tmin: astropy.units.Quantity denoting the minimum values of the timebin edges that the user would like
+            the lightcurve to be binned into. Units will usually be in seconds for this. The values can be relative to
+            the specified T0. If so, then the T0 needs to be specified andthe is_relative parameter should be True.
+            NOTE: if tmin/tmax are specified then anything passed to the timebins parameter is ignored.
+
+            If the length of tmin is 1 then this denotes the time when the binned lightcurve should start. For this single
+            value, it can also be defined relative to T0. If so, then the T0 needs to be specified and the is_relative parameter
+            should be True.
+
+            NOTE: if tmin/tmax are specified then anything passed to the timebins parameter is ignored.
+        :param tmax:astropy.units.Quantity denoting the maximum values of the timebin edges that the user would like
+            the lightcurve to be binned into. Units will usually be in seconds for this. The values can be relative to
+            the specified T0. If so, then the T0 needs to be specified andthe is_relative parameter should be True.
+            NOTE: if tmin/tmax are specified then anything passed to the timebins parameter is ignored.
+
+            If the length of tmin is 1 then this denotes the time when the binned lightcurve should end. For this single
+            value, it can also be defined relative to T0. If so, then the T0 needs to be specified and the is_relative parameter
+            should be True.
+
+            NOTE: if tmin/tmax are specified then anything passed to the timebins parameter is ignored.
+        :param T0: float or an astropy.units.Quantity object with some tiem of interest (eg trigger time)
+        :param is_relative: Boolean switch denoting if the T0 that is passed in should be added to the
+            timebins/tmin/tmax that were passed in.
+        :param timedelta: numpy.timedelta64 object denoting the size of the timebinning. This value is used when
+        :param snrthresh: float representing the snr threshold associated with the timebinalg="snr" or timebinalg="highsnr"
+            parameter values. See above description of the timebinalg parameter to see how this snrthresh parameter is used.
+        :return: None
+        """
+
+        #create a temp copy incase the time rebinning doesnt complete successfully
+        tmp_pha_input_dict=self.pha_input_dict.copy()
+
+        #error checking for calc_energy_integrated
+        if type(is_relative) is not bool:
+            raise ValueError("The is_relative parameter should be a boolean value.")
+
+        #see if the timebinalg is properly set approporiately
+        if timebinalg not in ["uniform", "snr", "highsnr"]:
+            raise ValueError('The timebinalg only accepts the following values: uniform and snr.')
+
+        #if timebinalg == uniform/snr/highsnr, make sure that we have a timedelta that is a np.timedelta object
+        if "uniform" in timebinalg or "snr" in timebinalg:
+            if type(timedelta) is not np.timedelta64:
+                raise ValueError('The timedelta variable needs to be a numpy timedelta64 object.')
+
+        #need to make sure that snrthresh is set for "snr" timebinalg
+        if "snr" in timebinalg and snrthresh is None:
+            raise ValueError(f'The snrthresh value should be set since timebinalg is set to be {snrthresh}.')
+
+        #test if is_relative is false and make sure that T0 is defined
+        if is_relative and T0 is None:
+            raise ValueError('The is_relative value is set to True however there is no T0 that is defined '+
+                             '(ie the time from which the time bins are defined relative to is not specified).')
+
+
+        #if timebins, or tmin and tmax are defined then we ignore the timebinalg parameter
+        #if tmin and tmax are specified while timebins is also specified then ignore timebins
+
+        #do error checking on tmin/tmax
+        if (tmin is None and tmax is not None) or (tmax is None and tmin is not None):
+            raise ValueError('Both emin and emax must be defined.')
+
+        if tmin is not None and tmax is not None:
+            if tmin.size != tmax.size:
+                raise ValueError('Both tmin and tmax must have the same length.')
+
+            #now try to construct single array of all timebin edges in seconds
+            timebins=np.zeros(tmin.size+1)*u.s
+            timebins[:-1] = tmin
+            if tmin.size > 1:
+                timebins[-1] = tmax[-1]
+            else:
+                timebins[-1] = tmax
+
+        #See if we need to add T0 to everything
+        if is_relative:
+            #see if T0 is Quantity class
+            if type(T0) is u.Quantity:
+                timebins += T0
+            else:
+                timebins += T0 * u.s
+
+
+        #if the user has passed in timebins/tmin/tmax then we have to create a good time interval file
+        # otherwise proceed with normal rebinning
+        if (timebins is not None and timebins.size > 2):
+            #tmin is not None and tmax.size > 1 and
+            #already checked that tmin && tmax are not 1 and have the same size
+            #if they are defined and they are more than 1 element then we have a series of timebins otherwise we just have the
+
+            tmp_pha_input_dict['tstart'] = "INDEF"
+            tmp_pha_input_dict['tstop'] = "INDEF"
+
+            # start/stop times of the lightcurve
+            self.timebins_file = self._create_custom_timebins(timebins)
+            tmp_pha_input_dict['timebinalg'] = "gti"
+            tmp_pha_input_dict['gtifile'] = str(self.timebins_file)
+        else:
+            tmp_pha_input_dict['gtifile'] = "NONE"
+
+            # should have everything that we need to do the rebinning for a uniform/snr related rebinning
+            # first need to update the tmp_lc_input_dict
+            if "uniform" in timebinalg or "snr" in timebinalg:
+                tmp_pha_input_dict['timebinalg'] = timebinalg
+
+                # if we have snr we also need to modify the snrthreshold
+                if "snr" in timebinalg:
+                    tmp_pha_input_dict['snrthresh'] = snrthresh
+
+            tmp_pha_input_dict['timedel'] = timedelta / np.timedelta64(1, 's')  # convert to seconds
+
+            #see if we have the min/max times defined
+            if (tmin is not None and tmax.size == 1):
+                tmp_pha_input_dict['tstart'] = timebins[0].value
+                tmp_pha_input_dict['tstop'] = timebins[1].value
+
+
+        #before doing the recalculation, make sure that the proper weights are in the event file
+        self._set_event_weights()
+
+        # create the pha
+        self._create_pha(tmp_pha_input_dict)
+
+        #all error handling is in _create_pha so we are all good if we get here to save the dict
+        self.pha_input_dict = tmp_pha_input_dict
+
+        #reparse the pha file to get the info
+        self._parse_pha_file()
+
+    @u.quantity_input(emin=['energy'], emax=['energy'])
+    def set_energybins(self, energybins="CALDB", emin=None, emax=None):
+        """
+        This method allows the energy binning to be set for the lightcurve. The energy rebinning is done automatically
+        and the information for the rebinned lightcurve is automatically updated in the data attribute (which holds the
+        light curve information itself including rates/counts, errors, fracitonal exposure, total counts, etc) and the
+        ebins attribute which holds the energybins associated with the lightcurve.
+
+        :param energybins: a list or single string denoting the energy bins in keV that the lightcurve shoudl be binned into
+            The string should be formatted as "15-25" where the dash is necessary. A list should be formatted as multiple
+            elements of the strings, where none of the energy ranges overlap.
+        :param emin: a list or a astropy.unit.Quantity object of 1 or more elements. These are the minimum edges of the
+            energy bins that the user would like. NOTE: If emin/emax are specified, the energybins parameter is ignored.
+        :param emax: a list or a astropy.unit.Quantity object of 1 or more elements. These are the maximum edges of the
+            energy bins that the user would like. It shoudl have the same number of elements as emin.
+            NOTE: If emin/emax are specified, the energybins parameter is ignored.
+        :param calc_energy_integrated: Boolean to denote wether the energy integrated light curve should be calculated
+            based off the min and max energies that were passed in. If a single energy bin is requested for the rebinning
+            then this argument does nothing.
+        :return: None.
+        """
+
+
+        # see if the user specified either the energy bins directly or emin/emax separately
+        if emin is None and emax is None:
+
+            # make sure that energybins is a list
+            if type(energybins) is not list:
+                energybins = [energybins]
+                energybins = [i.capitalize for i in energybins] #do thsi for potential "CALDB" input, doesnt affect numbers
+
+            if "CALDB" not in energybins:
+                # verify that all elements are strings
+                for i in energybins:
+                    if type(i) is not str:
+                        raise ValueError(
+                            'All elements of the passed in energybins variable must be a string. Please make sure this condition is met.')
+
+                #need to get emin and emax values, assume that these are in keV already when converting to astropy quantities
+                emin=[]
+                emax=[]
+                for i in energybins:
+                    energies=i.split('-')
+                    emin.append(float(energies[0]))
+                    emax.append(float(energies[1]))
+                emin = u.Quantity(emin, u.keV)
+                emax = u.Quantity(emax, u.keV)
+
+        else:
+            # make sure that both emin and emax are defined and have the same number of elements
+            if (emin is None and emax is not None) or (emax is None and emin is not None):
+                raise ValueError('Both emin and emax must be defined.')
+
+            # see if they are astropy quantity items with units
+            if type(emin) is not u.Quantity:
+                emin = u.Quantity(emin, u.keV)
+            if type(emax) is not u.Quantity:
+                emax = u.Quantity(emax, u.keV)
+
+            if emin.size != emax.size:
+                raise ValueError('Both emin and emax must have the same length.')
+
+
+            # create our energybins input to batbinevt
+            if emin.size > 1:
+                energybins = []
+                for min, max in zip(emin.to(u.keV), emax.to(u.keV)):
+                    energybins.append(f"{min.value}-{max.value}")
+            else:
+                energybins=[f"{emin.to(u.keV).value}-{emax.to(u.keV).value}"]
+
+        # create the full string
+        ebins = ','.join(energybins)
+
+        #create a temp dict to hold the energy rebinning parameters to pass to heasoftpy. If things dont run
+        # successfully then the updated parameter list will not be saved
+        tmp_pha_input_dict = self.pha_input_dict.copy()
+
+        # also need to check if ebins=="CALDB and that is different from the tmp_pha_input_dict
+        if "CALDB" in ebins:
+            recalc = not np.array_equal(ebins, self.tmp_pha_input_dict["energybins"])
+        else:
+            # need to see if the energybins are different (and even need to be calculated), if so do the recalculation
+            recalc = not np.array_equal(emin, self.ebins['E_MIN']) or not np.array_equal(emax, self.ebins['E_MAX'])
+
+        #do the rebinning if needed
+        if recalc:
+            #the tmp_lc_input_dict wil need to be modified with new Energybins
+            tmp_pha_input_dict["energybins"]=ebins
+
+            # before doing the recalculation, make sure that the proper weights are in the event file
+            self._set_event_weights()
+
+            # create the pha
+            self._create_pha(tmp_pha_input_dict)
+
+            # all error handling is in _create_pha so we are all good if we get here to save the dict
+            self.pha_input_dict = tmp_pha_input_dict
 
 
 
@@ -1369,16 +1617,22 @@ class Spectrum(BatObservation):
                 self.ebins[i.name]=u.Quantity(energies[i.name], i.unit)
 
         #fill in the time info separately
-        self.tbins = {}
-
-        #if there is only 1 time bin (and one spectrum) this is sufficient
-        #see https://heasarc.gsfc.nasa.gov/ftools/caldb/help/batbinevt.html
-        #also convert START/STOP to TSTART/TSTOP for consistency between classes
-        for i in times.columns:
-            self.tbins[f"T{i.name}"] = u.Quantity(times[i.name], i.unit)
-
-        #if there are many timebins then the different timebins are contained in the data variable
-        # TODO: Add code to read in timebins for multiple timebins specified
+        if "HDUCLAS4" in header.keys():
+            #we have a PHA2 spectrum with multiple spectra for different time bins
+            #for PHA files, "TIME" is always start and TIME_STOP/TSTOP is the end of time bin
+            self.tbins = {}
+            self.tbins["TIME_START"] = self.data["TIME"]
+            try:
+                self.tbins["TIME_STOP"] = self.data["TIME_STOP"]
+            except KeyError as e:
+                self.tbins["TIME_STOP"] = self.data["TSTOP"]
+            self.tbins["TIME_CENT"] = 0.5*(self.tbins["TIME_START"]+self.tbins["TIME_STOP"])
+        else:
+            #if there is only 1 time bin (and one spectrum) this is sufficient
+            #see https://heasarc.gsfc.nasa.gov/ftools/caldb/help/batbinevt.html
+            #also convert START/STOP to TIME_START/TIME_STOP for consistency between classes
+            for i in times.columns:
+                self.tbins[f"TIME_{i.name}"] = u.Quantity(times[i.name], i.unit)
 
         #if self.pha_input_dict ==None, then we will need to try to read in the hisotry of parameters passed into batbinevt
         # to create the pha file. thsi usually is needed when we first parse a file so we know what things are if we need to
@@ -1456,4 +1710,25 @@ class Spectrum(BatObservation):
             self.pha_input_dict = default_params_dict.copy()
 
 
+    def _create_custom_timebins(self, timebins, output_file=None):
+        """
+        This method creates custom time bins from a user defined set of time bin edges. The created fits file with the
+        timebins of interest will by default have the same name as the lightcurve file, however it will have a "gti" suffix instead of
+        a "lc" suffix and it will be stored in the gti subdirectory of the event results directory.
 
+        Note: This method is here so the call to create a gti file with custom timebins can be phased out eventually.
+
+        :param timebins: a astropy.unit.Quantity object with the edges of the timebins that the user would like
+        :param output_file: None or a Path object to where the output *.gti file will be saved to. A value of None
+            defaults to the above description
+        :return: Path object of the created good time intervals file
+        """
+
+        if output_file is None:
+            #use the same filename as for the lightcurve file but replace suffix with gti and put it in gti subdir instead of lc
+            new_path = self.pha_file.parts
+            new_name=self.pha_file.name.replace("pha", "gti")
+
+            output_file=Path(*new_path[:self.lightcurve_file.parts.index('pha')]).joinpath("gti").joinpath(new_name)
+
+        return create_gti_file(timebins, output_file, T0=None, is_relative=False, overwrite=True)
