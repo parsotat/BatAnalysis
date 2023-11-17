@@ -1214,7 +1214,7 @@ class Spectrum(BatObservation):
 
     @u.quantity_input(timebins=['time'], tmin=['time'], tmax=['time'])
     def set_timebins(self, timebinalg="uniform", timebins=None, tmin=None, tmax=None, T0=None, is_relative=False,
-                       timedelta=np.timedelta64(64, 'ms'), snrthresh=None):
+                       timedelta=np.timedelta64(64, 's'), snrthresh=None):
         """
         This method allows for the rebinning of the lightcurve in time. The timebins can be uniform, snr-based,
         custom defined, or based on bayesian blocks (using battblocks). The time binning is done dymaically and the
@@ -1344,6 +1344,8 @@ class Spectrum(BatObservation):
 
             #see if we have the min/max times defined
             if (tmin is not None and tmax.size == 1):
+                #were just defining the min/max times so want timedel=0 for there to just be a singel time bin
+                tmp_pha_input_dict['timedel'] = 0
                 tmp_pha_input_dict['tstart'] = timebins[0].value
                 tmp_pha_input_dict['tstop'] = timebins[1].value
 
