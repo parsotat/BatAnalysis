@@ -1617,10 +1617,10 @@ class Spectrum(BatObservation):
                 self.ebins[i.name]=u.Quantity(energies[i.name], i.unit)
 
         #fill in the time info separately
+        self.tbins = {}
         if "HDUCLAS4" in header.keys():
             #we have a PHA2 spectrum with multiple spectra for different time bins
             #for PHA files, "TIME" is always start and TIME_STOP/TSTOP is the end of time bin
-            self.tbins = {}
             self.tbins["TIME_START"] = self.data["TIME"]
             try:
                 self.tbins["TIME_STOP"] = self.data["TIME_STOP"]
