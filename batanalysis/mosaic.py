@@ -1140,9 +1140,9 @@ def _mosaic_loop(
 
     :param outventory_file: Path object that provides the full outventory file of the BAT survey observations that will be
         used to calculate the mosaiced images.
-    :param start: numpy datetime of the start time of the time bin that survey observations need to be made to be included
+    :param start: astropy Time of the start time of the time bin that survey observations need to be made to be included
         in that time bin's mosaiced image.
-    :param end: numpy datetime of the end time of the time bin that survey observations need to be made to be included
+    :param end: astropy Time of the end time of the time bin that survey observations need to be made to be included
         in that time bin's mosaiced image.
     :param corrections_map: numpy array with the energy dependent off-axis corrections map
     :param ra_skygrid: numpy array of the skygrid facets' RA values in degrees
@@ -1164,13 +1164,23 @@ def _mosaic_loop(
         "grouped_outventory"
     )  # os.path.join(os.path.split(outventory_file)[0], "grouped_outventory")
     output_file = savedir.joinpath(
-        outventory_file.name.replace(".fits", f"_{start.astype('datetime64[D]')}.fits")
+        outventory_file.name.replace(".fits", f"_{start.datetime64.astype('datetime64[D]')}.fits")
     )  # os.path.join(savedir, os.path.split(outventory_file)[-1].replace(".fits", "_"+str(start.astype('datetime64[D]'))+".fits"))
+    #see if we need to use the mjd time format
+    if not output_file.exists():
+        output_file = savedir.joinpath(
+            outventory_file.name.replace(".fits", f"_{start.mjd}.fits")
+        )
 
     # this is the directory of the time bin where the images will be saved
     img_dir = outventory_file.parent.joinpath(
-        f"mosaic_{start.astype('datetime64[D]')}"
+        f"mosaic_{start.datetime64.astype('datetime64[D]')}"
     )  # os.path.join(os.path.split(outventory_file)[0],'mosaic_'+str(start.astype('datetime64[D]')))
+    if not img_dir.exists():
+        img_dir = outventory_file.parent.joinpath(
+            f"mosaic_{start.mjd}"
+        )
+
 
     # make the local pfile dir if it doesnt exist and set this value
     # local_pfile_dir=load_dir.joinpath(".local_pfile")
@@ -1526,11 +1536,11 @@ def _mosaic_loop(
             )
 
             # Add info about the user specified TBIN that was used to create the mosaic
-            t = Time(start)
-            start_met = sbu.datetime2met(t.datetime)
+            #t = Time(start)
+            start_met = sbu.datetime2met(start.datetime)
 
-            t = Time(end)
-            end_met = sbu.datetime2met(t.datetime)
+            #t = Time(end)
+            end_met = sbu.datetime2met(end.datetime)
 
             model_hdr["S_TBIN"] = (start_met, "Mosaicing Start of Time Bin (MET)")
             model_hdr["E_TBIN"] = (end_met, "Mosaicing End of Time Bin (MET)")
