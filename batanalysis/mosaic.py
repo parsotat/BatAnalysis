@@ -325,6 +325,7 @@ def group_outventory(
     start_datetime=None,
     end_datetime=None,
     recalc=False,
+    mjd_savedir=False
 ):
     """
     This function groups the observations listed in an outventory file together based on time bins that each observation
@@ -336,6 +337,9 @@ def group_outventory(
     :param start_datetime: An astropy Time object that denotes the start date to start binning the observations
     :param end_datetime: An astropy Time object that denotes the end date to stop binning the observations
     :param recalc: Boolean to denote if the directoruy at is created or not. Also denotes if the
+    :param mjd_savedir: Boolean to denote if the directory if the created directory has the datetime64 with the start date
+        of the beginning of the timebin of interest or if the directory name is formatted with mjd time (which is useful
+        for mosaicing with timebins shorter than a day)
     :return: numpy datetime array of the time bin edges that are created based on the user specification. This can be passed directly
         to the create_mosaic function.
     """
