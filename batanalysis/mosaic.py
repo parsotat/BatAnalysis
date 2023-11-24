@@ -340,7 +340,7 @@ def group_outventory(
     :param mjd_savedir: Boolean to denote if the directory if the created directory has the datetime64 with the start date
         of the beginning of the timebin of interest or if the directory name is formatted with mjd time (which is useful
         for mosaicing with timebins shorter than a day)
-    :return: numpy datetime array of the time bin edges that are created based on the user specification. This can be passed directly
+    :return: astropy Time array of the time bin edges that are created based on the user specification. This can be passed directly
         to the create_mosaic function.
     """
 
@@ -466,6 +466,9 @@ def group_outventory(
         "grouped_outventory"
     )  # os.path.join(os.path.split(outventory_file)[0], "grouped_outventory")
 
+    #convert to astropy time objects
+    time_bins=Time(time_bins)
+
     # see if the savedir exists, if it does, then we dont have to do all of these calculations again
     if not savedir.exists() or recalc:
         # clear the directory
@@ -478,21 +481,29 @@ def group_outventory(
             end = time_bins[i + 1]
 
             # convert from utc times to mjd and then from mjd to MET
-            t = Time(start)
-            start_met = str(sbu.datetime2met(t.datetime))
+           # t = Time(start)
+            start_met = str(sbu.datetime2met(start.datetime))
 
-            t = Time(end)
-            end_met = str(sbu.datetime2met(t.datetime))
+            #t = Time(end)
+            end_met = str(sbu.datetime2met(end.datetime))
 
             select_outventory(outventory_file, start_met, end_met)
 
             # move the outventory file to the folder where we will keep them
             output_file = Path(str(outventory_file).replace(".fits", "_sel.fits"))
-            savefile = savedir.joinpath(
-                output_file.name.replace(
-                    "_sel.fits", f"_{start.astype('datetime64[D]')}.fits"
+            if not mjd_savedir:
+                savefile = savedir.joinpath(
+                    output_file.name.replace(
+                        "_sel.fits", f"_{start.datetime64.astype('datetime64[D]')}.fits"
+                    )
                 )
-            )
+            else:
+                savefile = savedir.joinpath(
+                    output_file.name.replace(
+                        "_sel.fits", f"_{start.mjd}.fits"
+                    )
+                )
+
             # os.system("mv %s %s" % (output_file, savefile))
             output_file.rename(savefile)
 
@@ -509,9 +520,15 @@ def group_outventory(
 
             # create the directories that will hold all the mosaiced images within a given time bin
             # binned_savedir = os.path.join(os.path.split(outventory_file)[0], 'mosaic_'+str(start.astype('datetime64[D]')))
-            binned_savedir = outventory_file.parent.joinpath(
-                f"mosaic_{start.astype('datetime64[D]')}"
-            )
+            if not mjd_savedir:
+                binned_savedir = outventory_file.parent.joinpath(
+                    f"mosaic_{start.datetime64.astype('datetime64[D]')}"
+                )
+            else:
+                binned_savedir = outventory_file.parent.joinpath(
+                    f"mosaic_{start.mjd}"
+                )
+
             dirtest(binned_savedir)
 
     return time_bins
