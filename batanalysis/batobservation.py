@@ -1743,5 +1743,7 @@ class Spectrum(BatObservation):
         :return:
         """
 
-        if self.tbins['TIME_CENT']:
+        if self.tbins['TIME_CENT'].size == 1:
+            spectrum=self.data[""]
+        else:
             stop
