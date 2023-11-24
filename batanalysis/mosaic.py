@@ -1499,7 +1499,7 @@ def _mosaic_loop(
             )
             # model_hdr['BMOSPLT']=(platform,     ' BAT mosaic processing platform') #dont need this defined? NO see finalize_mosaic where it would be removed anyway
             model_hdr["BMOSMON"] = (
-                str(start.astype("datetime64[D]")),
+                str(start.datetime64.astype("datetime64[D]")),
                 " BAT mosaic processing date",
             )
 
