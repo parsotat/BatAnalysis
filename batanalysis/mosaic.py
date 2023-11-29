@@ -325,7 +325,9 @@ def group_outventory(
     start_datetime=None,
     end_datetime=None,
     recalc=False,
-    mjd_savedir=False
+    mjd_savedir=False,
+    bins_datetime=None,
+    save_group_outventory=True
 ):
     """
     This function groups the observations listed in an outventory file together based on time bins that each observation
@@ -349,22 +351,31 @@ def group_outventory(
     # and go until the end of the last observation of the outventory file (or the end datetime that the user specifies)
 
     # error checking
-    if type(binning_timedelta) is not np.timedelta64:
-        raise ValueError(
-            "The binning_timedelta variable needs to be a numpy timedelta64 object."
-        )
 
-    if start_datetime is not None:
-        if type(start_datetime) is not Time:
+    #if the bins_datetime variable is set to none (the default) then we defualt to using the start/end_datetimes so need
+    # to do input checks here
+    if bins_datetime is None:
+        if type(binning_timedelta) is not np.timedelta64:
             raise ValueError(
-                "The start_datetime variable needs to be an astropy Time object."
+                "The binning_timedelta variable needs to be a numpy timedelta64 object."
             )
 
-    if end_datetime is not None:
-        if type(end_datetime) is not Time:
-            raise ValueError(
-                "The end_datetime variable needs to be an astropy Time object."
-            )
+        if start_datetime is not None:
+            if type(start_datetime) is not Time:
+                raise ValueError(
+                    "The start_datetime variable needs to be an astropy Time object."
+                )
+
+        if end_datetime is not None:
+            if type(end_datetime) is not Time:
+                raise ValueError(
+                    "The end_datetime variable needs to be an astropy Time object."
+                )
+    else:
+        if type(bins_datetime) is not Time:
+                raise ValueError(
+                    "The bins_datetime variable needs to be an astropy Time object."
+                )
 
     # initalize the reference time for the Swift MET time (starts from 2001), used to calculate MET
     reference_time = Time("2001-01-01")
@@ -461,75 +472,78 @@ def group_outventory(
             binning_timedelta,
         )
 
-    # creazte the folder that will hold the ouventory files for each time range of interest
-    savedir = outventory_file.parent.joinpath(
-        "grouped_outventory"
-    )  # os.path.join(os.path.split(outventory_file)[0], "grouped_outventory")
-
     #convert to astropy time objects
     time_bins=Time(time_bins)
 
-    # see if the savedir exists, if it does, then we dont have to do all of these calculations again
-    if not savedir.exists() or recalc:
-        # clear the directory
-        dirtest(savedir)
+    #if we want to create the timebin mosaic directories and the associated group outventory do so, otherwise just
+    # return the time_bins for the user to check them
+    if save_group_outventory:
+        # creazte the folder that will hold the ouventory files for each time range of interest
+        savedir = outventory_file.parent.joinpath(
+            "grouped_outventory"
+        )  # os.path.join(os.path.split(outventory_file)[0], "grouped_outventory")
 
-        # loop over time bins to select the appropriate outventory enteries
-        for i in range(len(time_bins) - 1):
-            # print(i)
-            start = time_bins[i]
-            end = time_bins[i + 1]
+        # see if the savedir exists, if it does, then we dont have to do all of these calculations again
+        if not savedir.exists() or recalc:
+            # clear the directory
+            dirtest(savedir)
 
-            # convert from utc times to mjd and then from mjd to MET
-           # t = Time(start)
-            start_met = str(sbu.datetime2met(start.datetime))
+            # loop over time bins to select the appropriate outventory enteries
+            for i in range(len(time_bins) - 1):
+                # print(i)
+                start = time_bins[i]
+                end = time_bins[i + 1]
 
-            #t = Time(end)
-            end_met = str(sbu.datetime2met(end.datetime))
+                # convert from utc times to mjd and then from mjd to MET
+               # t = Time(start)
+                start_met = str(sbu.datetime2met(start.datetime))
 
-            select_outventory(outventory_file, start_met, end_met)
+                #t = Time(end)
+                end_met = str(sbu.datetime2met(end.datetime))
 
-            # move the outventory file to the folder where we will keep them
-            output_file = Path(str(outventory_file).replace(".fits", "_sel.fits"))
-            if not mjd_savedir:
-                savefile = savedir.joinpath(
-                    output_file.name.replace(
-                        "_sel.fits", f"_{start.datetime64.astype('datetime64[D]')}.fits"
+                select_outventory(outventory_file, start_met, end_met)
+
+                # move the outventory file to the folder where we will keep them
+                output_file = Path(str(outventory_file).replace(".fits", "_sel.fits"))
+                if not mjd_savedir:
+                    savefile = savedir.joinpath(
+                        output_file.name.replace(
+                            "_sel.fits", f"_{start.datetime64.astype('datetime64[D]')}.fits"
+                        )
                     )
-                )
-            else:
-                savefile = savedir.joinpath(
-                    output_file.name.replace(
-                        "_sel.fits", f"_{start.mjd}.fits"
+                else:
+                    savefile = savedir.joinpath(
+                        output_file.name.replace(
+                            "_sel.fits", f"_{start.mjd}.fits"
+                        )
                     )
-                )
 
-            # os.system("mv %s %s" % (output_file, savefile))
-            output_file.rename(savefile)
+                # os.system("mv %s %s" % (output_file, savefile))
+                output_file.rename(savefile)
 
-            with fits.open(str(savefile), mode="update") as file:
-                file[1].header["S_TBIN"] = (
-                    float(start_met),
-                    "Mosaicing Start of Time Bin (MET)",
-                )
-                file[1].header["E_TBIN"] = (
-                    float(end_met),
-                    "Mosaicing End of Time Bin (MET)",
-                )
-                file.flush()
+                with fits.open(str(savefile), mode="update") as file:
+                    file[1].header["S_TBIN"] = (
+                        float(start_met),
+                        "Mosaicing Start of Time Bin (MET)",
+                    )
+                    file[1].header["E_TBIN"] = (
+                        float(end_met),
+                        "Mosaicing End of Time Bin (MET)",
+                    )
+                    file.flush()
 
-            # create the directories that will hold all the mosaiced images within a given time bin
-            # binned_savedir = os.path.join(os.path.split(outventory_file)[0], 'mosaic_'+str(start.astype('datetime64[D]')))
-            if not mjd_savedir:
-                binned_savedir = outventory_file.parent.joinpath(
-                    f"mosaic_{start.datetime64.astype('datetime64[D]')}"
-                )
-            else:
-                binned_savedir = outventory_file.parent.joinpath(
-                    f"mosaic_{start.mjd}"
-                )
+                # create the directories that will hold all the mosaiced images within a given time bin
+                # binned_savedir = os.path.join(os.path.split(outventory_file)[0], 'mosaic_'+str(start.astype('datetime64[D]')))
+                if not mjd_savedir:
+                    binned_savedir = outventory_file.parent.joinpath(
+                        f"mosaic_{start.datetime64.astype('datetime64[D]')}"
+                    )
+                else:
+                    binned_savedir = outventory_file.parent.joinpath(
+                        f"mosaic_{start.mjd}"
+                    )
 
-            dirtest(binned_savedir)
+                dirtest(binned_savedir)
 
     return time_bins
 
