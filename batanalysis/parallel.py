@@ -351,7 +351,7 @@ def batmosaic_analysis(
         parameter
     :param outventory_file: Path object of the outventory file that contains all the BAT survey observations that will
         be used to create the mosaiced images.
-    :param time_bins: The time bin edges that the observatons in the outventory file have been grouped into
+    :param time_bins: astropy Time array of the time bin edges that are created based on the user specification of the group_outventory function
     :param catalog_file: A Path object of the catalog file that should be used to identify sources in the mosaic images. This
         will default to using the catalog file that is included with the BatAnalysis package.
     :param total_mosaic_savedir: Default None or a Path object that denotes the directory that the total "time-integrated"
@@ -382,8 +382,13 @@ def batmosaic_analysis(
         # make sure that the time bins are cleared
         for i in start_t:
             binned_savedir = outventory_file.parent.joinpath(
-                f"mosaic_{i.astype('datetime64[D]')}"
+                f"mosaic_{i.datetime64.astype('datetime64[D]')}"
             )
+            if not binned_savedir.exists():
+                binned_savedir = outventory_file.parent.joinpath(
+                    f"mosaic_{i.mjd}"
+                )
+
             dirtest(binned_savedir)
 
     all_mosaic_survey = Parallel(n_jobs=nprocs)(
