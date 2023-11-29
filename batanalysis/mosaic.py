@@ -391,89 +391,101 @@ def group_outventory(
     except AttributeError:
         hsp.utils.local_pfiles(par_dir=str(local_pfile_dir))
 
-    # by default use the earliest date of outventory file
-    if start_datetime is None:
-        # use the swift launch date
-        # launch_time = Time("2004-12-01")
-        # start_datetime=launch_time
-        with fits.open(str(outventory_file)) as file:
-            t = [Time(i, format="isot", scale="utc") for i in file[1].data["DATE_OBS"]]
+    #if we dont have the actual time bins passed in we need to calcualte them
+    if bins_datetime is None:
+        # by default use the earliest date of outventory file
+        if start_datetime is None:
+            # use the swift launch date
+            # launch_time = Time("2004-12-01")
+            # start_datetime=launch_time
+            with fits.open(str(outventory_file)) as file:
+                t = [Time(i, format="isot", scale="utc") for i in file[1].data["DATE_OBS"]]
 
-        # get the min date and get the ymdhms to modify
-        t = Time(t).min()
-        tholder = t.min().ymdhms
+            # get the min date and get the ymdhms to modify
+            t = Time(t).min()
+            tholder = t.min().ymdhms
 
-        # get the date to start at the beginning of the day
-        for i in range(3, len(tholder)):
-            tholder[i] = 0
-        start_datetime = Time(tholder)
+            # get the date to start at the beginning of the day
+            for i in range(3, len(tholder)):
+                tholder[i] = 0
+            start_datetime = Time(tholder)
 
-    # by default use the last entry of the outventory_file rounded to the nearest timedelta that the user is interested in
-    if end_datetime is None:
-        val = hsp.ftlist(
-            infile=str(outventory_file),
-            rows="-",
-            option="T",
-            columns="tstart",
-            rownum="NO",
-        )
-        met_time = np.float64(val.output[-2])  # get the last row with the MET time
-
-        # call swifttime
-        # inputs = dict(intime=str(met_time), insystem="MET", informat="s", outsystem="UTC", outformat = "m")  # output in MJD
-        # o = hsp.swifttime(**inputs)
-        # end_datetime = Time(o.params["outtime"], format="mjd", scale='utc')
-        end_datetime = Time(met2utc(met_time))
-
-    if binning_timedelta == np.timedelta64(1, "M"):
-        # if the user wants months, need to specify each year, month and the number of days
-        years = [
-            i
-            for i in range(
-                start_datetime.ymdhms["year"], end_datetime.ymdhms["year"] + 1
+        # by default use the last entry of the outventory_file rounded to the nearest timedelta that the user is interested in
+        if end_datetime is None:
+            val = hsp.ftlist(
+                infile=str(outventory_file),
+                rows="-",
+                option="T",
+                columns="tstart",
+                rownum="NO",
             )
-        ]
-        months = np.arange(1, 13)
-        months_list = []
-        for y in years:
-            for m in months:
-                if start_datetime.ymdhms["year"] == end_datetime.ymdhms["year"]:
-                    if (
-                        m >= start_datetime.ymdhms["month"]
-                        and m <= end_datetime.ymdhms["month"] + 1
-                        and y == start_datetime.ymdhms["year"]
-                    ):
-                        months_list.append("%d-%02d" % (y, m))
-                else:
-                    if (
-                        m >= start_datetime.ymdhms["month"]
-                        and y == start_datetime.ymdhms["year"]
-                    ):
-                        months_list.append("%d-%02d" % (y, m))
-                    elif (
-                        m <= end_datetime.ymdhms["month"] + 1
-                        and y == end_datetime.ymdhms["year"]
-                    ):
-                        months_list.append("%d-%02d" % (y, m))  # for the edge case
-                    elif (
-                        y > start_datetime.ymdhms["year"]
-                        and y < end_datetime.ymdhms["year"]
-                    ):
-                        months_list.append("%d-%02d" % (y, m))
+            met_time = np.float64(val.output[-2])  # get the last row with the MET time
 
-        # days_per_month = [31, febdays, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
-        time_bins = np.array(
-            months_list, dtype="datetime64[M]"
-        )  # create array with the months of interest
+            # call swifttime
+            # inputs = dict(intime=str(met_time), insystem="MET", informat="s", outsystem="UTC", outformat = "m")  # output in MJD
+            # o = hsp.swifttime(**inputs)
+            # end_datetime = Time(o.params["outtime"], format="mjd", scale='utc')
+            end_datetime = Time(met2utc(met_time))
+
+        if binning_timedelta == np.timedelta64(1, "M"):
+            # if the user wants months, need to specify each year, month and the number of days
+            years = [
+                i
+                for i in range(
+                    start_datetime.ymdhms["year"], end_datetime.ymdhms["year"] + 1
+                )
+            ]
+            months = np.arange(1, 13)
+            months_list = []
+            for y in years:
+                for m in months:
+                    if start_datetime.ymdhms["year"] == end_datetime.ymdhms["year"]:
+                        if (
+                            m >= start_datetime.ymdhms["month"]
+                            and m <= end_datetime.ymdhms["month"] + 1
+                            and y == start_datetime.ymdhms["year"]
+                        ):
+                            months_list.append("%d-%02d" % (y, m))
+                    else:
+                        if (
+                            m >= start_datetime.ymdhms["month"]
+                            and y == start_datetime.ymdhms["year"]
+                        ):
+                            months_list.append("%d-%02d" % (y, m))
+                        elif (
+                            m <= end_datetime.ymdhms["month"] + 1
+                            and y == end_datetime.ymdhms["year"]
+                        ):
+                            months_list.append("%d-%02d" % (y, m))  # for the edge case
+                        elif (
+                            y > start_datetime.ymdhms["year"]
+                            and y < end_datetime.ymdhms["year"]
+                        ):
+                            months_list.append("%d-%02d" % (y, m))
+
+            # days_per_month = [31, febdays, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+            time_bins = np.array(
+                months_list, dtype="datetime64[M]"
+            )  # create array with the months of interest
+        else:
+            time_bins = np.arange(
+                start_datetime.datetime64,
+                end_datetime.datetime64 + binning_timedelta,
+                binning_timedelta,
+            )
+
+        # convert to astropy time objects
+        time_bins = Time(time_bins)
+
     else:
-        time_bins = np.arange(
-            start_datetime.datetime64,
-            end_datetime.datetime64 + binning_timedelta,
-            binning_timedelta,
-        )
+        #need to convert the bins_datetime to the time_bins format which is trivial since they are already set to be that
+        time_bins = bins_datetime
 
-    #convert to astropy time objects
-    time_bins=Time(time_bins)
+    #need to see if time_bins is a 1D or a NxT dimensional array where each dimension gives a set of time bins (T) that will be
+    #binned into the same mosaic eventually and used to create the grouped_outventory file.
+    # ie there will be N mosaic images from T observations.
+
+
 
     #if we want to create the timebin mosaic directories and the associated group outventory do so, otherwise just
     # return the time_bins for the user to check them
