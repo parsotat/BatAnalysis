@@ -292,7 +292,7 @@ def merge_outventory(survey_list, savedir=None):
         hdu.data = hdu.data[idx]
         hdul.flush()
 
-    return Path(outventory_file)
+    return Path(output_file)
 
 
 def select_outventory(outventory_file, start_met, end_met):
