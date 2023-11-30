@@ -215,17 +215,18 @@ def merge_outventory(survey_list, savedir=None):
     if type(survey_list) is not list:
         raise ValueError("The input needs to be a list of BatSurvey objects.")
 
-    # need to find all the statfiles.lis and merge them and sort by time
-    #input_files = ""
-    #for obs in survey_list:
-    #    input_files += f'{obs.result_dir.joinpath("stats_point.fits")},'
-    #input_files = input_files[:-1]  # get rid of last comma
-
     if savedir is None:
         savedir = survey_list[0].result_dir.parent.joinpath("mosaiced_surveyresults")
     else:
         savedir = Path(savedir)
     dirtest(savedir, clean_dir=False)
+
+    # Below IS HEASOFT STUFF
+    # need to find all the statfiles.lis and merge them and sort by time
+    #input_files = ""
+    #for obs in survey_list:
+    #    input_files += f'{obs.result_dir.joinpath("stats_point.fits")},'
+    #input_files = input_files[:-1]  # get rid of last comma
 
     # create the pfile directory
     #local_pfile_dir = savedir.joinpath(".local_pfile")
@@ -267,11 +268,11 @@ def merge_outventory(survey_list, savedir=None):
     # get rid of the unsorted file
     #output_file.unlink()
     #input_filename.unlink()
-
+    # Above IS HEASOFT STUFF
 
     output_file = savedir.joinpath(
         "outventory_all.fits"
-    )  # os.path.join(savedir, "outventory_all_unsrt.fits")
+    )  
 
     shutil.copy(survey_list[0].result_dir.joinpath("stats_point.fits"),output_file)
     for i in survey_list[1:]:
