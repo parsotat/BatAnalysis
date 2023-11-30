@@ -311,7 +311,7 @@ def group_outventory(
     end_datetime=None,
     recalc=False,
     mjd_savedir=False,
-    bins_datetime=None,
+    custom_timebins=None,
     save_group_outventory=True
 ):
     """
@@ -337,11 +337,11 @@ def group_outventory(
 
     # error checking
 
-    #if the bins_datetime variable is set to none (the default) then we defualt to using the start/end_datetimes so need
+    #if the  custom_timebins variable is set to none (the default) then we defualt to using the start/end_datetimes so need
     # to do input checks here
     #also set this time_bins_is_list switch to false by default
     time_bins_is_list = False
-    if bins_datetime is None:
+    if  custom_timebins is None:
         if type(binning_timedelta) is not np.timedelta64:
             raise ValueError(
                 "The binning_timedelta variable needs to be a numpy timedelta64 object."
@@ -361,16 +361,17 @@ def group_outventory(
 
 
     else:
-        if type(bins_datetime) is not Time and type(bins_datetime) is not list:
+        if type( custom_timebins) is not Time and type( custom_timebins) is not list:
                 raise ValueError(
-                    "The bins_datetime variable needs to be an astropy Time object or a list of astropy Time objects."
+                    "The  custom_timebins variable needs to be an astropy Time object or a list of astropy Time objects."
                 )
         #make sure that all elements of list are astropy time objects and set a switch for later processing
-        if type(bins_datetime) is list:
-            for i in list:
+        if type( custom_timebins) is list:
+            for i in  custom_timebins:
                 if type(i) is not Time:
                     raise ValueError(
-                        "All the list elements of the bins_datetime variable needs to be an astropy Time object."
+                        "All the list elements of the  custom_timebins variable needs to be an astropy Time object of \
+                        dimension 2 x T, where T is the number of timebins of interest."
                     )
             time_bins_is_list=True
 
@@ -390,7 +391,7 @@ def group_outventory(
         hsp.utils.local_pfiles(par_dir=str(local_pfile_dir))
 
     #if we dont have the actual time bins passed in we need to calcualte them
-    if bins_datetime is None:
+    if  custom_timebins is None:
         # by default use the earliest date of outventory file
         if start_datetime is None:
             # use the swift launch date
@@ -475,8 +476,8 @@ def group_outventory(
         # convert to astropy time objects
         time_bins = Time(time_bins)
     else:
-        #need to convert the bins_datetime to the time_bins format which is trivial since they are already set to be that
-        time_bins = bins_datetime
+        #need to convert the  custom_timebins to the time_bins format which is trivial since they are already set to be that
+        time_bins =  custom_timebins
 
     #need to see if time_bins is a 1D Time array or a list of size N where there are N arrays of dimension 2xT where
     # there are T time bins of interest that will be combined into a grouped outventory file. The index 0 of the T
