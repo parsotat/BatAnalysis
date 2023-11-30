@@ -293,10 +293,10 @@ def select_outventory(outventory_file, start_met, end_met):
     #replace the ftselect with astropy fits operations
     output_file = str(outventory_file).replace(".fits", "_sel.fits")
     with fits.open(outventory_file) as f:
-        #identify the lines with the times of interest/images that are good
+        #identify the lines with the times of interest/images that are good and have the comparison be broadcastable
         idx = np.where(
-            (f[1].data["TSTART"] >= start_met) & (f[1].data["TSTART"] < end_met) &
-            (f[1].data["IMAGE_STATUS"] == True))
+            (f[1].data["TSTART"][..., None] >= start_met) & (f[1].data["TSTART"][..., None] < end_met) &
+            (f[1].data["IMAGE_STATUS"][..., None] == True))
 
         #save the headers of the original outventory file and then copy them to the new output file
         hdu = f[1]
