@@ -216,65 +216,81 @@ def merge_outventory(survey_list, savedir=None):
         raise ValueError("The input needs to be a list of BatSurvey objects.")
 
     # need to find all the statfiles.lis and merge them and sort by time
-    input_files = ""
-    for obs in survey_list:
-        # accumulate the files into a string to be passed to ftmerge
-        # input_files+="%s/stats_point.fits,"%(obs.result_dir)
-        input_files += f'{obs.result_dir.joinpath("stats_point.fits")},'
-    input_files = input_files[:-1]  # get rid of last comma
+    #input_files = ""
+    #for obs in survey_list:
+    #    input_files += f'{obs.result_dir.joinpath("stats_point.fits")},'
+    #input_files = input_files[:-1]  # get rid of last comma
 
     if savedir is None:
-        # save to a new subdirectory within the directory that contains the batsurvey result for the first surveydata object
-        # savedir=os.path.join(os.path.split(survey_list[0].result_dir)[0], "mosaiced_surveyresults")
         savedir = survey_list[0].result_dir.parent.joinpath("mosaiced_surveyresults")
     else:
         savedir = Path(savedir)
     dirtest(savedir, clean_dir=False)
 
     # create the pfile directory
-    local_pfile_dir = savedir.joinpath(".local_pfile")
-    local_pfile_dir.mkdir(parents=True, exist_ok=True)
-    try:
-        hsp.local_pfiles(pfiles_dir=str(local_pfile_dir))
-    except AttributeError:
-        hsp.utils.local_pfiles(par_dir=str(local_pfile_dir))
+    #local_pfile_dir = savedir.joinpath(".local_pfile")
+    #local_pfile_dir.mkdir(parents=True, exist_ok=True)
+    #try:
+    #    hsp.local_pfiles(pfiles_dir=str(local_pfile_dir))
+    #except AttributeError:
+    #    hsp.utils.local_pfiles(par_dir=str(local_pfile_dir))
 
-    output_file = savedir.joinpath(
-        "outventory_all_unsrt.fits"
-    )  # os.path.join(savedir, "outventory_all_unsrt.fits")
+    #output_file = savedir.joinpath(
+    #    "outventory_all_unsrt.fits"
+    #)  # os.path.join(savedir, "outventory_all_unsrt.fits")
 
-    input_filename = savedir.joinpath(
-        "input_files.txt"
-    )  # os.path.join(savedir, "input_files.txt")
+    #input_filename = savedir.joinpath(
+    #    "input_files.txt"
+    #)  # os.path.join(savedir, "input_files.txt")
     # write input files to a text file for convience
-    with open(str(input_filename), "w") as text_file:
-        text_file.write(input_files.replace(",", "\n"))
+    #with open(str(input_filename), "w") as text_file:
+    #    text_file.write(input_files.replace(",", "\n"))
 
-    input_dict = dict(
-        infile="@" + str(input_filename), outfile=str(output_file), clobber="YES"
-    )
+    #input_dict = dict(
+    #    infile="@" + str(input_filename), outfile=str(output_file), clobber="YES"
+    #)
 
     # merge files
-    hsp.ftmerge(**input_dict)
+    #hsp.ftmerge(**input_dict)
 
-    outventory_file = str(output_file).replace("_unsrt", "")
-    input_dict = dict(
-        infile=str(output_file),
-        outfile=outventory_file,
-        columns="TSTART",
-        clobber="YES",
-    )
+    #outventory_file = str(output_file).replace("_unsrt", "")
+    #input_dict = dict(
+    #    infile=str(output_file),
+    #    outfile=outventory_file,
+    #    columns="TSTART",
+    #    clobber="YES",
+    #)
 
     # sort file by time
-    hsp.ftmergesort(**input_dict)
+    #hsp.ftmergesort(**input_dict)
 
     # get rid of the unsorted file
-    # os.system("rm %s %s" % (str(output_file), str(input_filename)))
-    output_file.unlink()
-    input_filename.unlink()
+    #output_file.unlink()
+    #input_filename.unlink()
 
-    # add the path to each pointing
-    # do we really need to do this if the user passes in the list of surveyobjects?
+
+    output_file = savedir.joinpath(
+        "outventory_all.fits"
+    )  # os.path.join(savedir, "outventory_all_unsrt.fits")
+
+    shutil.copy(survey_list[0].result_dir.joinpath("stats_point.fits"),output_file)
+    for i in survey_list[1:]:
+        with fits.open(output_file) as hdul1:
+            with fits.open(i.result_dir.joinpath("stats_point.fits")) as hdul2:
+                nrows1 = hdul1[1].data.shape[0]
+                nrows2 = hdul2[1].data.shape[0]
+                nrows = nrows1 + nrows2
+                hdu = fits.BinTableHDU.from_columns(hdul1[1].columns, nrows=nrows)
+                for colname in hdul1[1].columns.names:
+                    hdu.data[colname][nrows1:] = hdul2[1].data[colname]
+                hdu.writeto(output_file, overwrite=True)
+
+    #now sort the file by time
+    with fits.open(output_file, mode="update") as hdul:
+        hdu = hdul[1]
+        idx = np.argsort(hdu.data['TSTART'])
+        hdu.data = hdu.data[idx]
+        hdul.flush()
 
     return Path(outventory_file)
 
