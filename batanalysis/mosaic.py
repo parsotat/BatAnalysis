@@ -356,18 +356,21 @@ def group_outventory(
                 raise ValueError(
                     "The end_datetime variable needs to be an astropy Time object."
                 )
+
+        time_bins_is_list=False
     else:
         if type(bins_datetime) is not Time or type(bins_datetime) is not list:
                 raise ValueError(
                     "The bins_datetime variable needs to be an astropy Time object or a list of astropy Time objects."
                 )
-        #make sure that all elements of list are astropy time objects
+        #make sure that all elements of list are astropy time objects and set a switch for later processing
         if type(bins_datetime) is list:
             for i in list:
                 if type(i) is not Time:
                     raise ValueError(
                         "All the list elements of the bins_datetime variable needs to be an astropy Time object."
                     )
+            time_bins_is_list=True
 
     # initalize the reference time for the Swift MET time (starts from 2001), used to calculate MET
     reference_time = Time("2001-01-01")
@@ -468,12 +471,11 @@ def group_outventory(
 
         # convert to astropy time objects
         time_bins = Time(time_bins)
-
     else:
         #need to convert the bins_datetime to the time_bins format which is trivial since they are already set to be that
         time_bins = bins_datetime
 
-    #need to see if time_bins is a 1D or a NxT dimensional array where each dimension gives a set of time bins (T) that will be
+    #need to see if time_bins is a 1D or a list of size N where there are N arrays of a set of time bins (T) that will be
     #binned into the same mosaic eventually and used to create the grouped_outventory file.
     # ie there will be N mosaic images from T observations.
 
@@ -495,17 +497,33 @@ def group_outventory(
             # loop over time bins to select the appropriate outventory enteries
             for i in range(len(time_bins) - 1):
                 # print(i)
-                start = time_bins[i]
-                end = time_bins[i + 1]
+                if not time_bins_is_list:
+                    start = time_bins[i]
+                    end = time_bins[i + 1]
 
-                # convert from utc times to mjd and then from mjd to MET
-               # t = Time(start)
-                start_met = sbu.datetime2met(start.datetime)
+                    # convert from utc times to mjd and then from mjd to MET
+                   # t = Time(start)
+                    start_met = sbu.datetime2met(start.datetime, correct=True)
 
-                #t = Time(end)
-                end_met = sbu.datetime2met(end.datetime)
+                    #t = Time(end)
+                    end_met = sbu.datetime2met(end.datetime, correct=True)
+                else:
+                    start = time_bins[i][0]
+                    end = time_bins[i][1]
+
+                    # convert the start time bins edges to met times
+                    start_met = [sbu.datetime2met(j.datetime, correct=True) for j in time_bins[i][::2]]
+
+                    # convert the end time bins edges to met times
+                    end_met = [sbu.datetime2met(j.datetime, correct=True) for j in time_bins[i][1::2]]
 
                 select_outventory(outventory_file, start_met, end_met)
+
+                if time_bins_is_list:
+                    #after selecting the array of times for the grouped outventory when we have a list passed in
+                    # we need to set start_met and end_met to a single value for updating the header values
+                    start_met = start_met[0]
+                    end_met = end_met[0]
 
                 # move the outventory file to the folder where we will keep them
                 output_file = Path(str(outventory_file).replace(".fits", "_sel.fits"))
