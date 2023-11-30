@@ -411,20 +411,9 @@ def group_outventory(
 
         # by default use the last entry of the outventory_file rounded to the nearest timedelta that the user is interested in
         if end_datetime is None:
-            val = hsp.ftlist(
-                infile=str(outventory_file),
-                rows="-",
-                option="T",
-                columns="tstart",
-                rownum="NO",
-            )
-            met_time = np.float64(val.output[-2])  # get the last row with the MET time
-
-            # call swifttime
-            # inputs = dict(intime=str(met_time), insystem="MET", informat="s", outsystem="UTC", outformat = "m")  # output in MJD
-            # o = hsp.swifttime(**inputs)
-            # end_datetime = Time(o.params["outtime"], format="mjd", scale='utc')
-            end_datetime = Time(met2utc(met_time))
+            with fits.open(outventory_file) as f:
+                end_datetime = Time(met2utc(f[1].data["TSTART"].max()))
+            
 
         if binning_timedelta == np.timedelta64(1, "M"):
             # if the user wants months, need to specify each year, month and the number of days
