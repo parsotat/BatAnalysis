@@ -306,7 +306,7 @@ def select_outventory(outventory_file, start_met, end_met):
 
 def group_outventory(
     outventory_file,
-    binning_timedelta,
+    binning_timedelta=None,
     start_datetime=None,
     end_datetime=None,
     recalc=False,
