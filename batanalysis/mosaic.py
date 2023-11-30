@@ -359,7 +359,7 @@ def group_outventory(
 
         time_bins_is_list=False
     else:
-        if type(bins_datetime) is not Time or type(bins_datetime) is not list:
+        if type(bins_datetime) is not Time and type(bins_datetime) is not list:
                 raise ValueError(
                     "The bins_datetime variable needs to be an astropy Time object or a list of astropy Time objects."
                 )
