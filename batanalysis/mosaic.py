@@ -499,8 +499,16 @@ def group_outventory(
             # clear the directory
             dirtest(savedir)
 
+            #get the number of iterations we need to do in teh loop below
+            if not time_bins_is_list:
+                #this is to account for the fact that we have the array consting of the start/end edges all in one
+                loop_iters = len(time_bins) - 1
+            else:
+                #this accounts for having the list of just the starting bin edges or the end bin edges
+                loop_iters = len(time_bins)
+
             # loop over time bins to select the appropriate outventory enteries
-            for i in range(len(time_bins) - 1):
+            for i in range(loop_iters):
                 # print(i)
                 if not time_bins_is_list:
                     start = time_bins[i]
