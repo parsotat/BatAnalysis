@@ -382,14 +382,6 @@ def group_outventory(
     # make sure its a path object
     outventory_file = Path(outventory_file)
 
-    # create the pfile directory
-    local_pfile_dir = outventory_file.parent.joinpath(".local_pfile")
-    local_pfile_dir.mkdir(parents=True, exist_ok=True)
-    try:
-        hsp.local_pfiles(pfiles_dir=str(local_pfile_dir))
-    except AttributeError:
-        hsp.utils.local_pfiles(par_dir=str(local_pfile_dir))
-
     #if we dont have the actual time bins passed in we need to calcualte them
     if  custom_timebins is None:
         # by default use the earliest date of outventory file
@@ -413,7 +405,7 @@ def group_outventory(
         if end_datetime is None:
             with fits.open(outventory_file) as f:
                 end_datetime = Time(met2utc(f[1].data["TSTART"].max()))
-            
+
 
         if binning_timedelta == np.timedelta64(1, "M"):
             # if the user wants months, need to specify each year, month and the number of days
