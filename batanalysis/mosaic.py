@@ -339,6 +339,8 @@ def group_outventory(
 
     #if the bins_datetime variable is set to none (the default) then we defualt to using the start/end_datetimes so need
     # to do input checks here
+    #also set this time_bins_is_list switch to false by default
+    time_bins_is_list = False
     if bins_datetime is None:
         if type(binning_timedelta) is not np.timedelta64:
             raise ValueError(
@@ -357,7 +359,7 @@ def group_outventory(
                     "The end_datetime variable needs to be an astropy Time object."
                 )
 
-        time_bins_is_list=False
+
     else:
         if type(bins_datetime) is not Time and type(bins_datetime) is not list:
                 raise ValueError(
@@ -371,6 +373,7 @@ def group_outventory(
                         "All the list elements of the bins_datetime variable needs to be an astropy Time object."
                     )
             time_bins_is_list=True
+
 
     # initalize the reference time for the Swift MET time (starts from 2001), used to calculate MET
     reference_time = Time("2001-01-01")
