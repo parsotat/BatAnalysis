@@ -300,7 +300,7 @@ def select_outventory(outventory_file, start_met, end_met):
 
         #save the headers of the original outventory file and then copy them to the new output file
         hdu = f[1]
-        hdu.data = hdu.data[idx]
+        hdu.data = hdu.data[idx[0]]
         hdu.writeto(output_file)
 
 
