@@ -290,33 +290,18 @@ def select_outventory(outventory_file, start_met, end_met):
     :return: None
     """
 
-    # create the pfile directory
-    local_pfile_dir = outventory_file.parent.joinpath(".local_pfile")
-    local_pfile_dir.mkdir(parents=True, exist_ok=True)
-    try:
-        hsp.local_pfiles(pfiles_dir=str(local_pfile_dir))
-    except AttributeError:
-        hsp.utils.local_pfiles(par_dir=str(local_pfile_dir))
-
-    criteria = (
-        "((tstart >= "
-        + "%s" % (start_met)
-        + ") && "
-        + "(tstart < "
-        + "%s" % (end_met)
-        + ")) && "
-        + "(image_status == T)"
-    )
-
+    #replace the ftselect with astropy fits operations
     output_file = str(outventory_file).replace(".fits", "_sel.fits")
-    input_dict = dict(
-        infile=str(outventory_file),
-        outfile=output_file,
-        expression=criteria,
-        clobber="YES",
-    )
+    with fits.open(outventory_file) as f:
+        #identify the lines with the times of interest/images that are good
+        idx = np.where(
+            (f[1].data["TSTART"] >= start_met) & (f[1].data["TSTART"] < end_met) &
+            (f[1].data["IMAGE_STATUS"] == True))
 
-    hsp.ftselect(**input_dict)
+        #save the headers of the original outventory file and then copy them to the new output file
+        hdu = f[1]
+        hdu.data = hdu.data[idx]
+        hdu.writeto(output_file)
 
 
 def group_outventory(
@@ -515,10 +500,10 @@ def group_outventory(
 
                 # convert from utc times to mjd and then from mjd to MET
                # t = Time(start)
-                start_met = str(sbu.datetime2met(start.datetime))
+                start_met = sbu.datetime2met(start.datetime)
 
                 #t = Time(end)
-                end_met = str(sbu.datetime2met(end.datetime))
+                end_met = sbu.datetime2met(end.datetime)
 
                 select_outventory(outventory_file, start_met, end_met)
 
