@@ -925,8 +925,6 @@ def finalize_mosaic(intermediate_mosaic_directory):
         output_name = intermediate_mosaic_directory.joinpath(
             f"swiftbat_flatexp_c{i}.img"
         )
-        # input=dict(infile=str(file_name), outfile=str(output_name))
-        # hsp.ftcopy(**input)
         shutil.copy(file_name, output_name)
 
         with fits.open(output_name, mode="update") as file:
@@ -944,8 +942,6 @@ def finalize_mosaic(intermediate_mosaic_directory):
         output_name = intermediate_mosaic_directory.joinpath(
             f"swiftbat_exposure_c{i}.img"
         )
-        # input = dict(infile=str(file_name), outfile=str(output_name))
-        # hsp.ftcopy(**input)
         shutil.copy(file_name, output_name)
 
         with fits.open(output_name, mode="update") as file:
@@ -964,8 +960,6 @@ def finalize_mosaic(intermediate_mosaic_directory):
         flux_output_name = intermediate_mosaic_directory.joinpath(
             f"swiftbat_flux_c{i}.img"
         )
-        # input = dict(infile=str(flux_file_name), outfile=str(flux_output_name))
-        # hsp.ftcopy(**input)
         shutil.copy(flux_file_name, flux_output_name)
 
         # for the SNR, need to do simg/sqrt(vimg) and save this for each sky image and energy band
@@ -976,8 +970,6 @@ def finalize_mosaic(intermediate_mosaic_directory):
         snr_output_name = intermediate_mosaic_directory.joinpath(
             f"swiftbat_snr_c{i}.img"
         )
-        # input=dict(infile=str(snr_file_name), outfile=str(snr_output_name))
-        # hsp.ftcopy(**input)
         shutil.copy(snr_file_name, snr_output_name)
 
         # after calcualting the flux and the SNR, for the variance, need to convert from units of (1/cts/s)^2) to cts/s
@@ -988,8 +980,6 @@ def finalize_mosaic(intermediate_mosaic_directory):
         var_output_name = intermediate_mosaic_directory.joinpath(
             f"swiftbat_var_c{i}.img"
         )
-        # input=dict(infile=str(var_file_name), outfile=str(var_output_name))
-        # hsp.ftcopy(**input)
         shutil.copy(var_file_name, var_output_name)
 
         # open all the files in update mode
@@ -1210,12 +1200,6 @@ def _mosaic_loop(
         img_dir = outventory_file.parent.joinpath(
             f"mosaic_{start.mjd}"
         )
-
-
-    # make the local pfile dir if it doesnt exist and set this value
-    # local_pfile_dir=load_dir.joinpath(".local_pfile")
-    # local_pfile_dir.mkdir(parents=True, exist_ok=True)
-    # hsp.local_pfiles(pfiles_dir=str(local_pfile_dir))
 
     # see if there is a .batsurvey file, if it doesnt exist or if we want to recalc things then go through the full loop
     if not img_dir.joinpath("batsurvey.pickle").exists() or recalc:
@@ -1751,8 +1735,6 @@ def merge_mosaics(intermediate_mosaic_dir_list, savedir=None):
         # output_name=os.path.join(total_dir, f'expmap_{string}.img')
         file_name = intermediate_mosaic_dir_list[0].joinpath(f"expmap_{string}.img")
         output_name = total_dir.joinpath(f"expmap_{string}.img")
-        # input=dict(infile=str(file_name), outfile=str(output_name))
-        # hsp.ftcopy(**input)
         shutil.copy(file_name, output_name)
 
         with fits.open(str(output_name), mode="update") as file:
@@ -1777,8 +1759,6 @@ def merge_mosaics(intermediate_mosaic_dir_list, savedir=None):
         # input=dict(infile=file_name, outfile=output_name)
         file_name = intermediate_mosaic_dir_list[0].joinpath(f"pcode_{string}.img")
         output_name = total_dir.joinpath(f"pcode_{string}.img")
-        # input=dict(infile=str(file_name), outfile=str(output_name))
-        # hsp.ftcopy(**input)
         shutil.copy(file_name, output_name)
 
         with fits.open(str(output_name), mode="update") as file:
@@ -1803,8 +1783,6 @@ def merge_mosaics(intermediate_mosaic_dir_list, savedir=None):
         # input=dict(infile=file_name, outfile=var_output_name)
         file_name = intermediate_mosaic_dir_list[0].joinpath(f"var_{string}.img")
         var_output_name = total_dir.joinpath(f"var_{string}.img")
-        # input=dict(infile=str(file_name), outfile=str(var_output_name))
-        # hsp.ftcopy(**input)
         shutil.copy(file_name, var_output_name)
 
         # file_name=os.path.join(intermediate_mosaic_dir_list[0], f'flux_{string}.img')
@@ -1812,8 +1790,6 @@ def merge_mosaics(intermediate_mosaic_dir_list, savedir=None):
         # input=dict(infile=file_name, outfile=flux_output_name)
         file_name = intermediate_mosaic_dir_list[0].joinpath(f"flux_{string}.img")
         flux_output_name = total_dir.joinpath(f"flux_{string}.img")
-        # input=dict(infile=str(file_name), outfile=str(flux_output_name))
-        # hsp.ftcopy(**input)
         shutil.copy(file_name, flux_output_name)
 
         # open all the files in update mode
