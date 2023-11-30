@@ -272,7 +272,7 @@ def merge_outventory(survey_list, savedir=None):
 
     output_file = savedir.joinpath(
         "outventory_all.fits"
-    )  
+    )
 
     shutil.copy(survey_list[0].result_dir.joinpath("stats_point.fits"),output_file)
     for i in survey_list[1:]:
@@ -302,8 +302,10 @@ def select_outventory(outventory_file, start_met, end_met):
     in MET units. This function produces a fits file with the observations that fall between the start and end times.
 
     :param outventory_file: a Path object that points to the outventory file with all the observations of interest.
-    :param start_met: The start time in MET to select observations from the outventry file
-    :param end_met: The end time in MET to select observations from the outventory file
+    :param start_met: The start time in MET to select observations from the outventory file. This can be an array of
+        start bin edges.
+    :param end_met: The end time in MET to select observations from the outventory file. This can be an array of
+        start bin edges.
     :return: None
     """
 
@@ -336,14 +338,35 @@ def group_outventory(
     may fall within. this function creates a "grouped_outventory" directory in the folder that the outventory folder will
 
     :param outventory_file: a Path object that points to the outventory file with all the observations of interest.
-    :param binning_timedelta:  a numpy delta64 object that denotes the with of each itme bin of interest. In typical
+    :param binning_timedelta:  a numpy delta64 object that denotes the width of each time bin of interest. In typical
         BAT survey papers this is a month but different time bins can be used.
     :param start_datetime: An astropy Time object that denotes the start date to start binning the observations
     :param end_datetime: An astropy Time object that denotes the end date to stop binning the observations
     :param recalc: Boolean to denote if the directoruy at is created or not. Also denotes if the
-    :param mjd_savedir: Boolean to denote if the directory if the created directory has the datetime64 with the start date
+    :param mjd_savedir: Boolean to denote if the directory of the created directory has the datetime64 with the start date
         of the beginning of the timebin of interest or if the directory name is formatted with mjd time (which is useful
         for mosaicing with timebins shorter than a day)
+    :param custom_timebins: None OR
+        an array of astropy Time values denoting the timebin edges for which mosaicing will take place.
+            ie if custom_timebins=astropy.Time(["2022-10-08","2022-10-10", "2022-10-12"]) then there will be 2 grouped outventory files
+            (and thus mosaics) will be created.
+        OR a list of N astropy Time arrays each with shape (2 x T) where N grouped outventory files will be created (and thus
+        mosaics will be created) where the selected observation times correspond to the time bin edges denoted by the single
+        (2 x T) array. The astropy Time array should be formatted such that row 0 (indexed as [0,:]) contains all the
+        start times of the edges of the timebins of interest which will be mosaiced together. The row 1 of the astropy
+        Time array (indexed as [1,:]) contains all the end times of the edges of the timebins of interest which will be mosaiced together.
+            ie if tbins=[
+                Time([["2022-10-08","2022-10-11"],
+                    ["2022-10-10", "2022-10-12"]]),
+                Time([["2022-10-10"],
+                    ["2022-10-11"]])]
+
+                then there will be 2 mosaics created. Mosaic 1 will combine observations from 2022-10-08 to 2022-10-10 AND observations
+                from 2022-10-11 to 2022-10-12. While mosaic 2 will combine observations from 2022-10-10 to
+                2022-10-11.
+    :param save_group_outventory: a Boolean that denotes whether the grouped outventory files for each time bin and the associated
+        directories to hold the mosaic results for the time bins will be created. If this is set to False, these will
+        not be created but the calculated time_bins will be returned
     :return: astropy Time array of the time bin edges that are created based on the user specification. This can be passed directly
         to the create_mosaic function.
     """
