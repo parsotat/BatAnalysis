@@ -372,10 +372,17 @@ def group_outventory(
                     "The end_datetime variable needs to be an astropy Time object."
                 )
     else:
-        if type(bins_datetime) is not Time:
+        if type(bins_datetime) is not Time or type(bins_datetime) is not list:
                 raise ValueError(
-                    "The bins_datetime variable needs to be an astropy Time object."
+                    "The bins_datetime variable needs to be an astropy Time object or a list of astropy Time objects."
                 )
+        #make sure that all elements of list are astropy time objects
+        if type(bins_datetime) is list:
+            for i in list:
+                if type(i) is not Time:
+                    raise ValueError(
+                        "All the list elements of the bins_datetime variable needs to be an astropy Time object."
+                    )
 
     # initalize the reference time for the Swift MET time (starts from 2001), used to calculate MET
     reference_time = Time("2001-01-01")
