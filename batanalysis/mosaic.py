@@ -478,9 +478,10 @@ def group_outventory(
         #need to convert the bins_datetime to the time_bins format which is trivial since they are already set to be that
         time_bins = bins_datetime
 
-    #need to see if time_bins is a 1D or a list of size N where there are N arrays of a set of time bins (T) that will be
-    #binned into the same mosaic eventually and used to create the grouped_outventory file.
-    # ie there will be N mosaic images from T observations.
+    #need to see if time_bins is a 1D Time array or a list of size N where there are N arrays of dimension 2xT where
+    # there are T time bins of interest that will be combined into a grouped outventory file. The index 0 of the T
+    # times should be the start of the time bin(s) of interest while the index 1 of the T times should be the end of
+    # the time bins
 
 
 
@@ -511,14 +512,14 @@ def group_outventory(
                     #t = Time(end)
                     end_met = sbu.datetime2met(end.datetime, correct=True)
                 else:
-                    start = time_bins[i][0]
-                    end = time_bins[i][1]
+                    start = time_bins[i][0,0]
+                    end = time_bins[i][1,0]
 
                     # convert the start time bins edges to met times
-                    start_met = [sbu.datetime2met(j.datetime, correct=True) for j in time_bins[i][::2]]
+                    start_met = [sbu.datetime2met(j.datetime, correct=True) for j in time_bins[i][0,:]]
 
                     # convert the end time bins edges to met times
-                    end_met = [sbu.datetime2met(j.datetime, correct=True) for j in time_bins[i][1::2]]
+                    end_met = [sbu.datetime2met(j.datetime, correct=True) for j in time_bins[i][1,:]]
 
                 select_outventory(outventory_file, start_met, end_met)
 
