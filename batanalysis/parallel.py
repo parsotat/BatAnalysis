@@ -2,6 +2,13 @@
 This file holds convience functions for conveniently analyzing batches of observation IDs using the joblib module
 """
 import os
+from joblib import Parallel, delayed
+from pathlib import Path
+from multiprocessing.pool import ThreadPool
+from astropy.table import Table, vstack
+from astropy.time import Time
+import shutil
+import numpy as np
 
 from .batlib import (
     dirtest,
@@ -21,14 +28,7 @@ from .mosaic import (
     read_skygrids,
 )
 
-from joblib import Parallel, delayed
-from pathlib import Path
-import sys
-from multiprocessing.pool import ThreadPool
-from astropy.table import Table, vstack
-from astropy.time import Time
-import shutil
-import numpy as np
+
 
 
 def _remove_pfiles():
