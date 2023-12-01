@@ -1132,7 +1132,8 @@ class BatSurvey(BatObservation):
                         print(
                             "This method does not add up the counts for more than one time intervals."
                         )
-                        sys.exit(0)
+                        raise RuntimeError("Found more than one matched time, please double check the time interval.\n"
+                                           "This method does not add up the counts for more than one time intervals.")
             except FileNotFoundError as e:
                 print(e)
                 raise FileNotFoundError(
