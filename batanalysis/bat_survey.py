@@ -802,9 +802,11 @@ class BatSurvey(BatObservation):
                 # make pha file at the specified times
                 # Looping over different pointings for a given observation.
                 for i in range(len(time_array)):
+                    # These are to ensure that we are starting fresh with our T_start and T_stop, and not
+                    # appending them.
                     count_rate_band = (
                         []
-                    )  # These are to ensure that we are starting fresh with our T_start and T_stop, and not appending them.
+                    )
                     count_rate_band_error = []
                     channel = []
                     gti_starttime = []
@@ -1155,7 +1157,7 @@ class BatSurvey(BatObservation):
 
         # get the pointing flux files and the pointing ID, these arrays hsould be ordered with respect to one another
         # see for loop in init() to get the pointing IDs
-        for pointing_file, id in zip(self.pointing_flux_files, self.pointing_ids):
+        for pointing_file, point_id in zip(self.pointing_flux_files, self.pointing_ids):
             # make sure that the file exists
             if pointing_file.exists():
                 # then read in the info and try to find where the object is within it if it exists there
@@ -1183,14 +1185,14 @@ class BatSurvey(BatObservation):
                             bkg_var_array = file[1].data[idx]["BKG_VAR"][0]
                             snr_array = file[1].data[idx]["VECTSNR"][0]
 
-                            self.set_pointing_info(id, "rate", rate_array, source_id=s)
+                            self.set_pointing_info(point_id, "rate", rate_array, source_id=s)
                             self.set_pointing_info(
-                                id, "rate_err", rate_err_array, source_id=s
+                                point_id, "rate_err", rate_err_array, source_id=s
                             )
                             self.set_pointing_info(
-                                id, "bkg_var", bkg_var_array, source_id=s
+                                point_id, "bkg_var", bkg_var_array, source_id=s
                             )
-                            self.set_pointing_info(id, "snr", snr_array, source_id=s)
+                            self.set_pointing_info(point_id, "snr", snr_array, source_id=s)
 
                             # this does the calculation for the total energy range so set the if statement so the
                             # mosaic results dont attempt to calculate a wrong energy integrated count rate
@@ -1200,41 +1202,42 @@ class BatSurvey(BatObservation):
                                     rate_tot,
                                     rate_err_2_tot,
                                     snr_allband_num,
-                                ) = self.get_count_rate(energy_idx, id, s)
+                                ) = self.get_count_rate(energy_idx, point_id, s)
 
                                 rate_array = np.concatenate(
-                                    (self.pointing_info[id][s]["rate"], [rate_tot])
+                                    (self.pointing_info[point_id][s]["rate"], [rate_tot])
                                 )
                                 rate_err_array = np.concatenate(
                                     (
-                                        self.pointing_info[id][s]["rate_err"],
+                                        self.pointing_info[point_id][s]["rate_err"],
                                         [rate_err_2_tot],
                                     )
                                 )
                                 snr_array = np.concatenate(
                                     (
-                                        self.pointing_info[id][s]["snr"],
+                                        self.pointing_info[point_id][s]["snr"],
                                         [snr_allband_num],
                                     )
                                 )
                                 # bkg_var_array = np.concatenate((bkg_var_array, [np.sqrt(bkg_var_2_tot)]))
 
                                 self.set_pointing_info(
-                                    id, "rate", rate_array, source_id=s
+                                    point_id, "rate", rate_array, source_id=s
                                 )
                                 self.set_pointing_info(
-                                    id, "rate_err", rate_err_array, source_id=s
+                                    point_id, "rate_err", rate_err_array, source_id=s
                                 )
                                 self.set_pointing_info(
-                                    id, "bkg_var", bkg_var_array, source_id=s
+                                    point_id, "bkg_var", bkg_var_array, source_id=s
                                 )
                                 self.set_pointing_info(
-                                    id, "snr", snr_array, source_id=s
+                                    point_id, "snr", snr_array, source_id=s
                                 )
                         else:
                             # a given pointing may not have the source in it so just raise a warning
                             try:
-                                warn_str = (f"Observation ID: {self.obs_id} Pointing ID: {id} \nThere is no source {s} "
+                                warn_str = (f"Observation ID: {self.obs_id} Pointing ID: {point_id} \n"
+                                            f"There is no source {s} "
                                             f"found in the catalog file. Please double check the spelling.\nThis "
                                             f"source may also not be detected in this observation ID/pointing ID")
                                 warnings.warn(warn_str)
