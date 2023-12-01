@@ -1614,7 +1614,7 @@ class MosaicBatSurvey(BatSurvey):
             # create dict of mosaic pointings ids and their respective information of time, exposure, etc which is
             # the same for each pointing
             self.pointing_info = dict.fromkeys(self.pointing_ids)
-            for id in self.pointing_ids:
+            for point_id in self.pointing_ids:
                 file = fits.open(
                     str(self.result_dir.joinpath("swiftbat_exposure_c0.img"))
                 )  # os.path.join(mosaic_dir, 'swiftbat_exposure_c0.img'))
@@ -1658,7 +1658,7 @@ class MosaicBatSurvey(BatSurvey):
                     mjd_stop_time=tbin_end_mjdtime,
                 )
 
-                self.pointing_info[id] = dict(
+                self.pointing_info[point_id] = dict(
                     met_time=time_array,
                     exposure=exposure_array,
                     utc_time=utctime,
