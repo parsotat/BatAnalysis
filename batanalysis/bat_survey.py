@@ -200,11 +200,8 @@ class BatSurvey(BatObservation):
             # (indir), the directory that the results will be saved into (outdir), the imput catalog (incatalog),
             # the detector thresholds (detthresh/detthresh2)
 
-            # need to get the file name off to get the dir this file is located in to get the default survey catalog
-            dir = Path(__file__[::-1].partition("/")[-1][::-1])
-
             # need to determine if there is a pattern_map_directory. If this is None use the ba.datadir() and see if
-            # the direcotry exists. If so, check that the appropriate pattern map exists for the day of observation,
+            # the directory exists. If so, check that the appropriate pattern map exists for the day of observation,
             # if it doesnt then load the pattern map for the day that is closest. If there are no pattern map files
             # at all then dont pass anything into batsurvey for these parameters
 
@@ -291,8 +288,8 @@ class BatSurvey(BatObservation):
                 )
 
                 input_dict_copy["incatalog"] = str(
-                    dir.joinpath("data/survey6b_2.cat")
-                )  # os.path.join(dir,'data/survey6b_2.cat')
+                    Path(__file__).parent.joinpath("data/survey6b_2.cat")
+                )
                 input_dict_copy["detthresh"] = "10000"
                 input_dict_copy["detthresh2"] = "10000"
 
@@ -344,7 +341,7 @@ class BatSurvey(BatObservation):
                     or input_dict_copy["incatalog"] is None
                 ):
                     input_dict_copy["incatalog"] = str(
-                        dir.joinpath("data/survey6b_2.cat")
+                        Path(__file__).parent.joinpath("data/survey6b_2.cat")
                     )
 
                 if (
