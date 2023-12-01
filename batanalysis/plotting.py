@@ -1,7 +1,7 @@
 from matplotlib import pyplot as plt
 import numpy as np
 from pathlib import Path
-from .batlib import combine_survey_lc, met2utc, met2mjd, concatenate_data
+from .batlib import met2utc, met2mjd, concatenate_data
 from astropy.time import Time, TimeDelta
 
 # for python>3.6
