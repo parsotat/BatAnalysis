@@ -11,7 +11,6 @@ from .batobservation import BatObservation
 from astropy.io import fits
 import numpy as np
 import pickle
-import sys
 from pathlib import Path
 from astropy.time import Time
 from datetime import datetime, timedelta
