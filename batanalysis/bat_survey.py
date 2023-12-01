@@ -720,25 +720,25 @@ class BatSurvey(BatObservation):
         # reset the save the pha file names of all pha files if necessary
         if clean_dir:
             self.set_pha_filenames("", reset=True)
-        for id in id_list:
+        for ident in id_list:
             if verbose:
-                print("Creating PHA file for ", id)
+                print("Creating PHA file for ", ident)
 
             # get the proper name for the source incase the user didnt get the name correct
             x = sorted(merge_output_path.glob("*.cat"))
             catalog_sources = [i.stem for i in x]
-            test = self._compare_source_name(id, catalog_sources)
+            test = self._compare_source_name(ident, catalog_sources)
             if np.sum(test) > 0:
-                id = np.array(catalog_sources)[
-                    self._compare_source_name(id, catalog_sources)
+                ident = np.array(catalog_sources)[
+                    self._compare_source_name(ident, catalog_sources)
                 ][0]
             else:
-                id = None
+                ident = None
 
             # get info from the newly created cat file (from merge)
             catalog = merge_output_path.joinpath(
-                f"{id}.cat"
-            )  # os.path.join(os.path.split(self.merge_input['outfile'])[0], id+".cat")
+                f"{ident}.cat"
+            )
             try:
                 cat_file = fits.open(str(catalog))
                 tbdata = cat_file[1].data
@@ -780,7 +780,7 @@ class BatSurvey(BatObservation):
                     if np.size(idx) == 0:
                         raise ValueError(
                             "The pointing ID does not contain an observation of the source:",
-                            id,
+                            ident,
                         )
                     name_array = name_array[idx]
                     raobj_array = raobj_array[idx]
@@ -940,11 +940,11 @@ class BatSurvey(BatObservation):
 
                         if calc_upper_lim:
                             survey_pha_file = output_dir.joinpath(
-                                f"{id}_survey_{pointing_array[i]}_bkgnsigma_{int(bkg_nsigma)}_upperlim.pha"
+                                f"{ident}_survey_{pointing_array[i]}_bkgnsigma_{int(bkg_nsigma)}_upperlim.pha"
                             )
                         else:
                             survey_pha_file = output_dir.joinpath(
-                                f"{id}_survey_{pointing_array[i]}.pha"
+                                f"{ident}_survey_{pointing_array[i]}.pha"
                             )
                         self.set_pha_filenames(survey_pha_file)
                         pha_thdulist.writeto(str(survey_pha_file))
@@ -954,7 +954,7 @@ class BatSurvey(BatObservation):
                         pha_prime_hdr = pha_hdulist[0].header
                         pha_spec_hdr = pha_hdulist[1].header
                         pha_ebound_hdr = pha_hdulist[2].header
-                        pha_gti_hdr = pha_hdulist[3].header
+                        #pha_gti_hdr = pha_hdulist[3].header this header is not currenlty used
 
                         pha_prime_hdr["TELESCOP"] = (
                             "SWIFT",
@@ -1137,7 +1137,7 @@ class BatSurvey(BatObservation):
                 print(e)
                 raise FileNotFoundError(
                     f"This means that the batsurvey script didnt deem there to be good enough statistics for "
-                    + f"source {id} in this observation ID."
+                    + f"source {ident} in this observation ID."
                 )
 
     def load_source_information(self, sources):
