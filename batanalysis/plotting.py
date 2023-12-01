@@ -14,7 +14,7 @@ except ModuleNotFoundError as err:
 
 def plot_survey_lc(
     survey_obsid_list,
-    id_list=None,
+    id_list,
     energy_range=[14, 195],
     savedir=None,
     time_unit="MET",
@@ -30,7 +30,7 @@ def plot_survey_lc(
     :param survey_obsid_list: List of BatSurvey or MosaicBatSurvey objects, can also be a list of lists of BatSurvey or
         MosaicBatSurvey objects which the user would like to plot. By default each sublist will be plotted on its own
         set of axis.
-    :param id_list: List of Strings or None Denoting which sources the user wants the light curves to be plotted for
+    :param id_list: List of Strings or string denoting which source(s) the user wants the light curves to be plotted for
     :param energy_range: An array for the lower and upper energy ranges to be used.
         the default value is 14-195 keV.
     :param savedir: None or a String to denote whether the light curves should be saved (if the passed value is a string)
@@ -56,23 +56,17 @@ def plot_survey_lc(
         )
 
     # determine if the user wants to plot a specific object or list of objects
-    if id_list is None:
-        # use the ids from the *.cat files produced, these are ones that have been identified in the survey obs_id
-        # x = glob.glob(os.path.join(lc_dir, '*.cat'))
-        # id_list = [os.path.basename(i).split('.cat')[0] for i in x]
-        x = sorted(lc_dir.glob("*.cat"))
-        id_list = [i.stem for i in x]
-    else:
-        if type(id_list) is not list:
-            # it is a single string:
-            id_list = [id_list]
+    if type(id_list) is not list:
+        # it is a single string:
+        id_list = [id_list]
 
     if type(survey_obsid_list[0]) is not list:
         survey_obsid_list = [survey_obsid_list]
 
-    for observation_list in survey_obsid_list:
-        if calc_lc:
-            lc_dir = combine_survey_lc(observation_list, clean_dir=clean_dir)
+    # dont need this anymore since we use concatenate_data
+    # for observation_list in survey_obsid_list:
+    #    if calc_lc:
+    #        lc_dir = combine_survey_lc(observation_list, clean_dir=clean_dir)
         # else:
         # get the main directory where we shoudl create the total_lc directory
         # main_dir = os.path.split(observation_list[0].result_dir)[0]
@@ -182,7 +176,6 @@ def plot_survey_lc(
                     fig, axes = plt.subplots(len(base_values), sharex=True)
 
             axes_queue = [i for i in range(len(base_values))]
-            # plot_value=[i for i in values]
 
             e_range_str = f"{np.min(energy_range)}-{np.max(energy_range)} keV"
             axes[0].set_title(source + "; survey data from " + e_range_str)
@@ -239,7 +232,6 @@ def plot_survey_lc(
             mjdtime = met2mjd(T0)
             utctime = met2utc(T0, mjd_time=mjdtime)
 
-            # if T0==0:
             if "MET" in time_unit:
                 label_string = "MET Time (s)"
                 val = T0
@@ -268,14 +260,12 @@ def plot_survey_lc(
 
             if savedir is not None and not same_figure:
                 plot_filename = source + "_survey_lc.pdf"
-                # fig.savefig(os.path.join(savedir, plot_filename), bbox_inches="tight")
                 fig.savefig(savedir.joinpath(plot_filename), bbox_inches="tight")
 
             obs_list_count += 1
 
         if savedir is not None and same_figure:
             plot_filename = source + "_survey_lc.pdf"
-            # fig.savefig(os.path.join(savedir, plot_filename), bbox_inches="tight")
             fig.savefig(savedir.joinpath(plot_filename), bbox_inches="tight")
 
         plt.show()
