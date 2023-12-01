@@ -24,7 +24,7 @@ try:
 except ModuleNotFoundError as err:
     # Error handling
     print(err)
-    
+
 
 class BatSurvey(BatObservation):
     """
@@ -432,7 +432,7 @@ class BatSurvey(BatObservation):
                 mjdtime = met2mjd(time_array)
                 utctime = met2utc(time_array, mjd_time=mjdtime)
 
-                lc_fits.close
+                lc_fits.close()
 
                 # open the status file to save the success code
                 status_file = pointing.parent.joinpath(f"point_{id}_status.txt")
@@ -787,7 +787,7 @@ class BatSurvey(BatObservation):
                 # bkg_var = tbdata.field('BKG_VAR')
                 theta_array = tbdata.field("THETA")
                 phi_array = tbdata.field("PHI")
-                cat_file.close
+                cat_file.close()
 
                 # if we want to calculate or recalculate pha for certain pointings we modify the arrays to just the values
                 # of interest
@@ -868,7 +868,7 @@ class BatSurvey(BatObservation):
                         ra_pnt = org_cat_data.field("RA_PNT")[0]
                         dec_pnt = org_cat_data.field("DEC_PNT")[0]
                         pa_pnt = org_cat_data.field("PA_PNT")[0]
-                        org_cat_file.close
+                        org_cat_file.close()
 
                         attfile = self.result_dir.joinpath(
                             f"{pointing_array[i]}"
@@ -1615,7 +1615,7 @@ class MosaicBatSurvey(BatSurvey):
          Calls batcelldetect to detect sources in the mosaic image that is encompassed by a given MosaicBatSurvey object
     """
 
-    def __init__(self, mosaic_dir, recalc=False, load_dir=None):
+    def __init__(self, mosaic_dir, recalc=False):
         """
         Initializer method for the MosaicBatSurvey object.
 
@@ -1623,7 +1623,6 @@ class MosaicBatSurvey(BatSurvey):
         :param recalc: Boolean default False, which indicates that the method should try to load data from a file in
             the mosaic_dir directory. True means that the load file will be ignored and attributes will be re-obtaiend
             for the object.
-        :param load_dir: Not used
         """
 
         # this isnt proper usage of super classes since the below lines are in the init of the BatSurvey class
@@ -1696,7 +1695,7 @@ class MosaicBatSurvey(BatSurvey):
                 tbin_start_met = file_header["S_TBIN"]
                 tbin_end_met = file_header["E_TBIN"]
 
-                file.close
+                file.close()
 
                 tbin_start_mjdtime = met2mjd(tbin_start_met)
                 tbin_start_utctime = met2utc(
@@ -1991,7 +1990,7 @@ class MosaicBatSurvey(BatSurvey):
                     count_rate_err_array = tbdata.field("BKG_VAR")
                     scale = 1
 
-                cat_file.close
+                cat_file.close()
 
                 # check = 0
                 # make pha file
