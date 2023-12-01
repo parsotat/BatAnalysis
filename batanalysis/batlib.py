@@ -1,30 +1,23 @@
 """
 This file holds various functions that users can call to interface with bat observation objects
 """
-import subprocess
-import os
 import astropy as ap
 from astropy.io import fits
 from astropy.time import Time
 import numpy as np
 import shutil
 import matplotlib.pyplot as plt
-import glob
 import os
-import sys
 import warnings
 from pathlib import Path
 import requests
 from astroquery.heasarc import Heasarc
-from copy import copy
 import swifttools.swift_too as swtoo
 import datetime
 import dpath
 from concurrent.futures import ThreadPoolExecutor
 import functools
-
-
-# from xspec import *
+import swiftbat.swutil as sbu
 
 # for python>3.6
 try:
@@ -33,18 +26,7 @@ except ModuleNotFoundError as err:
     # Error handling
     print(err)
 
-# try:
-#    import xspec as xsp
-# except ModuleNotFoundError as err:
-# Error handling
-#    print(err)
-
-import swiftbat.swutil as sbu
-import swiftbat
-
-
 _orig_pdir = os.getenv("PFILES")
-
 
 def dirtest(directory, clean_dir=True):
     """
