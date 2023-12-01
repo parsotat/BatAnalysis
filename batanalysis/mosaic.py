@@ -1,12 +1,10 @@
 """
 This file is meant to hold the functions that allow users to create mosaic-ed images for survey data
 """
-import calendar
-from .batlib import dirtest, curdir, met2utc
+from .batlib import dirtest, met2utc
 from .bat_survey import MosaicBatSurvey
 import numpy as np
 from astropy.time import Time
-import os
 from astropy.io import fits
 from astropy.coordinates import SkyCoord
 from astropy import units as u
@@ -27,7 +25,6 @@ except ModuleNotFoundError as err:
     print(err)
 
 import swiftbat.swutil as sbu
-
 
 # Off-axis flux correction file
 _cimgfile = "offaxiscorr_8bin_20061221.img"
@@ -62,7 +59,7 @@ _sco_coord = SkyCoord(_scox1_ra, _scox1_dec, frame="icrs", unit="deg")
 
 def interp_weights(xyz, uvw, d=2):
     """
-    This is a funciton to calculate the weights for each vertex on a grid that will be interpolated
+    This is a function to calculate the weights for each vertex on a grid that will be interpolated
     over. See https://stackoverflow.com/questions/20915502/speedup-scipy-griddata-for-multiple-interpolations-between-two-irregular-grids
 
     :param xyz: The x,y,z points that will be interpolated over on the new grid
@@ -274,7 +271,7 @@ def merge_outventory(survey_list, savedir=None):
         "outventory_all.fits"
     )
 
-    shutil.copy(survey_list[0].result_dir.joinpath("stats_point.fits"),output_file)
+    shutil.copy(survey_list[0].result_dir.joinpath("stats_point.fits"), output_file)
     for i in survey_list[1:]:
         with fits.open(output_file) as hdul1:
             with fits.open(i.result_dir.joinpath("stats_point.fits")) as hdul2:
@@ -286,7 +283,7 @@ def merge_outventory(survey_list, savedir=None):
                     hdu.data[colname][nrows1:] = hdul2[1].data[colname]
                 hdu.writeto(output_file, overwrite=True)
 
-    #now sort the file by time
+    # now sort the file by time
     with fits.open(output_file, mode="update") as hdul:
         hdu = hdul[1]
         idx = np.argsort(hdu.data['TSTART'])
@@ -309,15 +306,15 @@ def select_outventory(outventory_file, start_met, end_met):
     :return: None
     """
 
-    #replace the ftselect with astropy fits operations
+    # replace the ftselect with astropy fits operations
     output_file = str(outventory_file).replace(".fits", "_sel.fits")
     with fits.open(outventory_file) as f:
-        #identify the lines with the times of interest/images that are good and have the comparison be broadcastable
+        # identify the lines with the times of interest/images that are good and have the comparison be broadcastable
         idx = np.where(
             (f[1].data["TSTART"][..., None] >= start_met) & (f[1].data["TSTART"][..., None] < end_met) &
             (f[1].data["IMAGE_STATUS"][..., None] == True))
 
-        #save the headers of the original outventory file and then copy them to the new output file
+        # save the headers of the original outventory file and then copy them to the new output file
         hdu = f[1]
         hdu.data = hdu.data[idx[0]]
         hdu.writeto(output_file)
@@ -343,45 +340,46 @@ def group_outventory(
     :param start_datetime: An astropy Time object that denotes the start date to start binning the observations
     :param end_datetime: An astropy Time object that denotes the end date to stop binning the observations
     :param recalc: Boolean to denote if the directoruy at is created or not. Also denotes if the
-    :param mjd_savedir: Boolean to denote if the directory of the created directory has the datetime64 with the start date
-        of the beginning of the timebin of interest or if the directory name is formatted with mjd time (which is useful
-        for mosaicing with timebins shorter than a day)
+    :param mjd_savedir: Boolean to denote if the directory of the created directory has the datetime64 with the start
+        date of the beginning of the timebin of interest or if the directory name is formatted with mjd time
+        (which is useful for mosaicing with timebins shorter than a day)
     :param custom_timebins: None OR
         an array of astropy Time values denoting the timebin edges for which mosaicing will take place.
-            ie if custom_timebins=astropy.Time(["2022-10-08","2022-10-10", "2022-10-12"]) then there will be 2 grouped outventory files
-            (and thus mosaics) will be created.
-        OR a list of N astropy Time arrays each with shape (2 x T) where N grouped outventory files will be created (and thus
-        mosaics will be created) where the selected observation times correspond to the time bin edges denoted by the single
-        (2 x T) array. The astropy Time array should be formatted such that row 0 (indexed as [0,:]) contains all the
-        start times of the edges of the timebins of interest which will be mosaiced together. The row 1 of the astropy
-        Time array (indexed as [1,:]) contains all the end times of the edges of the timebins of interest which will be mosaiced together.
+            ie if custom_timebins=astropy.Time(["2022-10-08","2022-10-10", "2022-10-12"]) then there will be 2 grouped
+            outventory files (and thus mosaics) will be created.
+        OR a list of N astropy Time arrays each with shape (2 x T) where N grouped outventory files will be created
+        (and thus mosaics will be created) where the selected observation times correspond to the time bin edges
+        denoted by the single (2 x T) array. The astropy Time array should be formatted such that row 0
+        (indexed as [0,:]) contains all the start times of the edges of the timebins of interest which will be mosaiced
+        together. The row 1 of the astropy Time array (indexed as [1,:]) contains all the end times of the edges of the
+        timebins of interest which will be mosaiced together.
             ie if tbins=[
                 Time([["2022-10-08","2022-10-11"],
                     ["2022-10-10", "2022-10-12"]]),
                 Time([["2022-10-10"],
                     ["2022-10-11"]])]
 
-                then there will be 2 mosaics created. Mosaic 1 will combine observations from 2022-10-08 to 2022-10-10 AND observations
-                from 2022-10-11 to 2022-10-12. While mosaic 2 will combine observations from 2022-10-10 to
-                2022-10-11.
-    :param save_group_outventory: a Boolean that denotes whether the grouped outventory files for each time bin and the associated
-        directories to hold the mosaic results for the time bins will be created. If this is set to False, these will
-        not be created but the calculated time_bins will be returned
-    :return: astropy Time array of the time bin edges that are created based on the user specification. This can be passed directly
-        to the create_mosaic function.
+                then there will be 2 mosaics created. Mosaic 1 will combine observations from 2022-10-08 to 2022-10-10
+                AND observations from 2022-10-11 to 2022-10-12.
+                While mosaic 2 will combine observations from 2022-10-10 to 022-10-11.
+    :param save_group_outventory: a Boolean that denotes whether the grouped outventory files for each time bin and the
+        associated directories to hold the mosaic results for the time bins will be created. If this is set to False,
+        these will not be created but the calculated time_bins will be returned
+    :return: astropy Time array of the time bin edges that are created based on the user specification. This can be
+        passed directly to the create_mosaic function.
     """
 
     # need to group the observations based on the time binning that the user wants this is given by binning_timedelta
-    # we can start from the first entry of the time sorted outventory file (or the start datetime that the user specifies)
-    # and go until the end of the last observation of the outventory file (or the end datetime that the user specifies)
+    # we can start from the first entry of the time sorted outventory file (or the start datetime that the user
+    # specifies) and go until the end of the last observation of the outventory file (or the end datetime that the
+    # user specifies)
 
     # error checking
 
-    #if the  custom_timebins variable is set to none (the default) then we defualt to using the start/end_datetimes so need
-    # to do input checks here
-    #also set this time_bins_is_list switch to false by default
+    # if the  custom_timebins variable is set to none (the default) then we defualt to using the start/end_datetimes
+    # so need to do input checks here also set this time_bins_is_list switch to false by default
     time_bins_is_list = False
-    if  custom_timebins is None:
+    if custom_timebins is None:
         if type(binning_timedelta) is not np.timedelta64:
             raise ValueError(
                 "The binning_timedelta variable needs to be a numpy timedelta64 object."
@@ -403,9 +401,9 @@ def group_outventory(
     else:
         if type(custom_timebins) is not Time and type(custom_timebins) is not list:
                 raise ValueError(
-                    "The  custom_timebins variable needs to be an astropy Time object or a list of astropy Time objects."
+                    "The custom_timebins variable needs to be an astropy Time object or a list of astropy Time objects."
                 )
-        #make sure that all elements of list are astropy time objects and set a switch for later processing
+        # make sure that all elements of list are astropy time objects and set a switch for later processing
         if type(custom_timebins) is list:
             for i in custom_timebins:
                 if type(i) is not Time:
@@ -415,14 +413,13 @@ def group_outventory(
                     )
             time_bins_is_list=True
 
-
     # initalize the reference time for the Swift MET time (starts from 2001), used to calculate MET
     reference_time = Time("2001-01-01")
 
     # make sure its a path object
     outventory_file = Path(outventory_file)
 
-    #if we dont have the actual time bins passed in we need to calcualte them
+    # if we dont have the actual time bins passed in we need to calcualte them
     if custom_timebins is None:
         # by default use the earliest date of outventory file
         if start_datetime is None:
@@ -441,11 +438,11 @@ def group_outventory(
                 tholder[i] = 0
             start_datetime = Time(tholder)
 
-        # by default use the last entry of the outventory_file rounded to the nearest timedelta that the user is interested in
+        # by default use the last entry of the outventory_file rounded to the nearest timedelta that the user is
+        # interested in
         if end_datetime is None:
             with fits.open(outventory_file) as f:
                 end_datetime = Time(met2utc(f[1].data["TSTART"].max()))
-
 
         if binning_timedelta == np.timedelta64(1, "M"):
             # if the user wants months, need to specify each year, month and the number of days
@@ -497,23 +494,22 @@ def group_outventory(
         # convert to astropy time objects
         time_bins = Time(time_bins)
     else:
-        #need to convert the  custom_timebins to the time_bins format which is trivial since they are already set to be that
-        time_bins =  custom_timebins
+        # need to convert the  custom_timebins to the time_bins format which is trivial since they are already set to
+        # be that
+        time_bins = custom_timebins
 
-    #need to see if time_bins is a 1D Time array or a list of size N where there are N arrays of dimension 2xT where
+    # need to see if time_bins is a 1D Time array or a list of size N where there are N arrays of dimension 2xT where
     # there are T time bins of interest that will be combined into a grouped outventory file. The index 0 of the T
     # times should be the start of the time bin(s) of interest while the index 1 of the T times should be the end of
     # the time bins
 
-
-
-    #if we want to create the timebin mosaic directories and the associated group outventory do so, otherwise just
+    # if we want to create the timebin mosaic directories and the associated group outventory do so, otherwise just
     # return the time_bins for the user to check them
     if save_group_outventory:
-        # creazte the folder that will hold the ouventory files for each time range of interest
+        # create the folder that will hold the outventory files for each time range of interest
         savedir = outventory_file.parent.joinpath(
             "grouped_outventory"
-        )  # os.path.join(os.path.split(outventory_file)[0], "grouped_outventory")
+        )
 
         # see if the savedir exists, if it does, then we dont have to do all of these calculations again
         if not savedir.exists() or recalc:
@@ -536,10 +532,8 @@ def group_outventory(
                     end = time_bins[i + 1]
 
                     # convert from utc times to mjd and then from mjd to MET
-                   # t = Time(start)
                     start_met = sbu.datetime2met(start.datetime, correct=True)
 
-                    #t = Time(end)
                     end_met = sbu.datetime2met(end.datetime, correct=True)
                 else:
                     start = time_bins[i][0,0]
@@ -554,7 +548,7 @@ def group_outventory(
                 select_outventory(outventory_file, start_met, end_met)
 
                 if time_bins_is_list:
-                    #after selecting the array of times for the grouped outventory when we have a list passed in
+                    # after selecting the array of times for the grouped outventory when we have a list passed in
                     # we need to set start_met and end_met to a single value for updating the header values
                     start_met = start_met[0]
                     end_met = end_met[0]
@@ -574,7 +568,6 @@ def group_outventory(
                         )
                     )
 
-                # os.system("mv %s %s" % (output_file, savefile))
                 output_file.rename(savefile)
 
                 with fits.open(str(savefile), mode="update") as file:
@@ -589,7 +582,6 @@ def group_outventory(
                     file.flush()
 
                 # create the directories that will hold all the mosaiced images within a given time bin
-                # binned_savedir = os.path.join(os.path.split(outventory_file)[0], 'mosaic_'+str(start.astype('datetime64[D]')))
                 if not mjd_savedir:
                     binned_savedir = outventory_file.parent.joinpath(
                         f"mosaic_{start.datetime64.astype('datetime64[D]')}"
@@ -616,7 +608,6 @@ def read_skygrids(savedirectory=None):
     # reads the skygrids and output numpy array that contains all the data
 
     # get the directory that the data directory is located in
-    # dir = os.path.split(__file__)[0]
     if savedirectory is None:
         dir = Path(__file__).parent
     else:
@@ -643,10 +634,10 @@ def read_skygrids(savedirectory=None):
 
         ra_file = dir.joinpath("data").joinpath(
             ra_string
-        )  # os.path.join(dir, "data", ra_string)
+        )
         dec_file = dir.joinpath("data").joinpath(
             dec_string
-        )  # os.path.join(dir, "data", dec_string)
+        )
 
         file = fits.open(str(ra_file))
         ra_skygrid[:, :, i] = file[0].data
@@ -673,10 +664,10 @@ def convert_radec2xy(ra, dec, header):
     # make the WCS object
     w = WCS(header)
 
-    # calcualte the xy values, think I need to use origin=0 because in fits header says that initial pixel is 0? not sure
-    # need to double check against idl code. When comparing wcs_world2pix to heasarc sky2xy, the results of sky2xy
-    # matches with wcs_world2pix if we use origin=1, therefore we probably need this since the codes had typically
-    # used heasarc scripts
+    # calculate the xy values, think I need to use origin=0 because in fits header says that initial pixel is 0? not
+    # sure need to double-check against idl code. When comparing wcs_world2pix to heasarc sky2xy, the results of
+    # sky2xy matches with wcs_world2pix if we use origin=1, therefore we probably need this since the codes had
+    # typically used heasarc scripts
     xy = w.wcs_world2pix(np.array([ra.flatten(), dec.flatten()], dtype="float64").T, 0)
 
     # reshape to be the original dimensions of the ra/dec arrays
@@ -692,7 +683,8 @@ def convert_xy2radec(x, y, header):
 
     :param x: numpy array of pixel x coordinates
     :param y: numpy array of pixel y coordinates
-    :param header: The header that will be used to extract astrometric keywords to convert RA/DEC to detector pixel coordinates
+    :param header: The header that will be used to extract astrometric keywords to convert RA/DEC to detector pixel
+        coordinates
     :return: numpy arrays of RA/DEC in degrees
     """
     # use the astropy WCS object to convert from x,y to ra and dec
@@ -700,7 +692,8 @@ def convert_xy2radec(x, y, header):
     # make the WCS object
     w = WCS(header)
 
-    # calcualte the ra/dec values, think I need to use origin=0 because in fits header says that initial pixel is 0? not sure
+    # calculate the ra/dec values, think I need to use origin=0 because in fits header says that initial pixel is 0?
+    # not sure
     ra_dec = w.wcs_pix2world(np.array([x.flatten(), y.flatten()], dtype="float64").T, 0)
 
     # reshape to be the original dimensions of the ra/dec arrays
@@ -708,30 +701,28 @@ def convert_xy2radec(x, y, header):
     dec = ra_dec[:, 1].reshape(y.shape)
 
     if "galactic" in w.world_axis_physical_types[0]:
-        # converted cooordinates in galactic coordinates and need to convert to RA/DEC
+        # converted coordinates in galactic coordinates and need to convert to RA/DEC
         c = SkyCoord(l=ra, b=dec, frame="galactic", unit="deg")
         ra = c.fk5.ra.value
         dec = c.fk5.dec.value
 
     return ra, dec
 
-
 def read_correctionsmap():
     """
-    Reads the BAT coded mask energy-dependent off axis corrections mask which accounts for the fact that the mask has a finite width
-    which affects the propagation of photons at some angle relative to the boresight.
+    Reads the BAT coded mask energy-dependent off axis corrections mask which accounts for the fact that the mask has a
+    finite width which affects the propagation of photons at some angle relative to the boresight.
 
     :return: numpy array of (954, 1760, _nebands) where _nebands=8, which is the number of energy bands in the BAT survey
     """
     # reads the correction map for correcting off-axis effects
 
     # get the directory that the data directory is located in
-    # dir = os.path.split(__file__)[0]
     dir = Path(__file__).parent
 
     file_string = dir.joinpath("data").joinpath(
         _cimgfile
-    )  # os.path.join(dir, "data", _cimgfile)
+    )
 
     # create array to hold data, already know sizes of grids from looking at file
     corrections_map = np.zeros((954, 1760, _nebands))
@@ -789,7 +780,7 @@ def compute_statistics_map(chi_sq, nbatdet, ra_pnt, dec_pnt, pa_pnt, tstart):
     coord_array = SkyCoord(ra_pnt, dec_pnt, frame="icrs", unit="deg")
     ang_sep = coord_array.separation(_sco_coord)  # these are in degrees
 
-    # calcualate the extra chisq value added around Sco X-1 for the lowest energy band
+    # calculate the extra chisq value added around Sco X-1 for the lowest energy band
     sco_xtra_chi2 = scox1_slop(ang_sep.value)
 
     # stop
@@ -806,7 +797,7 @@ def compute_statistics_map(chi_sq, nbatdet, ra_pnt, dec_pnt, pa_pnt, tstart):
                 mask & (red_chi2[:, i] > _chilothresh) & (red_chi2[:, i] < _chihithresh)
             )
 
-    # include whether Sco is the object corresponsind to the pointing. If it is, we want to exclude this poinitng ID,
+    # include whether Sco is the object corresponding to the pointing. If it is, we want to exclude this pointing ID,
     # therefore set mask=0
     idx = np.where(
         (ra_pnt > 245)
@@ -848,7 +839,6 @@ def write_mosaic(
     filename_base = Path(filename_base)
 
     # get the directory that the data directory is located in
-    # direc = os.path.split(__file__)[0]
     direc = Path(Path(__file__).parent)
 
     # get the current date_time
@@ -899,9 +889,6 @@ def write_mosaic(
         with fits.open(str(ra_file)) as file:
             skygrid_header = file[0].header
 
-        # get rid of this old date in the old skyfacets. Now that we create them when batanalysis is imported for the first
-        # time ever, the created files dont have this header value
-        # skygrid_header.remove('DATE')
         total_header = header + add_header + skygrid_header
         total_header["BSKYPLAN"] = (string, "BAT mosaic ZEA sky plane ID (0-5)")
 
@@ -959,8 +946,6 @@ def finalize_mosaic(intermediate_mosaic_directory):
         string = "c%d_%s" % (i, _proj)
 
         # copy the expmap to the new name and remove a few header keywords
-        # file_name=os.path.join(intermediate_mosaic_directory, f'expmap_{string}.img')
-        # output_name=os.path.join(intermediate_mosaic_directory, f'swiftbat_flatexp_c{i}.img')
         file_name = intermediate_mosaic_directory.joinpath(f"expmap_{string}.img")
         output_name = intermediate_mosaic_directory.joinpath(
             f"swiftbat_flatexp_c{i}.img"
@@ -976,8 +961,6 @@ def finalize_mosaic(intermediate_mosaic_directory):
             file.flush()
 
         # do the same for the pcode file
-        # file_name=os.path.join(intermediate_mosaic_directory, f'pcode_{string}.img')
-        # output_name=os.path.join(intermediate_mosaic_directory, f'swiftbat_exposure_c{i}.img')
         file_name = intermediate_mosaic_directory.joinpath(f"pcode_{string}.img")
         output_name = intermediate_mosaic_directory.joinpath(
             f"swiftbat_exposure_c{i}.img"
@@ -994,8 +977,6 @@ def finalize_mosaic(intermediate_mosaic_directory):
 
         # for the flux, need to do simg/vimg and save this for each sky image and energy band
         # and change some of the header keywords
-        # flux_file_name=os.path.join(intermediate_mosaic_directory, f'flux_{string}.img')
-        # flux_output_name=os.path.join(intermediate_mosaic_directory, f'swiftbat_flux_c{i}.img')
         flux_file_name = intermediate_mosaic_directory.joinpath(f"flux_{string}.img")
         flux_output_name = intermediate_mosaic_directory.joinpath(
             f"swiftbat_flux_c{i}.img"
@@ -1004,18 +985,14 @@ def finalize_mosaic(intermediate_mosaic_directory):
 
         # for the SNR, need to do simg/sqrt(vimg) and save this for each sky image and energy band
         # and change some of the header keywords
-        # snr_file_name=os.path.join(intermediate_mosaic_directory, f'flux_{string}.img')
-        # snr_output_name=os.path.join(intermediate_mosaic_directory, f'swiftbat_snr_c{i}.img')
         snr_file_name = intermediate_mosaic_directory.joinpath(f"flux_{string}.img")
         snr_output_name = intermediate_mosaic_directory.joinpath(
             f"swiftbat_snr_c{i}.img"
         )
         shutil.copy(snr_file_name, snr_output_name)
 
-        # after calcualting the flux and the SNR, for the variance, need to convert from units of (1/cts/s)^2) to cts/s
+        # after calculating the flux and the SNR, for the variance, need to convert from units of (1/cts/s)^2) to cts/s
         # and modify the header
-        # var_file_name=os.path.join(intermediate_mosaic_directory, f'var_{string}.img')
-        # var_output_name=os.path.join(intermediate_mosaic_directory, f'swiftbat_var_c{i}.img')
         var_file_name = intermediate_mosaic_directory.joinpath(f"var_{string}.img")
         var_output_name = intermediate_mosaic_directory.joinpath(
             f"swiftbat_var_c{i}.img"
@@ -1099,17 +1076,17 @@ def create_mosaics(
         be used to create the mosaiced images.
     :param time_bins: The time bins that the observatons in outventory file have been grouped into
     :param survey_list: The list of BATSurvey objects that correpond to the observations listed in the outventory file
-    :param catalog_file: A Path object of the catalog file that should be used to identify sources in the mosaic images. This
-        will default to using the catalog file that is included with the BatAnalysis package.
-    :param total_mosaic_savedir: Default None or a Path object that denotes the directory that the total "time-integrated"
-        images will be saved to. The default is to place the total mosaic image in a directory called "total_mosaic"
-        located in the same directory as the outventory file.
-    :param recalc: Boolean False by default. If this calculation was done previously, do not try to load the results of prior calculations. Instead
-        recalculate the mosaiced images. The default, will cause the function to try to load a save file to save on computational
-        time.
+    :param catalog_file: A Path object of the catalog file that should be used to identify sources in the mosaic images.
+        This will default to using the catalog file that is included with the BatAnalysis package.
+    :param total_mosaic_savedir: Default None or a Path object that denotes the directory that the total
+        "time-integrated" images will be saved to. The default is to place the total mosaic image in a directory called
+        "total_mosaic" located in the same directory as the outventory file.
+    :param recalc: Boolean False by default. If this calculation was done previously, do not try to load the results of
+        prior calculations. Instead recalculate the mosaiced images. The default, will cause the function to try to load
+        a save file to save on computational time.
     :param verbose: Boolean True by default. Tells the code to print progress/diagnostic information.
-    :return: a list of MosaicBatSurvey objects correponding to each time bin that was requested, and a single MosaicBatSurvey
-        corresponding to the total mosaiced image across all time bins.
+    :return: a list of MosaicBatSurvey objects correponding to each time bin that was requested, and a single M
+        osaicBatSurvey corresponding to the total mosaiced image across all time bins.
     """
     # This function actually creates the mosaic-ed files, NOTE there is no usco inclusion here, but this can be
     # easily added if its really necessary. In the idl code, it didnt seem like this was used, but not sure.
@@ -1171,8 +1148,8 @@ def create_mosaics(
 
     intermediate_mosaic_dir_list = [i.result_dir for i in all_mosaic_survey]
 
-    # see if the total mosaic has been created and saved (ie there is a .batsurvey file in that directory) if there isnt,
-    # then do the full calculation or if we set recalc=True then also do the full calculation
+    # see if the total mosaic has been created and saved (ie there is a .batsurvey file in that directory) if there
+    # isnt, then do the full calculation or if we set recalc=True then also do the full calculation
     if total_mosaic_savedir is None:
         total_mosaic_savedir = intermediate_mosaic_dir_list[0].parent.joinpath(
             "total_mosaic"
@@ -1181,7 +1158,8 @@ def create_mosaics(
         total_mosaic_savedir = Path(total_mosaic_savedir)
 
     if not total_mosaic_savedir.joinpath("batsurvey.pickle").exists() or recalc:
-        # merge all the mosaics together to get the full 'time integrated' images and convert to final files with proper units
+        # merge all the mosaics together to get the full 'time integrated' images and convert to final files with
+        # proper units
         total_dir = merge_mosaics(
             intermediate_mosaic_dir_list, savedir=total_mosaic_savedir
         )
@@ -1217,8 +1195,8 @@ def _mosaic_loop(
      the flux is multiplied by the summed inverse variance image
      the inverse variance image is converted back to normal variance.
 
-    :param outventory_file: Path object that provides the full outventory file of the BAT survey observations that will be
-        used to calculate the mosaiced images.
+    :param outventory_file: Path object that provides the full outventory file of the BAT survey observations that will
+        be used to calculate the mosaiced images.
     :param start: astropy Time of the start time of the time bin that survey observations need to be made to be included
         in that time bin's mosaiced image.
     :param end: astropy Time of the end time of the time bin that survey observations need to be made to be included
@@ -1241,10 +1219,10 @@ def _mosaic_loop(
     # get the name of the file with binned outventory info and where its saved
     savedir = outventory_file.parent.joinpath(
         "grouped_outventory"
-    )  # os.path.join(os.path.split(outventory_file)[0], "grouped_outventory")
+    )
     output_file = savedir.joinpath(
         outventory_file.name.replace(".fits", f"_{start.datetime64.astype('datetime64[D]')}.fits")
-    )  # os.path.join(savedir, os.path.split(outventory_file)[-1].replace(".fits", "_"+str(start.astype('datetime64[D]'))+".fits"))
+    )
     #see if we need to use the mjd time format
     if not output_file.exists():
         output_file = savedir.joinpath(
@@ -1254,7 +1232,7 @@ def _mosaic_loop(
     # this is the directory of the time bin where the images will be saved
     img_dir = outventory_file.parent.joinpath(
         f"mosaic_{start.datetime64.astype('datetime64[D]')}"
-    )  # os.path.join(os.path.split(outventory_file)[0],'mosaic_'+str(start.astype('datetime64[D]')))
+    )
     if not img_dir.exists():
         img_dir = outventory_file.parent.joinpath(
             f"mosaic_{start.mjd}"
@@ -1309,9 +1287,7 @@ def _mosaic_loop(
             obsid = grouped_outventory_data["OBS_ID"][j]
             pointing_id = grouped_outventory_data["IMAGE_ID"][j]
 
-            # test that we have good image statistics, put FALSE for testing, uncomment next two lines to go back to orig
-            # if False:
-            # stop
+            # test that we have good image statistics
             if (
                 (chi_mask[j] == 0)
                 or (grouped_outventory_data["NBATDETS"][j] <= 0)
@@ -1341,7 +1317,7 @@ def _mosaic_loop(
 
                     data_directory = batsurvey_result_dir.joinpath(
                         pointing_id
-                    )  # os.path.join(batsurvey_result_dir, pointing_id)
+                    )
 
                     ncleaniter = survey_list[surveylist_idx].batsurvey_result.params[
                         "ncleaniter"
@@ -1350,7 +1326,7 @@ def _mosaic_loop(
                     # read the partial coding map, variance map, sky flux map for the pointing
                     pointing_pimg_str = data_directory.joinpath(
                         f"{pointing_id}_{ncleaniter}.img"
-                    )  # os.path.join(data_directory, pointing_id+"_"+ncleaniter+".img")
+                    )
                     with fits.open(str(pointing_pimg_str)) as file:
                         # read the partial coding map
                         pointing_pimg = file["BAT_PCODE_1"].data
@@ -1381,7 +1357,7 @@ def _mosaic_loop(
                         pointing_vimg = np.zeros_like(pointing_simg)
                         pointing_vimg_str = data_directory.joinpath(
                             f"{pointing_id}_{ncleaniter}.var"
-                        )  # os.path.join(data_directory, pointing_id+"_"+ncleaniter+".var")
+                        )
                         with fits.open(str(pointing_vimg_str)) as file:
                             for k in range(_nebands):
                                 pointing_vimg[:, :, k] = file[k].data
@@ -1405,12 +1381,6 @@ def _mosaic_loop(
 
                         # construct the quality map for each energy and for the total energy images
                         energy_quality_mask = np.zeros_like(pointing_vimg_corr)
-                        # for k in range(pointing_vimg_corr.shape[-1]):
-                        #    good_idx=np.where((pointing_pimg > _pcodethresh) & (pointing_vimg_corr[:,:,k] > 0) &\
-                        #                      np.isfinite(pointing_simg_corr[:,:,k]) & np.isfinite(pointing_vimg_corr[:,:,k]))
-                        #    energy_quality_mask[:,:,k][good_idx]=1
-
-                        # without a for loop, can try: Verified that this works the same as above for loop
                         good_idx = np.where(
                             (
                                 np.repeat(
@@ -1426,8 +1396,7 @@ def _mosaic_loop(
                         )
                         energy_quality_mask[good_idx] = 1
 
-                        # make the intermediate maps for each energy and for the total energy (need to double check that
-                        # broadcasting is correct)
+                        # make the intermediate maps for each energy and for the total energy
                         interm_pointing_eimg = (
                             energy_quality_mask * pointing_exposure
                         )  # Exposure map
@@ -1451,8 +1420,8 @@ def _mosaic_loop(
                             ra_skygrid, dec_skygrid, pointing_pimg_header
                         )
 
-                        # get the good values, in the idl file the shape of pointing_pimg is reversed, not sure if this is correct
-                        # here.
+                        # get the good values, in the idl file the shape of pointing_pimg is reversed, not sure if
+                        # this is correct here.
                         pixel_idx = np.where(
                             (pixel_y <= pointing_pimg.shape[0])
                             & (pixel_x <= pointing_pimg.shape[1])
@@ -1474,10 +1443,9 @@ def _mosaic_loop(
                         values = interm_pointing_eimg[:, :, 0]
                         values[np.isnan(values)] = 0
 
-                        # before had: #np.array([chosen_pixel_x, chosen_pixel_y]) for the below line but the
-                        # results werent consistent with the idl code results. changing the x and y pixel coordinates here works
+                        # before had: #np.array([chosen_pixel_x, chosen_pixel_y]) for the below line but the results
+                        # werent consistent with the idl code results. changing the x and y pixel coordinates here works
                         interp_at_points = np.array([chosen_pixel_y, chosen_pixel_x])
-                        # eimg[pixel_idx] += griddata(points.T, values.flatten(), interp_at_points.T, rescale=True, fill_value=0)
 
                         # see if thie other method works,
                         # https://stackoverflow.com/questions/20915502/speedup-scipy-griddata-for-multiple-interpolations-between-two-irregular-grids
@@ -1487,56 +1455,32 @@ def _mosaic_loop(
                             pixel_idx
                         ] += test  # new interpolate dir, took 722.239518339 s
 
-                        # see if method here works
+                        # tried if method here works
                         # https://stackoverflow.com/questions/51858194/storing-the-weights-used-by-scipy-griddata-for-re-use/51937990#51937990
-                        # tri = Delaunay(points.T)  # Compute the triangulation
-                        # Perform the interpolation with the given values:
-                        # interpolator = LinearNDInterpolator(tri, values.flatten())
-                        # values_mesh2 = interpolator(interp_at_points.T)
-                        # eimg[pixel_idx] += values_mesh2 #new interpolate 2 dir, took 3247.2622033880034 s
-                        # stop
+                        # found that it took 3247.2622033880034 s versus 722.239518339 s
 
                         values = interm_pointing_pimg[:, :, 0]
                         values[
                             np.isnan(values)
                         ] = 0  # if there are nan values in the images, this can mess up the interpolation
-                        # pimg[pixel_idx] += griddata(points.T, values.flatten(), interp_at_points.T, rescale=True, fill_value=0)
 
-                        # see if thie other method works,
                         test = interpolate(values.flatten(), vtx, wts, fill_value=0)
-                        pimg[pixel_idx] += test  # new interpolate dir
+                        pimg[pixel_idx] += test
 
-                        # see if method here works
-                        # interpolator = LinearNDInterpolator(tri, values.flatten())
-                        # values_mesh2 = interpolator(interp_at_points.T)
-                        # pimg[pixel_idx] += values_mesh2  # new interpolate 2 dir
 
                         for k in range(_nebands + 1):
                             values = interm_pointing_simg[:, :, k]
                             values[np.isnan(values)] = 0
-                            # simg[:, :, :, k][pixel_idx]+=griddata(points.T, values.flatten(), interp_at_points.T, rescale=True, fill_value=0)
 
-                            # see if thie other method works,
                             test = interpolate(values.flatten(), vtx, wts, fill_value=0)
                             simg[:, :, :, k][pixel_idx] += test  # new interpolate dir
 
-                            # see if method here works
-                            # interpolator = LinearNDInterpolator(tri, values.flatten())
-                            # values_mesh2 = interpolator(interp_at_points.T)
-                            # simg[:, :, :, k][pixel_idx] += values_mesh2  # new interpolate 2 dir
-
                             values = interm_pointing_vimg[:, :, k]
                             values[np.isnan(values)] = 0
-                            # vimg[:, :, :, k][pixel_idx]+=griddata(points.T, values.flatten(), interp_at_points.T, rescale=True, fill_value=0)
 
-                            # see if thie other method works,
                             test = interpolate(values.flatten(), vtx, wts, fill_value=0)
                             vimg[:, :, :, k][pixel_idx] += test  # new interpolate dir
 
-                            # see if method here works
-                            # interpolator = LinearNDInterpolator(tri, values.flatten())
-                            # values_mesh2 = interpolator(interp_at_points.T)
-                            # vimg[:, :, :, k][pixel_idx] += values_mesh2  # new interpolate 2 dir
 
                         # keep track of exposure and times
                         total_binned_exposure += pointing_exposure
@@ -1552,8 +1496,6 @@ def _mosaic_loop(
         # if there were no files that were mosaiced for the time interval dont copy any of the template fits files
         # to save space, also dont include these time bins in the total mosaic calculation
         if len(merged_pointing_dir) > 0:
-            # also save the directory with the valid mosaic-ed images
-            # intermediate_mosaic_dir_list.append(img_dir)
 
             # need to write the outputs after combining datasets that fall within a time bin
             # create a model header
@@ -1570,7 +1512,6 @@ def _mosaic_loop(
                 "py" + pkg_resources.require("BatAnalysis")[0].version,
                 " BAT mosaic processing version",
             )
-            # model_hdr['BMOSPLT']=(platform,     ' BAT mosaic processing platform') #dont need this defined? NO see finalize_mosaic where it would be removed anyway
             model_hdr["BMOSMON"] = (
                 str(start.datetime64.astype("datetime64[D]")),
                 " BAT mosaic processing date",
@@ -1609,10 +1550,8 @@ def _mosaic_loop(
             )
 
             # Add info about the user specified TBIN that was used to create the mosaic
-            #t = Time(start)
             start_met = sbu.datetime2met(start.datetime)
 
-            #t = Time(end)
             end_met = sbu.datetime2met(end.datetime)
 
             model_hdr["S_TBIN"] = (start_met, "Mosaicing Start of Time Bin (MET)")
@@ -1667,7 +1606,6 @@ def _mosaic_loop(
             # create a mosaic survey object to hold all the information and allow the user to
             mosaic_survey = MosaicBatSurvey(img_dir)
             mosaic_survey.save()
-            # all_mosaic_survey.append(mosaic_survey)
         else:
             mosaic_survey = None
     else:
@@ -1694,10 +1632,10 @@ def merge_mosaics(intermediate_mosaic_dir_list, savedir=None):
     if savedir is None:
         savedir = intermediate_mosaic_dir_list[
             0
-        ].parent  # os.path.split(intermediate_mosaic_dir_list[0])[0]
+        ].parent
         total_dir = savedir.joinpath(
             "total_mosaic"
-        )  # os.path.join(savedir, 'total_mosaic')
+        )
     else:
         total_dir = savedir
 
@@ -1731,11 +1669,12 @@ def merge_mosaics(intermediate_mosaic_dir_list, savedir=None):
             # open the pimg and add it to the array and accumulate the exposure and other header info
             pimg_file = i.joinpath(
                 "pcode_" + string + ".img"
-            )  # os.path.join(i, 'pcode_'+string+ '.img')
+            )
             with fits.open(str(pimg_file)) as file:
                 # read the partial coding map
                 pimg[:, :, j] += file[0].data
-                # for the first sky facet obtain this info. all sky facets have this info so we only need it from one sky facet
+                # for the first sky facet obtain this info. all sky facets have this info so we only need it from one
+                # sky facet
                 if j == 0:
                     total_binned_exposure += file[0].header["EXPOSURE"]
                     total_tstart.append(file[0].header["TSTART"])
@@ -1748,7 +1687,7 @@ def merge_mosaics(intermediate_mosaic_dir_list, savedir=None):
             # open the eimg and add it to the array and accumulate the exposure
             eimg_file = i.joinpath(
                 "expmap_" + string + ".img"
-            )  # os.path.join(i, 'expmap_' + string + '.img')
+            )
             with fits.open(str(eimg_file)) as file:
                 # read the flat exposure map
                 eimg[:, :, j] += file[0].data
@@ -1756,10 +1695,10 @@ def merge_mosaics(intermediate_mosaic_dir_list, savedir=None):
             # open the vimg and flux files
             simg_file_name = i.joinpath(
                 "flux_" + string + ".img"
-            )  # os.path.join(i, 'flux_' + string + '.img')
+            )
             vimg_file_name = i.joinpath(
                 "var_" + string + ".img"
-            )  # os.path.join(i, 'var_' + string + '.img')
+            )
 
             simg_file = fits.open(str(simg_file_name))
             vimg_file = fits.open(str(vimg_file_name))
@@ -1773,9 +1712,9 @@ def merge_mosaics(intermediate_mosaic_dir_list, savedir=None):
             simg_file.close()
             vimg_file.close()
 
-    # after adding everything up, need to save the data
-    # to save time/effort just copy over some of the intermediate files from the 0th directory of the list that is passed
-    # in, into the total_mosaic directory and update these data/header values
+    # after adding everything up, need to save the data to save time/effort just copy over some of the intermediate
+    # files from the 0th directory of the list that is passed in, into the total_mosaic directory and update these
+    # data/header values
 
     tmin = np.min(total_tstart)
     tmax = np.max(total_tstop)
@@ -1790,8 +1729,6 @@ def merge_mosaics(intermediate_mosaic_dir_list, savedir=None):
         string = "c%d_%s" % (j, _proj)
 
         # do this for the exposure
-        # file_name=os.path.join(intermediate_mosaic_dir_list[0], f'expmap_{string}.img')
-        # output_name=os.path.join(total_dir, f'expmap_{string}.img')
         file_name = intermediate_mosaic_dir_list[0].joinpath(f"expmap_{string}.img")
         output_name = total_dir.joinpath(f"expmap_{string}.img")
         shutil.copy(file_name, output_name)
@@ -1813,9 +1750,6 @@ def merge_mosaics(intermediate_mosaic_dir_list, savedir=None):
             file.flush()
 
         # do this for the pcode
-        # file_name=os.path.join(intermediate_mosaic_dir_list[0], f'pcode_{string}.img')
-        # output_name=os.path.join(total_dir, f'pcode_{string}.img')
-        # input=dict(infile=file_name, outfile=output_name)
         file_name = intermediate_mosaic_dir_list[0].joinpath(f"pcode_{string}.img")
         output_name = total_dir.joinpath(f"pcode_{string}.img")
         shutil.copy(file_name, output_name)
@@ -1837,16 +1771,10 @@ def merge_mosaics(intermediate_mosaic_dir_list, savedir=None):
             file.flush()
 
         # copy files for the variability and flux
-        # file_name=os.path.join(intermediate_mosaic_dir_list[0], f'var_{string}.img')
-        # var_output_name=os.path.join(total_dir, f'var_{string}.img')
-        # input=dict(infile=file_name, outfile=var_output_name)
         file_name = intermediate_mosaic_dir_list[0].joinpath(f"var_{string}.img")
         var_output_name = total_dir.joinpath(f"var_{string}.img")
         shutil.copy(file_name, var_output_name)
 
-        # file_name=os.path.join(intermediate_mosaic_dir_list[0], f'flux_{string}.img')
-        # flux_output_name=os.path.join(total_dir, f'flux_{string}.img')
-        # input=dict(infile=file_name, outfile=flux_output_name)
         file_name = intermediate_mosaic_dir_list[0].joinpath(f"flux_{string}.img")
         flux_output_name = total_dir.joinpath(f"flux_{string}.img")
         shutil.copy(file_name, flux_output_name)
