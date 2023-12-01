@@ -3,40 +3,15 @@ This file contains the batobservation class which contains information pertainin
 
 Tyler Parsotan Jan 24 2022
 """
-import shutil
-import sys
-from .batlib import datadir, dirtest, met2mjd, met2utc
-import glob
-from astropy.io import fits
-import numpy as np
-import subprocess
-import pickle
-import sys
-import re
+
+from .batlib import datadir
 from pathlib import Path
-from astropy.time import Time
-from datetime import datetime, timedelta
-import re
-import warnings
-
-# for python>3.6
-try:
-    import heasoftpy as hsp
-except ModuleNotFoundError as err:
-    # Error handling
-    print(err)
-
-# try:
-# import xspec as xsp
-# except ModuleNotFoundError as err:
-# Error handling
-# print(err)
 
 
 class BatObservation(object):
     """
-    A general Bat Observation object that holds information about the observation ID and the directory of the observation
-    ID. This class ensures that the observation ID directory exists and throws an error if it does not.
+    A general Bat Observation object that holds information about the observation ID and the directory of the
+    observation ID. This class ensures that the observation ID directory exists and throws an error if it does not.
     """
 
     def __init__(self, obs_id, obs_dir=None):
