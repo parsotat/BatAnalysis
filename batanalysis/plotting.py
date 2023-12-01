@@ -31,14 +31,15 @@ def plot_survey_lc(
     :param id_list: List of Strings or string denoting which source(s) the user wants the light curves to be plotted for
     :param energy_range: An array for the lower and upper energy ranges to be used.
         the default value is 14-195 keV.
-    :param savedir: None or a String to denote whether the light curves should be saved (if the passed value is a string)
+    :param savedir: None or a String to denote whether the light curves should be saved
+        (if the passed value is a string)
         or not. If the value is a string, the light curve plots are saved to the provided directory if it exists.
     :param time_unit: String specifying the time unit of the light curve. Can be "MET", "UTC" or "MJD"
     :param values: A list of strings contaning information that the user would like to be plotted out. The strings
         correspond to the keys in the pointing_info dictionaries of each BatSurvey object or to 'rate' or 'snr'.
     :param T0: None or a MET time of interest that should be highlighted on the plot.
-    :param same_figure: Boolean to denote if the passed in list of BatSurvey lists should be plotted on the same set of axis,
-        alongside one another. Default is False.
+    :param same_figure: Boolean to denote if the passed in list of BatSurvey lists should be plotted on the same set of
+        axis, alongside one another. Default is False.
     :return: None
     """
 
