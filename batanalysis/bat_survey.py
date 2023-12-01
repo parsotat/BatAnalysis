@@ -6,16 +6,12 @@ Tyler Parsotan April 5 2023
 """
 import os
 import shutil
-import sys
 from .batlib import datadir, dirtest, met2mjd, met2utc
 from .batobservation import BatObservation
-import glob
 from astropy.io import fits
 import numpy as np
-import subprocess
 import pickle
 import sys
-import re
 from pathlib import Path
 from astropy.time import Time
 from datetime import datetime, timedelta
@@ -28,14 +24,7 @@ try:
 except ModuleNotFoundError as err:
     # Error handling
     print(err)
-
-
-# try:
-# import xspec as xsp
-# except ModuleNotFoundError as err:
-# Error handling
-# print(err)
-
+    
 
 class BatSurvey(BatObservation):
     """
