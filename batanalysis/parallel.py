@@ -26,6 +26,7 @@ from pathlib import Path
 import sys
 from multiprocessing.pool import ThreadPool
 from astropy.table import Table, vstack
+from astropy.time import Time
 import shutil
 import numpy as np
 
@@ -374,9 +375,26 @@ def batmosaic_analysis(
     corrections_map = read_correctionsmap()
     ra_skygrid, dec_skygrid = read_skygrids()
 
-    # get the lower and upper time limits
-    start_t = time_bins[:-1]
-    end_t = time_bins[1:]
+    # determine format of the time_bins, ie an astropy Time array or a list of astropy Time arrays
+    # no error checking here since it should be taken care of in group_outventory function
+    time_bins_is_list = False
+    if type(time_bins) is list:
+        time_bins_is_list = True
+
+    if not time_bins_is_list:
+        # get the lower and upper time limits
+        start_t = time_bins[:-1]
+        end_t = time_bins[1:]
+    else:
+        start=[]
+        end=[]
+        for i in time_bins:
+            start.append(i[0, 0])
+            end.append(i[1, 0])
+
+        start_t=Time(start)
+        end_t=Time(end)
+
 
     if recalc:
         # make sure that the time bins are cleared

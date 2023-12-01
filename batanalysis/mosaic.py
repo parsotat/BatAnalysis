@@ -401,13 +401,13 @@ def group_outventory(
 
 
     else:
-        if type( custom_timebins) is not Time and type( custom_timebins) is not list:
+        if type(custom_timebins) is not Time and type(custom_timebins) is not list:
                 raise ValueError(
                     "The  custom_timebins variable needs to be an astropy Time object or a list of astropy Time objects."
                 )
         #make sure that all elements of list are astropy time objects and set a switch for later processing
-        if type( custom_timebins) is list:
-            for i in  custom_timebins:
+        if type(custom_timebins) is list:
+            for i in custom_timebins:
                 if type(i) is not Time:
                     raise ValueError(
                         "All the list elements of the  custom_timebins variable needs to be an astropy Time object of \
@@ -423,7 +423,7 @@ def group_outventory(
     outventory_file = Path(outventory_file)
 
     #if we dont have the actual time bins passed in we need to calcualte them
-    if  custom_timebins is None:
+    if custom_timebins is None:
         # by default use the earliest date of outventory file
         if start_datetime is None:
             # use the swift launch date
