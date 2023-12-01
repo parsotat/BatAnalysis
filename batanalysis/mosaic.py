@@ -520,12 +520,12 @@ def group_outventory(
             # clear the directory
             dirtest(savedir)
 
-            #get the number of iterations we need to do in teh loop below
+            # get the number of iterations we need to do in teh loop below
             if not time_bins_is_list:
-                #this is to account for the fact that we have the array consting of the start/end edges all in one
+                # this is to account for the fact that we have the array consisting of the start/end edges all in one
                 loop_iters = len(time_bins) - 1
             else:
-                #this accounts for having the list of just the starting bin edges or the end bin edges
+                # this accounts for having the list of just the starting bin edges or the end bin edges
                 loop_iters = len(time_bins)
 
             # loop over time bins to select the appropriate outventory enteries
@@ -1125,12 +1125,31 @@ def create_mosaics(
     if catalog_file is None:
         catalog_file = Path(__file__).parent.joinpath("data/survey6b_2.cat")
 
+    # determine format of the time_bins, ie an astropy Time array or a list of astropy Time arrays
+    # no error checking here since it should be taken care of in group_outventory function
+    time_bins_is_list = False
+    if type(time_bins) is list:
+        time_bins_is_list = True
+
     intermediate_mosaic_dir_list = []
     all_mosaic_survey = []
+
+    # get the number of iterations we need to do in teh loop below
+    if not time_bins_is_list:
+        # this is to account for the fact that we have the array consisting of the start/end edges all in one
+        loop_iters = len(time_bins) - 1
+    else:
+        # this accounts for having the list of just the starting bin edges or the end bin edges
+        loop_iters = len(time_bins)
+
     # loop over the time bins
-    for i in range(len(time_bins) - 1):
-        start = time_bins[i]
-        end = time_bins[i + 1]
+    for i in range(loop_iters):
+        if not time_bins_is_list:
+            start = time_bins[i]
+            end = time_bins[i + 1]
+        else:
+            start = time_bins[i][0, 0]
+            end = time_bins[i][1, 0]
 
         if verbose:
             print(f"Working on time bins from {start} to {end}.\n")
