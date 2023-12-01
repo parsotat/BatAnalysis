@@ -686,9 +686,6 @@ class BatSurvey(BatObservation):
         except AttributeError:
             hsp.utils.local_pfiles(par_dir=str(self._local_pfile_dir))
 
-        # get the current dir
-        current_dir = Path.cwd()
-
         if calc_upper_lim and bkg_nsigma is None:
             raise ValueError(
                 "A value for bkg_nsigma has not been passed to the function to calculate upper limits."
