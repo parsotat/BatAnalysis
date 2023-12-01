@@ -44,11 +44,9 @@ def dirtest(directory, clean_dir=True):
         if clean_dir:
             # remove the directory and recreate it
             shutil.rmtree(directory)
-            # os.mkdir(directory)
             directory.mkdir(parents=True)
     else:
         # create it
-        # os.mkdir(directory)
         directory.mkdir(parents=True)
 
 
@@ -168,10 +166,10 @@ def create_custom_catalog(
     prev_name = catalog_name.stem
     cat = catalog_dir.joinpath(
         prev_name + "_prev.cat"
-    )  # os.path.join(catalog_dir, prev_name+"_prev.cat")
+    )
     final_cat = catalog_dir.joinpath(
         catalog_name
-    )  # os.path.join(catalog_dir, catalog_name)
+    )
 
     # create the columns of file
     c1 = fits.Column(
@@ -216,7 +214,6 @@ def create_custom_catalog(
 
     # need to get the file name off to get the dir this file is located in
     dir = Path(__file__[::-1].partition("/")[-1][::-1])
-    # hsp.ftmerge(infile="%s %s" % (os.path.join(dir, 'data/survey6b_2.cat'), str(cat)), outfile=str(final_cat))
     hsp.ftmerge(
         infile="%s %s"
         % (str(dir.joinpath("data").joinpath("survey6b_2.cat")), str(cat)),
@@ -224,22 +221,8 @@ def create_custom_catalog(
     )
 
     os.system("rm %s" % (str(cat)))
-    # cat.unlink()
 
     return final_cat
-
-
-def _source_name_converter(name):
-    """
-    This function converts a source name to one that may correspond to the file name found in a merged_pointings_lc directory.
-    This function is needed due to the name change with the batsurvey-catmux script.
-
-    :param name: a string or list of strings of dfferent source names
-    :return: string or list of strings
-    """
-
-    return " "
-
 
 def combine_survey_lc(survey_obsid_list, output_dir=None, clean_dir=True):
     """
@@ -263,8 +246,6 @@ def combine_survey_lc(survey_obsid_list, output_dir=None, clean_dir=True):
     else:
         output_dir = Path(output_dir).expanduser().resolve()
 
-    # if not os.path.isdir(output_dir):
-    #    raise ValueError('The directory %s needs to exist for this function to save its results.' % (output_dir))
     # if the directory doesnt exist, create it otherwise over write it
     dirtest(output_dir, clean_dir=clean_dir)
 
@@ -283,14 +264,10 @@ def combine_survey_lc(survey_obsid_list, output_dir=None, clean_dir=True):
                 keycolumn="NAME",
                 infile=str(i),
                 outfile=str(output_dir.joinpath("%s.cat")),
-            )  # os.path.join(output_dir, "%s.cat"))
+            )
 
             # there is a bug in the heasoftpy code so try to explicitly call it for now
             ret.append(hsp.batsurvey_catmux(**dictionary))
-            # input_string = "batsurvey-catmux "
-            # for i in dictionary:
-            #    input_string = input_string + "%s=%s " % (str(i), dictionary[i])
-            # os.system(input_string)
 
     return output_dir
 
@@ -329,10 +306,8 @@ def read_lc_data(filename, energy_band_index=None, T0=0):
     for i in range(len(lc_fits_data)):
         time_start = time_array[i] - T0  # this is in MET
         time_stop = timestop_array[i] - T0
-        time_mid = (time_start + time_stop) / 2.0
-        # time_mid = time_mid / (24 * 60 * 60) #comment because we want to leave units as MET
-        time_err_num = (time_stop - time_start) / 2.0
-        # time_err_num = time_err_num / (24 * 60 * 60) #comment because we want to leave units as MET
+        time_mid = (time_start + time_stop) / 2.0 #we want to leave units as MET
+        time_err_num = (time_stop - time_start) / 2.0 #we want to leave units as MET
 
         time.append(time_mid)
         time_err.append(time_err_num)
@@ -364,7 +339,7 @@ def read_lc_data(filename, energy_band_index=None, T0=0):
                 snr_allband_num = rate_tot / np.sqrt(bkg_var_2_tot)
                 snr.append(snr_allband_num)
 
-    lc_fits.close
+    lc_fits.close()
 
     return time, time_err, rate, rate_err, snr
 
@@ -396,7 +371,7 @@ def calc_response(phafilename, srcname=None, indir=None, outdir=None):
     # we are already located in the PHA directory and are mabe calculating the upperlimit bkg spectrum
     _local_pfile_dir = (
         phafilename[0].resolve().parents[1].joinpath(".local_pfile")
-    )  # Path(f"/tmp/met2mjd_{os.times().elapsed}")
+    )
     _local_pfile_dir.mkdir(parents=True, exist_ok=True)
     try:
         hsp.local_pfiles(pfiles_dir=str(_local_pfile_dir))
@@ -405,7 +380,6 @@ def calc_response(phafilename, srcname=None, indir=None, outdir=None):
 
     # Check if the phafilename is a string and if it has an extension .pha. If NOT then exit
     for filename in phafilename:
-        # if type(filename) is not str or '.pha' not in os.path.splitext(filename)[1]:
         if ".pha" not in filename.name:
             raise ValueError(
                 "The file name %s needs to be a string and must have an extension of .pha ."
@@ -416,19 +390,18 @@ def calc_response(phafilename, srcname=None, indir=None, outdir=None):
         current_dir = Path.cwd()
 
         # get the directory that we have to cd to and the name of the file
-        # pha_dir, pha_file=os.path.split(filename)
         pha_dir = filename.parent
         pha_file = filename.name
 
         # cd to that dir
-        # if str(pha_dir) != '':
         if str(pha_dir) != str(current_dir):
             os.chdir(pha_dir)
 
         # Split the filename by extension, so as to remove the .pha and replace it with .rsp
+        # this is necessary since sources can have '.' in name
         out = (
             filename.stem + ".rsp"
-        )  # pha_file.split(".")[0] + '.rsp', remove this since sources can have '.' in name
+        )
 
         # create drm
         output = hsp.batdrmgen(
@@ -436,11 +409,8 @@ def calc_response(phafilename, srcname=None, indir=None, outdir=None):
         )
 
         # cd back
-        # if pha_dir != '':
         if str(pha_dir) != str(current_dir):
             os.chdir(current_dir)
-
-    # shutil.rmtree(_local_pfile_dir)
 
     return output
 
@@ -512,10 +482,8 @@ def fit_spectrum(
     # get the cwd.
     phafilename = Path(phafilename)
     current_dir = Path.cwd()
-    # plt.ion()
 
     # Check if the phafilename is a string and if it has an extension .pha. If NOT then exit
-    # if type(phafilename) is not str or '.pha' not in  os.path.splitext(phafilename)[1]:
     if ".pha" not in phafilename.name:
         raise ValueError(
             "The file name %s needs to be a string and must have an extension of .pha ."
@@ -523,7 +491,6 @@ def fit_spectrum(
         )
 
     # get the directory that we have to cd to and the name of the file
-    # pha_dir, pha_file=os.path.split(phafilename)
     pha_dir = phafilename.parent
     pha_file = phafilename.name
 
@@ -531,7 +498,7 @@ def fit_spectrum(
     pointing_id = phafilename.stem.split("_")[-1]
 
     if len(pha_file.split("_survey")) > 1:
-        # weve got a pha for a normal survey catalog
+        # we've got a pha for a normal survey catalog
         source_id = pha_file.split("_survey")[
             0
         ]  # This is the source name compatible with the catalog
@@ -540,18 +507,15 @@ def fit_spectrum(
         source_id = pha_file.split("_mosaic")[0]
 
     # cd to that dir
-    # if pha_dir != '':
     if str(pha_dir) != str(current_dir):
         os.chdir(pha_dir)
 
     xsp.AllData -= "*"
     s = xsp.Spectrum(
         pha_file
-    )  # from xspec import * has been done at the top. This is a spectrum object
-    # s.ignore("**-15,150-**")	#Ignoring energy ranges below 15 and above 150 keV.
+    )
 
     # Define model
-
     if (
         generic_model is not None
     ):  # User provides a string of model, and a Dictionary for the initial values
@@ -638,7 +602,7 @@ def fit_spectrum(
         ax.set_yscale("log")
         f.savefig(
             phafilename.parent.joinpath(phafilename.stem + ".pdf")
-        )  # phafilename.split('.')[0]+'.pdf')
+        )
         if plotting:
             plt.show()
 
@@ -677,26 +641,19 @@ def fit_spectrum(
         )
 
     # Incorporating the model names, parameters, errors into the BatSurvey object.
-    xsp.Xset.save(phafilename.stem + ".xcm")  # pha_file.split(".")[0]
+    xsp.Xset.save(phafilename.stem + ".xcm")
     xspec_savefile = phafilename.parent.joinpath(
         phafilename.stem + ".xcm"
-    )  # os.path.join(pha_dir, pha_file.split(".")[0] + ".xcm")
+    )
     surveyobservation.set_pointing_info(
         pointing_id, "xspec_model", xspec_savefile, source_id=source_id
     )
 
-    # xsp.Fit.error("2.706 3")
-    # fluxerr_lolim = p3.error[0]
-    # fluxerr_hilim =p3.error[1]
-    # pyxspec_error_string=p3.error[2]   #The string which says if everything is correct. Should be checked if there is non-normal value.
-    # flux = p3.values[0]
-
     # cd back
-    # if pha_dir != '':
     if str(pha_dir) != str(current_dir):
         os.chdir(current_dir)
 
-    # return flux, (fluxerr_lolim, fluxerr_hilim), pyxspec_error_string
+    return None
 
 
 def calculate_detection(
@@ -746,22 +703,16 @@ def calculate_detection(
             "The pyXspec package needs to installed to determine if a source has been detected with this function."
         )
 
-    # flux=np.power(10,flux)
-    # fluxerr=np.power(10,flux)- np.power(10,(flux-fluxerr))
-
     current_dir = Path.cwd()
 
     # get the directory that we have to cd to and the name of the file
-    # pha_dir,_=os.path.split(surveyobservation.get_pha_filenames(id_list=[source_id])[0])
     pha_dir = surveyobservation.get_pha_filenames(id_list=[source_id])[0].parent
-    # original_pha_file_list= surveyobservation.pha_file_names_list.copy()
 
     pointing_ids = (
         surveyobservation.get_pointing_ids()
     )  # This is a list of pointing_ids in this bat survey observation
 
     # cd to that dir
-    # if pha_dir != '':
     if str(pha_dir) != str(current_dir):
         os.chdir(pha_dir)
 
@@ -772,7 +723,6 @@ def calculate_detection(
     )  # By specifying the source_id, we now have the specific PHA filename list corresponding to the pointing_id_list for this given bat survey observation.
 
     for i in range(len(phafilename_list)):  # Loop over all phafilename_list,
-        # pha_dir, pha_file=os.path.split(phafilename_list[i])
         pha_dir = phafilename_list[i].parent
         pha_file = phafilename_list[i].name
 
@@ -785,8 +735,6 @@ def calculate_detection(
             pointing_dict = surveyobservation.get_pointing_info(
                 pointing_id, source_id=source_id
             )
-            # xsp.Xset.restore(os.path.split(pointing_dict['xspec_model'])[1])
-            # model=xsp.AllModels(1)
             model = pointing_dict["model_params"]["lg10Flux"]
             flux = model["val"]  # ".cflux.lg10Flux.values[0]              #Value
             fluxerr_lolim = model["lolim"]  # .cflux.lg10Flux.error[0]      #Error
@@ -886,18 +834,14 @@ def calculate_detection(
                 print(s.flux)
 
             # Capturing the simple model. saved to the model object, can be obtained by calling model(1).error, model(2).error
-            # if the original fit had failed b/c of negative counts
-            # try:
-            #    pointing_dict = surveyobservation.get_pointing_info(pointing_id, source_id=source_id)
-            # except ValueError:
             model_params = dict()
-            for i in range(1, model.nParameters + 1):
+            for j in range(1, model.nParameters + 1):
                 # get the name of the parameter
-                par_name = model(i).name
+                par_name = model(j).name
                 model_params[par_name] = dict(
-                    val=model(i).values[0],
-                    lolim=model(i).error[0],
-                    hilim=model(i).error[1],
+                    val=model(j).values[0],
+                    lolim=model(j).error[0],
+                    hilim=model(j).error[1],
                     errflag="TTTTTTTTT",
                 )
             surveyobservation.set_pointing_info(
@@ -910,22 +854,11 @@ def calculate_detection(
                 np.log10(s.flux[0]),
                 source_id=source_id,
             )
-
-            # pointing_id=pha_file.split(".")[0].split("_")[-1]
-            # surveyobservation.pointing_info[pointing_id]["flux"]=0
-            # surveyobservation.pointing_info[pointing_id]["flux_lolim"]=0
-            # surveyobservation.pointing_info[pointing_id]["flux_hilim"]=s.flux[0]
-
         else:  # Detection
             if verbose:
                 print("A detection has been measured at the %d sigma level" % (nsigma))
-            # pointing_id=pha_file.split(".")[0].split("_")[-1]
-            # surveyobservation.pointing_info[pointing_id]["flux"]=flux[i]
-            # surveyobservation.pointing_info[pointing_id]["flux_lolim"]=fluxerr_lolim[i]
-            # surveyobservation.pointing_info[pointing_id]["flux_hilim"]=fluxerr_hilim[i]
 
     # cd back
-    # if pha_dir != '':
     if str(pha_dir) != str(current_dir):
         os.chdir(current_dir)
 
@@ -985,13 +918,6 @@ def print_parameters(
     if savetable and save_file is not None:
         # open the file to write the output to
         f = open(str(save_file), "w")
-
-    # dont allow xspec to prompt
-    # xsp.Xset.allowPrompting = False
-
-    # sort the obs ids by time of 1st pointing id
-    # all_met=[i.pointing_info[i.pointing_ids[0]]["met_time"] for i in obs_list]
-    # sorted_obs_idx=np.argsort(all_met)
 
     outstr = " "  # Obs ID  \t Pointing ID\t"
     for i in values:
@@ -1315,13 +1241,6 @@ def met2mjd(met_time):
     try:
         val = sbu.met2mjd(met_time, correct=True)
     except (ModuleNotFoundError, RuntimeError):
-        # _local_pfile_dir=Path(f"/tmp/met2mjd_{os.times().elapsed}")
-        # _local_pfile_dir.mkdir(parents=True, exist_ok=True)
-        # try:
-        #    hsp.local_pfiles(pfiles_dir=str(_local_pfile_dir))
-        # except AttributeError:
-        #    hsp.utils.local_pfiles(par_dir=str(_local_pfile_dir))
-
         # calculate times in UTC and MJD units as well
         inputs = dict(
             intime=str(met_time),
@@ -1331,9 +1250,7 @@ def met2mjd(met_time):
             outformat="m",
         )  # output in MJD
         o = hsp.swifttime(**inputs)
-        # stop
         val = float(o.params["outtime"])
-        # shutil.rmtree(_local_pfile_dir)
 
     atime = Time(val, format="mjd", scale="utc")
     return atime.value
