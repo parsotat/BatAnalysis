@@ -1897,7 +1897,7 @@ def merge_mosaics(intermediate_mosaic_dir_list, savedir=None):
 
 # Need to make sure that the sky facets have been created when this is imported
 # if this is the first time its imported need to create the default ones
-# if its not the first time this module is imported (ie that batanalysis is imported) then dont redo this calculation
+# if it's not the first time this module is imported (ie that batanalysis is imported) then dont redo this calculation
 
 package_data_dir = Path(__file__).parent.joinpath("data")
 files = sorted(package_data_dir.glob("*_ZEA.img"))
