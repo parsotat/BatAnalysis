@@ -20,8 +20,6 @@ def plot_survey_lc(
     time_unit="MET",
     values=["rate", "snr"],
     T0=None,
-    calc_lc=False,
-    clean_dir=False,
     same_figure=False,
 ):
     """
@@ -39,9 +37,6 @@ def plot_survey_lc(
     :param values: A list of strings contaning information that the user would like to be plotted out. The strings
         correspond to the keys in the pointing_info dictionaries of each BatSurvey object or to 'rate' or 'snr'.
     :param T0: None or a MET time of interest that should be highlighted on the plot.
-    :param calc_lc: Boolean set to True, to denote if the light curves across all the BatSurvey objects need to be recombined
-    :param clean_dir: Boolean set to True by default. Denotes if the whole directory that holds all the compiled light curve
-        data for the passed survey observations should be deleted and recreated if the directory exists.
     :param same_figure: Boolean to denote if the passed in list of BatSurvey lists should be plotted on the same set of axis,
         alongside one another. Default is False.
     :return: None
@@ -62,15 +57,6 @@ def plot_survey_lc(
 
     if type(survey_obsid_list[0]) is not list:
         survey_obsid_list = [survey_obsid_list]
-
-    # dont need this anymore since we use concatenate_data
-    # for observation_list in survey_obsid_list:
-    #    if calc_lc:
-    #        lc_dir = combine_survey_lc(observation_list, clean_dir=clean_dir)
-        # else:
-        # get the main directory where we shoudl create the total_lc directory
-        # main_dir = os.path.split(observation_list[0].result_dir)[0]
-        # lc_dir = observation_list[0].result_dir.parent.joinpath("total_lc") #os.path.join(main_dir, "total_lc")
 
     # if the user wants to save the plots check if the save dir exists
     if savedir is not None:
