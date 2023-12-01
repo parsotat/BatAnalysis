@@ -1,10 +1,7 @@
 from matplotlib import pyplot as plt
-import os
-import glob
 import numpy as np
-from astropy.io import fits
 from pathlib import Path
-from .batlib import combine_survey_lc, read_lc_data, met2utc, met2mjd, concatenate_data
+from .batlib import combine_survey_lc, met2utc, met2mjd, concatenate_data
 from astropy.time import Time, TimeDelta
 
 # for python>3.6
