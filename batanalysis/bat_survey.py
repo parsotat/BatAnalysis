@@ -1889,25 +1889,25 @@ class MosaicBatSurvey(BatSurvey):
         if not copied_responsefile.exists():
             copied_responsefile.symlink_to(responsefile)
 
-        for id in id_list:
+        for ident in id_list:
             if verbose:
-                print("Creating PHA file for ", id)
+                print("Creating PHA file for ", ident)
 
             # get the proper name for the source incase the user didnt get the name correct
             x = sorted(merge_output_path.glob("*.cat"))
             catalog_sources = [i.stem for i in x]
-            test = self._compare_source_name(id, catalog_sources)
+            test = self._compare_source_name(ident, catalog_sources)
             if np.sum(test) > 0:
-                id = np.array(catalog_sources)[
-                    self._compare_source_name(id, catalog_sources)
+                ident = np.array(catalog_sources)[
+                    self._compare_source_name(ident, catalog_sources)
                 ][0]
             else:
-                id = None
+                ident = None
 
             # get info from the newly created cat file (from merge)
             try:
                 catalog = merge_output_path.joinpath(
-                    f"{id}.cat"
+                    f"{ident}.cat"
                 )
                 cat_file = fits.open(catalog)
                 tbdata = cat_file[1].data
@@ -1971,11 +1971,11 @@ class MosaicBatSurvey(BatSurvey):
 
                 if calc_upper_lim:
                     survey_pha_file = output_dir.joinpath(
-                        f"{id}_mosaic_bkgnsigma_{int(bkg_nsigma)}_upperlim.pha"
+                        f"{ident}_mosaic_bkgnsigma_{int(bkg_nsigma)}_upperlim.pha"
                     )
 
                 else:
-                    survey_pha_file = output_dir.joinpath(f"{id}_mosaic.pha")
+                    survey_pha_file = output_dir.joinpath(f"{ident}_mosaic.pha")
                 self.set_pha_filenames(survey_pha_file)
                 pha_thdulist.writeto(str(survey_pha_file))
 
@@ -2042,4 +2042,4 @@ class MosaicBatSurvey(BatSurvey):
 
                 pha_hdulist.flush()
             except FileNotFoundError:
-                print("The source %s was not found in the mosaiced image." % (id))
+                print("The source %s was not found in the mosaiced image." % (ident))
