@@ -3,7 +3,6 @@ This file contains the batobservation class which contains information pertainin
 
 Tyler Parsotan Jan 24 2022
 """
-import os
 import shutil
 import sys
 from .batlib import datadir, dirtest, met2mjd, met2utc
@@ -56,7 +55,7 @@ class BatObservation(object):
             if obs_dir.joinpath(self.obs_id).is_dir():
                 self.obs_dir = obs_dir.joinpath(
                     self.obs_id
-                )  # os.path.join(obs_dir , self.obs_id)
+                )
             else:
                 raise FileNotFoundError(
                     "The directory %s does not contain the observation data corresponding to ID: %s"
@@ -66,10 +65,9 @@ class BatObservation(object):
             obs_dir = datadir()  # Path.cwd()
 
             if obs_dir.joinpath(self.obs_id).is_dir():
-                # os.path.isdir(os.path.join(obs_dir , self.obs_id)):
                 self.obs_dir = obs_dir.joinpath(
                     self.obs_id
-                )  # self.obs_dir = os.path.join(obs_dir , self.obs_id)
+                )
             else:
                 raise FileNotFoundError(
                     "The directory %s does not contain the observation data correponding to ID: %s"
