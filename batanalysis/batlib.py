@@ -28,6 +28,7 @@ except ModuleNotFoundError as err:
 
 _orig_pdir = os.getenv("PFILES")
 
+
 def dirtest(directory, clean_dir=True):
     """
     Tests if a directory exists and either creates the directory or removes it and then re-creates it
@@ -64,7 +65,8 @@ def datadir(new=None, mkdir=False, makepersistent=False, tdrss=False) -> Path:
     Args:
         new (Path|str, optional): Use this as the data directory
         mkdir (bool, optional): Create the directory (and its parents) if necessary
-        makepersistent (bool, optional): If set, stores the name in ~/.swift/swift_datadir_name and uses it as new default
+        makepersistent (bool, optional): If set, stores the name in ~/.swift/swift_datadir_name and uses it as new
+            default
         tdrss (bool, optional): subdirectory storing tdrss data types
     """
     global _datadir
@@ -238,7 +240,7 @@ def combine_survey_lc(survey_obsid_list, output_dir=None, clean_dir=True):
     if type(survey_obsid_list) is not list:
         survey_obsid_list = [survey_obsid_list]
 
-    # get the main directory where we shoudl create the total_lc directory
+    # get the main directory where we should create the total_lc directory
     if output_dir is None:
         output_dir = survey_obsid_list[0].result_dir.parent.joinpath(
             "total_lc"
@@ -246,10 +248,10 @@ def combine_survey_lc(survey_obsid_list, output_dir=None, clean_dir=True):
     else:
         output_dir = Path(output_dir).expanduser().resolve()
 
-    # if the directory doesnt exist, create it otherwise over write it
+    # if the directory doesn't exist, create it otherwise overwrite it
     dirtest(output_dir, clean_dir=clean_dir)
 
-    # make the local pfile dir if it doesnt exist and set this value
+    # make the local pfile dir if it doesn't exist and set this value
     _local_pfile_dir = output_dir.joinpath(".local_pfile")
     _local_pfile_dir.mkdir(parents=True, exist_ok=True)
     try:
@@ -284,7 +286,7 @@ def read_lc_data(filename, energy_band_index=None, T0=0):
     :return: arrays of the time, time bin size, rate, rate_error, and the SNR of the measurement in time
     """
 
-    ## get fits file data
+    # get fits file data
     time = []
     time_err = []
     rate = []
@@ -297,7 +299,7 @@ def read_lc_data(filename, energy_band_index=None, T0=0):
 
     time_array = lc_fits_data.field("TIME")
     timestop_array = lc_fits_data.field("TIME_STOP")
-    exposure_array = lc_fits_data.field("EXPOSURE")
+    #exposure_array = lc_fits_data.field("EXPOSURE") this isn't needed
     rate_array = lc_fits_data.field("RATE")
     rate_err_array = lc_fits_data.field("RATE_ERR")
     bkg_var_array = lc_fits_data.field("BKG_VAR")
@@ -306,8 +308,8 @@ def read_lc_data(filename, energy_band_index=None, T0=0):
     for i in range(len(lc_fits_data)):
         time_start = time_array[i] - T0  # this is in MET
         time_stop = timestop_array[i] - T0
-        time_mid = (time_start + time_stop) / 2.0 #we want to leave units as MET
-        time_err_num = (time_stop - time_start) / 2.0 #we want to leave units as MET
+        time_mid = (time_start + time_stop) / 2.0 # we want to leave units as MET
+        time_err_num = (time_stop - time_start) / 2.0 # we want to leave units as MET
 
         time.append(time_mid)
         time_err.append(time_err_num)
@@ -344,25 +346,23 @@ def read_lc_data(filename, energy_band_index=None, T0=0):
     return time, time_err, rate, rate_err, snr
 
 
-def calc_response(phafilename, srcname=None, indir=None, outdir=None):
+def calc_response(phafilename):
     """
-        This function generates the response matrix for a given pha file by calling batdrmgen (this is a HEASOFT function).
+        This function generates the response matrix for a given pha file by calling batdrmgen
+        (this is a HEASOFT function).
 
-        :param phafilename: String that denotes the location and name of the PHA file that the user would like to calculate
-            the response matrix for.
-        :param srcname: String denoting the source name (no spaces). The source name must match with the one that is in the phafilename.
-        :param indir: String denoting the full path/to/the/input-directory. By default it takes the current directory.
-        :param outdir: String denoting the full path/to/the/output-directory. By default it takes the current directory
-        :return: Heasoftpy "Result" object obtained from calling heasoftpy batdrmgen. The "Result" object is the entire output, which
-    helps to debug in case of an error.
+        :param phafilename: String that denotes the location and name of the PHA file that the user would like to
+            calculate the response matrix for.
+        :return: Heasoftpy "Result" object obtained from calling heasoftpy batdrmgen. The "Result" object is the entire
+            output, which helps to debug in case of an error.
     """
 
     if type(phafilename) is not list:
         phafilename = [phafilename]
 
-    # when passing in tht whole filename, the paths mess up the conection between the response file and the pha file since
-    # there seems to be some character limit to this header value. Therefore we need to cd to the directory that the PHA
-    # file lives in and create the .rsp file and then cd back to the original location.
+    # when passing in tht whole filename, the paths mess up the connection between the response file and the pha file
+    # since there seems to be some character limit to this header value. Therefore, we need to cd to the directory
+    # that the PHA file lives in and create the .rsp file and then cd back to the original location.
 
     # make sure that all elements are paths
     phafilename = [Path(i) for i in phafilename]
@@ -421,8 +421,6 @@ def fit_spectrum(
     plotting=True,
     generic_model=None,
     setPars=None,
-    indir=None,
-    outdir=None,
     use_cstat=True,
     fit_iterations=1000,
     verbose=True,
@@ -457,8 +455,6 @@ def fit_spectrum(
     :param plotting: Boolean statement, if the user wants to plot the spectrum.
     :param generic_model: String with XSPEC compatible model, which must include cflux.
     :param setPars: Boolean to set the parameter values of the model specified above.
-    :param indir: String denoting the full path/to/the/input-directory. By default it takes the current directory.
-    :param outdir: String denoting the full path/to/the/output-directory. By default it takes the current directory.
     :param use_cstat: Boolean to use cstat in case of low counts (Poisson statistics), otherwise use chi squared stats.
     :param fit_iterations: Number of fit iterations to be carried out by XSPEC.
      Since BAT data has just 8 energy channels, a default of 100 is enough.
@@ -520,9 +516,9 @@ def fit_spectrum(
         generic_model is not None
     ):  # User provides a string of model, and a Dictionary for the initial values
         if type(generic_model) is str:
-            if (
-                "cflux" in generic_model
-            ):  # The user must provide the cflux, or else we will not be able to predict of there is a statistical detection (in the next function).
+            if "cflux" in generic_model:
+                # The user must provide the cflux, or else we will not be able to predict of there is a statistical
+                # detection (in the next function).
                 try:
                     model = xsp.Model(
                         generic_model, setPars=setPars
@@ -557,11 +553,10 @@ def fit_spectrum(
         p5.frozen = True
 
         # model_components=model.componentNames  #This is a list of the model components
-    # Check if the model is XSPEC compatible : Done
-    # Listing down the model parameters in a dictionary: parm1: Value, param2: Value....
-    # If no initial values given , default XSPEC values to be used.
-    # We will manipulate these param values to "set a value" or "freeze/thaw" a value, set a range for these viable values.
-    # We can call the best fit param values, after fit.
+    # Check if the model is XSPEC compatible : Done Listing down the model parameters in a dictionary: parm1: Value,
+    # param2: Value.... If no initial values given , default XSPEC values to be used. We will manipulate these param
+    # values to "set a value" or "freeze/thaw" a value, set a range for these viable values. We can call the best fit
+    # param values, after fit.
 
     # Fitting the data with this model
 
@@ -576,7 +571,7 @@ def fit_spectrum(
     xsp.Fit.nIterations = fit_iterations
     xsp.Fit.renorm()
 
-    # try to do the fitting if it doesnt work fill in np.nan values for things
+    # try to do the fitting if it doesn't work fill in np.nan values for things
     try:
         xsp.Fit.perform()
         if verbose:
@@ -606,7 +601,8 @@ def fit_spectrum(
         if plotting:
             plt.show()
 
-        # Capturing the Flux and its error. saved to the model object, can be obtained by calling model(1).error, model(2).error
+        # Capturing the Flux and its error. saved to the model object, can be obtained by calling model(1).error,
+        # model(2).error
         model_params = dict()
         for i in range(1, model.nParameters + 1):
             xsp.Fit.error("2.706 %d" % (i))
@@ -685,12 +681,17 @@ def calculate_detection(
      For different sources one can specify separate detection threshold ('sigma') for different sources.
      Thus we have kept this function to operate only ONE source at a time.
 
-    :param surveyobservation: Object denoting the batsurvey observation object which contains all the necessary information related to this observation.
+    :param surveyobservation: Object denoting the batsurvey observation object which contains all the necessary
+        information related to this observation.
     :param source_id: String denoting the source name exactly as that in the phafilename.
-    :param pl_index: Float (default 2) denoting the power law photon index that will be used to obtain a flux upper limit
+    :param pl_index: Float (default 2) denoting the power law photon index that will be used to obtain a flux upper
+        limit
     :param nsigma: Integer, denoting the number fo sigma the user needs to justify a detection
-    :param bkg_nsigma: Integer, denoting the number of sigma the user needs to to calculate flux upper limit in case of a non detection.
-    :param verbose: Boolean to show every output during the fitting process. Set to True by default, that'll help the user to identify any issues with the fits.
+    :param bkg_nsigma: Integer, denoting the number of sigma the user needs to calculate flux upper limit in case
+        of a non detection.
+    :param plot_fit: Boolean to determine if the fit should be plotted or not
+    :param verbose: Boolean to show every output during the fitting process. Set to True by default, that'll help the
+        user to identify any issues with the fits.
     :return: In case of a non-detection a flux upper limit is returned.
     """
 
@@ -718,9 +719,11 @@ def calculate_detection(
 
     flux_upperlim = []
 
+    # By specifying the source_id, we now have the specific PHA filename list corresponding to the
+    # pointing_id_list for this given bat survey observation.
     phafilename_list = surveyobservation.get_pha_filenames(
         id_list=[source_id], pointing_id_list=pointing_ids
-    )  # By specifying the source_id, we now have the specific PHA filename list corresponding to the pointing_id_list for this given bat survey observation.
+    )
 
     for i in range(len(phafilename_list)):  # Loop over all phafilename_list,
         pha_dir = phafilename_list[i].parent
@@ -729,7 +732,8 @@ def calculate_detection(
         # The old statement: pointing_id=pha_file.split(".")[0].split("_")[-1] didnt work if source_id has period in it
         pointing_id = phafilename_list[i].stem.split("_")[-1]
 
-        # Within the pointing dictionar we have the "key" called "Xspec_model" which has the parameters, values and errors.
+        # Within the pointing dictionar we have the "key" called "Xspec_model" which has the parameters, values and
+        # errors.
         error_issues = False  # preset this here
         try:
             pointing_dict = surveyobservation.get_pointing_info(
@@ -758,7 +762,7 @@ def calculate_detection(
                 error_issues = True
 
         except ValueError:
-            # the fitting wasnt not successful and the dictionary was not created but want to enter the upper limit if
+            # the fitting was not successful and the dictionary was not created but want to enter the upper limit if
             # statement
             fluxerr_lolim = 0
             flux = 1
@@ -780,8 +784,8 @@ def calculate_detection(
                 single_pointing=pointing_id,
             )
 
-            # can also do surveyobservation.get_pha_filenames(id_list=source_id,pointing_id_list=pointing_id, getupperlim=True)
-            # to get the created upperlimit file. Will do this because it is more robust
+            # can also do surveyobservation.get_pha_filenames(id_list=source_id,pointing_id_list=pointing_id,
+            # getupperlim=True) to get the created upperlimit file. Will do this because it is more robust
             # bkgnsigma_upper_limit_pha_file= pha_file.split(".")[0]+'_bkgnsigma_%d'%(bkg_nsigma) + '_upperlim.pha'
             bkgnsigma_upper_limit_pha_file = surveyobservation.get_pha_filenames(
                 id_list=source_id, pointing_id_list=pointing_id, getupperlim=True
@@ -833,7 +837,8 @@ def calculate_detection(
 
                 print(s.flux)
 
-            # Capturing the simple model. saved to the model object, can be obtained by calling model(1).error, model(2).error
+            # Capturing the simple model. saved to the model object, can be obtained by calling model(1).error,
+            # model(2).error
             model_params = dict()
             for j in range(1, model.nParameters + 1):
                 # get the name of the parameter
@@ -885,12 +890,12 @@ def print_parameters(
         correspond to the keys in the pointing_info dictionaries of each BatSurvey object and the colmns will be put
         in this order.
     :param energy_range: a list or array of the minimum energy range that should be considered and the maximum energy
-        range that should be considered. By default this is 14-195 keV
+        range that should be considered. By default, this is 14-195 keV
     :param latex_table: Boolean to denote if the output should be formatted as a latex table
     :param savetable: Boolean to denote if the user wants to save the table to a file
     :param save_file: string that specified the location and name of the file that contains the saved table
     :param overwrite: Boolean that says to overwrite the output file if it already exists
-    :param add_obs_id: Moolean to denote if the observation and pointing IDs should be added to the value list automatically
+    :param add_obs_id: Boolean to denote if the observation and pointing IDs should be added to the value list automatically
     :return: None
     """
 
@@ -1264,7 +1269,8 @@ def met2utc(met_time, mjd_time=None):
 
     :param met_time: a number that is the Swift MET time that will be converted
     :param mjd_time: default to None, which means that the code will first calculate the MJD time and then convert it to
-        UTC time. If the user already has the MJD time, they can specify it here and the function will directly convert it.
+        UTC time. If the user already has the MJD time, they can specify it here and the function will directly
+        convert it.
     :return: a numpy datetime64 object of the MET time with the Swift clock correction applied
     """
     if mjd_time is None:
@@ -1298,7 +1304,7 @@ def set_pdir(pdir):
     :return:
     """
 
-    # if its not None, make sure that its a string that can be passed to heasoftpy. None will
+    # if it's not None, make sure that it's a string that can be passed to heasoftpy. None will
     if pdir is not None:
         pdir = str(pdir)
 
@@ -1321,19 +1327,20 @@ def concatenate_data(
     bat_observation, source_ids, keys, energy_range=[14, 195], chronological_order=True
 ):
     """
-    This convenience function collects the data that was requested by the user as passed into the keys variable. The data
-    is returned in the form of a dictionary with the same keys and numpy arrays of all the concatenated data. if the user asks
-    for parameters with errors associated with them these errors will be automatically included. For example if the user wants
-    rates information then the function will automatically include a dicitonary key to hold the rates error information as well
+    This convenience function collects the data that was requested by the user as passed into the keys variable. The
+    data is returned in the form of a dictionary with the same keys and numpy arrays of all the concatenated data. if
+    the user asks for parameters with errors associated with them these errors will be automatically included. For
+    example if the user wants rates information then the function will automatically include a dicitonary key to
+    hold the rates error information as well
 
-    :param bat_observation: a list of BatObservation objects including BatSurvey and MosaicBatSurvey objects that the user
-        eants to extract the relevant data from.
+    :param bat_observation: a list of BatObservation objects including BatSurvey and MosaicBatSurvey objects that the
+        user wants to extract the relevant data from.
     :param source_ids: The sources that the user would like to collect data for
     :param keys: a string or list of strings
     :param energy_range: a list or array of the minimum energy range that should be considered and the maximum energy
         range that should be considered
-    :param chronological_order: Boolean to denote if the outputs should be sorted chronologically or kept in the same order
-        as the BATSurvey objects that were passed in
+    :param chronological_order: Boolean to denote if the outputs should be sorted chronologically or kept in the same
+        order as the BATSurvey objects that were passed in
     :return: dict with the keys specified by the user and numpy lists as the concatenated values for each key
     """
 
@@ -1359,8 +1366,8 @@ def concatenate_data(
         for j in concat_data[i].keys():
             concat_data[i][j] = []
 
-    # deterine the energy range that may be of interest. This can be none for total E range or one of the basic 8 channel
-    # energies or a range that spans more than one energy range of the 8 channels.
+    # deterine the energy range that may be of interest. This can be none for total E range or one of the basic 8
+    # channel energies or a range that spans more than one energy range of the 8 channels.
     if np.isclose([14, 195], energy_range).sum() == 2:
         e_range_idx = [-1]  # this is just the last index of the arrays for counts, etc
     else:
@@ -1410,14 +1417,14 @@ def concatenate_data(
                             concat_data[source][user_key].append(save_val)
                             save_val = (
                                 np.inf
-                            )  # set to a crazy number so we dont get errors with np.isnan for a string
+                            )  # set to a crazy number so we don't get errors with np.isnan for a string
 
                         if "pointing" in user_key:
                             save_val = pointings
                             concat_data[source][user_key].append(save_val)
                             save_val = (
                                 np.inf
-                            )  # set to a crazy number so we dont get errors with np.isnan for a string
+                            )  # set to a crazy number so we don't get errors with np.isnan for a string
 
                         # search in all
                         continue_search = True
@@ -1441,7 +1448,8 @@ def concatenate_data(
                                 and ("index" not in user_key.lower())
                             ):
                                 try:
-                                    # if this is a rate/rate_err/snr need to calcualate these quantities based on the returned array
+                                    # if this is a rate/rate_err/snr need to calcualate these quantities based on the
+                                    # returned array
                                     if "rate" in user_key or "snr" in user_key:
                                         rate, rate_err, snr = obs.get_count_rate(
                                             e_range_idx, pointings, source
@@ -1457,10 +1465,11 @@ def concatenate_data(
                                         save_val = dpath.get(dictionary, user_key)
 
                                 except KeyError:
-                                    # if the key doest exist dont do anything but add np.nan
+                                    # if the key doest exist don't do anything but add np.nan
                                     save_val = np.nan
-                                    # this key for rate, rate_err, SNR doesnt exist probably because the source wasnt
-                                    # detected so dont eneter the outer if statement again 9which will keep saving np.nan
+                                    # this key for rate, rate_err, SNR doesn't exist probably because the source wasn't
+                                    # detected so don't enter the outer if statement again which will keep saving
+                                    # np.nan
                                     if "rate" in user_key or "snr" in user_key:
                                         continue_search = False
 
@@ -1475,7 +1484,7 @@ def concatenate_data(
                             in obs.get_pointing_info(pointings, source_id=source).keys()
                         ):
                             # can have obs.get_pointing_info(pointings, source_id=source)["model_params"]
-                            # but it can be None if the source isnt detected
+                            # but it can be None if the source isn't detected
                             # if obs.get_pointing_info(pointings, source_id=source)["model_params"] is not None:
                             # have to modify the name of the flux related quantity here
                             if "flux" in user_key.lower():
@@ -1492,7 +1501,7 @@ def concatenate_data(
                                     real_user_key,
                                 )
                             except KeyError:
-                                # if the key doest exist dont do anything but add np.nan
+                                # if the key doest exist don't do anything but add np.nan
                                 save_val = np.nan
                                 # if the value that we want is flux but we only have an upper limit then we have to get
                                 # the nsigma_lg10flux_upperlim value
@@ -1507,7 +1516,7 @@ def concatenate_data(
                                             real_user_key,
                                         )
                                     except KeyError:
-                                        # if the key doest exist dont do anything but add np.nan
+                                        # if the key doest exist don't do anything but add np.nan
                                         save_val = np.nan
 
                             # need to calculate the error on the value
@@ -1541,8 +1550,9 @@ def concatenate_data(
                                             error = np.abs(save_value - error)
 
                                     except TypeError:
-                                        # this is the last resort for catching any keys that arent found in the dict so we may
-                                        # have save_val be = np.nan and we will get TypeError trying to call it as a dict
+                                        # this is the last resort for catching any keys that aren't found in the dict
+                                        # so we may have save_val be = np.nan and we will get TypeError trying to
+                                        # call it as a dict
                                         save_value = np.nan
                                         error = np.ones(2) * np.nan
 
@@ -1582,7 +1592,7 @@ def make_fake_tdrss_message(
     obs_id, trig_time, trig_stop, ra_obj, dec_obj, obs_dir=None
 ):
     """
-    This function creates a fake TDRSS message file that specifies a few important peices of information which can be
+    This function creates a fake TDRSS message file that specifies a few important pieces of information which can be
     used in the BAT TTE data processing pipeline.
 
     :param obs_id:
