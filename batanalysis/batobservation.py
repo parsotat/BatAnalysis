@@ -29,12 +29,12 @@ except ModuleNotFoundError as err:
     # Error handling
     print(err)
 
-#try:
-    #import xspec as xsp
-#except ModuleNotFoundError as err:
-    # Error handling
-    #print(err)
 
+# try:
+# import xspec as xsp
+# except ModuleNotFoundError as err:
+# Error handling
+# print(err)
 
 
 class BatObservation(object):
@@ -42,6 +42,7 @@ class BatObservation(object):
     A general Bat Observation object that holds information about the observation ID and the directory of the
     observation ID. This class ensures that the observation ID directory exists and throws an error if it does not.
     """
+
     def __init__(self, obs_id, obs_dir=None):
         """
         Constructor for the BatObservation object.
@@ -55,19 +56,22 @@ class BatObservation(object):
             obs_dir = Path(obs_dir).expanduser().resolve()
             # the use has provided a directory to where the bat observation id folder is kept
             # test to see if the folder exists there
-            if  obs_dir.joinpath(self.obs_id).is_dir():
-                self.obs_dir = obs_dir.joinpath(self.obs_id) # os.path.join(obs_dir , self.obs_id)
+            if obs_dir.joinpath(self.obs_id).is_dir():
+                self.obs_dir = obs_dir.joinpath(self.obs_id)  # os.path.join(obs_dir , self.obs_id)
             else:
                 raise FileNotFoundError(
-                    'The directory %s does not contain the observation data corresponding to ID: %s' % (obs_dir, self.obs_id))
+                    'The directory %s does not contain the observation data corresponding to ID: %s' % (
+                    obs_dir, self.obs_id))
         else:
-            obs_dir = datadir()  #Path.cwd()
+            obs_dir = datadir()  # Path.cwd()
 
             if obs_dir.joinpath(self.obs_id).is_dir():
-                #os.path.isdir(os.path.join(obs_dir , self.obs_id)):
-                self.obs_dir = obs_dir.joinpath(self.obs_id) #self.obs_dir = os.path.join(obs_dir , self.obs_id)
+                # os.path.isdir(os.path.join(obs_dir , self.obs_id)):
+                self.obs_dir = obs_dir.joinpath(self.obs_id)  # self.obs_dir = os.path.join(obs_dir , self.obs_id)
             else:
-                raise FileNotFoundError('The directory %s does not contain the observation data correponding to ID: %s' % (obs_dir, self.obs_id))
+                raise FileNotFoundError(
+                    'The directory %s does not contain the observation data correponding to ID: %s' % (
+                    obs_dir, self.obs_id))
 
     def _set_local_pfile_dir(self, dir):
         """
@@ -75,8 +79,8 @@ class BatObservation(object):
 
         :return: None
         """
-        #make sure that it is a Path object
-        self._local_pfile_dir=Path(dir)
+        # make sure that it is a Path object
+        self._local_pfile_dir = Path(dir)
 
         self._local_pfile_dir.mkdir(parents=True, exist_ok=True)
         try:
@@ -92,7 +96,6 @@ class BatObservation(object):
         """
 
         return self._local_pfile_dir
-
 
     def _call_bathotpix(self, input_dict):
         """
@@ -153,16 +156,13 @@ class BatObservation(object):
             raise RuntimeError(f"The call to Heasoft batmaskwtevt failed with inputs {input_dict}.")
 
 
-
 class Lightcurve(BatObservation):
-
     """
     This is a general light curve class that contains typical information that a user may want from their lightcurve.
     This object is a wrapper around a light curve created from BAT event data.
 
     TODO: make this flexible enough to read in the raw rates lightcurves if necessary
     """
-
 
     def __init__(self, lightcurve_file, event_file, detector_quality_mask, ra=None, dec=None, lc_input_dict=None,
                  recalc=False, mask_weighting=True):
@@ -210,32 +210,29 @@ class Lightcurve(BatObservation):
             Setting mask_weighting=False in this case ignores the position of the source and allows the pure rates/counts
             to be calculated.
         """
-        #NOTE: Lots of similarities here as with the spectrum since we are using batbinevt as the base. If there are any
-        #issues with the lightcurve object, then we should make sure that these same problems do not occur in the
-        #spectrum object and vice versa
+        # NOTE: Lots of similarities here as with the spectrum since we are using batbinevt as the base. If there are any
+        # issues with the lightcurve object, then we should make sure that these same problems do not occur in the
+        # spectrum object and vice versa
 
-
-
-        #save these variables
+        # save these variables
         self.event_file = Path(event_file).expanduser().resolve()
         self.lightcurve_file = Path(lightcurve_file).expanduser().resolve()
         self.detector_quality_mask = Path(detector_quality_mask).expanduser().resolve()
 
-        #error checking for weighting
+        # error checking for weighting
         if type(mask_weighting) is not bool:
             raise ValueError("The mask_weighting parameter should be a boolean value.")
 
-
-        #need to see if we have to construct the lightcurve if the file doesnt exist
+        # need to see if we have to construct the lightcurve if the file doesnt exist
         if not self.lightcurve_file.exists() or recalc:
-            #see if the input dict is None so we can set these defaults, otherwise save the requested inputs for use later
+            # see if the input dict is None so we can set these defaults, otherwise save the requested inputs for use later
             if lc_input_dict is None:
                 self.lc_input_dict = dict(infile=str(self.event_file), outfile=str(self.lightcurve_file), outtype="LC",
-                              energybins="15-350", weighted="YES", timedel=0.064,
-                              detmask=str(self.detector_quality_mask),
-                              tstart="INDEF", tstop="INDEF", clobber="YES", timebinalg="uniform")
+                                          energybins="15-350", weighted="YES", timedel=0.064,
+                                          detmask=str(self.detector_quality_mask),
+                                          tstart="INDEF", tstop="INDEF", clobber="YES", timebinalg="uniform")
 
-                #specify if we want mask weighting
+                # specify if we want mask weighting
                 if mask_weighting:
                     self.lc_input_dict["weighted"] = "YES"
                 else:
@@ -244,37 +241,37 @@ class Lightcurve(BatObservation):
             else:
                 self.lc_input_dict = lc_input_dict
 
-            #create the lightcurve
+            # create the lightcurve
             self.bat_lc_result = self._call_batbinevt(self.lc_input_dict)
 
-            #make sure that this calculation ran successfully
+            # make sure that this calculation ran successfully
             if self.bat_lc_result.returncode != 0:
-                raise RuntimeError(f'The creation of the lightcurve failed with message: {lc.bat_lc_result.output}')
+                raise RuntimeError(f'The creation of the lightcurve failed with message: {self.bat_lc_result.output}')
 
         else:
-            #set the self.lc_input_dict = None so the parsing of the lightcurve tries to also load in the
-            #parameters passed into batbinevt to create the lightcurve
-            #try to parse the existing lightcurve file to see what parameters were passed to batbinevt to construct the file
+            # set the self.lc_input_dict = None so the parsing of the lightcurve tries to also load in the
+            # parameters passed into batbinevt to create the lightcurve
+            # try to parse the existing lightcurve file to see what parameters were passed to batbinevt to construct the file
             self.lc_input_dict = None
 
-        #set default RA/DEC coordinates correcpondent to the LC file which will be filled in later if it is set to None
+        # set default RA/DEC coordinates correcpondent to the LC file which will be filled in later if it is set to None
         self.lc_ra = ra
         self.lc_dec = dec
 
-        #read info from the lightcurve file
+        # read info from the lightcurve file
         self._parse_lightcurve_file()
 
-        #read in the information about the weights
+        # read in the information about the weights
         self._get_event_weights()
 
-        #set the duration info to None for now until the user calls battblocks
+        # set the duration info to None for now until the user calls battblocks
         self.tdurs = None
 
-        #were done getting all the info that we need. From here, the user can rebin the timebins and the energy bins
+        # were done getting all the info that we need. From here, the user can rebin the timebins and the energy bins
 
     @u.quantity_input(timebins=['time'], tmin=['time'], tmax=['time'])
     def set_timebins(self, timebinalg="uniform", timebins=None, tmin=None, tmax=None, T0=None, is_relative=False,
-                       timedelta=np.timedelta64(64, 'ms'), snrthresh=None, save_durations=True):
+                     timedelta=np.timedelta64(64, 'ms'), snrthresh=None, save_durations=True):
         """
         This method allows for the rebinning of the lightcurve in time. The timebins can be uniform, snr-based,
         custom defined, or based on bayesian blocks (using battblocks). The time binning is done dymaically and the
@@ -330,47 +327,48 @@ class Lightcurve(BatObservation):
         :return: None
         """
 
-        #create a temp copy incase the time rebinning doesnt complete successfully
-        tmp_lc_input_dict=self.lc_input_dict.copy()
+        # create a temp copy incase the time rebinning doesnt complete successfully
+        tmp_lc_input_dict = self.lc_input_dict.copy()
 
-        #error checking for calc_energy_integrated
+        # error checking for calc_energy_integrated
         if type(is_relative) is not bool:
             raise ValueError("The is_relative parameter should be a boolean value.")
 
-        #see if the timebinalg is properly set approporiately
-        #if "uniform" not in timebinalg or "snr" not in timebinalg or "bayesian" not in timebinalg:
+        # see if the timebinalg is properly set approporiately
+        # if "uniform" not in timebinalg or "snr" not in timebinalg or "bayesian" not in timebinalg:
         if timebinalg not in ["uniform", "snr", "highsnr", "bayesian"]:
-            raise ValueError('The timebinalg only accepts the following values: uniform, snr, highsnr, and bayesian (for bayesian blocks).')
+            raise ValueError(
+                'The timebinalg only accepts the following values: uniform, snr, highsnr, and bayesian (for bayesian blocks).')
 
-        #if timebinalg == uniform/snr/highsnr, make sure that we have a timedelta that is a np.timedelta object
+        # if timebinalg == uniform/snr/highsnr, make sure that we have a timedelta that is a np.timedelta object
         if "uniform" in timebinalg or "snr" in timebinalg:
             if type(timedelta) is not np.timedelta64:
                 raise ValueError('The timedelta variable needs to be a numpy timedelta64 object.')
 
-        #need to make sure that snrthresh is set for "snr" timebinalg
+        # need to make sure that snrthresh is set for "snr" timebinalg
         if "snr" in timebinalg and snrthresh is None:
             raise ValueError(f'The snrthresh value should be set since timebinalg is set to be {snrthresh}.')
 
-        #test if is_relative is false and make sure that T0 is defined
+        # test if is_relative is false and make sure that T0 is defined
         if is_relative and T0 is None:
-            raise ValueError('The is_relative value is set to True however there is no T0 that is defined '+
+            raise ValueError('The is_relative value is set to True however there is no T0 that is defined ' +
                              '(ie the time from which the time bins are defined relative to is not specified).')
 
-        #see if we need to calculate energy integrated light curve at end of rebinning
+        # see if we need to calculate energy integrated light curve at end of rebinning
         if len(self.ebins["INDEX"]) > 1:
-            #see if we have the enrgy integrated bin included in the arrays:
-            if (self.ebins["E_MIN"][0] == self.ebins["E_MIN"][-1]) and (self.ebins["E_MAX"][-2] == self.ebins["E_MAX"][-1]):
-                calc_energy_integrated = True #this is for recalculating the lightcurve later in the method
+            # see if we have the enrgy integrated bin included in the arrays:
+            if (self.ebins["E_MIN"][0] == self.ebins["E_MIN"][-1]) and (
+                    self.ebins["E_MAX"][-2] == self.ebins["E_MAX"][-1]):
+                calc_energy_integrated = True  # this is for recalculating the lightcurve later in the method
             else:
                 calc_energy_integrated = False
         else:
             calc_energy_integrated = False
 
+        # if timebins, or tmin and tmax are defined then we ignore the timebinalg parameter
+        # if tmin and tmax are specified while timebins is also specified then ignore timebins
 
-        #if timebins, or tmin and tmax are defined then we ignore the timebinalg parameter
-        #if tmin and tmax are specified while timebins is also specified then ignore timebins
-
-        #do error checking on tmin/tmax
+        # do error checking on tmin/tmax
         if (tmin is None and tmax is not None) or (tmax is None and tmin is not None):
             raise ValueError('Both emin and emax must be defined.')
 
@@ -378,40 +376,39 @@ class Lightcurve(BatObservation):
             if tmin.size != tmax.size:
                 raise ValueError('Both tmin and tmax must have the same length.')
 
-            #now try to construct single array of all timebin edges in seconds
-            timebins=np.zeros(tmin.size+1)*u.s
+            # now try to construct single array of all timebin edges in seconds
+            timebins = np.zeros(tmin.size + 1) * u.s
             timebins[:-1] = tmin
             if tmin.size > 1:
                 timebins[-1] = tmax[-1]
             else:
                 timebins[-1] = tmax
 
-        #See if we need to add T0 to everything
+        # See if we need to add T0 to everything
         if is_relative:
-            #see if T0 is Quantity class
+            # see if T0 is Quantity class
             if type(T0) is u.Quantity:
                 timebins += T0
             else:
                 timebins += T0 * u.s
 
-
-        #if we are doing battblocks or the user has passed in timebins/tmin/tmax then we have to create a good time interval file
+        # if we are doing battblocks or the user has passed in timebins/tmin/tmax then we have to create a good time interval file
         # otherwise proceed with normal rebinning
         if "bayesian" in timebinalg:
-            #we need to call battblocks to get the good time interval file
+            # we need to call battblocks to get the good time interval file
             self.timebins_file, battblocks_return = self._call_battblocks(save_durations=save_durations)
             tmp_lc_input_dict['timebinalg'] = "gti"
             tmp_lc_input_dict['gtifile'] = str(self.timebins_file)
 
-            #make sure there are no predefined tstart/tstop
+            # make sure there are no predefined tstart/tstop
             tmp_lc_input_dict['tstart'] = "INDEF"
             tmp_lc_input_dict['tstop'] = "INDEF"
 
 
         elif (timebins is not None and timebins.size > 2):
-            #tmin is not None and tmax.size > 1 and
-            #already checked that tmin && tmax are not 1 and have the same size
-            #if they are defined and they are more than 1 element then we have a series of timebins otherwise we just have the
+            # tmin is not None and tmax.size > 1 and
+            # already checked that tmin && tmax are not 1 and have the same size
+            # if they are defined and they are more than 1 element then we have a series of timebins otherwise we just have the
 
             tmp_lc_input_dict['tstart'] = "INDEF"
             tmp_lc_input_dict['tstop'] = "INDEF"
@@ -434,30 +431,30 @@ class Lightcurve(BatObservation):
 
             tmp_lc_input_dict['timedel'] = timedelta / np.timedelta64(1, 's')  # convert to seconds
 
-            #see if we have the min/max times defined
+            # see if we have the min/max times defined
             if (tmin is not None and tmax.size == 1):
                 tmp_lc_input_dict['tstart'] = timebins[0].value
                 tmp_lc_input_dict['tstop'] = timebins[1].value
 
-
-        #before doing the recalculation, make sure that the proper weights are in the event file
+        # before doing the recalculation, make sure that the proper weights are in the event file
         self._set_event_weights()
 
-        #the LC _call_batbinevt method ensures that  outtype = LC and that clobber=YES
+        # the LC _call_batbinevt method ensures that  outtype = LC and that clobber=YES
         lc_return = self._call_batbinevt(tmp_lc_input_dict)
 
-        #make sure that the lc_return was successful
+        # make sure that the lc_return was successful
         if lc_return.returncode != 0:
             raise RuntimeError(f'The creation of the lightcurve failed with message: {lc_return.output}')
         else:
             self.bat_lc_result = lc_return
             self.lc_input_dict = tmp_lc_input_dict
 
-            #reparse the lightcurve file to get the info
+            # reparse the lightcurve file to get the info
             self._parse_lightcurve_file(calc_energy_integrated=calc_energy_integrated)
 
     @u.quantity_input(emin=['energy'], emax=['energy'])
-    def set_energybins(self, energybins=["15-25", "25-50", "50-100", "100-350"], emin=None, emax=None, calc_energy_integrated=True):
+    def set_energybins(self, energybins=["15-25", "25-50", "50-100", "100-350"], emin=None, emax=None,
+                       calc_energy_integrated=True):
         """
         This method allows the energy binning to be set for the lightcurve. The energy rebinning is done automatically
         and the information for the rebinned lightcurve is automatically updated in the data attribute (which holds the
@@ -478,10 +475,9 @@ class Lightcurve(BatObservation):
         :return: None.
         """
 
-        #error checking for calc_energy_integrated
+        # error checking for calc_energy_integrated
         if type(calc_energy_integrated) is not bool:
             raise ValueError("The calc_energy_integrated parameter should be a boolean value.")
-
 
         # see if the user specified either the energy bins directly or emin/emax separately
         if emin is None and emax is None:
@@ -495,11 +491,11 @@ class Lightcurve(BatObservation):
                     raise ValueError(
                         'All elements of the passed in energybins variable must be a string. Please make sure this condition is met.')
 
-            #need to get emin and emax values, assume that these are in keV already when converting to astropy quantities
-            emin=[]
-            emax=[]
+            # need to get emin and emax values, assume that these are in keV already when converting to astropy quantities
+            emin = []
+            emax = []
             for i in energybins:
-                energies=i.split('-')
+                energies = i.split('-')
                 emin.append(float(energies[0]))
                 emax.append(float(energies[1]))
             emin = u.Quantity(emin, u.keV)
@@ -519,43 +515,41 @@ class Lightcurve(BatObservation):
             if emin.size != emax.size:
                 raise ValueError('Both emin and emax must have the same length.')
 
-
             # create our energybins input to batbinevt
             if emin.size > 1:
                 energybins = []
                 for min, max in zip(emin.to(u.keV), emax.to(u.keV)):
                     energybins.append(f"{min.value}-{max.value}")
             else:
-                energybins=[f"{emin.to(u.keV).value}-{emax.to(u.keV).value}"]
+                energybins = [f"{emin.to(u.keV).value}-{emax.to(u.keV).value}"]
 
         # create the full string
         ebins = ','.join(energybins)
 
-        #create a temp dict to hold the energy rebinning parameters to pass to heasoftpy. If things dont run
+        # create a temp dict to hold the energy rebinning parameters to pass to heasoftpy. If things dont run
         # successfully then the updated parameter list will not be saved
         tmp_lc_input_dict = self.lc_input_dict.copy()
 
         # need to see if the energybins are different (and even need to be calculated), if so do the recalculation
         if not np.array_equal(emin, self.ebins['E_MIN']) or not np.array_equal(emax, self.ebins['E_MAX']):
-            #the tmp_lc_input_dict wil need to be modified with new Energybins
-            tmp_lc_input_dict["energybins"]=ebins
+            # the tmp_lc_input_dict wil need to be modified with new Energybins
+            tmp_lc_input_dict["energybins"] = ebins
 
             # before doing the recalculation, make sure that the proper weights are in the event file
             self._set_event_weights()
 
-            #the LC _call_batbinevt method ensures that  outtype = LC and that clobber=YES
+            # the LC _call_batbinevt method ensures that  outtype = LC and that clobber=YES
             lc_return = self._call_batbinevt(tmp_lc_input_dict)
 
-            #make sure that the lc_return was successful
+            # make sure that the lc_return was successful
             if lc_return.returncode != 0:
                 raise RuntimeError(f'The creation of the lightcurve failed with message: {lc_return.output}')
             else:
                 self.bat_lc_result = lc_return
                 self.lc_input_dict = tmp_lc_input_dict
 
-                #reparse the lightcurve file to get the info
+                # reparse the lightcurve file to get the info
                 self._parse_lightcurve_file(calc_energy_integrated=calc_energy_integrated)
-
 
     def _parse_lightcurve_file(self, calc_energy_integrated=True):
         """
@@ -575,59 +569,57 @@ class Lightcurve(BatObservation):
         :return: None
         """
 
-        #error checking for calc_energy_integrated
+        # error checking for calc_energy_integrated
         if type(calc_energy_integrated) is not bool:
             raise ValueError("The calc_energy_integrated parameter should be a boolean value.")
 
-
         with fits.open(self.lightcurve_file) as f:
-            header=f[1].header
-            data=f[1].data
-            energies=f["EBOUNDS"].data
-            energies_header=f["EBOUNDS"].header
+            header = f[1].header
+            data = f[1].data
+            energies = f["EBOUNDS"].data
+            energies_header = f["EBOUNDS"].header
 
         if self.lc_ra is None and self.lc_dec is None:
             self.lc_ra = header["RA_OBJ"]
             self.lc_dec = header["DEC_OBJ"]
         else:
-            #test if the passed in coordinates are what they should be for the light curve file
-            #TODO: see if we are ~? arcmin close to one another
+            # test if the passed in coordinates are what they should be for the light curve file
+            # TODO: see if we are ~? arcmin close to one another
             assert (np.isclose(self.lc_ra, header["RA_OBJ"]) and np.isclose(self.lc_dec, header["DEC_OBJ"])), \
-                   f"The passed in RA/DEC values ({self.lc_ra},{self.lc_dec}) do not match the values used to produce the lightcurve which are ({header['RA_OBJ']},{header['DEC_OBJ']})"
+                f"The passed in RA/DEC values ({self.lc_ra},{self.lc_dec}) do not match the values used to produce the lightcurve which are ({header['RA_OBJ']},{header['DEC_OBJ']})"
 
-        #read in the data and save to data attribute which is a dictionary of the column names as keys and the numpy arrays as values
-        self.data={}
+        # read in the data and save to data attribute which is a dictionary of the column names as keys and the numpy arrays as values
+        self.data = {}
         for i in data.columns:
             self.data[i.name] = u.Quantity(data[i.name], i.unit)
 
-        #fill in the energy bin info
-        self.ebins={}
+        # fill in the energy bin info
+        self.ebins = {}
         for i in energies.columns:
             if "CHANNEL" in i.name:
                 self.ebins["INDEX"] = energies[i.name]
             elif "E" in i.name:
-                self.ebins[i.name]=u.Quantity(energies[i.name], i.unit)
+                self.ebins[i.name] = u.Quantity(energies[i.name], i.unit)
 
-        #fill in the time info separately
-        timepixr=header["TIMEPIXR"]
-        #see if there is a time delta column exists for variable time bin widths
+        # fill in the time info separately
+        timepixr = header["TIMEPIXR"]
+        # see if there is a time delta column exists for variable time bin widths
         if "TIMEDEL" not in self.data.keys():
-            dt=header["TIMEDEL"]*u.s
+            dt = header["TIMEDEL"] * u.s
         else:
-            dt=self.data["TIMEDEL"]
-
+            dt = self.data["TIMEDEL"]
 
         self.tbins = {}
-        #see https://heasarc.gsfc.nasa.gov/ftools/caldb/help/batbinevt.html
-        self.tbins["TIME_CENT"] = self.data["TIME"] + (0.5-timepixr)*dt
-        self.tbins["TIME_START"] = self.data["TIME"] - timepixr*dt
-        self.tbins["TIME_STOP"] = self.data["TIME"] + (1-timepixr)*dt
+        # see https://heasarc.gsfc.nasa.gov/ftools/caldb/help/batbinevt.html
+        self.tbins["TIME_CENT"] = self.data["TIME"] + (0.5 - timepixr) * dt
+        self.tbins["TIME_START"] = self.data["TIME"] - timepixr * dt
+        self.tbins["TIME_STOP"] = self.data["TIME"] + (1 - timepixr) * dt
 
-        #if self.lc_input_dict ==None, then we will need to try to read in the hisotry of parameters passed into batbinevt
+        # if self.lc_input_dict ==None, then we will need to try to read in the hisotry of parameters passed into batbinevt
         # to create the lightcurve file. thsi usually is needed when we first parse a file so we know what things are if we need to
         # do some sort of rebinning.
 
-        #were looking for something like:
+        # were looking for something like:
         # START PARAMETER list for batbinevt_1.48 at 2023-11-01T20:38:05
         #
         # P1 infile = /Users/tparsota/Documents/01116441000_eventresult/events/sw0
@@ -667,39 +659,38 @@ class Lightcurve(BatObservation):
         # END PARAMETER list for batbinevt_1.48
 
         if self.lc_input_dict is None:
-            #get the default names of the parameters for batbinevt including its name 9which should never change)
+            # get the default names of the parameters for batbinevt including its name 9which should never change)
             test = hsp.HSPTask('batbinevt')
-            default_params_dict=test.default_params.copy()
-            taskname=test.taskname
-            start_processing=None
+            default_params_dict = test.default_params.copy()
+            taskname = test.taskname
+            start_processing = None
 
             for i in header["HISTORY"]:
                 if taskname in i and start_processing is None:
-                    #then set a switch for us to start looking at things
+                    # then set a switch for us to start looking at things
                     start_processing = True
                 elif taskname in i and start_processing is True:
-                    #we want to stop processing things
+                    # we want to stop processing things
                     start_processing = False
 
-                if start_processing and "START" not in i and len(i)>0:
-                    values=i.split(" ")
-                    #print(i, values, "=" in values)
+                if start_processing and "START" not in i and len(i) > 0:
+                    values = i.split(" ")
+                    # print(i, values, "=" in values)
 
-                    parameter_num=values[0]
-                    parameter=values[1]
+                    parameter_num = values[0]
+                    parameter = values[1]
                     if "=" not in values:
-                        #this belongs with the previous parameter and is a line continuation
+                        # this belongs with the previous parameter and is a line continuation
                         default_params_dict[old_parameter] = default_params_dict[old_parameter] + values[-1]
                     else:
                         default_params_dict[parameter] = values[-1]
 
-                    old_parameter=parameter
+                    old_parameter = parameter
 
             self.lc_input_dict = default_params_dict.copy()
 
         if calc_energy_integrated:
             self._calc_energy_integrated()
-
 
     def _get_event_weights(self):
         """
@@ -710,13 +701,10 @@ class Lightcurve(BatObservation):
         :return: None
         """
 
-        #read in all the info for the weights and save it such that we can use these weights in the future for
-        #redoing lightcurve calculation
+        # read in all the info for the weights and save it such that we can use these weights in the future for
+        # redoing lightcurve calculation
         with fits.open(self.event_file) as file:
-            self._event_weights=file[1].data["MASK_WEIGHT"]
-
-
-
+            self._event_weights = file[1].data["MASK_WEIGHT"]
 
     def _set_event_weights(self):
         """
@@ -731,9 +719,9 @@ class Lightcurve(BatObservation):
         """
 
         if not self._same_event_lc_coords():
-            #read in the event file and replace the values in the MASK_WEIGHT with the appropriate values in self._event_weights
+            # read in the event file and replace the values in the MASK_WEIGHT with the appropriate values in self._event_weights
             with fits.open(self.event_file, mode="update") as file:
-                file[1].data["MASK_WEIGHT"]=self._event_weights
+                file[1].data["MASK_WEIGHT"] = self._event_weights
                 file.flush()
 
     def _same_event_lc_coords(self):
@@ -751,7 +739,6 @@ class Lightcurve(BatObservation):
 
         return coord_match
 
-
     def _calc_energy_integrated(self):
         """
         This method just goes though the count rates in each energy bin that has been precalulated and adds them up.
@@ -764,40 +751,40 @@ class Lightcurve(BatObservation):
         :return: None
         """
 
-        #if we have more than 1 energy bin then we can calculate an energy integrated count rate, etc
-        #otherwise we dont have to do anything since theres only one energy bin
+        # if we have more than 1 energy bin then we can calculate an energy integrated count rate, etc
+        # otherwise we dont have to do anything since theres only one energy bin
         if self.data["RATE"].ndim > 1:
-            #calculate the total count rate and error
-            integrated_count_rate=self.data["RATE"].sum(axis=1)
-            integrated_count_rate_err=np.sqrt(np.sum(self.data["ERROR"]**2, axis=1))
+            # calculate the total count rate and error
+            integrated_count_rate = self.data["RATE"].sum(axis=1)
+            integrated_count_rate_err = np.sqrt(np.sum(self.data["ERROR"] ** 2, axis=1))
 
-            #get the energy info
+            # get the energy info
             min_e = self.ebins["E_MIN"].min()
             max_e = self.ebins["E_MAX"].max()
             max_energy_index = self.ebins["INDEX"].max()
 
-            #append energy integrated count rate, the error, and the additional energy bin to the respective dicts
-            new_energy_bin_size=self.ebins["INDEX"].size+1
-            new_e_index=np.arange(new_energy_bin_size, dtype=self.ebins["INDEX"].dtype)
+            # append energy integrated count rate, the error, and the additional energy bin to the respective dicts
+            new_energy_bin_size = self.ebins["INDEX"].size + 1
+            new_e_index = np.arange(new_energy_bin_size, dtype=self.ebins["INDEX"].dtype)
 
-            new_emin=np.zeros(new_energy_bin_size)*self.ebins["E_MIN"].unit
-            new_emin[:-1]=self.ebins["E_MIN"]
+            new_emin = np.zeros(new_energy_bin_size) * self.ebins["E_MIN"].unit
+            new_emin[:-1] = self.ebins["E_MIN"]
             new_emin[-1] = min_e
 
-            new_emax=np.zeros_like(new_emin) #the zeros_like gets the units from the array that is passed in
-            new_emax[:-1]=self.ebins["E_MAX"]
+            new_emax = np.zeros_like(new_emin)  # the zeros_like gets the units from the array that is passed in
+            new_emax[:-1] = self.ebins["E_MAX"]
             new_emax[-1] = max_e
 
-            new_rate=np.zeros((self.data["RATE"].shape[0], new_energy_bin_size))*self.data["RATE"].unit
-            new_rate_err=np.zeros_like(new_rate)
+            new_rate = np.zeros((self.data["RATE"].shape[0], new_energy_bin_size)) * self.data["RATE"].unit
+            new_rate_err = np.zeros_like(new_rate)
 
-            new_rate[:,:-1] = self.data["RATE"]
-            new_rate[:,-1] = integrated_count_rate
+            new_rate[:, :-1] = self.data["RATE"]
+            new_rate[:, -1] = integrated_count_rate
 
-            new_rate_err[:,:-1] = self.data["ERROR"]
-            new_rate_err[:,-1] = integrated_count_rate_err
+            new_rate_err[:, :-1] = self.data["ERROR"]
+            new_rate_err[:, -1] = integrated_count_rate_err
 
-            #save the updated arrays
+            # save the updated arrays
             self.ebins["INDEX"] = new_e_index
             self.ebins["E_MIN"] = new_emin
             self.ebins["E_MAX"] = new_emax
@@ -805,8 +792,8 @@ class Lightcurve(BatObservation):
             self.data["RATE"] = new_rate
             self.data["ERROR"] = new_rate_err
 
-
-    def plot(self, energybins=None, plot_counts=False, plot_exposure_fraction=False, time_unit="MET", T0=None, plot_relative=False):
+    def plot(self, energybins=None, plot_counts=False, plot_exposure_fraction=False, time_unit="MET", T0=None,
+             plot_relative=False):
         """
         This convenience method allows the user to plot the rate/count lightcurve.
 
@@ -822,18 +809,17 @@ class Lightcurve(BatObservation):
         :return: matplotlib figure, matplotlib axis for the plot
         """
 
-        #make sure that energybins is a u.Quantity object
+        # make sure that energybins is a u.Quantity object
         if energybins is not None and type(energybins) is not u.Quantity:
             if type(energybins) is list:
                 energybins = u.Quantity(energybins, u.keV)
 
-        #have error checking
+        # have error checking
         if "MET" not in time_unit and "UTC" not in time_unit and "MJD" not in time_unit:
             raise ValueError("This method plots event data only using MET, UTC, or MJD time")
 
         if plot_relative and "MET" not in time_unit:
             raise ValueError("The plot_relative switch can only be set to True with time_unit=MET.")
-
 
         if "MET" in time_unit:
             times = self.tbins["TIME_CENT"]
@@ -859,44 +845,43 @@ class Lightcurve(BatObservation):
             times = met2utc(self.tbins["TIME_CENT"].value)
             xlabel = "UTC"
 
-        #get the number of axes we may need
-        num_plots=1
+        # get the number of axes we may need
+        num_plots = 1
         num_plots += (plot_counts + plot_exposure_fraction)
         fig, ax = plt.subplots(num_plots, sharex=True)
 
-        #assign the axes for each type of plot we may want
+        # assign the axes for each type of plot we may want
         axes_queue = [i for i in range(num_plots)]
 
-        if num_plots>1:
-            ax_rate=ax[axes_queue[0]]
+        if num_plots > 1:
+            ax_rate = ax[axes_queue[0]]
             axes_queue.pop(0)
 
             if plot_counts:
-                ax_count=ax[axes_queue[0]]
+                ax_count = ax[axes_queue[0]]
                 axes_queue.pop(0)
 
             if plot_exposure_fraction:
-                ax_exposure=ax[axes_queue[0]]
+                ax_exposure = ax[axes_queue[0]]
                 axes_queue.pop(0)
         else:
             ax_rate = ax
 
-
-        #plot everything for the rates by default
+        # plot everything for the rates by default
         for e_idx, emin, emax in zip(self.ebins["INDEX"], self.ebins["E_MIN"], self.ebins["E_MAX"]):
-            plotting=True
+            plotting = True
             if energybins is not None:
-                #need to see if the energy range is what the user wants
+                # need to see if the energy range is what the user wants
                 if emin == energybins.min() and emax == energybins.max():
                     plotting = True
                 else:
                     plotting = False
 
             if plotting:
-                #use the proper indexing for the array
+                # use the proper indexing for the array
                 if len(self.ebins["INDEX"]) > 1:
-                    rate=self.data["RATE"][:,e_idx]
-                    rate_error=self.data["ERROR"][:, e_idx]
+                    rate = self.data["RATE"][:, e_idx]
+                    rate_error = self.data["ERROR"][:, e_idx]
                 else:
                     rate = self.data["RATE"]
                     rate_error = self.data["ERROR"]
@@ -904,25 +889,24 @@ class Lightcurve(BatObservation):
                 line = ax_rate.plot(times, rate, ds='steps-mid', label=f'{emin.value}-{emax}')
                 ax_rate.errorbar(times, rate, yerr=rate_error, ls='None', color=line[-1].get_color())
 
-        if num_plots>1:
+        if num_plots > 1:
             ax_rate.legend()
 
         if plot_counts:
             ax_count.plot(times, self.data["TOTCOUNTS"], ds='steps-mid')
             ax_count.set_ylabel('Total counts (ct)')
 
-
         if plot_exposure_fraction:
             ax_exposure.plot(times, self.data["FRACEXP"], ds='steps-mid')
             ax_exposure.set_ylabel('Fractional Exposure')
 
         if T0 is not None and not plot_relative:
-            #plot the trigger time for all panels if we dont want the plotted times to be relative
-            if num_plots>1:
+            # plot the trigger time for all panels if we dont want the plotted times to be relative
+            if num_plots > 1:
                 for axis in ax:
-                    axis.axvline(T0, 0,1, ls='--', label=f"T0={T0:.2f}", color='k')
+                    axis.axvline(T0, 0, 1, ls='--', label=f"T0={T0:.2f}", color='k')
             else:
-                ax_rate.axvline(T0, 0,1, ls='--', label=f"T0={T0:.2f}", color='k')
+                ax_rate.axvline(T0, 0, 1, ls='--', label=f"T0={T0:.2f}", color='k')
 
         if num_plots > 1:
             ax[1].legend()
@@ -936,10 +920,8 @@ class Lightcurve(BatObservation):
         else:
             ax_rate.set_ylabel('Counts (ct)')
 
-
-        #fig.savefig("test.pdf")
+        # fig.savefig("test.pdf")
         return fig, ax
-
 
     def _create_custom_timebins(self, timebins, output_file=None):
         """
@@ -956,11 +938,11 @@ class Lightcurve(BatObservation):
         """
 
         if output_file is None:
-            #use the same filename as for the lightcurve file but replace suffix with gti and put it in gti subdir instead of lc
+            # use the same filename as for the lightcurve file but replace suffix with gti and put it in gti subdir instead of lc
             new_path = self.lightcurve_file.parts
-            new_name=self.lightcurve_file.name.replace("lc", "gti")
+            new_name = self.lightcurve_file.name.replace("lc", "gti")
 
-            output_file=Path(*new_path[:self.lightcurve_file.parts.index('lc')]).joinpath("gti").joinpath(new_name)
+            output_file = Path(*new_path[:self.lightcurve_file.parts.index('lc')]).joinpath("gti").joinpath(new_name)
 
         return create_gti_file(timebins, output_file, T0=None, is_relative=False, overwrite=True)
 
@@ -979,44 +961,44 @@ class Lightcurve(BatObservation):
         """
 
         if len(self.ebins["INDEX"]) > 1:
-            recalc_energy=True
-            #need to rebin to a single energy and save current energy bins
-            old_ebins=self.ebins.copy()
-            #see if we have the enrgy integrated bin included in the arrays:
-            if (self.ebins["E_MIN"][0] == self.ebins["E_MIN"][-1]) and (self.ebins["E_MAX"][-2] == self.ebins["E_MAX"][-1]):
+            recalc_energy = True
+            # need to rebin to a single energy and save current energy bins
+            old_ebins = self.ebins.copy()
+            # see if we have the enrgy integrated bin included in the arrays:
+            if (self.ebins["E_MIN"][0] == self.ebins["E_MIN"][-1]) and (
+                    self.ebins["E_MAX"][-2] == self.ebins["E_MAX"][-1]):
                 self.set_energybins(emin=self.ebins["E_MIN"][-1], emax=self.ebins["E_MAX"][-1])
-                calc_energy_integrated = True #this is for recalculating the lightcurve later in the method
+                calc_energy_integrated = True  # this is for recalculating the lightcurve later in the method
             else:
                 self.set_energybins(emin=self.ebins["E_MIN"][0], emax=self.ebins["E_MAX"][-1])
                 calc_energy_integrated = False
         else:
-            recalc_energy=False
+            recalc_energy = False
 
-        #set the time binning to be 64 ms. This time binning will be over written anyways so dont need to restore anything
+        # set the time binning to be 64 ms. This time binning will be over written anyways so dont need to restore anything
         self.set_timebins()
 
-
-        #get the set of default values which we will modify
-        #stop
+        # get the set of default values which we will modify
+        # stop
         test = hsp.HSPTask('battblocks')
         input_dict = test.default_params.copy()
 
         if output_file is None:
-            #use the same filename as for the lightcurve file but replace suffix with gti and put it in gti subdir instead of lc
+            # use the same filename as for the lightcurve file but replace suffix with gti and put it in gti subdir instead of lc
             new_path = self.lightcurve_file.parts
-            new_name=self.lightcurve_file.name.replace("lc", "gti")
+            new_name = self.lightcurve_file.name.replace("lc", "gti")
 
-            output_file=Path(*new_path[:self.lightcurve_file.parts.index('lc')]).joinpath("gti").joinpath(new_name)
+            output_file = Path(*new_path[:self.lightcurve_file.parts.index('lc')]).joinpath("gti").joinpath(new_name)
 
-        #modify some of the inputs here
-        input_dict["infile"] = str(self.lightcurve_file) #this should ideally be a 64 ms lightcurve of a single energy bin
+        # modify some of the inputs here
+        input_dict["infile"] = str(
+            self.lightcurve_file)  # this should ideally be a 64 ms lightcurve of a single energy bin
         input_dict["outfile"] = str(output_file)
 
-        #these are used by batgrbproducts:
+        # these are used by batgrbproducts:
         input_dict["bkgsub"] = "YES"
         input_dict["clobber"] = "YES"
         input_dict["tlookback"] = 10
-
 
         if save_durations:
             dur_output_file = output_file.parent / output_file.name.replace("gti", "dur")
@@ -1059,15 +1041,15 @@ class Lightcurve(BatObservation):
 
         # read in the data and save to data attribute which is a dictionary of the column names as keys and the numpy arrays as values
         with fits.open(duration_file) as file:
-            #skip the primary since it contains no info, the other extensions have the T90, backgrounds, etc
+            # skip the primary since it contains no info, the other extensions have the T90, backgrounds, etc
             for f in file[1:]:
                 header = f.header
                 data = f.data
-                dur_quantity=f.name.split("_")[-1]
+                dur_quantity = f.name.split("_")[-1]
 
                 # there is only 1 time in each data column so index data[0] and convert START/STOP to TSTART/TSTOP
-                self.set_duration(dur_quantity, u.Quantity(data[data.columns[0].name][0], data.columns[0].unit), u.Quantity(data[data.columns[1].name][0], data.columns[1].unit))
-
+                self.set_duration(dur_quantity, u.Quantity(data[data.columns[0].name][0], data.columns[0].unit),
+                                  u.Quantity(data[data.columns[1].name][0], data.columns[1].unit))
 
     def _call_batbinevt(self, input_dict):
         """
@@ -1105,9 +1087,10 @@ class Lightcurve(BatObservation):
                 print(e)
                 raise ValueError(f"The duration {duration_str} has not been calculated by battblocks.")
         else:
-            raise RuntimeError("There are not durations (T90, T50, etc) associated with this lightcurve. Please rerun set_timebins with timebinalg = bayesian.")
+            raise RuntimeError(
+                "There are not durations (T90, T50, etc) associated with this lightcurve. Please rerun set_timebins with timebinalg = bayesian.")
 
-        return data["TSTART"], data["TSTOP"], data["TSTOP"]-data["TSTART"]
+        return data["TSTART"], data["TSTOP"], data["TSTOP"] - data["TSTART"]
 
     @u.quantity_input(tstart=['time'], tstop=['time'])
     def set_duration(self, duration_str, tstart, tstop):
@@ -1120,19 +1103,20 @@ class Lightcurve(BatObservation):
         :return: None
         """
 
-        #if we havent created a dict , do so now
+        # if we havent created a dict , do so now
         if self.tdurs is None:
-            self.tdurs={}
+            self.tdurs = {}
 
-        #see if we can access the key of interest, otherwise we need to create it
+        # see if we can access the key of interest, otherwise we need to create it
         try:
             data = self.tdurs[duration_str]
         except KeyError as e:
-            self.tdurs[duration_str]={}
+            self.tdurs[duration_str] = {}
 
-        #now save values appropriately
+        # now save values appropriately
         self.tdurs[duration_str]["TSTART"] = tstart
         self.tdurs[duration_str]["TSTOP"] = tstop
+
 
 class Spectrum(BatObservation):
     def __init__(self, pha_file, event_file, detector_quality_mask, auxil_raytracing_file, ra=None, dec=None,
@@ -1149,48 +1133,48 @@ class Spectrum(BatObservation):
         :param recalc:
         :param mask_weighting:
         """
-        #NOTE: Lots of similarities here as with the lightcurve since we are using batbinevt as the base. If there are any
-        #issues with the lightcurve object, then we should make sure that these same problems do not occur in the
-        #spectrum object and vice versa
+        # NOTE: Lots of similarities here as with the lightcurve since we are using batbinevt as the base. If there are any
+        # issues with the lightcurve object, then we should make sure that these same problems do not occur in the
+        # spectrum object and vice versa
 
-        #save these variables
+        # save these variables
         self.pha_file = Path(pha_file).expanduser().resolve()
         self.event_file = Path(event_file).expanduser().resolve()
         self.detector_quality_mask = Path(detector_quality_mask).expanduser().resolve()
         self.auxil_raytracing_file = Path(auxil_raytracing_file).expanduser().resolve()
 
-        #need to see if we have to construct the lightcurve if the file doesnt exist
+        # need to see if we have to construct the lightcurve if the file doesnt exist
         if not self.pha_file.exists() or recalc:
-            #see if the input dict is None so we can set these defaults, otherwise save the requested inputs for use later
+            # see if the input dict is None so we can set these defaults, otherwise save the requested inputs for use later
             if pha_input_dict is None:
-                #energybins = "CALDB" gives us the 80 channel spectrum
+                # energybins = "CALDB" gives us the 80 channel spectrum
                 self.pha_input_dict = dict(infile=str(self.event_file), outfile=str(self.pha_file), outtype="PHA",
-                              energybins="CALDB", weighted="YES", timedel=0.0,
-                              detmask=str(self.detector_quality_mask),
-                              tstart="INDEF", tstop="INDEF", clobber="YES", timebinalg="uniform")
+                                           energybins="CALDB", weighted="YES", timedel=0.0,
+                                           detmask=str(self.detector_quality_mask),
+                                           tstart="INDEF", tstop="INDEF", clobber="YES", timebinalg="uniform")
 
             else:
                 self.pha_input_dict = pha_input_dict
 
-            #create the pha
+            # create the pha
             self._create_pha(self.pha_input_dict)
         else:
-            #set the self.lc_input_dict = None so the parsing of the pha file tries to also load in the
-            #parameters passed into batbinevt to create the pha file
-            #try to parse the existing pha file to see what parameters were passed to batbinevt to construct the file
+            # set the self.lc_input_dict = None so the parsing of the pha file tries to also load in the
+            # parameters passed into batbinevt to create the pha file
+            # try to parse the existing pha file to see what parameters were passed to batbinevt to construct the file
             self.pha_input_dict = None
 
-        #set default RA/DEC coordinates correcpondent to the LC file which will be filled in later if it is set to None
+        # set default RA/DEC coordinates correcpondent to the LC file which will be filled in later if it is set to None
         self.lc_ra = ra
         self.lc_dec = dec
 
-        #read info from the lightcurve file
+        # read info from the lightcurve file
         self._parse_pha_file()
 
-        #read in the information about the weights
+        # read in the information about the weights
         self._get_event_weights()
 
-        #were done getting all the info that we need. From here, the user can rebin the timebins and the energy bins
+        # were done getting all the info that we need. From here, the user can rebin the timebins and the energy bins
 
     def _create_pha(self, batbinevt_input_dict):
         """
@@ -1206,7 +1190,7 @@ class Spectrum(BatObservation):
 
         # make sure that this calculation ran successfully
         if tmp_bat_pha_result.returncode != 0:
-            raise RuntimeError(f'The creation of the PHA file failed with message: {lc.bat_pha_result.output}')
+            raise RuntimeError(f'The creation of the PHA file failed with message: {tmp_bat_pha_result.output}')
         else:
             self.bat_pha_result = tmp_bat_pha_result
             self._call_batphasyserr()
@@ -1214,7 +1198,7 @@ class Spectrum(BatObservation):
 
     @u.quantity_input(timebins=['time'], tmin=['time'], tmax=['time'])
     def set_timebins(self, timebinalg="uniform", timebins=None, tmin=None, tmax=None, T0=None, is_relative=False,
-                       timedelta=np.timedelta64(64, 's'), snrthresh=None):
+                     timedelta=np.timedelta64(64, 's'), snrthresh=None):
         """
         This method allows for the rebinning of the lightcurve in time. The timebins can be uniform, snr-based,
         custom defined, or based on bayesian blocks (using battblocks). The time binning is done dymaically and the
@@ -1260,36 +1244,35 @@ class Spectrum(BatObservation):
         :return: None
         """
 
-        #create a temp copy incase the time rebinning doesnt complete successfully
-        tmp_pha_input_dict=self.pha_input_dict.copy()
+        # create a temp copy incase the time rebinning doesnt complete successfully
+        tmp_pha_input_dict = self.pha_input_dict.copy()
 
-        #error checking for calc_energy_integrated
+        # error checking for calc_energy_integrated
         if type(is_relative) is not bool:
             raise ValueError("The is_relative parameter should be a boolean value.")
 
-        #see if the timebinalg is properly set approporiately
+        # see if the timebinalg is properly set approporiately
         if timebinalg not in ["uniform", "snr", "highsnr"]:
             raise ValueError('The timebinalg only accepts the following values: uniform and snr.')
 
-        #if timebinalg == uniform/snr/highsnr, make sure that we have a timedelta that is a np.timedelta object
+        # if timebinalg == uniform/snr/highsnr, make sure that we have a timedelta that is a np.timedelta object
         if "uniform" in timebinalg or "snr" in timebinalg:
             if type(timedelta) is not np.timedelta64:
                 raise ValueError('The timedelta variable needs to be a numpy timedelta64 object.')
 
-        #need to make sure that snrthresh is set for "snr" timebinalg
+        # need to make sure that snrthresh is set for "snr" timebinalg
         if "snr" in timebinalg and snrthresh is None:
             raise ValueError(f'The snrthresh value should be set since timebinalg is set to be {snrthresh}.')
 
-        #test if is_relative is false and make sure that T0 is defined
+        # test if is_relative is false and make sure that T0 is defined
         if is_relative and T0 is None:
-            raise ValueError('The is_relative value is set to True however there is no T0 that is defined '+
+            raise ValueError('The is_relative value is set to True however there is no T0 that is defined ' +
                              '(ie the time from which the time bins are defined relative to is not specified).')
 
+        # if timebins, or tmin and tmax are defined then we ignore the timebinalg parameter
+        # if tmin and tmax are specified while timebins is also specified then ignore timebins
 
-        #if timebins, or tmin and tmax are defined then we ignore the timebinalg parameter
-        #if tmin and tmax are specified while timebins is also specified then ignore timebins
-
-        #do error checking on tmin/tmax
+        # do error checking on tmin/tmax
         if (tmin is None and tmax is not None) or (tmax is None and tmin is not None):
             raise ValueError('Both emin and emax must be defined.')
 
@@ -1297,29 +1280,28 @@ class Spectrum(BatObservation):
             if tmin.size != tmax.size:
                 raise ValueError('Both tmin and tmax must have the same length.')
 
-            #now try to construct single array of all timebin edges in seconds
-            timebins=np.zeros(tmin.size+1)*u.s
+            # now try to construct single array of all timebin edges in seconds
+            timebins = np.zeros(tmin.size + 1) * u.s
             timebins[:-1] = tmin
             if tmin.size > 1:
                 timebins[-1] = tmax[-1]
             else:
                 timebins[-1] = tmax
 
-        #See if we need to add T0 to everything
+        # See if we need to add T0 to everything
         if is_relative:
-            #see if T0 is Quantity class
+            # see if T0 is Quantity class
             if type(T0) is u.Quantity:
                 timebins += T0
             else:
                 timebins += T0 * u.s
 
-
-        #if the user has passed in timebins/tmin/tmax then we have to create a good time interval file
+        # if the user has passed in timebins/tmin/tmax then we have to create a good time interval file
         # otherwise proceed with normal rebinning
         if (timebins is not None and timebins.size > 2):
-            #tmin is not None and tmax.size > 1 and
-            #already checked that tmin && tmax are not 1 and have the same size
-            #if they are defined and they are more than 1 element then we have a series of timebins otherwise we just have the
+            # tmin is not None and tmax.size > 1 and
+            # already checked that tmin && tmax are not 1 and have the same size
+            # if they are defined and they are more than 1 element then we have a series of timebins otherwise we just have the
 
             tmp_pha_input_dict['tstart'] = "INDEF"
             tmp_pha_input_dict['tstop'] = "INDEF"
@@ -1342,24 +1324,23 @@ class Spectrum(BatObservation):
 
             tmp_pha_input_dict['timedel'] = timedelta / np.timedelta64(1, 's')  # convert to seconds
 
-            #see if we have the min/max times defined
+            # see if we have the min/max times defined
             if (tmin is not None and tmax.size == 1):
-                #were just defining the min/max times so want timedel=0 for there to just be a singel time bin
+                # were just defining the min/max times so want timedel=0 for there to just be a singel time bin
                 tmp_pha_input_dict['timedel'] = 0
                 tmp_pha_input_dict['tstart'] = timebins[0].value
                 tmp_pha_input_dict['tstop'] = timebins[1].value
 
-
-        #before doing the recalculation, make sure that the proper weights are in the event file
+        # before doing the recalculation, make sure that the proper weights are in the event file
         self._set_event_weights()
 
         # create the pha
         self._create_pha(tmp_pha_input_dict)
 
-        #all error handling is in _create_pha so we are all good if we get here to save the dict
+        # all error handling is in _create_pha so we are all good if we get here to save the dict
         self.pha_input_dict = tmp_pha_input_dict
 
-        #reparse the pha file to get the info
+        # reparse the pha file to get the info
         self._parse_pha_file()
 
     @u.quantity_input(emin=['energy'], emax=['energy'])
@@ -1381,14 +1362,14 @@ class Spectrum(BatObservation):
         :return: None.
         """
 
-
         # see if the user specified either the energy bins directly or emin/emax separately
         if emin is None and emax is None:
 
             # make sure that energybins is a list
             if type(energybins) is not list:
                 energybins = [energybins]
-                energybins = [i.capitalize for i in energybins] #do thsi for potential "CALDB" input, doesnt affect numbers
+                energybins = [i.capitalize for i in
+                              energybins]  # do thsi for potential "CALDB" input, doesnt affect numbers
 
             if "CALDB" not in energybins:
                 # verify that all elements are strings
@@ -1397,11 +1378,11 @@ class Spectrum(BatObservation):
                         raise ValueError(
                             'All elements of the passed in energybins variable must be a string. Please make sure this condition is met.')
 
-                #need to get emin and emax values, assume that these are in keV already when converting to astropy quantities
-                emin=[]
-                emax=[]
+                # need to get emin and emax values, assume that these are in keV already when converting to astropy quantities
+                emin = []
+                emax = []
                 for i in energybins:
-                    energies=i.split('-')
+                    energies = i.split('-')
                     emin.append(float(energies[0]))
                     emax.append(float(energies[1]))
                 emin = u.Quantity(emin, u.keV)
@@ -1421,19 +1402,18 @@ class Spectrum(BatObservation):
             if emin.size != emax.size:
                 raise ValueError('Both emin and emax must have the same length.')
 
-
             # create our energybins input to batbinevt
             if emin.size > 1:
                 energybins = []
                 for min, max in zip(emin.to(u.keV), emax.to(u.keV)):
                     energybins.append(f"{min.value}-{max.value}")
             else:
-                energybins=[f"{emin.to(u.keV).value}-{emax.to(u.keV).value}"]
+                energybins = [f"{emin.to(u.keV).value}-{emax.to(u.keV).value}"]
 
         # create the full string
         ebins = ','.join(energybins)
 
-        #create a temp dict to hold the energy rebinning parameters to pass to heasoftpy. If things dont run
+        # create a temp dict to hold the energy rebinning parameters to pass to heasoftpy. If things dont run
         # successfully then the updated parameter list will not be saved
         tmp_pha_input_dict = self.pha_input_dict.copy()
 
@@ -1444,10 +1424,10 @@ class Spectrum(BatObservation):
             # need to see if the energybins are different (and even need to be calculated), if so do the recalculation
             recalc = not np.array_equal(emin, self.ebins['E_MIN']) or not np.array_equal(emax, self.ebins['E_MAX'])
 
-        #do the rebinning if needed
+        # do the rebinning if needed
         if recalc:
-            #the tmp_lc_input_dict wil need to be modified with new Energybins
-            tmp_pha_input_dict["energybins"]=ebins
+            # the tmp_lc_input_dict wil need to be modified with new Energybins
+            tmp_pha_input_dict["energybins"] = ebins
 
             # before doing the recalculation, make sure that the proper weights are in the event file
             self._set_event_weights()
@@ -1485,7 +1465,7 @@ class Spectrum(BatObservation):
 
         :return:
         """
-        input_dict=dict(infile=str(self.pha_file), syserrfile="CALDB")
+        input_dict = dict(infile=str(self.pha_file), syserrfile="CALDB")
 
         try:
             return hsp.batphasyserr(**input_dict)
@@ -1501,7 +1481,7 @@ class Spectrum(BatObservation):
         :return:
         """
 
-        input_dict=dict(infile=str(self.pha_file), auxfile=str(self.auxil_raytracing_file))
+        input_dict = dict(infile=str(self.pha_file), auxfile=str(self.auxil_raytracing_file))
 
         try:
             return hsp.batupdatephakw(**input_dict)
@@ -1527,13 +1507,10 @@ class Spectrum(BatObservation):
         :return: None
         """
 
-        #read in all the info for the weights and save it such that we can use these weights in the future for
-        #redoing lightcurve calculation
+        # read in all the info for the weights and save it such that we can use these weights in the future for
+        # redoing lightcurve calculation
         with fits.open(self.event_file) as file:
-            self._event_weights=file[1].data["MASK_WEIGHT"]
-
-
-
+            self._event_weights = file[1].data["MASK_WEIGHT"]
 
     def _set_event_weights(self):
         """
@@ -1548,9 +1525,9 @@ class Spectrum(BatObservation):
         """
 
         if not self._same_event_lc_coords():
-            #read in the event file and replace the values in the MASK_WEIGHT with the appropriate values in self._event_weights
+            # read in the event file and replace the values in the MASK_WEIGHT with the appropriate values in self._event_weights
             with fits.open(self.event_file, mode="update") as file:
-                file[1].data["MASK_WEIGHT"]=self._event_weights
+                file[1].data["MASK_WEIGHT"] = self._event_weights
                 file.flush()
 
     def _same_event_lc_coords(self):
@@ -1586,60 +1563,61 @@ class Spectrum(BatObservation):
         :return: None
         """
 
-
         with fits.open(self.pha_file) as f:
-            header=f[1].header
-            data=f[1].data
-            energies=f["EBOUNDS"].data
-            energies_header=f["EBOUNDS"].header
-            times=f["STDGTI"].data
+            header = f[1].header
+            data = f[1].data
+            energies = f["EBOUNDS"].data
+            energies_header = f["EBOUNDS"].header
+            times = f["STDGTI"].data
 
         if self.lc_ra is None and self.lc_dec is None:
             self.lc_ra = header["RA_OBJ"]
             self.lc_dec = header["DEC_OBJ"]
         else:
-            #test if the passed in coordinates are what they should be for the light curve file
-            #TODO: see if we are ~? arcmin close to one another
+            # test if the passed in coordinates are what they should be for the light curve file
+            # TODO: see if we are ~? arcmin close to one another
             assert (np.isclose(self.lc_ra, header["RA_OBJ"]) and np.isclose(self.lc_dec, header["DEC_OBJ"])), \
-                   f"The passed in RA/DEC values ({self.lc_ra},{self.lc_dec}) do not match the values used to produce the lightcurve which are ({header['RA_OBJ']},{header['DEC_OBJ']})"
+                (f"The passed in RA/DEC values ({self.lc_ra},{self.lc_dec}) "
+                 f"do not match the values used to produce the lightcurve which are "
+                 f"({header['RA_OBJ']},{header['DEC_OBJ']})")
 
-        #read in the data and save to data attribute which is a dictionary of the column names as keys and the numpy arrays as values
-        self.data={}
+        # read in the data and save to data attribute which is a dictionary of the column names as keys and the numpy arrays as values
+        self.data = {}
         for i in data.columns:
             self.data[i.name] = u.Quantity(data[i.name], i.unit)
 
-        #fill in the energy bin info
-        self.ebins={}
+        # fill in the energy bin info
+        self.ebins = {}
         for i in energies.columns:
             if "CHANNEL" in i.name:
                 self.ebins["INDEX"] = energies[i.name]
             elif "E" in i.name:
-                self.ebins[i.name]=u.Quantity(energies[i.name], i.unit)
+                self.ebins[i.name] = u.Quantity(energies[i.name], i.unit)
 
-        #fill in the time info separately
+        # fill in the time info separately
         self.tbins = {}
         if "HDUCLAS4" in header.keys():
-            #we have a PHA2 spectrum with multiple spectra for different time bins
-            #for PHA files, "TIME" is always start and TIME_STOP/TSTOP is the end of time bin
+            # we have a PHA2 spectrum with multiple spectra for different time bins
+            # for PHA files, "TIME" is always start and TIME_STOP/TSTOP is the end of time bin
             self.tbins["TIME_START"] = self.data["TIME"]
             try:
                 self.tbins["TIME_STOP"] = self.data["TIME_STOP"]
             except KeyError as e:
                 self.tbins["TIME_STOP"] = self.data["TSTOP"]
-            self.tbins["TIME_CENT"] = 0.5*(self.tbins["TIME_START"]+self.tbins["TIME_STOP"])
+            self.tbins["TIME_CENT"] = 0.5 * (self.tbins["TIME_START"] + self.tbins["TIME_STOP"])
         else:
-            #if there is only 1 time bin (and one spectrum) this is sufficient
-            #see https://heasarc.gsfc.nasa.gov/ftools/caldb/help/batbinevt.html
-            #also convert START/STOP to TIME_START/TIME_STOP for consistency between classes
+            # if there is only 1 time bin (and one spectrum) this is sufficient
+            # see https://heasarc.gsfc.nasa.gov/ftools/caldb/help/batbinevt.html
+            # also convert START/STOP to TIME_START/TIME_STOP for consistency between classes
             for i in times.columns:
                 self.tbins[f"TIME_{i.name}"] = u.Quantity(times[i.name], i.unit)
-            self.tbins["TIME_CENT"] = 0.5*(self.tbins[f"TIME_START"]+self.tbins[f"TIME_STOP"])
+            self.tbins["TIME_CENT"] = 0.5 * (self.tbins[f"TIME_START"] + self.tbins[f"TIME_STOP"])
 
-        #if self.pha_input_dict ==None, then we will need to try to read in the hisotry of parameters passed into batbinevt
+        # if self.pha_input_dict ==None, then we will need to try to read in the hisotry of parameters passed into batbinevt
         # to create the pha file. thsi usually is needed when we first parse a file so we know what things are if we need to
         # do some sort of rebinning.
 
-        #were looking for something like:
+        # were looking for something like:
         #   START PARAMETER list for batbinevt_1.48 at 2023-11-16T18:47:52
         #
         #   P1 infile = /Users/tparsota/Documents/01116441000_eventresult/events/sw0
@@ -1680,42 +1658,41 @@ class Spectrum(BatObservation):
         #   END PARAMETER list for batbinevt_1.48
 
         if self.pha_input_dict is None:
-            #get the default names of the parameters for batbinevt including its name 9which should never change)
+            # get the default names of the parameters for batbinevt including its name 9which should never change)
             test = hsp.HSPTask('batbinevt')
-            default_params_dict=test.default_params.copy()
-            taskname=test.taskname
-            start_processing=None
+            default_params_dict = test.default_params.copy()
+            taskname = test.taskname
+            start_processing = None
 
             for i in header["HISTORY"]:
                 if taskname in i and start_processing is None:
-                    #then set a switch for us to start looking at things
+                    # then set a switch for us to start looking at things
                     start_processing = True
                 elif taskname in i and start_processing is True:
-                    #we want to stop processing things
+                    # we want to stop processing things
                     start_processing = False
 
-                if start_processing and "START" not in i and len(i)>0:
-                    values=i.split(" ")
-                    #print(i, values, "=" in values)
+                if start_processing and "START" not in i and len(i) > 0:
+                    values = i.split(" ")
+                    # print(i, values, "=" in values)
 
-                    parameter_num=values[0]
-                    parameter=values[1]
+                    parameter_num = values[0]
+                    parameter = values[1]
                     if "=" not in values:
-                        #this belongs with the previous parameter and is a line continuation
+                        # this belongs with the previous parameter and is a line continuation
                         default_params_dict[old_parameter] = default_params_dict[old_parameter] + values[-1]
                     else:
                         default_params_dict[parameter] = values[-1]
 
-                    old_parameter=parameter
+                    old_parameter = parameter
 
             self.pha_input_dict = default_params_dict.copy()
-
 
     def _create_custom_timebins(self, timebins, output_file=None):
         """
         This method creates custom time bins from a user defined set of time bin edges. The created fits file with the
-        timebins of interest will by default have the same name as the lightcurve file, however it will have a "gti" suffix instead of
-        a "lc" suffix and it will be stored in the gti subdirectory of the event results directory.
+        timebins of interest will by default have the same name as the lightcurve file, however it will have a "gti"
+        suffix instead of a "lc" suffix and it will be stored in the gti subdirectory of the event results directory.
 
         Note: This method is here so the call to create a gti file with custom timebins can be phased out eventually.
 
@@ -1726,24 +1703,12 @@ class Spectrum(BatObservation):
         """
 
         if output_file is None:
-            #use the same filename as for the lightcurve file but replace suffix with gti and put it in gti subdir instead of lc
+            # use the same filename as for the lightcurve file but replace suffix with gti and put it in gti subdir
+            # instead of lc
             new_path = self.pha_file.parts
-            new_name=self.pha_file.name.replace("pha", "gti")
+            new_name = self.pha_file.name.replace("pha", "gti")
 
-            output_file=Path(*new_path[:self.lightcurve_file.parts.index('pha')]).joinpath("gti").joinpath(new_name)
+            output_file = Path(*new_path[:self.lightcurve_file.parts.index('pha')]).joinpath("gti").joinpath(new_name)
 
         return create_gti_file(timebins, output_file, T0=None, is_relative=False, overwrite=True)
 
-    def get_spectrum(self):
-        """
-        This method allows a user to get the spectrum that they specify. If there is just one spectrum (for one timebin)
-        Then this is the only spectrum to return by default. If there is more than one spectrum (for multiple time bins)
-        then the user has to specify which spectrum they want.
-
-        :return:
-        """
-
-        if self.tbins['TIME_CENT'].size == 1:
-            spectrum=self.data[""]
-        else:
-            stop
