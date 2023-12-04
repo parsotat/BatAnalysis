@@ -1712,3 +1712,10 @@ class Spectrum(BatObservation):
 
         return create_gti_file(timebins, output_file, T0=None, is_relative=False, overwrite=True)
 
+    def plot(self):
+        """
+        This method allows the user to conveniently plot the spectrum that has been created. If it has been fitted
+        with a model, then the model can also be plotted as well.
+
+        :return: matplotlib figure, matplotlib axis
+        """
