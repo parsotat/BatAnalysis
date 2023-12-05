@@ -1792,4 +1792,25 @@ class Spectrum(BatObservation):
         :return:
         """
 
-        return calc_response(self.s)
+        return self._call_batdrmgen()
+
+    def get_drm_filename(self):
+        """
+        This method returns the detector response function file
+
+        :return:
+        """
+
+        if self.drm_file is None:
+            self.calculate_drm()
+
+        return self.drm_file
+
+    def get_pha_filename(self):
+        """
+        This method returns the pha filename
+
+        :return:
+        """
+
+        return self.pha_file
