@@ -1299,9 +1299,9 @@ class Spectrum(BatObservation):
         # if the user has passed in timebins/tmin/tmax then we have to create a good time interval file
         # otherwise proceed with normal rebinning
         if (timebins is not None and timebins.size > 2):
-            # tmin is not None and tmax.size > 1 and
-            # already checked that tmin && tmax are not 1 and have the same size
-            # if they are defined and they are more than 1 element then we have a series of timebins otherwise we just have the
+            # tmin is not None and tmax.size > 1 and already checked that tmin && tmax are not 1 and have the same
+            # size if they are defined and they are more than 1 element then we have a series of timebins otherwise
+            # we just have the
 
             tmp_pha_input_dict['tstart'] = "INDEF"
             tmp_pha_input_dict['tstop'] = "INDEF"
@@ -1342,6 +1342,9 @@ class Spectrum(BatObservation):
 
         # reparse the pha file to get the info
         self._parse_pha_file()
+
+        # recalculate the drm file
+        self._call_batdrmgen()
 
     @u.quantity_input(emin=['energy'], emax=['energy'])
     def set_energybins(self, energybins="CALDB", emin=None, emax=None):
@@ -1405,8 +1408,8 @@ class Spectrum(BatObservation):
             # create our energybins input to batbinevt
             if emin.size > 1:
                 energybins = []
-                for min, max in zip(emin.to(u.keV), emax.to(u.keV)):
-                    energybins.append(f"{min.value}-{max.value}")
+                for min_e, max_e in zip(emin.to(u.keV), emax.to(u.keV)):
+                    energybins.append(f"{min_e.value}-{max_e.value}")
             else:
                 energybins = [f"{emin.to(u.keV).value}-{emax.to(u.keV).value}"]
 
@@ -1440,6 +1443,9 @@ class Spectrum(BatObservation):
 
             # reparse the pha file to get the info
             self._parse_pha_file()
+
+            # recalculate the drm file
+            self._call_batdrmgen()
 
     def _call_batbinevt(self, input_dict):
         """
@@ -1496,7 +1502,13 @@ class Spectrum(BatObservation):
         :return:
         """
 
-        return calc_response(self.pha_file)
+        output = calc_response(self.pha_file)
+
+        if output.returncode != 0:
+            raise RuntimeError(f"The call to Heasoft batdrmgen failed with output {output.stdout}.")
+
+        self.drm_file = self.pha_file.parent.joinpath(f"{self.pha_file.stem}.rsp")
+
 
     def _get_event_weights(self):
         """
@@ -1772,3 +1784,12 @@ class Spectrum(BatObservation):
         # if there is a fitted model need to get that and plot it
 
         return fig, ax
+
+    def calculate_drm(self):
+        """
+        This function calculates the detector response matrix for the created PHA file.
+
+        :return:
+        """
+
+        return calc_response(self.s)
