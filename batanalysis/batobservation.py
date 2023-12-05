@@ -1721,7 +1721,7 @@ class Spectrum(BatObservation):
 
         return create_gti_file(timebins, output_file, T0=None, is_relative=False, overwrite=True)
 
-    def plot(self):
+    def plot(self, emin=15*u.keV, emax=195*u.keV):
         """
         This method allows the user to conveniently plot the spectrum that has been created. If it has been fitted
         with a model, then the model can also be plotted as well.
@@ -1731,6 +1731,12 @@ class Spectrum(BatObservation):
 
         # calculate the center of the energy bin
         ecen = 0.5*(self.ebins["E_MIN"]+self.ebins["E_MAX"])
+
+        # get where the energy is >15 keV and <195 keV
+        if emin is not None and emax is not None:
+            energy_idx = np.where((self.ebins["E_MIN"] >= emin) & (self.ebins["E_MAX"] < emax))
+        else:
+            energy_idx = np.where((self.ebins["E_MIN"] > -1*np.inf) & (self.ebins["E_MAX"] < np.inf))
 
         # calculate error including both systematic error and statistical error, note that systematic error has
         # been multiplied by the rates/counts in the _parse_pha method
@@ -1743,12 +1749,12 @@ class Spectrum(BatObservation):
             plot_data = self.data["COUNTS"]
 
         fig, ax = plt.subplots(1)
-        ax.loglog(self.ebins["E_MIN"], plot_data, color="k", drawstyle="steps-post")
-        ax.loglog(self.ebins["E_MAX"],  plot_data, color="k", drawstyle="steps-pre")
+        ax.loglog(self.ebins["E_MIN"][energy_idx], plot_data[energy_idx], color="k", drawstyle="steps-post")
+        ax.loglog(self.ebins["E_MAX"][energy_idx],  plot_data[energy_idx], color="k", drawstyle="steps-pre")
         ax.errorbar(
-            ecen,
-            plot_data,
-            yerr=tot_error*plot_data.unit,
+            ecen[energy_idx],
+            plot_data[energy_idx],
+            yerr=tot_error[energy_idx]*plot_data.unit,
             color="k",
             marker="None",
             ls="None",
