@@ -1581,10 +1581,19 @@ class Spectrum(BatObservation):
                  f"do not match the values used to produce the lightcurve which are "
                  f"({header['RA_OBJ']},{header['DEC_OBJ']})")
 
-        # read in the data and save to data attribute which is a dictionary of the column names as keys and the numpy arrays as values
+        # read in the data and save to data attribute which is a dictionary of the column names as keys and the numpy
+        # arrays as values
         self.data = {}
         for i in data.columns:
             self.data[i.name] = u.Quantity(data[i.name], i.unit)
+
+        # recalculate the systematic error based on the counts/rates
+        if 'RATE' in self.data.keys():
+            key = "RATE"
+        else:
+            key = "COUNTS"
+
+        self.data["SYS_ERR"] = self.data["SYS_ERR"]*self.data[key]
 
         # fill in the energy bin info
         self.ebins = {}
@@ -1613,9 +1622,9 @@ class Spectrum(BatObservation):
                 self.tbins[f"TIME_{i.name}"] = u.Quantity(times[i.name], i.unit)
             self.tbins["TIME_CENT"] = 0.5 * (self.tbins[f"TIME_START"] + self.tbins[f"TIME_STOP"])
 
-        # if self.pha_input_dict ==None, then we will need to try to read in the hisotry of parameters passed into batbinevt
-        # to create the pha file. thsi usually is needed when we first parse a file so we know what things are if we need to
-        # do some sort of rebinning.
+        # if self.pha_input_dict ==None, then we will need to try to read in the hisotry of parameters passed into
+        # batbinevt to create the pha file. thsi usually is needed when we first parse a file so we know what things
+        # are if we need to do some sort of rebinning.
 
         # were looking for something like:
         #   START PARAMETER list for batbinevt_1.48 at 2023-11-16T18:47:52
@@ -1719,3 +1728,41 @@ class Spectrum(BatObservation):
 
         :return: matplotlib figure, matplotlib axis
         """
+
+        # calculate the center of the energy bin
+        ecen = 0.5*(self.ebins["E_MIN"]+self.ebins["E_MAX"])
+
+        # calculate error including both systematic error and statistical error, note that systematic error has
+        # been multiplied by the rates/counts in the _parse_pha method
+        tot_error = np.sqrt(self.data["STAT_ERR"].value**2+self.data["SYS_ERR"].value**2)
+
+        # get the quantity to be plotted
+        if "RATE" in self.data.keys():
+            plot_data = self.data["RATE"]
+        else:
+            plot_data = self.data["COUNTS"]
+
+        fig, ax = plt.subplots(1)
+        ax.loglog(self.ebins["E_MIN"], plot_data, color="k", drawstyle="steps-post")
+        ax.loglog(self.ebins["E_MAX"],  plot_data, color="k", drawstyle="steps-pre")
+        ax.errorbar(
+            ecen,
+            plot_data,
+            yerr=tot_error*plot_data.unit,
+            color="k",
+            marker="None",
+            ls="None",
+            label=f"Event Data Spectrum\nt={self.tbins['TIME_START'].value[0]}-{self.tbins['TIME_STOP'][0]}",
+        )
+
+        if "RATE" in self.data.keys():
+            ax.set_ylabel("Count Rate (ct/s)", fontsize=14)
+        else:
+            ax.set_ylabel("Counts (ct)", fontsize=14)
+        ax.set_xlabel("E (keV)", fontsize=14)
+
+        ax.tick_params(axis="both", which="major", labelsize=14)
+
+        # if there is a fitted model need to get that and plot it
+
+        return fig, ax

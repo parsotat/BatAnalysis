@@ -570,8 +570,6 @@ class BatEvent(BatObservation):
         spectrum = Spectrum(pha_file, self.event_files, self.detector_quality_file, self.auxil_raytracing_file, recalc=recalc)
 
 
-        raise NotImplementedError("Creating a spectrum has not yet been implemented.")
-
         self.spectrum=spectrum
 
 
