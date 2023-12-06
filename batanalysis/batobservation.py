@@ -1174,6 +1174,10 @@ class Spectrum(BatObservation):
         # read in the information about the weights
         self._get_event_weights()
 
+        # calculate the drm file
+        self._call_batdrmgen()
+
+
         # were done getting all the info that we need. From here, the user can rebin the timebins and the energy bins
 
     def _create_pha(self, batbinevt_input_dict):
@@ -1789,7 +1793,10 @@ class Spectrum(BatObservation):
         """
         This function calculates the detector response matrix for the created PHA file.
 
-        :return:
+        This is formatted this way so in the future, the _call_batdrmgen() method which relies on heasoft can be
+        modified to use python native code
+
+        :return: heasoftpy result object for the batdrmgen heasoft call
         """
 
         return self._call_batdrmgen()
@@ -1798,7 +1805,7 @@ class Spectrum(BatObservation):
         """
         This method returns the detector response function file
 
-        :return:
+        :return: Path object of the DRM file
         """
 
         if self.drm_file is None:
@@ -1810,7 +1817,7 @@ class Spectrum(BatObservation):
         """
         This method returns the pha filename
 
-        :return:
+        :return: Path object of the pha file
         """
 
         return self.pha_file
