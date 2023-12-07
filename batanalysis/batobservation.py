@@ -404,7 +404,6 @@ class Lightcurve(BatObservation):
             tmp_lc_input_dict['tstart'] = "INDEF"
             tmp_lc_input_dict['tstop'] = "INDEF"
 
-
         elif (timebins is not None and timebins.size > 2):
             # tmin is not None and tmax.size > 1 and
             # already checked that tmin && tmax are not 1 and have the same size
@@ -822,7 +821,9 @@ class Lightcurve(BatObservation):
             raise ValueError("The plot_relative switch can only be set to True with time_unit=MET.")
 
         if "MET" in time_unit:
-            times = self.tbins["TIME_CENT"]
+            start_times = self.tbins["TIME_START"]
+            end_times = self.tbins["TIME_STOP"]
+            mid_times = self.tbins["TIME_CENT"]
             xlabel = "MET (s)"
 
             if plot_relative:
@@ -834,15 +835,20 @@ class Lightcurve(BatObservation):
                     if type(T0) is not u.Quantity:
                         T0 *= u.s
 
-                    times = times - T0
+                    start_times = start_times - T0
+                    end_times = end_times - T0
+                    mid_times = mid_times - T0
                     xlabel = f"MET - T0 (T0= {T0})"
 
-
         elif "MJD" in time_unit:
-            times = met2mjd(self.tbins["TIME_CENT"].value)
+            start_times = met2mjd(self.tbins["TIME_START"].value)
+            end_times = met2mjd(self.tbins["TIME_STOP"].value)
+            mid_times = met2mjd(self.tbins["TIME_CENT"].value)
             xlabel = "MJD"
         else:
-            times = met2utc(self.tbins["TIME_CENT"].value)
+            start_times = met2utc(self.tbins["TIME_START"])
+            end_times = met2utc(self.tbins["TIME_STOP"])
+            mid_times = met2utc(self.tbins["TIME_CENT"].value)
             xlabel = "UTC"
 
         # get the number of axes we may need
@@ -886,18 +892,21 @@ class Lightcurve(BatObservation):
                     rate = self.data["RATE"]
                     rate_error = self.data["ERROR"]
 
-                line = ax_rate.plot(times, rate, ds='steps-mid', label=f'{emin.value}-{emax}')
-                ax_rate.errorbar(times, rate, yerr=rate_error, ls='None', color=line[-1].get_color())
+                line = ax_rate.plot(start_times, rate, ds='steps-post')
+                ax_rate.plot(end_times, rate, ds='steps-pre', color=line[-1].get_color())
+                ax_rate.errorbar(mid_times, rate, yerr=rate_error, ls='None', color=line[-1].get_color())
 
         if num_plots > 1:
             ax_rate.legend()
 
         if plot_counts:
-            ax_count.plot(times, self.data["TOTCOUNTS"], ds='steps-mid')
+            line = ax_count.plot(start_times, self.data["TOTCOUNTS"], ds='steps-post')
+            ax_count.plot(end_times, self.data["TOTCOUNTS"], ds='steps-pre', color=line[-1].get_color())
             ax_count.set_ylabel('Total counts (ct)')
 
         if plot_exposure_fraction:
-            ax_exposure.plot(times, self.data["FRACEXP"], ds='steps-mid')
+            line = ax_exposure.plot(start_times, self.data["FRACEXP"], ds='steps-post')
+            ax_exposure.plot(end_times, self.data["FRACEXP"], ds='steps-pre', color=line[-1].get_color())
             ax_exposure.set_ylabel('Fractional Exposure')
 
         if T0 is not None and not plot_relative:
