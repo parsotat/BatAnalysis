@@ -2,6 +2,13 @@
 This file holds convience functions for conveniently analyzing batches of observation IDs using the joblib module
 """
 import os
+from joblib import Parallel, delayed
+from pathlib import Path
+from multiprocessing.pool import ThreadPool
+from astropy.table import Table, vstack
+from astropy.time import Time
+import shutil
+import numpy as np
 
 from .batlib import (
     dirtest,
@@ -21,18 +28,11 @@ from .mosaic import (
     read_skygrids,
 )
 
-from joblib import Parallel, delayed
-from pathlib import Path
-import sys
-from multiprocessing.pool import ThreadPool
-from astropy.table import Table, vstack
-import shutil
-import numpy as np
-
 
 def _remove_pfiles():
     """
-    This function removes the pfiles located in ~/pfiles so there is no conflict with the pfiles when running things in parallel
+    This function removes the pfiles located in ~/pfiles so there is no conflict with the pfiles when running things in
+    parallel
     :return:
     """
     direc = Path("~/pfiles").expanduser().resolve()
@@ -56,16 +56,17 @@ def _create_BatSurvey(
     batsurvey code succesfully completes, otherwise it will return None.
 
     :param obs_id: string of the survey observation ID
-    :param obs_dir: None or a Path object of where the directory that the observation ID data is located. This will most likely
-        be the datadir path. None defaults to using the datadir() output
+    :param obs_dir: None or a Path object of where the directory that the observation ID data is located. This will most
+        likely be the datadir path. None defaults to using the datadir() output
     :param input_dict: The input dictionary that will be passed to the heasoft batsurvey call
-    :param recalc: Boolean False by default. The default, will cause the function to try to load a save file to save on computational
-        time. If set to True, do not try to load the results of prior calculations. Instead rerun batsurvey on the observation ID.
-    :param load_dir: Default None or a Path object. The default uses the directory as pointed to by obs_dir/obs_id+'_surveyresult'
-        to try to look for a .batsurvey file to load.
-    :param patt_noise_dir: String of the directory that holds the pre-calculated pattern noise maps for BAT. None defaults to
-            looking for the maps in a folder called: "noise_pattern_maps" located in the ba.datadir() directory. If this directory
-            doesn't exist then pattern maps are not used.
+    :param recalc: Boolean False by default. The default, will cause the function to try to load a save file to save on
+        computational time. If set to True, do not try to load the results of prior calculations. Instead rerun
+        batsurvey on the observation ID.
+    :param load_dir: Default None or a Path object. The default uses the directory as pointed to by
+        obs_dir/obs_id+'_surveyresult' to try to look for a .batsurvey file to load.
+    :param patt_noise_dir: String of the directory that holds the pre-calculated pattern noise maps for BAT.
+        None defaults to looking for the maps in a folder called: "noise_pattern_maps" located in the ba.datadir()
+        directory. If this directory doesn't exist then pattern maps are not used.
     :param verbose: Boolean False by default. Tells the code to print progress/diagnostic information.
     :return: None or a BATSurvey object
     """
@@ -107,13 +108,14 @@ def batsurvey_analysis(
 
     :param obs_id_list: list of strings that denote the observation IDs to run batsurvey on
     :param input_dict: user defined dictionary of key/value pairs that will be passed to batsurvey
-    :param recalc:  Boolean False by default. The default, will cause the function to try to load a save file to save on computational
-        time. If set to True, do not try to load the results of prior calculations. Instead rerun batsurvey on the observation ID.
-    :param load_dir: Default None or a Path object. The default uses the directory as pointed to by obs_dir/obs_id+'_surveyresult'
-        to try to look for a .batsurvey file to load.
-    :param patt_noise_dir: String of the directory that holds the pre-calculated pattern noise maps for BAT. None defaults to
-            looking for the maps in a folder called: "noise_pattern_maps" located in the ba.datadir() directory. If this directory
-            doesn't exist then pattern maps are not used.
+    :param recalc:  Boolean False by default. The default, will cause the function to try to load a save file to save
+        on computational time. If set to True, do not try to load the results of prior calculations. Instead rerun
+        batsurvey on the observation ID.
+    :param load_dir: Default None or a Path object. The default uses the directory as pointed to by
+        obs_dir/obs_id+'_surveyresult' to try to look for a .batsurvey file to load.
+    :param patt_noise_dir: String of the directory that holds the pre-calculated pattern noise maps for BAT.
+        None defaults to looking for the maps in a folder called: "noise_pattern_maps" located in the ba.datadir()
+        directory. If this directory doesn't exist then pattern maps are not used.
     :param verbose: Boolean False by default. Tells the code to print progress/diagnostic information.
     :param nprocs: The number of processes that will be run simulaneously. This number should not be larger than the
         number of CPUs that a user has available to them.
@@ -157,21 +159,25 @@ def _spectrum_analysis(
 
     :param obs: the BATSurvey object for the survey pointings that will have their spectra exttracted and fitted.
     :param source_name: String of the source name as it appears in the BAT Survey catalog
-    :param recalc: Boolean False by default. The default, will cause the function to try to load a save file to save on computational
-        time. If set to True, do not try to load the results of prior calculations. Instead rerun the fitting on the
-        pointings of the observation ID.
-    :param generic_model: Default None or a generic model that can be passed to pyXspec, see the pyXspec documentation or
-        the fit_spectrum docustring for more information on how to define this. The default None uses the basic powerlaw function (see the fit_spectrum function)
+    :param recalc: Boolean False by default. The default, will cause the function to try to load a save file to save on
+        computational time. If set to True, do not try to load the results of prior calculations. Instead rerun the
+        fitting on the pointings of the observation ID.
+    :param generic_model: Default None or a generic model that can be passed to pyXspec, see the pyXspec documentation
+        or the fit_spectrum docustring for more information on how to define this. The default None uses the basic
+        powerlaw function (see the fit_spectrum function)
     :param setPars: None or a dictionary to specify values for the pyXspec model parameters. The value of None defaults
-        to using the default parameter values found in the fit_spectrum function. More inforamtion on how to define this can
-        be found by looking at the fit_spectrum docustring or the pyXspec documentation.
-    :param fit_iterations: Integer, default 100, that defines the maximum iterations that can occur to conduct the fitting
+        to using the default parameter values found in the fit_spectrum function. More inforamtion on how to define this
+        can be found by looking at the fit_spectrum docustring or the pyXspec documentation.
+    :param fit_iterations: Integer, default 100, that defines the maximum iterations that can occur to conduct the
+        fitting
     :param use_cstat: boolean, default False, to determine if CSTAT statistics should be used. In very bright sources,
         with lots of counts this should be set to False. For sources with small counts where the errors are not expected
         to be gaussian, this should be set to True.
-    :param ul_pl_index: Float (default 2) denoting the power law photon index that will be used to obtain a flux upper limit
+    :param ul_pl_index: Float (default 2) denoting the power law photon index that will be used to obtain a flux upper
+        limit
     :param nsigma: Integer, denoting the number for sigma the user needs to justify a detection
-    :param bkg_nsigma: Integer, denoting the number of sigma the user needs to to calculate flux upper limit in case of a non detection.
+    :param bkg_nsigma: Integer, denoting the number of sigma the user needs to calculate flux upper limit in case
+        of a non detection.
 
     :return: The updated BATSurvey object with updated spectral information
     """
@@ -223,7 +229,7 @@ def _spectrum_analysis(
                             "nsigma_lg10flux_upperlim", None
                         )
                     except ValueError:
-                        # if the suorce doesnt exist, just continue
+                        # if the source doesnt exist, just continue
                         pass
 
                 # Loop over individual PHA pointings
@@ -260,7 +266,8 @@ def _spectrum_analysis(
         except FileNotFoundError as e:
             print(e)
             print(
-                f"This means that the batsurvey script didnt deem there to be good enough statistics for {source_name} in this observation ID."
+                f"This means that the batsurvey script didnt deem there to be good enough statistics for {source_name} "
+                f"in this observation ID."
             )
 
     return obs
@@ -284,22 +291,25 @@ def batspectrum_analysis(
 
     :param batsurvey_obs_list: list of BATSurvey observation objects
     :param source_name:  String of the source name as it appears in the BAT Survey catalog
-    :param recalc: Boolean False by default. The default, will cause the function to try to load a save file to save on computational
-        time. If set to True, do not try to load the results of prior calculations. Instead rerun the fitting on the
-        pointings of the observation ID.
-    :param generic_model: Default None or a generic model that can be passed to pyXspec, see the pyXspec documentation or
-        the fit_spectrum docustring for more information on how to define this. The default None uses the basic powerlaw
-        function (see the fit_spectrum function)
+    :param recalc: Boolean False by default. The default, will cause the function to try to load a save file to save on
+        computational time. If set to True, do not try to load the results of prior calculations. Instead rerun the
+        fitting on the pointings of the observation ID.
+    :param generic_model: Default None or a generic model that can be passed to pyXspec, see the pyXspec documentation
+        or the fit_spectrum docustring for more information on how to define this. The default None uses the basic
+        powerlaw function (see the fit_spectrum function)
     :param setPars: None or a dictionary to specify values for the pyXspec model parameters. The value of None defaults
-        to using the default parameter values found in the fit_spectrum function. More inforamtion on how to define this can
-        be found by looking at the fit_spectrum docustring or the pyXspec documentation.
-    :param fit_iterations: Integer, default 100, that defines the maximum iterations that can occur to conduct the fitting
+        to using the default parameter values found in the fit_spectrum function. More inforamtion on how to define this
+        can be found by looking at the fit_spectrum docustring or the pyXspec documentation.
+    :param fit_iterations: Integer, default 100, that defines the maximum iterations that can occur to conduct the
+        fitting
     :param use_cstat: boolean, default False, to determine if CSTAT statistics should be used. In very bright sources,
         with lots of counts this should be set to False. For sources with small counts where the errors are not expected
         to be gaussian, this should be set to True.
-    :param ul_pl_index: Float (default 2) denoting the power law photon index that will be used to obtain a flux upper limit
+    :param ul_pl_index: Float (default 2) denoting the power law photon index that will be used to obtain a flux upper
+        limit
     :param nsigma: Integer, denoting the number for sigma the user needs to justify a detection
-    :param bkg_nsigma: Integer, denoting the number of sigma the user needs to to calculate flux upper limit in case of a non detection.
+    :param bkg_nsigma: Integer, denoting the number of sigma the user needs to calculate flux upper limit in case of
+        a non detection.
     :param nprocs: The number of processes that will be run simulaneously. This number should not be larger than the
         number of CPUs that a user has available to them.
     :return: a list of BATSurvey objects for all the observation IDs with updated spectral information
@@ -347,16 +357,17 @@ def batmosaic_analysis(
     """
     Calculates the mosaic images in parallel.
 
-    :param batsurvey_obs_list: The list of BATSurvey objects that correpond to the observations listed in the outventory file
-        parameter
+    :param batsurvey_obs_list: The list of BATSurvey objects that correpond to the observations listed in the
+        outventory file parameter
     :param outventory_file: Path object of the outventory file that contains all the BAT survey observations that will
         be used to create the mosaiced images.
-    :param time_bins: The time bin edges that the observatons in the outventory file have been grouped into
-    :param catalog_file: A Path object of the catalog file that should be used to identify sources in the mosaic images. This
-        will default to using the catalog file that is included with the BatAnalysis package.
-    :param total_mosaic_savedir: Default None or a Path object that denotes the directory that the total "time-integrated"
-        images will be saved to. The default is to place the total mosaic image in a directory called "total_mosaic"
-        located in the same directory as the outventory file.
+    :param time_bins: astropy Time array of the time bin edges that are created based on the user specification of the
+        group_outventory function
+    :param catalog_file: A Path object of the catalog file that should be used to identify sources in the mosaic images.
+        This will default to using the catalog file that is included with the BatAnalysis package.
+    :param total_mosaic_savedir: Default None or a Path object that denotes the directory that the total
+        "time-integrated" images will be saved to. The default is to place the total mosaic image in a directory
+        called "total_mosaic" located in the same directory as the outventory file.
     :param recalc: Boolean False by default. If this calculation was done previously, do not try to load the results of
         prior calculations. Instead recalculate the mosaiced images. The default, will cause the function to try to load
         a save file to save on computational time.
@@ -374,16 +385,37 @@ def batmosaic_analysis(
     corrections_map = read_correctionsmap()
     ra_skygrid, dec_skygrid = read_skygrids()
 
-    # get the lower and upper time limits
-    start_t = time_bins[:-1]
-    end_t = time_bins[1:]
+    # determine format of the time_bins, ie an astropy Time array or a list of astropy Time arrays
+    # no error checking here since it should be taken care of in group_outventory function
+    time_bins_is_list = False
+    if type(time_bins) is list:
+        time_bins_is_list = True
+
+    if not time_bins_is_list:
+        # get the lower and upper time limits
+        start_t = time_bins[:-1]
+        end_t = time_bins[1:]
+    else:
+        start = []
+        end = []
+        for i in time_bins:
+            start.append(i[0, 0])
+            end.append(i[1, 0])
+
+        start_t = Time(start)
+        end_t = Time(end)
 
     if recalc:
         # make sure that the time bins are cleared
         for i in start_t:
             binned_savedir = outventory_file.parent.joinpath(
-                f"mosaic_{i.astype('datetime64[D]')}"
+                f"mosaic_{i.datetime64.astype('datetime64[D]')}"
             )
+            if not binned_savedir.exists():
+                binned_savedir = outventory_file.parent.joinpath(
+                    f"mosaic_{i.mjd}"
+                )
+
             dirtest(binned_savedir)
 
     all_mosaic_survey = Parallel(n_jobs=nprocs)(
@@ -411,8 +443,8 @@ def batmosaic_analysis(
 
     intermediate_mosaic_dir_list = [i.result_dir for i in final_mosaics]
 
-    # see if the total mosaic has been created and saved (ie there is a .batsurvey file in that directory) if there isnt,
-    # then do the full calculation or if we set recalc=True then also do the full calculation
+    # see if the total mosaic has been created and saved (ie there is a .batsurvey file in that directory) if there
+    # isnt, then do the full calculation or if we set recalc=True then also do the full calculation
     if total_mosaic_savedir is None:
         total_mosaic_savedir = intermediate_mosaic_dir_list[0].parent.joinpath(
             "total_mosaic"
@@ -421,7 +453,8 @@ def batmosaic_analysis(
         total_mosaic_savedir = Path(total_mosaic_savedir)
 
     if not total_mosaic_savedir.joinpath("batsurvey.pickle").exists() or recalc:
-        # merge all the mosaics together to get the full 'time integrated' images and convert to final files with proper units
+        # merge all the mosaics together to get the full 'time integrated' images and convert to final files with
+        # proper units
         total_dir = merge_mosaics(
             intermediate_mosaic_dir_list, savedir=total_mosaic_savedir
         )

@@ -1,21 +1,16 @@
 """
-This file contains the survey class that is inherited from the observation class. this class contains additional information
-about a given survey. it also reads in survey data and processes it
+This file contains the survey class that is inherited from the observation class. this class contains additional
+information about a given survey. it also reads in survey data and processes it
 
 Tyler Parsotan April 5 2023
 """
 import os
 import shutil
-import sys
 from .batlib import datadir, dirtest, met2mjd, met2utc
 from .batobservation import BatObservation
-import glob
 from astropy.io import fits
 import numpy as np
-import subprocess
 import pickle
-import sys
-import re
 from pathlib import Path
 from astropy.time import Time
 from datetime import datetime, timedelta
@@ -28,13 +23,6 @@ try:
 except ModuleNotFoundError as err:
     # Error handling
     print(err)
-
-
-# try:
-# import xspec as xsp
-# except ModuleNotFoundError as err:
-# Error handling
-# print(err)
 
 
 class BatSurvey(BatObservation):
@@ -78,18 +66,22 @@ class BatSurvey(BatObservation):
         Saves a BatSurvey object
     merge_pointings(input_dict=None, verbose=False):
         Merges the counts from multiple pointings found within an observation ID dataset
-    calculate_pha(id_list=None, output_dir=None, calc_upper_lim=False, bkg_nsigma=None, verbose=True, clean_dir=False, single_pointing=None):
+    calculate_pha(id_list=None, output_dir=None, calc_upper_lim=False, bkg_nsigma=None, verbose=True, clean_dir=False,
+            single_pointing=None):
         Calculates the PHA file for each pointing found within an observation ID dataset
     load_source_information(sources):
-        Loads the count rate, background variance, and snr from the .cat file produced by batsurvey for the sources of interest
+        Loads the count rate, background variance, and snr from the .cat file produced by batsurvey for the sources of
+        interest
     get_pointing_ids():
         Returns the pointing ids in the observation ID
     get_pointing_info(pointing_id, source_id=None)
         Gets the dictionary of information associated with the specified pointing id and source id if specified
     set_pointing_info(pointing_id, key, value, source_id=None)
-        Sets the key/value pair for the dictionary of information associated with the specified pointing id and source, if the source_id is specified
+        Sets the key/value pair for the dictionary of information associated with the specified pointing id and source,
+        if the source_id is specified
     get_pha_filenames(id_list=None, pointing_id_list=None)
-        Gets the pha filename list of the sources supplied in id_list and for the pointing ids supplied by pointing_id_list
+        Gets the pha filename list of the sources supplied in id_list and for the pointing ids supplied by
+        pointing_id_list
     set_pha_filenames(file, reset=False)
         Sets the pha filenames attribute or resets it to be an empty list
     load_source_information(sources)
@@ -112,27 +104,29 @@ class BatSurvey(BatObservation):
         """
         Constructs the BatSurvey object.
 
-        Runs heasoft batsurvey on the observation ID folder. If this calculation was done previouly and the results saved,
-        the user can load the saved state.
+        Runs heasoft batsurvey on the observation ID folder. If this calculation was done previously and the results
+        saved, the user can load the saved state.
 
         :param obs_id: String of the observation ID
-        :param obs_dir: None or String of the location to the folder with the observation ID, defaults to datadir directory
+        :param obs_dir: None or String of the location to the folder with the observation ID, defaults to datadir
+            directory
         :param input_dict: Dictionary of values that will be passed to heasoftpy's batsurvey. The default values are:
                 indir=obs_dir
                 outdir=obs_dir + '_surveyresult'
                 detthresh=10000
                 detthresh2=10000
                 incatalog=survey6b_2.cat (included with BatAnalysis code)
-            Any parameters listed above that are excluded from a dictionary or set to None (not a string, but a python None
-            object) will take on these values.
-            A dictionary can take the form x=dict(incatalog="custom_catalog.cat", detthresh="10000"). Here, the remaining
-            unspecified parameters will first take the values above and then the default values of heasoft's batsurvey.
+            Any parameters listed above that are excluded from a dictionary or set to None (not a string, but a python
+            None object) will take on these values.
+            A dictionary can take the form x=dict(incatalog="custom_catalog.cat", detthresh="10000"). Here, the
+            remaining unspecified parameters will first take the values above and then the default values of
+            heasoft's batsurvey.
         :param recalc: Boolean to either delete the existing batsurvey results and start over
         :param verbose: Boolean to print diagnostic information
         :param load_dir: String of the directory that holds the result directory of batsurvey for a given observation ID
-        :param patt_noise_dir: String of the directory that holds the pre-calculated pattern noise maps for BAT. None defaults to
-            looking for the maps in a folder called: "noise_pattern_maps" located in the ba.datadir() directory. If this directory
-            doesn't exist then pattern maps are not used.
+        :param patt_noise_dir: String of the directory that holds the pre-calculated pattern noise maps for BAT.
+            None defaults to looking for the maps in a folder called: "noise_pattern_maps" located in the ba.datadir()
+            directory. If this directory doesn't exist then pattern maps are not used.
         """
 
         # Set default energy ranges in keV and system errors
@@ -151,20 +145,20 @@ class BatSurvey(BatObservation):
         # initialize super class
         super().__init__(obs_id, obs_dir)
 
-        # See if a loadfile exists, if we dont want to recalcualte everything, otherwise remove any load file and
+        # See if a loadfile exists, if we dont want to recalculate everything, otherwise remove any load file and
         # .batsurveycomplete file (this is produced only if the batsurvey calculation was completely finished, and thus
         # know that we can safely load the batsurvey.pickle file)
         if not recalc and load_dir is None:
             load_dir = sorted(self.obs_dir.parent.glob(obs_id + "_survey*"))
 
-            # see if there are any _surveyresult dir or anything otherwise just use obs_dir as a place holder
+            # see if there are any _surveyresult dir or anything otherwise just use obs_dir as a placeholder
             if len(load_dir) > 0:
                 load_dir = load_dir[0]
             else:
                 load_dir = self.obs_dir
         elif not recalc and load_dir is not None:
             load_dir_test = sorted(Path(load_dir).glob(obs_id + "_survey*"))
-            # see if there are any _surveyresult dir or anything otherwise just use load_dir as a place holder
+            # see if there are any _surveyresult dir or anything otherwise just use load_dir as a placeholder
             if len(load_dir_test) > 0:
                 load_dir = load_dir_test[0]
             else:
@@ -187,11 +181,10 @@ class BatSurvey(BatObservation):
 
         # if load_file is None:
         # if the user wants to recalculate things or if there is no batsurvey.pickle file, or if there is no
-        # .batsurvey_complete file (meaning that the __init__ method didnt complete)
+        # .batsurvey_complete file (meaning that the __init__ method didn't complete)
         if recalc or not load_file.exists() or not complete_file.exists():
-            # batsurvey relies on "bat" and "auxil" folders in the observation ID folder, therefore we need to check for these
-            # https://heasarc.gsfc.nasa.gov/ftools/caldb/help/batsurvey.html
-            # if not os.path.isdir(os.path.join(self.obs_dir,"bat")) or not os.path.isdir(os.path.join(self.obs_dir,"auxil")):
+            # batsurvey relies on "bat" and "auxil" folders in the observation ID folder, therefore we need to check
+            # for these https://heasarc.gsfc.nasa.gov/ftools/caldb/help/batsurvey.html
             if (
                 not self.obs_dir.joinpath("bat").joinpath("survey").is_dir()
                 or not self.obs_dir.joinpath("auxil").is_dir()
@@ -201,18 +194,15 @@ class BatSurvey(BatObservation):
                     + "analyze BAT survey data. One or both of these folders are missing."
                 )
 
-            # can do hsp.batsurvey? in ipython to see what the default parameters are
-            # if the input directory is None, the user wants the default parameters and also wants the below specified default
-            # observation directory (indir), the directory that the results will be saved into (outdir), the imput catalog
-            # (incatalog), the detector thresholds (detthresh/detthresh2)
+            # can do hsp.batsurvey? in ipython to see what the default parameters are if the input directory is None,
+            # the user wants the default parameters and also wants the below specified default observation directory
+            # (indir), the directory that the results will be saved into (outdir), the imput catalog (incatalog),
+            # the detector thresholds (detthresh/detthresh2)
 
-            # need to get the file name off to get the dir this file is located in to get the default survey catalog
-            dir = Path(__file__[::-1].partition("/")[-1][::-1])
-
-            # need to determine if there is a pattern_map_directory. If this is None use the ba.datadir() and see if the
-            # direcotry exists. If so, check that the appropriate pattern map exists for the day of observation, if it doesnt
-            # then load the pattern map for the day that is closest.
-            # If there are no pattern map files at all then dont pass anything into batsurvey for these parameters
+            # need to determine if there is a pattern_map_directory. If this is None use the ba.datadir() and see if
+            # the directory exists. If so, check that the appropriate pattern map exists for the day of observation,
+            # if it doesnt then load the pattern map for the day that is closest. If there are no pattern map files
+            # at all then dont pass anything into batsurvey for these parameters
 
             if patt_noise_dir is None:
                 patt_noise_dir = datadir().joinpath("noise_pattern_maps")
@@ -220,8 +210,8 @@ class BatSurvey(BatObservation):
                 # make a Path object
                 patt_noise_dir = Path(patt_noise_dir)
 
-            # read in the header of a file in the survey observation ID directory to get the MET start time and convert to
-            # year/day of year
+            # read in the header of a file in the survey observation ID directory to get the MET start time and
+            # convert to year/day of year
             input_file = sorted(
                 self.obs_dir.joinpath("bat").joinpath("survey").glob("*")
             )[0]
@@ -297,8 +287,8 @@ class BatSurvey(BatObservation):
                 )
 
                 input_dict_copy["incatalog"] = str(
-                    dir.joinpath("data/survey6b_2.cat")
-                )  # os.path.join(dir,'data/survey6b_2.cat')
+                    Path(__file__).parent.joinpath("data/survey6b_2.cat")
+                )
                 input_dict_copy["detthresh"] = "10000"
                 input_dict_copy["detthresh2"] = "10000"
 
@@ -309,8 +299,8 @@ class BatSurvey(BatObservation):
             else:
                 # need to create copy of input dict so we dont overwrite it
                 input_dict_copy = input_dict.copy()
-                # see if the user wanted the indir and outdir to be the defaults presented above, even though they specify
-                # other preferences to the call to batsurvey
+                # see if the user wanted the indir and outdir to be the defaults presented above, even though they
+                # specify other preferences to the call to batsurvey
                 if "indir" not in input_dict_copy or input_dict_copy["indir"] is None:
                     input_dict_copy["indir"] = str(self.obs_dir)
                 else:
@@ -323,7 +313,7 @@ class BatSurvey(BatObservation):
                 if "outdir" not in input_dict_copy or input_dict_copy["outdir"] is None:
                     input_dict_copy["outdir"] = str(
                         self.obs_dir.parent / f"{self.obs_dir.name}_surveyresult"
-                    )  # self.obs_dir + '_surveyresult'
+                    )
                 else:
                     # make this a fully resolved path
                     if not Path(input_dict_copy["outdir"]).is_absolute():
@@ -331,7 +321,8 @@ class BatSurvey(BatObservation):
                             Path.cwd().joinpath(input_dict_copy["outdir"])
                         )
 
-                # if detthresh/detthresh2 isnt defined need to set default detthresh to prevent gti identification errors
+                # if detthresh/detthresh2 isnt defined need to set default detthresh to prevent gti identification
+                # errors
                 if (
                     "detthresh" not in input_dict_copy
                     or input_dict_copy["detthresh"] is None
@@ -349,8 +340,8 @@ class BatSurvey(BatObservation):
                     or input_dict_copy["incatalog"] is None
                 ):
                     input_dict_copy["incatalog"] = str(
-                        dir.joinpath("data/survey6b_2.cat")
-                    )  # os.path.join(dir, 'data/survey6b_2.cat')
+                        Path(__file__).parent.joinpath("data/survey6b_2.cat")
+                    )
 
                 if (
                     "global_pattern_map" not in input_dict_copy
@@ -377,7 +368,6 @@ class BatSurvey(BatObservation):
                     input_dict_copy["cleanexpr"] = "ALWAYS_CLEAN==T"
 
                 # make sure that the output directory exists
-                # if not os.path.isdir(os.path.split(input_dict_copy['outdir'])[0]) and len(os.path.split(input_dict_copy['outdir'])[0])>0:
                 if not Path(input_dict_copy["outdir"]).parent.exists():
                     raise ValueError(
                         "The directory %s needs to exist for batsurvey to save its results."
@@ -398,7 +388,6 @@ class BatSurvey(BatObservation):
 
             # if the user wants to relaculate things or if recalc==False but the result directory specified doesnt exist
             # we need to recalculate things for further processing, IMPLEMENT LATER ON
-            # if recalc or os.path.isdir(self.result_dir):
             # call the heasoftpy command
             bs = self._call_batsurvey(input_dict_copy)
             self.batsurvey_result = bs
@@ -417,7 +406,7 @@ class BatSurvey(BatObservation):
             complete_file = self.result_dir.joinpath(".batsurvey_complete")
 
             # identify the pointings that have been created
-            # all these pointings may not have the object of interest, so need to double check that with the
+            # all these pointings may not have the object of interest, so need to double-check that with the
             # merge_pointings method
             self.pointing_flux_files = sorted(
                 self.result_dir.glob(f"point*/*_{bs.params['ncleaniter']}.cat")
@@ -428,11 +417,12 @@ class BatSurvey(BatObservation):
             for pointing in self.pointing_flux_files:
                 self.pointing_ids.append(
                     pointing.parent.name.split("_")[-1]
-                )  # os.path.split(pointing)[0].split('_')[-1])
+                )
 
-            # create dict of pointings ids and their respective information of time, exposure, etc which si the same for each pointing
+            # create dict of pointings ids and their respective information of time, exposure, etc which is the same
+            # for each pointing
             self.pointing_info = dict.fromkeys(self.pointing_ids)
-            for pointing, id in zip(self.pointing_flux_files, self.pointing_ids):
+            for pointing, ident in zip(self.pointing_flux_files, self.pointing_ids):
                 lc_fits = fits.open(pointing)
                 lc_fits_data = lc_fits[1].data
 
@@ -443,13 +433,13 @@ class BatSurvey(BatObservation):
                 mjdtime = met2mjd(time_array)
                 utctime = met2utc(time_array, mjd_time=mjdtime)
 
-                lc_fits.close
+                lc_fits.close()
 
                 # open the status file to save the success code
-                status_file = pointing.parent.joinpath(f"point_{id}_status.txt")
+                status_file = pointing.parent.joinpath(f"point_{ident}_status.txt")
                 stat = self._batsurvey_error(status_file)[0]
 
-                self.pointing_info[id] = dict(
+                self.pointing_info[ident] = dict(
                     success=stat,
                     fail_code=None,
                     met_time=time_array,
@@ -461,8 +451,8 @@ class BatSurvey(BatObservation):
             # see if there were any pointings that failed
             status_file = self.result_dir.joinpath("stats_point.dat")
 
-            # somethimes this file may not exist if batsurvey determines that there are no GTIs at all
-            # in this case there will be no pointing flux files so we will execure the if statement a little later on
+            # sometimes this file may not exist if batsurvey determines that there are no GTIs at all
+            # in this case there will be no pointing flux files so we will execute the if statement a little later on
             if status_file.exists():
                 with open(status_file, "r") as f:
                     batsurvey_output = f.readlines()
@@ -514,8 +504,6 @@ class BatSurvey(BatObservation):
                     f"The results for each pointing of observation ID {self.obs_id} is:\n {' '.join(batsurvey_output)}"
                 )
 
-            # self.survey_input=input_dict_copy
-
         else:
             load_file = Path(load_file).expanduser().resolve()
             self.load(load_file)
@@ -544,7 +532,7 @@ class BatSurvey(BatObservation):
         """
         file = self.result_dir.joinpath(
             "batsurvey.pickle"
-        )  # os.path.join(self.result_dir, "batsurvey.pickle")
+        )
         with open(file, "wb") as f:
             pickle.dump(self.__dict__, f, 2)
         print("A save file has been written to %s." % (str(file)))
@@ -564,14 +552,7 @@ class BatSurvey(BatObservation):
 
         # directly calls batsurvey
         try:
-            # task = hsp.HSPTask('batsurvey')
-            # result = task(**input_dict)
-            # return result
-
-            # print(os.getenv("PFILES"))
-
             return hsp.batsurvey(**input_dict)
-
         except Exception:
             # see if there were any pointings that failed
             status_file = self.result_dir.joinpath("stats_point.dat")
@@ -592,7 +573,6 @@ class BatSurvey(BatObservation):
             associated reason for failure
         """
 
-        # status_file = pointing.name.joinpath(f"point_{id}_status.txt")
         with open(status_file, "r") as f:
             output = f.readlines()[0]
         stat = output.split(";")[0].split("status=")[-1]
@@ -626,10 +606,6 @@ class BatSurvey(BatObservation):
         # calls batsurvey_catmux to merge pointings, outputs to the survey result directory
         # there is a bug in the heasoftpy code so try to explicitly call it for now
         return hsp.batsurvey_catmux(**input_dict)
-        # input_string="batsurvey-catmux "
-        # for i in input_dict:
-        #    input_string=input_string+"%s=%s " % (i, input_dict[i])
-        # os.system(input_string)
 
     def merge_pointings(self, input_dict=None, verbose=False):
         """
@@ -643,7 +619,7 @@ class BatSurvey(BatObservation):
         if input_dict is None or "outfile" not in input_dict:
             output_dir = self.result_dir.joinpath(
                 "merged_pointings_lc"
-            )  # os.path.join(self.result_dir, 'merged_pointings_lc')
+            )
         else:
             output_dir = (
                 Path(input_dict["outfile"]).expanduser().resolve()
@@ -664,7 +640,7 @@ class BatSurvey(BatObservation):
                     keycolumn="NAME",
                     infile=str(i),
                     outfile=str(output_dir.joinpath("%s.cat")),
-                )  # os.path.join(output_dir,"%s.cat"))
+                )
             else:
                 dictionary = input_dict.copy()
                 dictionary["infile"] = str(i)
@@ -709,9 +685,6 @@ class BatSurvey(BatObservation):
         except AttributeError:
             hsp.utils.local_pfiles(par_dir=str(self._local_pfile_dir))
 
-        # get the current dir
-        current_dir = Path.cwd()
-
         if calc_upper_lim and bkg_nsigma is None:
             raise ValueError(
                 "A value for bkg_nsigma has not been passed to the function to calculate upper limits."
@@ -721,13 +694,13 @@ class BatSurvey(BatObservation):
             # set default directory to save files into
             output_dir = self.result_dir.joinpath(
                 "PHA_files"
-            )  # os.path.join(self.result_dir, "PHA_files")
+            )
         else:
             output_dir = Path(output_dir).expanduser().resolve()
 
         if not calc_upper_lim:
             # see if directory exists, if no create of so then delete and recreate
-            # if we are calucalting the upper limit, the directory already exists
+            # if we are calculating the upper limit, the directory already exists
             dirtest(output_dir, clean_dir=clean_dir)
 
         merge_output_path = Path(self.merge_input["outfile"]).parent
@@ -739,8 +712,6 @@ class BatSurvey(BatObservation):
                 id_list = [id_list]
         else:
             # use the ids from the *.cat files produced, these are ones that have been identified in the survey obs_id
-            # x = glob.glob(os.path.join(os.path.split(self.merge_input['outfile'])[0],'*.cat'))
-            # id_list=[os.path.basename(i).split('.cat')[0] for i in x]
             x = sorted(merge_output_path.glob("*.cat"))
             id_list = [i.stem for i in x]
 
@@ -748,25 +719,25 @@ class BatSurvey(BatObservation):
         # reset the save the pha file names of all pha files if necessary
         if clean_dir:
             self.set_pha_filenames("", reset=True)
-        for id in id_list:
+        for ident in id_list:
             if verbose:
-                print("Creating PHA file for ", id)
+                print("Creating PHA file for ", ident)
 
             # get the proper name for the source incase the user didnt get the name correct
             x = sorted(merge_output_path.glob("*.cat"))
             catalog_sources = [i.stem for i in x]
-            test = self._compare_source_name(id, catalog_sources)
+            test = self._compare_source_name(ident, catalog_sources)
             if np.sum(test) > 0:
-                id = np.array(catalog_sources)[
-                    self._compare_source_name(id, catalog_sources)
+                ident = np.array(catalog_sources)[
+                    self._compare_source_name(ident, catalog_sources)
                 ][0]
             else:
-                id = None
+                ident = None
 
             # get info from the newly created cat file (from merge)
             catalog = merge_output_path.joinpath(
-                f"{id}.cat"
-            )  # os.path.join(os.path.split(self.merge_input['outfile'])[0], id+".cat")
+                f"{ident}.cat"
+            )
             try:
                 cat_file = fits.open(str(catalog))
                 tbdata = cat_file[1].data
@@ -775,7 +746,7 @@ class BatSurvey(BatObservation):
                 decobj_array = tbdata.field("DEC_OBJ")
                 time_array = tbdata.field("TIME")
                 tstart_sinceT0 = np.zeros_like(time_array)  # need to understand this
-                timestop_array = tbdata.field("TIME_STOP")
+                #timestop_array = tbdata.field("TIME_STOP") #this isnt used
                 exposure_array = tbdata.field("EXPOSURE")
                 ffapp_array = tbdata.field("FFAPP")
                 pcodeapp_array = tbdata.field("PCODEAPP")
@@ -798,24 +769,24 @@ class BatSurvey(BatObservation):
                 # bkg_var = tbdata.field('BKG_VAR')
                 theta_array = tbdata.field("THETA")
                 phi_array = tbdata.field("PHI")
-                cat_file.close
+                cat_file.close()
 
-                # if we want to calculate or recalculate pha for certain pointings we modify the arrays to just the values
-                # of interest
+                # if we want to calculate or recalculate pha for certain pointings we modify the arrays to just the
+                # values of interest
                 if single_pointing is not None:
                     # expect a pointing ID which we will match up to the pointing_array
                     idx = np.where("point_" + single_pointing == pointing_array)[0]
                     if np.size(idx) == 0:
                         raise ValueError(
                             "The pointing ID does not contain an observation of the source:",
-                            id,
+                            ident,
                         )
                     name_array = name_array[idx]
                     raobj_array = raobj_array[idx]
                     decobj_array = decobj_array[idx]
                     time_array = time_array[idx]
                     tstart_sinceT0 = tstart_sinceT0[idx]  # need to understand this
-                    timestop_array = timestop_array[idx]
+                    #timestop_array = timestop_array[idx] #this isnt used
                     exposure_array = exposure_array[idx]
                     ffapp_array = ffapp_array[idx]
                     pcodeapp_array = pcodeapp_array[idx]
@@ -828,19 +799,14 @@ class BatSurvey(BatObservation):
                     theta_array = theta_array[idx]
                     phi_array = phi_array[idx]
 
-                # count_rate_band = []
-                # count_rate_band_error = []
-                # channel = []
-                # gti_starttime = []
-                # gti_stoptime = []
-
-                # check = 0
                 # make pha file at the specified times
                 # Looping over different pointings for a given observation.
                 for i in range(len(time_array)):
+                    # These are to ensure that we are starting fresh with our T_start and T_stop, and not
+                    # appending them.
                     count_rate_band = (
                         []
-                    )  # These are to ensure that we are starting fresh with our T_start and T_stop, and not appending them.
+                    )
                     count_rate_band_error = []
                     channel = []
                     gti_starttime = []
@@ -872,33 +838,32 @@ class BatSurvey(BatObservation):
                         ).joinpath(
                             f"{pointing_array[i]}_{self.batsurvey_result.params['ncleaniter']}.cat"
                         )
-                        # os.path.join(self.result_dir, pointing_array[i], f"{pointing_array[i]}_{self.batsurvey_result.params['ncleaniter']}.cat")
 
                         org_cat_file = fits.open(str(org_catfile_name))
                         org_cat_data = org_cat_file[1].data
                         ra_pnt = org_cat_data.field("RA_PNT")[0]
                         dec_pnt = org_cat_data.field("DEC_PNT")[0]
                         pa_pnt = org_cat_data.field("PA_PNT")[0]
-                        org_cat_file.close
+                        org_cat_file.close()
 
                         attfile = self.result_dir.joinpath(
                             f"{pointing_array[i]}"
                         ).joinpath(
                             f"{pointing_array[i]}.att"
-                        )  # os.path.join(self.result_dir, pointing_array[i], pointing_array[i]+'.att')
+                        )
                         dpifile = self.result_dir.joinpath(
                             f"{pointing_array[i]}"
                         ).joinpath(
                             f"{pointing_array[i]}_1.dpi"
-                        )  # os.path.join(self.result_dir, pointing_array[i], pointing_array[i]+ '_1.dpi')
+                        )
                         detmask = self.result_dir.joinpath(
                             f"{pointing_array[i]}"
                         ).joinpath(
                             f"{pointing_array[i]}.detmask"
-                        )  # os.path.join(self.result_dir, pointing_array[i], pointing_array[i]+ '.detmask')
+                        )
                         output_srcmask = output_dir.joinpath(
                             "src.mask"
-                        )  # os.path.join(output_dir, 'src.mask')
+                        )
 
                         input_dict = dict(
                             outfile=str(output_srcmask),
@@ -912,24 +877,10 @@ class BatSurvey(BatObservation):
 
                         result = hsp.batmaskwtimg(**input_dict)
 
-                        # mskwtsqf = subprocess.getoutput("fkeyprint %s MSKWTSQF | tail -1 | awk '{print $2}'" % (output_srcmask))
-
-                        # go into the directory to run fkeyprint
-                        # if str(output_dir) != str(current_dir):
-                        #    os.chdir(output_dir)
-
-                        # test = hsp.fkeyprint(infile=str(output_srcmask.name), keynam="MSKWTSQF")
-                        # mskwtsqf=re.findall("\d+\.\d+", test.output[-2])[0]
-
-                        # cd back
-                        # if str(output_dir) != str(current_dir):
-                        #    os.chdir(current_dir)
                         with fits.open(str(output_srcmask)) as file:
                             mskwtsqf = file[0].header["MSKWTSQF"]
 
-                        # stop
-
-                        # write count_rate in each band to an pha file
+                        # write count_rate in each band to a pha file
                         spec_col1 = fits.Column(
                             name="CHANNEL", format="J", array=channel
                         )
@@ -989,14 +940,12 @@ class BatSurvey(BatObservation):
                         )
 
                         if calc_upper_lim:
-                            # survey_pha_file = os.path.join(output_dir, id + '_survey_' + pointing_array[i] +'_bkgnsigma_%d'%(bkg_nsigma) + '_upperlim.pha')
                             survey_pha_file = output_dir.joinpath(
-                                f"{id}_survey_{pointing_array[i]}_bkgnsigma_{int(bkg_nsigma)}_upperlim.pha"
+                                f"{ident}_survey_{pointing_array[i]}_bkgnsigma_{int(bkg_nsigma)}_upperlim.pha"
                             )
                         else:
-                            # survey_pha_file= os.path.join(output_dir, id + '_survey_' + pointing_array[i] + '.pha')
                             survey_pha_file = output_dir.joinpath(
-                                f"{id}_survey_{pointing_array[i]}.pha"
+                                f"{ident}_survey_{pointing_array[i]}.pha"
                             )
                         self.set_pha_filenames(survey_pha_file)
                         pha_thdulist.writeto(str(survey_pha_file))
@@ -1006,7 +955,7 @@ class BatSurvey(BatObservation):
                         pha_prime_hdr = pha_hdulist[0].header
                         pha_spec_hdr = pha_hdulist[1].header
                         pha_ebound_hdr = pha_hdulist[2].header
-                        pha_gti_hdr = pha_hdulist[3].header
+                        #pha_gti_hdr = pha_hdulist[3].header this header is not currenlty used
 
                         pha_prime_hdr["TELESCOP"] = (
                             "SWIFT",
@@ -1184,12 +1133,13 @@ class BatSurvey(BatObservation):
                         print(
                             "This method does not add up the counts for more than one time intervals."
                         )
-                        sys.exit(0)
+                        raise RuntimeError("Found more than one matched time, please double check the time interval.\n"
+                                           "This method does not add up the counts for more than one time intervals.")
             except FileNotFoundError as e:
                 print(e)
                 raise FileNotFoundError(
                     f"This means that the batsurvey script didnt deem there to be good enough statistics for "
-                    + f"source {id} in this observation ID."
+                    + f"source {ident} in this observation ID."
                 )
 
     def load_source_information(self, sources):
@@ -1207,7 +1157,7 @@ class BatSurvey(BatObservation):
 
         # get the pointing flux files and the pointing ID, these arrays hsould be ordered with respect to one another
         # see for loop in init() to get the pointing IDs
-        for pointing_file, id in zip(self.pointing_flux_files, self.pointing_ids):
+        for pointing_file, point_id in zip(self.pointing_flux_files, self.pointing_ids):
             # make sure that the file exists
             if pointing_file.exists():
                 # then read in the info and try to find where the object is within it if it exists there
@@ -1223,11 +1173,11 @@ class BatSurvey(BatObservation):
                         # get the index of the proper source name in the catalog
                         idx = np.arange(len(pointing_file_sources))[
                             self._compare_source_name(s, pointing_file_sources)
-                        ]  # np.where(s==pointing_file_sources)[0]
+                        ]
 
                         if len(idx) != 0:
-                            # then there is a row for the source of interest so we can read in the data and do the necessary
-                            # calculations
+                            # then there is a row for the source of interest so we can read in the data and do the
+                            # necessary calculations
 
                             # read in the cent rate, the error, etc and save it
                             rate_array = file[1].data[idx]["CENT_RATE"][0]
@@ -1235,78 +1185,68 @@ class BatSurvey(BatObservation):
                             bkg_var_array = file[1].data[idx]["BKG_VAR"][0]
                             snr_array = file[1].data[idx]["VECTSNR"][0]
 
-                            self.set_pointing_info(id, "rate", rate_array, source_id=s)
+                            self.set_pointing_info(point_id, "rate", rate_array, source_id=s)
                             self.set_pointing_info(
-                                id, "rate_err", rate_err_array, source_id=s
+                                point_id, "rate_err", rate_err_array, source_id=s
                             )
                             self.set_pointing_info(
-                                id, "bkg_var", bkg_var_array, source_id=s
+                                point_id, "bkg_var", bkg_var_array, source_id=s
                             )
-                            self.set_pointing_info(id, "snr", snr_array, source_id=s)
+                            self.set_pointing_info(point_id, "snr", snr_array, source_id=s)
 
                             # this does the calculation for the total energy range so set the if statement so the
-                            # mosaic results dont attempt to calcualte a wrong energy integrated count rate
+                            # mosaic results dont attempt to calculate a wrong energy integrated count rate
                             if len(rate_array) == 8:
-                                # rate_tot = 0.0
-                                # rate_err_2_tot = 0.0
-                                # bkg_var_2_tot = 0.0
-                                # for j in range(len(rate_array)):
-                                #    rate_num = rate_array[j]
-                                #    rate_err_2 = rate_err_array[j] * rate_err_array[j]
-                                #    bkg_var_2 = bkg_var_array[j] * bkg_var_array[j]
-                                #    rate_tot = rate_tot + rate_num
-                                #    rate_err_2_tot = rate_err_2_tot + rate_err_2
-                                #    bkg_var_2_tot = bkg_var_2_tot + bkg_var_2
                                 energy_idx = np.arange(len(rate_array))
                                 (
                                     rate_tot,
                                     rate_err_2_tot,
                                     snr_allband_num,
-                                ) = self.get_count_rate(energy_idx, id, s)
+                                ) = self.get_count_rate(energy_idx, point_id, s)
 
                                 rate_array = np.concatenate(
-                                    (self.pointing_info[id][s]["rate"], [rate_tot])
+                                    (self.pointing_info[point_id][s]["rate"], [rate_tot])
                                 )
-                                # rate_err_tot = np.sqrt(rate_err_2_tot) not needed with method above
-                                # rate_err_array.append(rate_err_tot)
                                 rate_err_array = np.concatenate(
                                     (
-                                        self.pointing_info[id][s]["rate_err"],
+                                        self.pointing_info[point_id][s]["rate_err"],
                                         [rate_err_2_tot],
                                     )
                                 )
-                                # snr_allband_num = rate_tot / np.sqrt(bkg_var_2_tot) not needed with method above
-                                # snr_array.append(snr_allband_num)
-                                # bkg_var_array.append(np.sqrt(bkg_var_2_tot))
                                 snr_array = np.concatenate(
                                     (
-                                        self.pointing_info[id][s]["snr"],
+                                        self.pointing_info[point_id][s]["snr"],
                                         [snr_allband_num],
                                     )
                                 )
                                 # bkg_var_array = np.concatenate((bkg_var_array, [np.sqrt(bkg_var_2_tot)]))
 
                                 self.set_pointing_info(
-                                    id, "rate", rate_array, source_id=s
+                                    point_id, "rate", rate_array, source_id=s
                                 )
                                 self.set_pointing_info(
-                                    id, "rate_err", rate_err_array, source_id=s
+                                    point_id, "rate_err", rate_err_array, source_id=s
                                 )
                                 self.set_pointing_info(
-                                    id, "bkg_var", bkg_var_array, source_id=s
+                                    point_id, "bkg_var", bkg_var_array, source_id=s
                                 )
                                 self.set_pointing_info(
-                                    id, "snr", snr_array, source_id=s
+                                    point_id, "snr", snr_array, source_id=s
                                 )
                         else:
                             # a given pointing may not have the source in it so just raise a warning
                             try:
-                                warn_str = f"Observation ID: {self.obs_id} Pointing ID: {id} \nThere is no source {s} found in the catalog file. Please double check the spelling.\nThis source may also not be detected in this observation ID/pointing ID"
+                                warn_str = (f"Observation ID: {self.obs_id} Pointing ID: {point_id} \n"
+                                            f"There is no source {s} "
+                                            f"found in the catalog file. Please double check the spelling.\nThis "
+                                            f"source may also not be detected in this observation ID/pointing ID")
                                 warnings.warn(warn_str)
                             except AttributeError:
                                 warn_str = (
-                                    f"Mosaic from {self.pointing_info['mosaic']['user_timebin']['utc_time']}-{self.pointing_info['mosaic']['user_timebin']['utc_stop_time']}"
-                                    f"\nThere is no source {s} found in the catalog file. Please double check the spelling."
+                                    f"Mosaic from {self.pointing_info['mosaic']['user_timebin']['utc_time']}-"
+                                    f"{self.pointing_info['mosaic']['user_timebin']['utc_stop_time']}"
+                                    f"\nThere is no source {s} found in the catalog file. Please double check "
+                                    f"the spelling."
                                     f"\nThis source may also not be detected in this observation ID/pointing ID"
                                 )
                                 warnings.warn(warn_str)
@@ -1374,9 +1314,11 @@ class BatSurvey(BatObservation):
         """
         Gets the pha filenames for the sources identified in id_list
 
-        :param id_list: None, single string, or list of strings of catalog sources that the user wants to get the pha filenames of
-        :param pointing_id_list: None, single string, or list of pointing IDs that the user wants to get the PHA filenames of
-        :param getupperlim: Boolean to specify if the function should return just the upper limit PHA files. Defaut is
+        :param id_list: None, single string, or list of strings of catalog sources that the user wants to get the pha
+            filenames of
+        :param pointing_id_list: None, single string, or list of pointing IDs that the user wants to get the PHA
+            filenames of
+        :param getupperlim: Boolean to specify if the function should return just the upper limit PHA files. Default is
             False, meaning that both normal and upperlimit PHA files will be returned
         :return: returns a list of the pha filenames
         """
@@ -1413,7 +1355,6 @@ class BatSurvey(BatObservation):
         else:
             # only get the pha filenames for the sources identified in id_list taking into account the real source name
             # that is specified in the BatSurvey dictionary which may be a different format than the pha file name
-            # val=[i for i in self.pha_file_names_list if any(str(i) for j in id_list if j in str(i))]
             val = [
                 i
                 for i in self.pha_file_names_list
@@ -1480,18 +1421,7 @@ class BatSurvey(BatObservation):
                 energy_index = np.array([energy_index])
 
         if len(energy_index) > 1:
-            # rate_tot = 0.0
-            # rate_err_2_tot = 0.0
-            # bkg_var_2_tot = 0.0
-            # for j in energy_index:
-            #    rate_num = rate_array[j]
-            #    rate_err_2 = rate_err_array[j] * rate_err_array[j]
-            #    bkg_var_2 = bkg_var_array[j] * bkg_var_array[j]
-            #    rate_tot = rate_tot + rate_num
-            #    rate_err_2_tot = rate_err_2_tot + rate_err_2
-            #    bkg_var_2_tot = bkg_var_2_tot + bkg_var_2
-
-            # the above loop can be vectorized with numpy
+            # vectorized with numpy
             rate_tot = np.sum(rate_array[energy_index])
             rate_err_2_tot = np.sum(rate_err_array[energy_index] ** 2)
             bkg_var_2_tot = np.sum(bkg_var_array[energy_index] ** 2)
@@ -1509,7 +1439,7 @@ class BatSurvey(BatObservation):
     def _compare_source_name(self, string_1, string_2):
         """
         This compares 2 strings that can be either the user supplied source ID or the source ID from a catalog and
-        identifies if they are the same. This removes any non alpha-numeric values(except dots) in each string and compares them.
+        identifies if they are the same. This removes any non alphanumeric values(except dots) in each string and compares them.
 
         :param string_1: string
         :param string_2: string or array of strings
@@ -1541,9 +1471,9 @@ class BatSurvey(BatObservation):
 
     def get_real_source_name(self, pointing_id, source):
         """
-        This method deermines the real source name in the pointing ID's dictionary. This can be something that was passed
-        in before when loading in calculated rate data or the name of a PHA file with the source name. This mehtod matches
-        these two formats so all the info related to a given source is saved appropriately.
+        This method deermines the real source name in the pointing ID's dictionary. This can be something that was
+        passed in before when loading in calculated rate data or the name of a PHA file with the source name.
+        This method matches these two formats so all the info related to a given source is saved appropriately.
 
         :param pointing_id: string of the pointing ID of interest
         :param source: string of the
@@ -1603,18 +1533,22 @@ class MosaicBatSurvey(BatSurvey):
         Saves a MosaicBatSurvey object
     merge_pointings(input_dict=None, verbose=False):
         Merges the counts from multiple pointings found within an observation ID dataset
-    calculate_pha(id_list=None, output_dir=None, calc_upper_lim=False, bkg_nsigma=None, verbose=True, clean_dir=False, single_pointing=None):
+    calculate_pha(id_list=None, output_dir=None, calc_upper_lim=False, bkg_nsigma=None, verbose=True, clean_dir=False,
+            single_pointing=None):
         Calculates the PHA file for each source found in the mosaic image
     load_source_information(sources):
-        Loads the count rate, background variance, and snr from the .cat file produced by batcelldetect for the sources of interest
+        Loads the count rate, background variance, and snr from the .cat file produced by batcelldetect for the sources
+        of interest
     get_pointing_ids():
         Returns the pointing ids in the observation ID
     get_pointing_info(pointing_id, source_id=None)
         Gets the dictionary of information associated with the specified pointing id and source id if specified
     set_pointing_info(pointing_id, key, value, source_id=None)
-        Sets the key/value pair for the dictionary of information associated with the specified pointing id and source, if the source_id is specified
+        Sets the key/value pair for the dictionary of information associated with the specified pointing id and source,
+        if the source_id is specified
     get_pha_filenames(id_list=None, pointing_id_list=None)
-        Gets the pha filename list of the sources supplied in id_list and for the pointing ids supplied by pointing_id_list
+        Gets the pha filename list of the sources supplied in id_list and for the pointing ids supplied by
+        pointing_id_list
     set_pha_filenames(file, reset=False)
         Sets the pha filenames attribute or resets it to be an empty list
     load_source_information(sources)
@@ -1626,15 +1560,14 @@ class MosaicBatSurvey(BatSurvey):
          Calls batcelldetect to detect sources in the mosaic image that is encompassed by a given MosaicBatSurvey object
     """
 
-    def __init__(self, mosaic_dir, recalc=False, load_dir=None):
+    def __init__(self, mosaic_dir, recalc=False):
         """
         Initializer method for the MosaicBatSurvey object.
 
         :param mosaic_dir: path object to the location of the mosaiced images that were calculated
         :param recalc: Boolean default False, which indicates that the method should try to load data from a file in
-            the mosaic_dir directory. True means that the load file will be ignored and attributes will be re-obtaiend
+            the mosaic_dir directory. True means that the load file will be ignored and attributes will be re-obtained
             for the object.
-        :param load_dir: Not used
         """
 
         # this isnt proper usage of super classes since the below lines are in the init of the BatSurvey class
@@ -1664,8 +1597,8 @@ class MosaicBatSurvey(BatSurvey):
         # .batsurveycomplete file (this is produced only if the batsurvey calculation was completely finished, and thus
         # know that we can safely load the batsurvey.pickle file)
         if not load_file.exists() or recalc:
-            # can have a mosaic directory with no mosaic-ed images since there would be no survey observations in the time
-            # bin. In this case throw an error
+            # can have a mosaic directory with no mosaic-ed images since there would be no survey observations in the
+            # time bin. In this case throw an error
             if not self.result_dir.joinpath("swiftbat_exposure_c0.img").exists():
                 raise ValueError("This mosaic time bin is invalid.")
 
@@ -1678,10 +1611,10 @@ class MosaicBatSurvey(BatSurvey):
             # need to set the mosaic pointing ID
             self.pointing_ids = ["mosaic"]
 
-            # create dict of mosaic pointings ids and their respective information of time, exposure, etc which si the same
-            # for each pointing
+            # create dict of mosaic pointings ids and their respective information of time, exposure, etc which is
+            # the same for each pointing
             self.pointing_info = dict.fromkeys(self.pointing_ids)
-            for id in self.pointing_ids:
+            for point_id in self.pointing_ids:
                 file = fits.open(
                     str(self.result_dir.joinpath("swiftbat_exposure_c0.img"))
                 )  # os.path.join(mosaic_dir, 'swiftbat_exposure_c0.img'))
@@ -1703,11 +1636,10 @@ class MosaicBatSurvey(BatSurvey):
                 mjdtime_stop = met2mjd(time_array_stop)
                 utctime_stop = met2utc(time_array_stop, mjd_time=mjdtime_stop)
 
-                # with fits.open(outventory_file) as file:
                 tbin_start_met = file_header["S_TBIN"]
                 tbin_end_met = file_header["E_TBIN"]
 
-                file.close
+                file.close()
 
                 tbin_start_mjdtime = met2mjd(tbin_start_met)
                 tbin_start_utctime = met2utc(
@@ -1726,7 +1658,7 @@ class MosaicBatSurvey(BatSurvey):
                     mjd_stop_time=tbin_end_mjdtime,
                 )
 
-                self.pointing_info[id] = dict(
+                self.pointing_info[point_id] = dict(
                     met_time=time_array,
                     exposure=exposure_array,
                     utc_time=utctime,
@@ -1786,16 +1718,14 @@ class MosaicBatSurvey(BatSurvey):
 
         resulting_files = ""
         for num in range(self.nfacets):
-            # file=os.path.join(self.result_dir,f'swiftbat_flux_c{num}.img')
-            # pcodefile=os.path.join(self.result_dir,f'swiftbat_exposure_c{num}.img')
-            # outfile=os.path.join(self.result_dir,f'sources_c{num}.cat')
             file = self.result_dir.joinpath(f"swiftbat_flux_c{num}.img")
             pcodefile = self.result_dir.joinpath(f"swiftbat_exposure_c{num}.img")
             outfile = self.result_dir.joinpath(f"sources_c{num}.cat")
 
             default_input_dict = dict(
                 infile=f"{file}",
-                # [col #HDUCLAS2 = "NET"; #FACET = {num}]', #This isnt needed since this info is in HDUCLAS2 and BSKYPLAN already
+                # [col #HDUCLAS2 = "NET"; #FACET = {num}]', #This isnt needed since this info is in HDUCLAS2 and
+                # BSKYPLAN already
                 outfile=str(outfile),
                 snrthresh=4.0,
                 psfshape="GAUSSIAN",
@@ -1919,13 +1849,13 @@ class MosaicBatSurvey(BatSurvey):
             # set default directory to save files into
             output_dir = self.result_dir.joinpath(
                 "PHA_files"
-            )  # os.path.join(self.result_dir, "PHA_files")
+            )
         else:
             output_dir = Path(output_dir).expanduser().resolve()
 
         if not calc_upper_lim:
             # see if directory exists, if no create of so then delete and recreate
-            # if we are calucalting the upper limit, the directory already exists
+            # if we are calculating the upper limit, the directory already exists
             dirtest(output_dir, clean_dir=clean_dir)
 
         merge_output_path = Path(self.merge_input["outfile"]).parent
@@ -1937,8 +1867,6 @@ class MosaicBatSurvey(BatSurvey):
                 id_list = [id_list]
         else:
             # use the ids from the *.cat files produced, these are ones that have been identified in the survey obs_id
-            # x = glob.glob(os.path.join(os.path.split(self.merge_input['outfile'])[0],'*.cat'))
-            # id_list=[os.path.basename(i).split('.cat')[0] for i in x]
             x = sorted(merge_output_path.glob("*.cat"))
             id_list = [i.stem for i in x]
 
@@ -1947,9 +1875,8 @@ class MosaicBatSurvey(BatSurvey):
         if clean_dir:
             self.set_pha_filenames("", reset=True)
 
-        # need to put the repsonse file in the directory since the filename with the full path can be way to long to fit in the pha file
-        # and be read in by xspec, or can try doing a symbolic link
-        # responsefile=os.path.join(os.path.split(__file__)[0], 'data', 'swiftbat_survey_full_157m.rsp')
+        # need to put the repsonse file in the directory since the filename with the full path can be way to long to
+        # fit in the pha file and be read in by xspec, or can try doing a symbolic link responsefile=os.path.join(
         responsefile = (
             Path(__file__)
             .parent.joinpath("data")
@@ -1957,32 +1884,31 @@ class MosaicBatSurvey(BatSurvey):
         )
         copied_responsefile = output_dir.joinpath(
             responsefile.name
-        )  # os.path.join(output_dir, responsefilename)
+        )
         # if the file doesnt exist in the directory create a sym link to the file
-        if not copied_responsefile.exists():  # os.path.lexists(copied_responsefile):
-            # os.symlink(responsefile, copied_responsefile)
+        if not copied_responsefile.exists():
             copied_responsefile.symlink_to(responsefile)
 
-        for id in id_list:
+        for ident in id_list:
             if verbose:
-                print("Creating PHA file for ", id)
+                print("Creating PHA file for ", ident)
 
             # get the proper name for the source incase the user didnt get the name correct
             x = sorted(merge_output_path.glob("*.cat"))
             catalog_sources = [i.stem for i in x]
-            test = self._compare_source_name(id, catalog_sources)
+            test = self._compare_source_name(ident, catalog_sources)
             if np.sum(test) > 0:
-                id = np.array(catalog_sources)[
-                    self._compare_source_name(id, catalog_sources)
+                ident = np.array(catalog_sources)[
+                    self._compare_source_name(ident, catalog_sources)
                 ][0]
             else:
-                id = None
+                ident = None
 
             # get info from the newly created cat file (from merge)
             try:
                 catalog = merge_output_path.joinpath(
-                    f"{id}.cat"
-                )  # os.path.join(os.path.split(self.merge_input['outfile'])[0], id+".cat")
+                    f"{ident}.cat"
+                )
                 cat_file = fits.open(catalog)
                 tbdata = cat_file[1].data
                 name_array = tbdata.field("NAME")
@@ -2002,9 +1928,8 @@ class MosaicBatSurvey(BatSurvey):
                     count_rate_err_array = tbdata.field("BKG_VAR")
                     scale = 1
 
-                cat_file.close
+                cat_file.close()
 
-                # check = 0
                 # make pha file
                 # write count_rate in each band to an pha file, exclude the 14-195 count
                 spec_col1 = fits.Column(name="CHANNEL", format="I", array=self.channel)
@@ -2045,14 +1970,12 @@ class MosaicBatSurvey(BatSurvey):
                 pha_thdulist = fits.HDUList([pha_primary, spec_tbhdu, ebound_tbhdu])
 
                 if calc_upper_lim:
-                    # survey_pha_file = os.path.join(output_dir, id + '_mosaic_bkgnsigma_%d'%(bkg_nsigma) + '_upperlim.pha')
                     survey_pha_file = output_dir.joinpath(
-                        f"{id}_mosaic_bkgnsigma_{int(bkg_nsigma)}_upperlim.pha"
+                        f"{ident}_mosaic_bkgnsigma_{int(bkg_nsigma)}_upperlim.pha"
                     )
 
                 else:
-                    # survey_pha_file= os.path.join(output_dir, id + '_mosaic.pha')
-                    survey_pha_file = output_dir.joinpath(f"{id}_mosaic.pha")
+                    survey_pha_file = output_dir.joinpath(f"{ident}_mosaic.pha")
                 self.set_pha_filenames(survey_pha_file)
                 pha_thdulist.writeto(str(survey_pha_file))
 
@@ -2090,7 +2013,6 @@ class MosaicBatSurvey(BatSurvey):
                 pha_spec_hdr["CORRSCAL"] = (1.0, "Correction scale factor")
                 pha_spec_hdr["BACKFILE"] = ("none", "Background FITS file")
                 pha_spec_hdr["CORRFILE"] = ("none", "Correction FITS file")
-                # pha_spec_hdr['RESPFILE'] = ('swiftbat_survey_full.rsp', "Redistribution Matrix file (RMF)")
                 pha_spec_hdr["RESPFILE"] = (
                     responsefile.name,
                     "Redistribution Matrix file (RMF)",
@@ -2120,4 +2042,4 @@ class MosaicBatSurvey(BatSurvey):
 
                 pha_hdulist.flush()
             except FileNotFoundError:
-                print("The source %s was not found in the mosaiced image." % (id))
+                print("The source %s was not found in the mosaiced image." % (ident))

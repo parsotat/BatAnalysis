@@ -1,10 +1,7 @@
 from matplotlib import pyplot as plt
-import os
-import glob
 import numpy as np
-from astropy.io import fits
 from pathlib import Path
-from .batlib import combine_survey_lc, read_lc_data, met2utc, met2mjd, concatenate_data
+from .batlib import met2utc, met2mjd, concatenate_data
 from astropy.time import Time, TimeDelta
 
 # for python>3.6
@@ -17,14 +14,12 @@ except ModuleNotFoundError as err:
 
 def plot_survey_lc(
     survey_obsid_list,
-    id_list=None,
+    id_list,
     energy_range=[14, 195],
     savedir=None,
     time_unit="MET",
     values=["rate", "snr"],
     T0=None,
-    calc_lc=False,
-    clean_dir=False,
     same_figure=False,
 ):
     """
@@ -33,20 +28,18 @@ def plot_survey_lc(
     :param survey_obsid_list: List of BatSurvey or MosaicBatSurvey objects, can also be a list of lists of BatSurvey or
         MosaicBatSurvey objects which the user would like to plot. By default each sublist will be plotted on its own
         set of axis.
-    :param id_list: List of Strings or None Denoting which sources the user wants the light curves to be plotted for
+    :param id_list: List of Strings or string denoting which source(s) the user wants the light curves to be plotted for
     :param energy_range: An array for the lower and upper energy ranges to be used.
         the default value is 14-195 keV.
-    :param savedir: None or a String to denote whether the light curves should be saved (if the passed value is a string)
+    :param savedir: None or a String to denote whether the light curves should be saved
+        (if the passed value is a string)
         or not. If the value is a string, the light curve plots are saved to the provided directory if it exists.
     :param time_unit: String specifying the time unit of the light curve. Can be "MET", "UTC" or "MJD"
     :param values: A list of strings contaning information that the user would like to be plotted out. The strings
         correspond to the keys in the pointing_info dictionaries of each BatSurvey object or to 'rate' or 'snr'.
     :param T0: None or a MET time of interest that should be highlighted on the plot.
-    :param calc_lc: Boolean set to True, to denote if the light curves across all the BatSurvey objects need to be recombined
-    :param clean_dir: Boolean set to True by default. Denotes if the whole directory that holds all the compiled light curve
-        data for the passed survey observations should be deleted and recreated if the directory exists.
-    :param same_figure: Boolean to denote if the passed in list of BatSurvey lists should be plotted on the same set of axis,
-        alongside one another. Default is False.
+    :param same_figure: Boolean to denote if the passed in list of BatSurvey lists should be plotted on the same set of
+        axis, alongside one another. Default is False.
     :return: None
     """
 
@@ -59,27 +52,12 @@ def plot_survey_lc(
         )
 
     # determine if the user wants to plot a specific object or list of objects
-    if id_list is None:
-        # use the ids from the *.cat files produced, these are ones that have been identified in the survey obs_id
-        # x = glob.glob(os.path.join(lc_dir, '*.cat'))
-        # id_list = [os.path.basename(i).split('.cat')[0] for i in x]
-        x = sorted(lc_dir.glob("*.cat"))
-        id_list = [i.stem for i in x]
-    else:
-        if type(id_list) is not list:
-            # it is a single string:
-            id_list = [id_list]
+    if type(id_list) is not list:
+        # it is a single string:
+        id_list = [id_list]
 
     if type(survey_obsid_list[0]) is not list:
         survey_obsid_list = [survey_obsid_list]
-
-    for observation_list in survey_obsid_list:
-        if calc_lc:
-            lc_dir = combine_survey_lc(observation_list, clean_dir=clean_dir)
-        # else:
-        # get the main directory where we shoudl create the total_lc directory
-        # main_dir = os.path.split(observation_list[0].result_dir)[0]
-        # lc_dir = observation_list[0].result_dir.parent.joinpath("total_lc") #os.path.join(main_dir, "total_lc")
 
     # if the user wants to save the plots check if the save dir exists
     if savedir is not None:
@@ -185,7 +163,6 @@ def plot_survey_lc(
                     fig, axes = plt.subplots(len(base_values), sharex=True)
 
             axes_queue = [i for i in range(len(base_values))]
-            # plot_value=[i for i in values]
 
             e_range_str = f"{np.min(energy_range)}-{np.max(energy_range)} keV"
             axes[0].set_title(source + "; survey data from " + e_range_str)
@@ -242,7 +219,6 @@ def plot_survey_lc(
             mjdtime = met2mjd(T0)
             utctime = met2utc(T0, mjd_time=mjdtime)
 
-            # if T0==0:
             if "MET" in time_unit:
                 label_string = "MET Time (s)"
                 val = T0
@@ -271,14 +247,12 @@ def plot_survey_lc(
 
             if savedir is not None and not same_figure:
                 plot_filename = source + "_survey_lc.pdf"
-                # fig.savefig(os.path.join(savedir, plot_filename), bbox_inches="tight")
                 fig.savefig(savedir.joinpath(plot_filename), bbox_inches="tight")
 
             obs_list_count += 1
 
         if savedir is not None and same_figure:
             plot_filename = source + "_survey_lc.pdf"
-            # fig.savefig(os.path.join(savedir, plot_filename), bbox_inches="tight")
             fig.savefig(savedir.joinpath(plot_filename), bbox_inches="tight")
 
         plt.show()
