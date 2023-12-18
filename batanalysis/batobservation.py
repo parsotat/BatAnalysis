@@ -1129,7 +1129,7 @@ class Lightcurve(BatObservation):
 
 class Spectrum(BatObservation):
     def __init__(self, pha_file, event_file, detector_quality_mask, auxil_raytracing_file, ra=None, dec=None,
-                 pha_input_dict=None, recalc=False):
+                 pha_input_dict=None, mask_weighting=True, recalc=False):
         """
 
         :param pha_file:
@@ -1161,6 +1161,13 @@ class Spectrum(BatObservation):
                                            energybins="CALDB", weighted="YES", timedel=0.0,
                                            detmask=str(self.detector_quality_mask),
                                            tstart="INDEF", tstop="INDEF", clobber="YES", timebinalg="uniform")
+
+                # specify if we want mask weighting
+                if mask_weighting:
+                    self.pha_input_dict["weighted"] = "YES"
+                else:
+                    self.pha_input_dict["weighted"] = "NO"
+
 
             else:
                 self.pha_input_dict = pha_input_dict
@@ -1830,3 +1837,4 @@ class Spectrum(BatObservation):
         """
 
         return self.pha_file
+

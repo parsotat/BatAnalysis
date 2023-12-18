@@ -534,9 +534,8 @@ class BatEvent(BatObservation):
 
         return None
 
-    def create_pha(self, pha_file=None, timedelta=np.timedelta64(64, 'ms'), tstart=None, tstop=None,
-                    energybins=["15-25", "25-50", "50-100", "100-350"], recalc=True, mask_weighting=True,
-                    timebinalg="uniform"):
+    def create_pha(self, pha_file=None, tstart=None, tstop=None,
+                    energybins=None, recalc=True, mask_weighting=True):
         """
         This method returns a spectrum object.
 
@@ -565,17 +564,29 @@ class BatEvent(BatObservation):
         else:
             pha_file=Path(pha_file).expanduser().resolve()
 
-
-
-        spectrum = Spectrum(pha_file, self.event_files, self.detector_quality_file, self.auxil_raytracing_file, recalc=recalc)
-
+        spectrum = Spectrum(pha_file, self.event_files, self.detector_quality_file, self.auxil_raytracing_file,
+                            mask_weighting=mask_weighting, recalc=recalc)
+        spectrum.set_timebins(tmin=tstart, tmax=tstop)
+        if energybins is not None:
+            spectrum.set_energybins(energybins=energybins)
 
         self.spectrum=spectrum
 
+        return None
+
+    def create_dph(self):
+        """
+        This method creates a detector plane histogram.
+
+        :return:
+        """
+
+        raise NotImplementedError("Creating the DPH has not yet been implemented.")
 
         return None
 
-    def create_DPI(self, **kwargs):
+
+    def create_dpi(self, **kwargs):
         """
         This method creates and returns a detector plane image.
 
