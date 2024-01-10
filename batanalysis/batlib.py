@@ -874,6 +874,224 @@ def calculate_detection(
 
     return flux_upperlim  # This is a list for all the Valid non-detection pointings
 
+def fit_TTE_spectrum(
+    spectrum,
+    plotting=True,
+    generic_model=None,
+    setPars=None,
+    use_cstat=True,
+    fit_iterations=1000,
+    verbose=True,
+):
+    """
+    This is an extension of the fit_spectrum function which allows for the use of the Spectrum object to
+    get the relevant information and saves the model parameters to the  object.
+
+    The user can specfiy their own spectral model that is XSPEC compatible.
+    To learn about how to specify a spectral model in pyXspec the user can
+    look at the following link: https://heasarc.gsfc.nasa.gov/xanadu/xspec/python/html/index.html
+
+    For e.g, to specify a model one has to do the following:
+    model=xsp.Model(generic_model,setPars={1:45,2:"123,-1"}) Here -1 stands for "frozen".
+
+    User has to specify cflux in their model. This is mandatory because we use this same function (and hence the user specified model)
+    to test any detection in the BAT energy band.
+
+
+    If no model is specfied by the user, then by default the specrum is fit with the following Xspec model:
+    cflux*(powerlaw): with Cflux E_min=14 keV (Frozen), E_max=195 keV (Frozen), flux=-12 (initial value),
+    powerlaw Gamma=2 Free, and norm=frozen. Powerlaw norm kept frozen.
+
+    :param spectrum: The Spectrum object which contains the spectrum that will be fit.
+    :param plotting: Boolean statement, if the user wants to plot the spectrum.
+    :param generic_model: String with XSPEC compatible model, which must include cflux.
+    :param setPars: Boolean to set the parameter values of the model specified above.
+    :param use_cstat: Boolean to use cstat in case of low counts (Poisson statistics), otherwise use chi squared stats.
+    :param fit_iterations: Number of fit iterations to be carried out by XSPEC.
+     Since BAT data has just 8 energy channels, a default of 100 is enough.
+     But the user can specify any value that may be needed.
+    :param verbose: Boolean to show every output during the fitting process.
+     Set to True by default, that'll help the user to identify any issues with the fits.
+    :return: None
+    """
+    from .batobservation import Spectrum
+
+    try:
+        import xspec as xsp
+    except ModuleNotFoundError as err:
+        # Error handling
+        print(err)
+        raise ModuleNotFoundError(
+            "The pyXspec package needs to installed to fit spectra with this function."
+        )
+
+    if not isinstance(spectrum, Spectrum):
+        raise ValueError("The input spectrum must be a BaAnalysis Spectrum object. "
+                         "Please create this object to be passed in.")
+
+    # In the next few steps we will get into the directory where the PHA files and rsp files are located
+    # Do the fitting and then get out to our current directory: current_dir
+    # get the cwd.
+    phafilename = Path(spectrum.pha_file)
+    current_dir = Path.cwd()
+
+    # Check if the phafilename is a string and if it has an extension .pha. If NOT then exit
+    if ".pha" not in phafilename.name:
+        raise ValueError(
+            "The file name %s needs to be a string and must have an extension of .pha ."
+            % (str(phafilename))
+        )
+
+    # get the directory that we have to cd to and the name of the file
+    pha_dir = phafilename.parent
+    pha_file = phafilename.name
+
+    # cd to that dir
+    if str(pha_dir) != str(current_dir):
+        os.chdir(pha_dir)
+
+    xsp.AllData -= "*"
+    s = xsp.Spectrum(
+        pha_file
+    )
+
+    # Define model
+    if (
+        generic_model is not None
+    ):  # User provides a string of model, and a Dictionary for the initial values
+        if type(generic_model) is str:
+            if "cflux" in generic_model:
+                # The user must provide the cflux, or else we will not be able to predict of there is a statistical
+                # detection (in the next function).
+                try:
+                    model = xsp.Model(
+                        generic_model, setPars=setPars
+                    )  # Set the initial value for the fitting using the Model object attribute
+
+                except Exception as e:
+                    print(e)
+                    raise ValueError("The model needs to be specified correctly")
+
+            else:
+                raise ValueError(
+                    "The model needs cflux in order to calulate error on the flux in 14-195 keV"
+                )
+
+    else:
+        # If User does not pass any model
+
+        model = xsp.Model("cflux*po")
+        p1 = model(1)  # cflux      Emin = 14 keV
+        p2 = model(2)  # cflux      Emax = 195 keV
+        p3 = model(3)  # cflux      lg10Flux
+        p4 = model(4)  # Photon index Gamma
+        p5 = model(5)  # Powerlaw norm
+
+        # Setting the vlaues and freezing them.
+
+        p1.values = 14  # already frozen
+        p2.values = 195  # already frozen
+        p4.values = 2
+        p4.frozen = False
+        p5.values = 0.001
+        p5.frozen = True
+
+    # Fitting the data with this model
+
+    if use_cstat:
+        xsp.Fit.statMethod = "cstat"
+    else:
+        xsp.Fit.statMethod = "chi"
+
+    # Stop fit at nIterations and do not query.
+    xsp.Fit.query = "no"
+
+    xsp.Fit.nIterations = fit_iterations
+    xsp.Fit.renorm()
+
+    # try to do the fitting if it doesn't work fill in np.nan values for things
+    try:
+        xsp.Fit.perform()
+        if verbose:
+            xsp.AllModels.show()
+            xsp.Fit.show()
+
+        # Get coordinates from XSPEC plot to use in matplotlib:
+        xsp.Plot.device = "/null"
+        xsp.Plot("data")
+        chans = xsp.Plot.x()
+        rates = xsp.Plot.y()
+        xerr = xsp.Plot.xErr()
+        yerr = xsp.Plot.yErr()
+        folded = xsp.Plot.model()
+
+        # Plot using Matplotlib:
+        f, ax = plt.subplots()
+        ax.errorbar(x=chans, xerr=xerr, y=rates, yerr=yerr, fmt="ro")
+        ax.plot(chans, folded, "k-")
+        ax.set_xlabel("Energy (keV)")
+        ax.set_ylabel("counts/cm^2/sec/keV")
+        ax.set_xscale("log")
+        ax.set_yscale("log")
+        f.savefig(
+            phafilename.parent.joinpath(phafilename.stem + ".pdf")
+        )
+        if plotting:
+            plt.show()
+
+        # Capturing the Flux and its error. saved to the model object, can be obtained by calling model(1).error,
+        # model(2).error
+        model_params = dict()
+        for i in range(1, model.nParameters + 1):
+            xsp.Fit.error("2.706 %d" % (i))
+
+            # get the name of the parameter
+            par_name = model(i).name
+            model_params[par_name] = dict(
+                val=model(i).values[0],
+                lolim=model(i).error[0],
+                hilim=model(i).error[1],
+                errflag=model(i).error[-1],
+            )
+        # surveyobservation.set_pointing_info(
+        #     pointing_id, "model_params", model_params, source_id=source_id
+        # )
+
+    except Exception as Error_with_Xspec_fitting:
+        # this is probably that XSPEC cannot fit because of negative counts
+        if verbose:
+            print(Error_with_Xspec_fitting)
+
+        # need to fill in nan values for all the model params and 'TTTTTTTTT' for the error flag
+        model_params = dict()
+        for i in range(1, model.nParameters + 1):
+            # get the name of the parameter
+            par_name = model(i).name
+            model_params[par_name] = dict(
+                val=np.nan, lolim=np.nan, hilim=np.nan, errflag="TTTTTTTTT"
+            )
+        # surveyobservation.set_pointing_info(
+        #     pointing_id, "model_params", model_params, source_id=source_id
+        # )
+
+    # Incorporating the model names, parameters, errors into the BatSurvey object.
+    xsp.Xset.save(phafilename.stem + ".xcm")
+    xspec_savefile = phafilename.parent.joinpath(
+        phafilename.stem + ".xcm"
+    )
+    #surveyobservation.set_pointing_info(
+    #    pointing_id, "xspec_model", xspec_savefile, source_id=source_id
+    #)
+
+    # cd back
+    if str(pha_dir) != str(current_dir):
+        os.chdir(current_dir)
+
+    return None
+
+
+
+
 
 def print_parameters(
     obs_list,
