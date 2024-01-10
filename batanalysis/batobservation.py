@@ -1151,6 +1151,7 @@ class Spectrum(BatObservation):
         self.event_file = Path(event_file).expanduser().resolve()
         self.detector_quality_mask = Path(detector_quality_mask).expanduser().resolve()
         self.auxil_raytracing_file = Path(auxil_raytracing_file).expanduser().resolve()
+        self.drm_file = None
 
         # need to see if we have to construct the lightcurve if the file doesnt exist
         if not self.pha_file.exists() or recalc:
@@ -1190,7 +1191,8 @@ class Spectrum(BatObservation):
         # read in the information about the weights
         self._get_event_weights()
 
-        # calculate the drm file
+        # calculate the drm file if we need to
+
         self._call_batdrmgen()
 
 
@@ -1654,6 +1656,16 @@ class Spectrum(BatObservation):
                 self.tbins[f"TIME_{i.name}"] = u.Quantity(times[i.name], i.unit)
             self.tbins["TIME_CENT"] = 0.5 * (self.tbins[f"TIME_START"] + self.tbins[f"TIME_STOP"])
 
+        # see if there is a response file associated with this and that it exists
+        if "RESPFILE" in header.keys():
+            self.drm_file = header["RESPFILE"]
+            if self.drm_file is "NONE":
+                self.drm_file = None
+            else:
+                self.drm_file = self.pha_file.parent.joinpath(header["RESPFILE"])
+                if not self.drm_file.exists():
+                    self.drm_file = None
+
         # if self.pha_input_dict ==None, then we will need to try to read in the hisotry of parameters passed into
         # batbinevt to create the pha file. thsi usually is needed when we first parse a file so we know what things
         # are if we need to do some sort of rebinning.
@@ -1728,6 +1740,8 @@ class Spectrum(BatObservation):
                     old_parameter = parameter
 
             self.pha_input_dict = default_params_dict.copy()
+
+
 
     def _create_custom_timebins(self, timebins, output_file=None):
         """
