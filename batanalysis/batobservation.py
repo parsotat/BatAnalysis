@@ -1191,8 +1191,6 @@ class Spectrum(BatObservation):
         # read in the information about the weights
         self._get_event_weights()
 
-        stop
-
         # (re)calculate the drm file if it hasnt been set in the _parse_pha_file method
         # or if we are directed to
         if self.drm_file is None or recalc:
