@@ -566,6 +566,8 @@ class BatEvent(BatObservation):
 
         spectrum = Spectrum(pha_file, self.event_files, self.detector_quality_file, self.auxil_raytracing_file,
                             mask_weighting=mask_weighting, recalc=recalc)
+
+        #need to check about recalculating this if recalc=False
         spectrum.set_timebins(tmin=tstart, tmax=tstop)
         if energybins is not None:
             spectrum.set_energybins(energybins=energybins)

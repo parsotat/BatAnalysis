@@ -1152,6 +1152,7 @@ class Spectrum(BatObservation):
         self.detector_quality_mask = Path(detector_quality_mask).expanduser().resolve()
         self.auxil_raytracing_file = Path(auxil_raytracing_file).expanduser().resolve()
         self.drm_file = None
+        self.spectral_model = None
 
         # need to see if we have to construct the lightcurve if the file doesnt exist
         if not self.pha_file.exists() or recalc:

@@ -1056,6 +1056,7 @@ def fit_TTE_spectrum(
         # surveyobservation.set_pointing_info(
         #     pointing_id, "model_params", model_params, source_id=source_id
         # )
+        spectrum.spectral_model = model_params
 
     except Exception as Error_with_Xspec_fitting:
         # this is probably that XSPEC cannot fit because of negative counts
@@ -1070,18 +1071,14 @@ def fit_TTE_spectrum(
             model_params[par_name] = dict(
                 val=np.nan, lolim=np.nan, hilim=np.nan, errflag="TTTTTTTTT"
             )
-        # surveyobservation.set_pointing_info(
-        #     pointing_id, "model_params", model_params, source_id=source_id
-        # )
+        spectrum.spectral_model = model_params
 
     # Incorporating the model names, parameters, errors into the BatSurvey object.
     xsp.Xset.save(phafilename.stem + ".xcm")
     xspec_savefile = phafilename.parent.joinpath(
         phafilename.stem + ".xcm"
     )
-    #surveyobservation.set_pointing_info(
-    #    pointing_id, "xspec_model", xspec_savefile, source_id=source_id
-    #)
+    spectrum.spectral_model["xspec_model"]=xspec_savefile
 
     # cd back
     if str(pha_dir) != str(current_dir):
