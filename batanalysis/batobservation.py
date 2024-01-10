@@ -1191,9 +1191,13 @@ class Spectrum(BatObservation):
         # read in the information about the weights
         self._get_event_weights()
 
-        # calculate the drm file if we need to
+        stop
 
-        self._call_batdrmgen()
+        # (re)calculate the drm file if it hasnt been set in the _parse_pha_file method
+        # or if we are directed to
+        if self.drm_file is None or recalc:
+            self._call_batdrmgen()
+
 
 
         # were done getting all the info that we need. From here, the user can rebin the timebins and the energy bins
@@ -1466,10 +1470,7 @@ class Spectrum(BatObservation):
             # reparse the pha file to get the info
             self._parse_pha_file()
 
-            # (re)calculate the drm file if it hasnt been set in the _parse_pha_file method
-            # or if we are directed to
-            if self.drm_file is None or recalc:
-                self._call_batdrmgen()
+            self._call_batdrmgen()
 
     def _call_batbinevt(self, input_dict):
         """
@@ -1661,7 +1662,7 @@ class Spectrum(BatObservation):
         # see if there is a response file associated with this and that it exists
         if "RESPFILE" in header.keys():
             self.drm_file = header["RESPFILE"]
-            if self.drm_file is "NONE":
+            if self.drm_file == "NONE":
                 self.drm_file = None
             else:
                 self.drm_file = self.pha_file.parent.joinpath(header["RESPFILE"])
