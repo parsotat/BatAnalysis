@@ -259,12 +259,3 @@ def plot_survey_lc(
 
     return fig, axes
 
-
-def plot_spectrum(spectrum):
-    """
-    Convenience function to quickly plot a spectrum given by a spectrum object.
-
-    :param spectrum:
-    :return:
-    """
-    raise NotImplementedError("This funciton has not been implemented yet. ")
