@@ -1466,8 +1466,10 @@ class Spectrum(BatObservation):
             # reparse the pha file to get the info
             self._parse_pha_file()
 
-            # recalculate the drm file
-            self._call_batdrmgen()
+            # (re)calculate the drm file if it hasnt been set in the _parse_pha_file method
+            # or if we are directed to
+            if self.drm_file is None or recalc:
+                self._call_batdrmgen()
 
     def _call_batbinevt(self, input_dict):
         """
