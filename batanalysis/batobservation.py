@@ -1769,7 +1769,7 @@ class Spectrum(BatObservation):
 
         return create_gti_file(timebins, output_file, T0=None, is_relative=False, overwrite=True)
 
-    def plot(self, emin=15*u.keV, emax=195*u.keV):
+    def plot(self, emin=15*u.keV, emax=195*u.keV, plot_model=True):
         """
         This method allows the user to conveniently plot the spectrum that has been created. If it has been fitted
         with a model, then the model can also be plotted as well.
@@ -1818,6 +1818,10 @@ class Spectrum(BatObservation):
         ax.tick_params(axis="both", which="major", labelsize=14)
 
         # if there is a fitted model need to get that and plot it
+        if self.spectral_model is not None and plot_model:
+
+
+            ax.loglog(xspec_energy, foldedmodel, color="r", drawstyle="steps-post", label="Folded Model")
 
         return fig, ax
 

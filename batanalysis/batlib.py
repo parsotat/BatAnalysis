@@ -1009,6 +1009,7 @@ def fit_TTE_spectrum(
     xsp.Fit.nIterations = fit_iterations
     xsp.Fit.renorm()
 
+
     # try to do the fitting if it doesn't work fill in np.nan values for things
     try:
         xsp.Fit.perform()
@@ -1018,26 +1019,55 @@ def fit_TTE_spectrum(
 
         # Get coordinates from XSPEC plot to use in matplotlib:
         xsp.Plot.device = "/null"
+        """
         xsp.Plot("data")
         chans = xsp.Plot.x()
         rates = xsp.Plot.y()
         xerr = xsp.Plot.xErr()
         yerr = xsp.Plot.yErr()
         folded = xsp.Plot.model()
+        """
+        ## above is old
 
-        # Plot using Matplotlib:
-        f, ax = plt.subplots()
-        ax.errorbar(x=chans, xerr=xerr, y=rates, yerr=yerr, fmt="ro")
-        ax.plot(chans, folded, "k-")
-        ax.set_xlabel("Energy (keV)")
-        ax.set_ylabel("counts/cm^2/sec/keV")
-        ax.set_xscale("log")
-        ax.set_yscale("log")
-        f.savefig(
-            phafilename.parent.joinpath(phafilename.stem + ".pdf")
-        )
-        if plotting:
-            plt.show()
+        #this gives the energy of the fitted model. units of the model values should be
+        # count/s/keV which is the default below but have checks to make sure we arent doing anything weird
+        xsp.Plot.xAxis = "keV"
+        xsp.Plot("data resid")
+        energies = np.array(xsp.Plot.x())
+        edeltas = np.array(xsp.Plot.xErr())
+        #rates = xsp.Plot.y(1, 1)
+        #errors = xsp.Plot.yErr(1, 1)
+        foldedmodel = np.array(xsp.Plot.model())
+        dataLabels = xsp.Plot.labels(1)
+        #residLabels = xsp.Plot.labels(2)
+
+
+        xspec_energy_min = u.Quantity(energies - edeltas, unit=xsp.Plot.xAxis)
+        xspec_energy_max = u.Quantity(energies + edeltas, unit=xsp.Plot.xAxis)
+        energybin_delta = xspec_energy_max - xspec_energy_min
+
+        #get the proper units of the model spectrum from xspec
+        model_unit=u.dimensionless_unscaled
+        if "count" in dataLabels[1]:
+            model_unit*=u.count
+        if "s$^{-1}$" in dataLabels[1]:
+            model_unit/=u.s
+        if "keV$^{-1}$" in dataLabels[1]:
+            model_unit/=u.keV
+
+
+        if model_unit is u.dimensionless_unscaled:
+            raise ValueError(f"The unit of the xspec model {dataLabels[1]} cannot be parsed")
+
+        foldedmodel=u.Quantity(foldedmodel, unit=model_unit)
+
+        if foldedmodel.unit/spectrum.data["RATE"].unit == 1/u.keV:
+            #need to get rid of the 1/keV unit of the xspec folded model
+            foldedmodel *= energybin_delta
+        elif foldedmodel.unit != spectrum.data["RATE"].unit:
+            raise NotImplementedError(f'The conversion between the xpsec units: {foldedmodel.unit} of the folded model '
+                                      f'and the units of the spectrum objects data: {spectrum.data["RATE"].unit} is not '
+                                      f'implemented.')
 
         # Capturing the Flux and its error. saved to the model object, can be obtained by calling model(1).error,
         # model(2).error
@@ -1053,10 +1083,19 @@ def fit_TTE_spectrum(
                 hilim=model(i).error[1],
                 errflag=model(i).error[-1],
             )
-        # surveyobservation.set_pointing_info(
-        #     pointing_id, "model_params", model_params, source_id=source_id
-        # )
-        spectrum.spectral_model = model_params
+
+        # have an overarching dict that contains the model parameters/errors and the
+        # spectral values/energybins of the model itself
+        model_dict = dict()
+        model_dict["parameters"] = model_params
+
+        #also save the folded model values/energybins, although they shoudl be the same
+        model_dict["data"] = {"model_spectrum": foldedmodel}
+        model_dict["ebins"] = {'INDEX': np.arange(xspec_energy_min.size),
+                                    'E_MIN': xspec_energy_min,
+                                    'E_MAX': xspec_energy_max}
+
+        spectrum.spectral_model = model_dict
 
     except Exception as Error_with_Xspec_fitting:
         # this is probably that XSPEC cannot fit because of negative counts
@@ -1071,14 +1110,26 @@ def fit_TTE_spectrum(
             model_params[par_name] = dict(
                 val=np.nan, lolim=np.nan, hilim=np.nan, errflag="TTTTTTTTT"
             )
-        spectrum.spectral_model = model_params
+
+        #have an overarching dict that contains the model parameters/errors and the
+        # spectral values/energybins of the model itself
+        model_dict = dict()
+        model_dict["parameters"] = model_params
+
+        foldedmodel = u.Quantity(np.nan, unit=spectrum.data["RATE"].unit)
+        model_dict["data"] = {"model_spectrum": foldedmodel}
+        model_dict["ebins"] = {'INDEX': np.arange(foldedmodel.size),
+                                'E_MIN': u.Quantity(np.nan, unit=u.keV),
+                               'E_MAX': u.Quantity(np.nan, unit=u.keV)}
+
+        spectrum.spectral_model = model_dict
 
     # Incorporating the model names, parameters, errors into the BatSurvey object.
     xsp.Xset.save(phafilename.stem + ".xcm")
     xspec_savefile = phafilename.parent.joinpath(
         phafilename.stem + ".xcm"
     )
-    spectrum.spectral_model["xspec_model"]=xspec_savefile
+    spectrum.spectral_model["xspec_session"]=xspec_savefile
 
     # cd back
     if str(pha_dir) != str(current_dir):
