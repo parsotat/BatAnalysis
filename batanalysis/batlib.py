@@ -1116,11 +1116,11 @@ def fit_TTE_spectrum(
         model_dict = dict()
         model_dict["parameters"] = model_params
 
-        foldedmodel = u.Quantity(np.nan, unit=spectrum.data["RATE"].unit)
+        foldedmodel = u.Quantity([np.nan], unit=spectrum.data["RATE"].unit)
         model_dict["data"] = {"model_spectrum": foldedmodel}
         model_dict["ebins"] = {'INDEX': np.arange(foldedmodel.size),
-                                'E_MIN': u.Quantity(np.nan, unit=u.keV),
-                               'E_MAX': u.Quantity(np.nan, unit=u.keV)}
+                                'E_MIN': u.Quantity([np.nan], unit=u.keV),
+                               'E_MAX': u.Quantity([np.nan], unit=u.keV)}
 
         spectrum.spectral_model = model_dict
 
