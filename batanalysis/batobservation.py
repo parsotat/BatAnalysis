@@ -1765,7 +1765,7 @@ class Spectrum(BatObservation):
             new_path = self.pha_file.parts
             new_name = self.pha_file.name.replace("pha", "gti")
 
-            output_file = Path(*new_path[:self.lightcurve_file.parts.index('pha')]).joinpath("gti").joinpath(new_name)
+            output_file = Path(*new_path[:self.pha_file.parts.index('pha')]).joinpath("gti").joinpath(new_name)
 
         return create_gti_file(timebins, output_file, T0=None, is_relative=False, overwrite=True)
 
@@ -1819,9 +1819,22 @@ class Spectrum(BatObservation):
 
         # if there is a fitted model need to get that and plot it
         if self.spectral_model is not None and plot_model:
+            model_emin=self.spectral_model["ebins"]["E_MIN"]
+            model_emax=self.spectral_model["ebins"]["E_MAX"]
+
+            # get where the energy is >15 keV and <195 keV
+            if emin is not None and emax is not None:
+                energy_idx = np.where((model_emin >= emin) & (model_emax < emax))
+            else:
+                energy_idx = np.where((model_emin > -1 * np.inf) & (model_emax < np.inf))
+
+            model=self.spectral_model["data"]["model_spectrum"][energy_idx]
 
 
-            ax.loglog(xspec_energy, foldedmodel, color="r", drawstyle="steps-post", label="Folded Model")
+            ax.loglog(model_emin[energy_idx], model, color="r", drawstyle="steps-post")
+            ax.loglog(model_emax[energy_idx], model, color="r", drawstyle="steps-pre", label="Folded Model")
+
+        ax.legend(loc="best")
 
         return fig, ax
 
