@@ -549,10 +549,10 @@ class BatEvent(BatObservation):
         if pha_file is None:
             if not recalc:
                 #make up a name for the light curve that hasnt been used already in the LC directory
-                pha_file=list(self.result_dir.joinpath("pha").glob("*.pha"))
+                pha_files = [i.name for i in list(self.result_dir.joinpath("pha").glob("*.pha"))]
                 base="spectrum_"
                 count=0
-                while f"{base}{count}.lc" in pha_file:
+                while f"{base}{count}.pha" in pha_files:
                     count+=1
                 pha_file=self.result_dir.joinpath("pha").joinpath(f"{base}{count}.pha")
             else:
