@@ -1135,6 +1135,9 @@ def fit_TTE_spectrum(
     if str(pha_dir) != str(current_dir):
         os.chdir(current_dir)
 
+    if plotting:
+        spectrum.plot()
+
     return None
 
 
