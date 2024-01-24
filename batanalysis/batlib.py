@@ -1259,10 +1259,10 @@ def calculate_TTE_detection(
         or error_issues
     ):
         print("No detection, just upperlimits for the spectrum:", pha_file)
-        # Here redo the PHA calculation with 5*BKG_VAR
+        # Here redo the PHA calculation with 5*BKG_VAR and calc the associated drm file
         spectrum.calc_upper_limit(bkg_nsigma)
 
-        bkgnsigma_upper_limit_pha_file
+        bkgnsigma_upper_limit_pha_file=spectrum.get_pha_filename(getupperlim=True)
 
 
         try:
