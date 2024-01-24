@@ -1897,7 +1897,7 @@ class Spectrum(BatObservation):
         file=Path(drmfile).expanduser().resolve()
         existing_files=[i.name for i in self.drm_file_list]
 
-        if self.drm_file_list is None:
+        if length(self.drm_file_list)==0:
             self.drm_file_list=[file]
         else:
             if "upperlim" in file.name:
@@ -1951,7 +1951,7 @@ class Spectrum(BatObservation):
         file=Path(phafile).expanduser().resolve()
         existing_files=[i.name for i in self.pha_file_list]
 
-        if self.pha_file_list is None:
+        if len(self.pha_file_list)==0:
             self.pha_file_list=[file]
         else:
             if "upperlim" in file.name:
