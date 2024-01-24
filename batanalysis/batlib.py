@@ -882,6 +882,7 @@ def fit_TTE_spectrum(
     use_cstat=True,
     fit_iterations=1000,
     verbose=True,
+    get_upperlim=False
 ):
     """
     This is an extension of the fit_spectrum function which allows for the use of the Spectrum object to
@@ -912,6 +913,8 @@ def fit_TTE_spectrum(
      But the user can specify any value that may be needed.
     :param verbose: Boolean to show every output during the fitting process.
      Set to True by default, that'll help the user to identify any issues with the fits.
+    :param get_upperlim: Boolean to denote if the fitting is being done with the goal of obtaining an upper limit flux.
+        If so, then the generic_model does not need to include a cflux component.
     :return: None
     """
     from .batobservation import Spectrum
@@ -960,7 +963,7 @@ def fit_TTE_spectrum(
         generic_model is not None
     ):  # User provides a string of model, and a Dictionary for the initial values
         if type(generic_model) is str:
-            if "cflux" in generic_model:
+            if "cflux" in generic_model or get_upperlim:
                 # The user must provide the cflux, or else we will not be able to predict of there is a statistical
                 # detection (in the next function).
                 try:
@@ -1094,6 +1097,9 @@ def fit_TTE_spectrum(
         model_dict["ebins"] = {'INDEX': np.arange(xspec_energy_min.size),
                                     'E_MIN': xspec_energy_min,
                                     'E_MAX': xspec_energy_max}
+        if get_upperlim:
+            xsp.AllModels.calcFlux("14.0 195.0")
+            model_dict["nsigma_lg10flux_upperlim"]=np.log10(s.flux[0])
 
         spectrum.spectral_model = model_dict
 
@@ -1146,7 +1152,7 @@ def calculate_TTE_detection(
     pl_index=2,
     nsigma=3,
     bkg_nsigma=5,
-    plot_fit=False,
+    plotting=False,
     verbose=True,
 ):
     """
@@ -1177,7 +1183,7 @@ def calculate_TTE_detection(
     :param nsigma: Integer, denoting the number fo sigma the user needs to justify a detection
     :param bkg_nsigma: Integer, denoting the number of sigma the user needs to calculate flux upper limit in case
         of a non detection.
-    :param plot_fit: Boolean to determine if the fit should be plotted or not
+    :param plotting: Boolean statement, if the user wants to plot the spectrum.
     :param verbose: Boolean to show every output during the fitting process. Set to True by default, that'll help the
         user to identify any issues with the fits.
     :return: In case of a non-detection a flux upper limit is returned.
@@ -1211,10 +1217,6 @@ def calculate_TTE_detection(
     # cd to that dir
     if str(pha_dir) != str(current_dir):
         os.chdir(pha_dir)
-
-    flux_upperlim = []
-
-
 
     # Within the spectrum object we have the attribute spectral_model which has all the data for us to extract
     if spectrum.spectral_model is None:
@@ -1260,84 +1262,22 @@ def calculate_TTE_detection(
     ):
         print("No detection, just upperlimits for the spectrum:", pha_file)
         # Here redo the PHA calculation with 5*BKG_VAR and calc the associated drm file
-        spectrum.calc_upper_limit(bkg_nsigma)
+        upper_lim_spect=spectrum.calc_upper_limit(bkg_nsigma)
 
-        #get the name of the file
-        bkgnsigma_upper_limit_pha_file=spectrum.get_pha_filename(getupperlim=True).name
+        #fit the spectrum
+        fit_TTE_spectrum(upper_lim_spect, generic_model="po", setPars={1:f"{pl_index},-1", 2:"0.001"}, get_upperlim=True)
 
-        fit_TTE_spectrum()
-
-        xsp.AllData -= "*"
-
-        s = xsp.Spectrum(bkgnsigma_upper_limit_pha_file)
-
-        xsp.Fit.statMethod = "cstat"
-
-        model = xsp.Model("po")
-        # p1 = m1(1)  # cflux      Emin = 15 keV
-        # p2 = m1(2)  # cflux      Emax = 150 keV
-        # p3 = m1(3)  # cflux      lg10Flux
-        p4 = model(1)  # Photon index Gamma
-        p5 = model(2)  # Powerlaw norm
-
-        # p1.values = 15  # already frozen
-        # p2.values = 150  # already frozen
-        p4.frozen = True
-        p4.values = pl_index
-        p5.values = 0.001
-        p5.frozen = False
-
-        if verbose:
-            print("******************************************************")
-            print(
-                f"Fitting the {bkg_nsigma} times bkg of the spectrum {bkgnsigma_upper_limit_pha_file}"
-            )
-
-        xsp.Fit.nIterations = 100
-        xsp.Fit.perform()
-        if plot_fit:
-            xsp.AllModels.show()
-            xsp.Fit.show()
-        xsp.AllModels.calcFlux("14.0 195.0")
-
-        if verbose:
-            print("******************************************************")
-            print("******************************************************")
-            print("******************************************************")
-
-            print(s.flux)
-
-        # Capturing the simple model. saved to the model object, can be obtained by calling model(1).error,
-        # model(2).error
-        model_params = dict()
-        for j in range(1, model.nParameters + 1):
-            # get the name of the parameter
-            par_name = model(j).name
-            model_params[par_name] = dict(
-                val=model(j).values[0],
-                lolim=model(j).error[0],
-                hilim=model(j).error[1],
-                errflag="TTTTTTTTT",
-            )
-        surveyobservation.set_pointing_info(
-            pointing_id, "model_params", model_params, source_id=source_id
-        )
-
-        surveyobservation.set_pointing_info(
-            pointing_id,
-            "nsigma_lg10flux_upperlim",
-            np.log10(s.flux[0]),
-            source_id=source_id,
-        )
     else:  # Detection
         if verbose:
             print("A detection has been measured at the %d sigma level" % (nsigma))
+
+        upper_lim_spect = None
 
     # cd back
     if str(pha_dir) != str(current_dir):
         os.chdir(current_dir)
 
-    return flux_upperlim  # This is a list for all the Valid non-detection pointings
+    return upper_lim_spect  # This is a list for all the Valid non-detection pointings
 
 
 
