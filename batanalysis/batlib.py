@@ -18,7 +18,7 @@ import dpath
 from concurrent.futures import ThreadPoolExecutor
 import functools
 import astropy.units as u
-
+import swiftbat.swutil as sbu
 
 # from xspec import *
 
@@ -1141,6 +1141,221 @@ def fit_TTE_spectrum(
     return None
 
 
+def calculate_TTE_detection(
+    spectrum,
+    pl_index=2,
+    nsigma=3,
+    bkg_nsigma=5,
+    plot_fit=False,
+    verbose=True,
+):
+    """
+    This function uses the fitting function and statistically checks if there is any significant detection (at a specfied confidence).
+    If there is no detection, then the function re-calculates the PHA with a bkg_nsigma times the background to calculate the
+    upper limit on the flux, at a certain confidence level (given by the user specified bkg_nsigma).
+
+    We deal with two cases:
+
+     (1) Non-detection:  Checking if nsigma error on  The 14-195 keV flux is consistent with the equation (measured flux - nsigma*error)<=0,
+     then return: upper limit=True
+     and then recalculate the PHA +response again.... with count rate= bkg_nsigma*BKG_VAR
+
+     (2) Detection: If (measured flux - nsigma*error)>=0 then return: "detection has been measured"
+
+     This operates on the entire batsurvey object (corresponding to a batobservation id),
+     and we want to see if there is a detection for 'any number of pointings for a given source' in that batobservation id.
+
+     Note that it operates ONLY on one source.
+     For different sources one can specify separate detection threshold ('sigma') for different sources.
+     Thus we have kept this function to operate only ONE source at a time.
+
+    :param surveyobservation: Object denoting the batsurvey observation object which contains all the necessary
+        information related to this observation.
+    :param source_id: String denoting the source name exactly as that in the phafilename.
+    :param pl_index: Float (default 2) denoting the power law photon index that will be used to obtain a flux upper
+        limit
+    :param nsigma: Integer, denoting the number fo sigma the user needs to justify a detection
+    :param bkg_nsigma: Integer, denoting the number of sigma the user needs to calculate flux upper limit in case
+        of a non detection.
+    :param plot_fit: Boolean to determine if the fit should be plotted or not
+    :param verbose: Boolean to show every output during the fitting process. Set to True by default, that'll help the
+        user to identify any issues with the fits.
+    :return: In case of a non-detection a flux upper limit is returned.
+    """
+
+    try:
+        import xspec as xsp
+    except ModuleNotFoundError as err:
+        # Error handling
+        print(err)
+        raise ModuleNotFoundError(
+            "The pyXspec package needs to installed to determine if a source has been detected with this function."
+        )
+
+    current_dir = Path.cwd()
+
+    # get the directory that we have to cd to and the name of the file
+    pha_dir = surveyobservation.get_pha_filenames(id_list=[source_id])[0].parent
+
+    pointing_ids = (
+        surveyobservation.get_pointing_ids()
+    )  # This is a list of pointing_ids in this bat survey observation
+
+    # cd to that dir
+    if str(pha_dir) != str(current_dir):
+        os.chdir(pha_dir)
+
+    flux_upperlim = []
+
+    # By specifying the source_id, we now have the specific PHA filename list corresponding to the
+    # pointing_id_list for this given bat survey observation.
+    phafilename_list = surveyobservation.get_pha_filenames(
+        id_list=[source_id], pointing_id_list=pointing_ids
+    )
+
+    for i in range(len(phafilename_list)):  # Loop over all phafilename_list,
+        pha_dir = phafilename_list[i].parent
+        pha_file = phafilename_list[i].name
+
+        # The old statement: pointing_id=pha_file.split(".")[0].split("_")[-1] didnt work if source_id has period in it
+        pointing_id = phafilename_list[i].stem.split("_")[-1]
+
+        # Within the pointing dictionar we have the "key" called "Xspec_model" which has the parameters, values and
+        # errors.
+        error_issues = False  # preset this here
+        try:
+            pointing_dict = surveyobservation.get_pointing_info(
+                pointing_id, source_id=source_id
+            )
+            model = pointing_dict["model_params"]["lg10Flux"]
+            flux = model["val"]  # ".cflux.lg10Flux.values[0]              #Value
+            fluxerr_lolim = model["lolim"]  # .cflux.lg10Flux.error[0]      #Error
+            fluxerr_uplim = model["hilim"]  # .cflux.lg10Flux.error[1]
+
+            avg_flux_err = 0.5 * (
+                ((10**fluxerr_uplim) - (10**flux))
+                + ((10**flux) - (10**fluxerr_lolim))
+            )
+            print(
+                "The condition here is",
+                10 ** (flux),
+                [10**fluxerr_lolim, 10**fluxerr_uplim],
+                nsigma,
+                avg_flux_err,
+                ((10**flux) - nsigma * avg_flux_err),
+            )
+
+            # check the errors for any issues:
+            if "T" in model["errflag"]:
+                error_issues = True
+
+        except ValueError:
+            # the fitting was not successful and the dictionary was not created but want to enter the upper limit if
+            # statement
+            fluxerr_lolim = 0
+            flux = 1
+            nsigma = 1
+            avg_flux_err = 1
+
+        if (
+            fluxerr_lolim == 0
+            or (((10**flux) - nsigma * avg_flux_err) <= 0)
+            or np.isnan(flux)
+            or error_issues
+        ):
+            print("No detection, just upperlimits for the spectrum:", pha_file)
+            # Here redo the PHA calculation with 5*BKG_VAR
+            surveyobservation.calculate_pha(
+                calc_upper_lim=True,
+                bkg_nsigma=bkg_nsigma,
+                id_list=source_id,
+                single_pointing=pointing_id,
+            )
+
+            # can also do surveyobservation.get_pha_filenames(id_list=source_id,pointing_id_list=pointing_id,
+            # getupperlim=True) to get the created upperlimit file. Will do this because it is more robust
+            # bkgnsigma_upper_limit_pha_file= pha_file.split(".")[0]+'_bkgnsigma_%d'%(bkg_nsigma) + '_upperlim.pha'
+            bkgnsigma_upper_limit_pha_file = surveyobservation.get_pha_filenames(
+                id_list=source_id, pointing_id_list=pointing_id, getupperlim=True
+            )[0].name
+
+            try:
+                calc_response(bkgnsigma_upper_limit_pha_file)
+            except:
+                # This is a MosaicBatSurvey object which already has the default associated response file
+                pass
+
+            xsp.AllData -= "*"
+
+            s = xsp.Spectrum(bkgnsigma_upper_limit_pha_file)
+
+            xsp.Fit.statMethod = "cstat"
+
+            model = xsp.Model("po")
+            # p1 = m1(1)  # cflux      Emin = 15 keV
+            # p2 = m1(2)  # cflux      Emax = 150 keV
+            # p3 = m1(3)  # cflux      lg10Flux
+            p4 = model(1)  # Photon index Gamma
+            p5 = model(2)  # Powerlaw norm
+
+            # p1.values = 15  # already frozen
+            # p2.values = 150  # already frozen
+            p4.frozen = True
+            p4.values = pl_index
+            p5.values = 0.001
+            p5.frozen = False
+
+            if verbose:
+                print("******************************************************")
+                print(
+                    f"Fitting the {bkg_nsigma} times bkg of the spectrum {bkgnsigma_upper_limit_pha_file}"
+                )
+
+            xsp.Fit.nIterations = 100
+            xsp.Fit.perform()
+            if plot_fit:
+                xsp.AllModels.show()
+                xsp.Fit.show()
+            xsp.AllModels.calcFlux("14.0 195.0")
+
+            if verbose:
+                print("******************************************************")
+                print("******************************************************")
+                print("******************************************************")
+
+                print(s.flux)
+
+            # Capturing the simple model. saved to the model object, can be obtained by calling model(1).error,
+            # model(2).error
+            model_params = dict()
+            for j in range(1, model.nParameters + 1):
+                # get the name of the parameter
+                par_name = model(j).name
+                model_params[par_name] = dict(
+                    val=model(j).values[0],
+                    lolim=model(j).error[0],
+                    hilim=model(j).error[1],
+                    errflag="TTTTTTTTT",
+                )
+            surveyobservation.set_pointing_info(
+                pointing_id, "model_params", model_params, source_id=source_id
+            )
+
+            surveyobservation.set_pointing_info(
+                pointing_id,
+                "nsigma_lg10flux_upperlim",
+                np.log10(s.flux[0]),
+                source_id=source_id,
+            )
+        else:  # Detection
+            if verbose:
+                print("A detection has been measured at the %d sigma level" % (nsigma))
+
+    # cd back
+    if str(pha_dir) != str(current_dir):
+        os.chdir(current_dir)
+
+    return flux_upperlim  # This is a list for all the Valid non-detection pointings
 
 
 

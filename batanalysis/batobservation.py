@@ -1223,7 +1223,7 @@ class Spectrum(BatObservation):
 
     @u.quantity_input(timebins=['time'], tmin=['time'], tmax=['time'])
     def set_timebins(self, timebinalg="uniform", timebins=None, tmin=None, tmax=None, T0=None, is_relative=False,
-                     timedelta=np.timedelta64(64, 's'), snrthresh=None):
+                     timedelta=np.timedelta64(64, 'ms'), snrthresh=None):
         """
         This method allows for the rebinning of the lightcurve in time. The timebins can be uniform, snr-based,
         custom defined, or based on bayesian blocks (using battblocks). The time binning is done dymaically and the
@@ -1862,12 +1862,59 @@ class Spectrum(BatObservation):
 
         return self.drm_file
 
-    def get_pha_filename(self):
+    def get_pha_filename(self, getupperlim=False):
         """
         This method returns the pha filename
 
-        :return: Path object of the pha file
+        :param getupperlim: Boolean to specify if the function should return just the upper limit PHA file. Default is
+            False, meaning that just the normal PHA file will be returned
+        :return: a path object of the specified pha filename
         """
 
-        return self.pha_file
+        if not getupperlim:
+            val = self.pha_file
+        else:
+            val = self.upperlimit_pha_file
 
+        return val
+
+    def calc_upper_limit(self, bkg_nsigma=5):
+        """
+        This method creates the N sigma upper limits for the spectrum
+
+        NEED TO DOUBLE CHECK THIS
+        :param bkg_nsigma: Float for the significance of the background scaling to obtain an upper limit at that limit
+            (eg PHA count = bkg_nsigma*bkg_var), here
+
+
+        :return:
+        """
+        if self.pha_file is None:
+            raise ValueError("There is no PHA file form which upper limits can be calculated.")
+
+        # calculate error including both systematic error and statistical error, note that systematic error has
+        # been multiplied by the rates/counts in the _parse_pha method
+        tot_error = np.sqrt(self.data["STAT_ERR"].value**2+self.data["SYS_ERR"].value**2)
+
+        #modify the filename
+        self.upperlimit_pha_file=self.pha_file.parent.joinpath(f"{self.pha_file.stem}_bkgnsigma_{int(bkg_nsigma)}_upperlim{self.pha_file.suffix}")
+
+        #copy the pha file to the new filename and then modify the values
+        shutil.copy(self.pha_file, self.upperlimit_pha_file)
+
+        #modify the upper limits file with the appropriate "rate" values
+        with fits.open(self.upperlimit_pha_file, mode="update") as pha_hdulist:
+            spectrum_cols=[i.name for i in pha_hdulist["SPECTRUM"].data.columns]
+            if "RATE" in spectrum_cols:
+                val = "RATE"
+            else:
+                val = "COUNTS"
+            pha_hdulist["SPECTRUM"].data[val]=bkg_nsigma*tot_error
+            pha_hdulist["SPECTRUM"].data["STAT_ERR"] = np.zeros_like(tot_error)
+
+            pha_hdulist.flush()
+
+        #do we want to set the pha_file to the upper limit one and reparse the pha upperlim file?
+        self.pha_file=self.upperlimit_pha_file
+        self._parse_pha_file()
+        self.calculate_drm()

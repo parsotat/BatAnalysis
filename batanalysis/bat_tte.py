@@ -532,12 +532,12 @@ class BatEvent(BatObservation):
 
         self.lightcurve=lc
 
-        return None
+        return self.lightcurve
 
     def create_pha(self, pha_file=None, tstart=None, tstop=None,
                     energybins=None, recalc=True, mask_weighting=True):
         """
-        This method returns a spectrum object.
+        This method returns a spectrum object or list of spectrum objects.
 
         :param kwargs:
         :return:
@@ -568,13 +568,14 @@ class BatEvent(BatObservation):
                             mask_weighting=mask_weighting, recalc=recalc)
 
         #need to check about recalculating this if recalc=False
-        spectrum.set_timebins(tmin=tstart, tmax=tstop)
-        if energybins is not None:
-            spectrum.set_energybins(energybins=energybins)
+        if recalc:
+            spectrum.set_timebins(tmin=tstart, tmax=tstop)
+            if energybins is not None:
+                spectrum.set_energybins(energybins=energybins)
 
         self.spectrum=spectrum
 
-        return None
+        return self.spectrum
 
     def create_dph(self):
         """
