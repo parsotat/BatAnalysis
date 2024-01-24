@@ -1151,7 +1151,7 @@ class Spectrum(BatObservation):
         self.event_file = Path(event_file).expanduser().resolve()
         self.detector_quality_mask = Path(detector_quality_mask).expanduser().resolve()
         self.auxil_raytracing_file = Path(auxil_raytracing_file).expanduser().resolve()
-        self.drm_file = None
+        self.drm_file_list = []
         self.spectral_model = None
 
         # need to see if we have to construct the lightcurve if the file doesnt exist
@@ -1194,7 +1194,7 @@ class Spectrum(BatObservation):
 
         # (re)calculate the drm file if it hasnt been set in the _parse_pha_file method
         # or if we are directed to
-        if self.drm_file is None or recalc:
+        if len(self.drm_file_list)==0 or recalc:
             self._call_batdrmgen()
 
 
@@ -1663,13 +1663,17 @@ class Spectrum(BatObservation):
 
         # see if there is a response file associated with this and that it exists
         if "RESPFILE" in header.keys():
-            self.drm_file = header["RESPFILE"]
-            if self.drm_file == "NONE":
-                self.drm_file = None
+            drm_file = header["RESPFILE"]
+            self.set_drm_filename(drm_file)
+            if drm_file == "NONE":
+                #self.drm_file = None
+                pass
             else:
-                self.drm_file = pha_file.parent.joinpath(header["RESPFILE"])
-                if not self.drm_file.exists():
-                    self.drm_file = None
+                drm_file = pha_file.parent.joinpath(header["RESPFILE"])
+                self.set_drm_filename(drm_file)
+                if not drm_file.exists():
+                    #self.drm_file = None
+                    pass
 
         # if self.pha_input_dict ==None, then we will need to try to read in the hisotry of parameters passed into
         # batbinevt to create the pha file. thsi usually is needed when we first parse a file so we know what things
@@ -1773,13 +1777,16 @@ class Spectrum(BatObservation):
 
         return create_gti_file(timebins, output_file, T0=None, is_relative=False, overwrite=True)
 
-    def plot(self, emin=15*u.keV, emax=195*u.keV, plot_model=True):
+    def plot(self, emin=15*u.keV, emax=195*u.keV, plot_model=True, plot_upperlim=False):
         """
         This method allows the user to conveniently plot the spectrum that has been created. If it has been fitted
         with a model, then the model can also be plotted as well.
 
         :return: matplotlib figure, matplotlib axis
         """
+
+        #if the user wants to plot the upper limit, then load that data in explicitly
+        self._parse_pha_file(upperlim=plot_upperlim)
 
         # calculate the center of the energy bin
         ecen = 0.5*(self.ebins["E_MIN"]+self.ebins["E_MAX"])
@@ -2006,3 +2013,9 @@ class Spectrum(BatObservation):
         self.set_pha_files(upperlimit_pha_file)
         #self._parse_pha_file()
         self.calculate_drm(upperlim=True)
+
+        return self.from_file(upperlimit_pha_file, self.event_file, self.detector_quality_mask, self.auxil_raytracing_file)
+
+    @classmethod
+    def from_file(cls, pha_file, event_file, detector_quality_mask, auxil_raytracing_file):
+        return cls(pha_file, event_file, detector_quality_mask, auxil_raytracing_file)

@@ -1262,14 +1262,10 @@ def calculate_TTE_detection(
         # Here redo the PHA calculation with 5*BKG_VAR and calc the associated drm file
         spectrum.calc_upper_limit(bkg_nsigma)
 
-        bkgnsigma_upper_limit_pha_file=spectrum.get_pha_filename(getupperlim=True)
+        #get the name of the file
+        bkgnsigma_upper_limit_pha_file=spectrum.get_pha_filename(getupperlim=True).name
 
-
-        try:
-            calc_response(bkgnsigma_upper_limit_pha_file)
-        except:
-            # This is a MosaicBatSurvey object which already has the default associated response file
-            pass
+        fit_TTE_spectrum()
 
         xsp.AllData -= "*"
 
