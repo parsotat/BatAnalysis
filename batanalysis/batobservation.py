@@ -1519,19 +1519,20 @@ class Spectrum(BatObservation):
             print(e)
             raise RuntimeError(f"The call to Heasoft batupdatephakw failed with inputs {input_dict}.")
 
-    def _call_batdrmgen(self):
+    def _call_batdrmgen(self, upperlim=False):
         """
         This calls heasoftpy's batdrmgen which produces the associated drm for fitting the PHA file.
 
         :return:
         """
 
-        output = calc_response(self.pha_file)
+        pha_file=self.get_pha_filename(getupperlim=upperlim)
+        output = calc_response(pha_file)
 
         if output.returncode != 0:
             raise RuntimeError(f"The call to Heasoft batdrmgen failed with output {output.stdout}.")
 
-        self.drm_file = self.pha_file.parent.joinpath(f"{self.pha_file.stem}.rsp")
+        self.drm_file = pha_file.parent.joinpath(f"{pha_file.stem}.rsp")
 
 
     def _get_event_weights(self):
@@ -1838,7 +1839,7 @@ class Spectrum(BatObservation):
 
         return fig, ax
 
-    def calculate_drm(self):
+    def calculate_drm(self, upperlim=False):
         """
         This function calculates the detector response matrix for the created PHA file.
 
@@ -1848,9 +1849,9 @@ class Spectrum(BatObservation):
         :return: heasoftpy result object for the batdrmgen heasoft call
         """
 
-        return self._call_batdrmgen()
+        return self._call_batdrmgen(upperlim=upperlim)
 
-    def get_drm_filename(self):
+    def get_drm_filename(self, getupperlim=False):
         """
         This method returns the detector response function file
 
@@ -1862,6 +1863,37 @@ class Spectrum(BatObservation):
 
         return self.drm_file
 
+    def set_drm_filename(self, drmfile):
+        """
+        This funciton allows the pha_file_list attribute to have pha file names to be saved to it.
+        The upper limit pha file can be overwritten but the original pha file cannot be changed.
+
+        :param phafile:
+        :return:
+        """
+        file=Path(drmfile).expanduser().resolve()
+        existing_files=[i.name for i in self.drm_file_list]
+
+        if self.drm_file_list is None:
+            self.drm_file_list=[file]
+        else:
+            if "upperlim" in file.name:
+                #see if there exists an upperlimit file in the pha file list
+                if any("upperlim" in i for i in existing_files):
+                    #get the index and replace the upperlimit file
+                    idx=[i for i, j in enumerate(existing_files) if "upperlim" in j][0]
+                    existing_files[idx]=file
+                else:
+                    #just append the file
+                    self.drm_file_list.append(file)
+            else:
+                #we are trying to save a new non-pha filename, although I am not sure why we would do this? so raise a
+                #an error
+                idx = [i for i, j in enumerate(existing_files) if "upperlim" not in j][0]
+                raise ValueError(f"The current phafile {existing_files[idx]} is associated with this spectrum object. Saving the new phafile"
+                                 f"{file} is not permitted.")
+
+
     def get_pha_filename(self, getupperlim=False):
         """
         This method returns the pha filename
@@ -1870,13 +1902,50 @@ class Spectrum(BatObservation):
             False, meaning that just the normal PHA file will be returned
         :return: a path object of the specified pha filename
         """
-
         if not getupperlim:
-            val = self.pha_file
+            val = [i for i in self.pha_file_list if "upperlim" not in i.name]
+            if len(val)==1:
+                val=val[0]
+            else:
+                raise ValueError(f'There were {len(val)} pha files found for this Spectrum object. There should only be 1.')
         else:
-            val = self.upperlimit_pha_file
+            val = [i for i in self.pha_file_list if "upperlim" in i.name]
+            if len(val)==1:
+                val=val[0]
+            else:
+                raise ValueError(f'There were {len(val)} upperlimit pha files found for this Spectrum object. There should only be 1.')
 
         return val
+
+    def set_pha_files(self, phafile):
+        """
+        This funciton allows the pha_file_list attribute to have pha file names to be saved to it.
+        The upper limit pha file can be overwritten but the original pha file cannot be changed.
+
+        :param phafile:
+        :return:
+        """
+        file=Path(phafile).expanduser().resolve()
+        existing_files=[i.name for i in self.pha_file_list]
+
+        if self.pha_file_list is None:
+            self.pha_file_list=[file]
+        else:
+            if "upperlim" in file.name:
+                #see if there exists an upperlimit file in the pha file list
+                if any("upperlim" in i for i in existing_files):
+                    #get the index and replace the upperlimit file
+                    idx=[i for i, j in enumerate(existing_files) if "upperlim" in j][0]
+                    existing_files[idx]=file
+                else:
+                    #just append the file
+                    self.pha_file_list.append(file)
+            else:
+                #we are trying to save a new non-pha filename, although I am not sure why we would do this? so raise a
+                #an error
+                idx = [i for i, j in enumerate(existing_files) if "upperlim" not in j][0]
+                raise ValueError(f"The current phafile {existing_files[idx]} is associated with this spectrum object. Saving the new phafile"
+                                 f"{file} is not permitted.")
 
     def calc_upper_limit(self, bkg_nsigma=5):
         """
