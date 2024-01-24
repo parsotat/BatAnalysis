@@ -1982,40 +1982,41 @@ class Spectrum(BatObservation):
         :return:
         """
         try:
-            pha_file=self.get_pha_filename()
+            pha_file = self.get_pha_filename()
         except ValueError as e:
             print(e)
             raise ValueError("There is no PHA file from which upper limits can be calculated.")
 
         # calculate error including both systematic error and statistical error, note that systematic error has
         # been multiplied by the rates/counts in the _parse_pha method
-        tot_error = np.sqrt(self.data["STAT_ERR"].value**2+self.data["SYS_ERR"].value**2)
+        tot_error = np.sqrt(self.data["STAT_ERR"].value ** 2 + self.data["SYS_ERR"].value ** 2)
 
-        #modify the filename
-        upperlimit_pha_file=pha_file.parent.joinpath(f"{pha_file.stem}_bkgnsigma_{int(bkg_nsigma)}_upperlim{pha_file.suffix}")
+        # modify the filename
+        upperlimit_pha_file = pha_file.parent.joinpath(
+            f"{pha_file.stem}_bkgnsigma_{int(bkg_nsigma)}_upperlim{pha_file.suffix}")
 
-        #copy the pha file to the new filename and then modify the values
+        # copy the pha file to the new filename and then modify the values
         shutil.copy(pha_file, upperlimit_pha_file)
 
-        #modify the upper limits file with the appropriate "rate" values
+        # modify the upper limits file with the appropriate "rate" values
         with fits.open(upperlimit_pha_file, mode="update") as pha_hdulist:
-            spectrum_cols=[i.name for i in pha_hdulist["SPECTRUM"].data.columns]
+            spectrum_cols = [i.name for i in pha_hdulist["SPECTRUM"].data.columns]
             if "RATE" in spectrum_cols:
                 val = "RATE"
             else:
                 val = "COUNTS"
-            pha_hdulist["SPECTRUM"].data[val]=bkg_nsigma*tot_error
+            pha_hdulist["SPECTRUM"].data[val] = bkg_nsigma * tot_error
             pha_hdulist["SPECTRUM"].data["STAT_ERR"] = np.zeros_like(tot_error)
 
             pha_hdulist.flush()
 
-        #do we want to set the pha_file to the upper limit one and reparse the pha upperlim file?
-        self.set_pha_files(upperlimit_pha_file)
-        #self._parse_pha_file()
-        self.calculate_drm(upperlim=True)
 
-        return self.from_file(upperlimit_pha_file, self.event_file, self.detector_quality_mask, self.auxil_raytracing_file)
+        # do we want to set the pha_file to the upper limit one and reparse the pha upperlim file?
+
+        return self.from_file(upperlimit_pha_file, self.event_file, self.detector_quality_mask,
+                              self.auxil_raytracing_file)
 
     @classmethod
     def from_file(cls, pha_file, event_file, detector_quality_mask, auxil_raytracing_file):
         return cls(pha_file, event_file, detector_quality_mask, auxil_raytracing_file)
+
