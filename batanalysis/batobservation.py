@@ -1664,7 +1664,7 @@ class Spectrum(BatObservation):
         # see if there is a response file associated with this and that it exists
         if "RESPFILE" in header.keys():
             drm_file = header["RESPFILE"]
-            self.set_drm_filename(drm_file)
+            #self.set_drm_filename(drm_file)
             if drm_file == "NONE":
                 #self.drm_file = None
                 pass
