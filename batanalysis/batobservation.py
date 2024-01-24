@@ -1147,19 +1147,19 @@ class Spectrum(BatObservation):
         # spectrum object and vice versa
 
         # save these variables
-        self.pha_file_list = [Path(pha_file).expanduser().resolve()]
+        self.pha_file = Path(pha_file).expanduser().resolve()
         self.event_file = Path(event_file).expanduser().resolve()
         self.detector_quality_mask = Path(detector_quality_mask).expanduser().resolve()
         self.auxil_raytracing_file = Path(auxil_raytracing_file).expanduser().resolve()
-        self.drm_file_list = []
+        self.drm_file_list = None
         self.spectral_model = None
 
         # need to see if we have to construct the lightcurve if the file doesnt exist
-        if not self.pha_file_list[0].exists() or recalc:
+        if not self.pha_file.exists() or recalc:
             # see if the input dict is None so we can set these defaults, otherwise save the requested inputs for use later
             if pha_input_dict is None:
                 # energybins = "CALDB" gives us the 80 channel spectrum
-                self.pha_input_dict = dict(infile=str(self.event_file), outfile=str(self.pha_file_list[0]), outtype="PHA",
+                self.pha_input_dict = dict(infile=str(self.event_file), outfile=str(self.pha_file), outtype="PHA",
                                            energybins="CALDB", weighted="YES", timedel=0.0,
                                            detmask=str(self.detector_quality_mask),
                                            tstart="INDEF", tstop="INDEF", clobber="YES", timebinalg="uniform")
@@ -1194,7 +1194,7 @@ class Spectrum(BatObservation):
 
         # (re)calculate the drm file if it hasnt been set in the _parse_pha_file method
         # or if we are directed to
-        if len(self.drm_file_list)==0 or recalc:
+        if self.drm_file is None or recalc:
             self._call_batdrmgen()
 
 
@@ -1495,7 +1495,7 @@ class Spectrum(BatObservation):
 
         :return:
         """
-        pha_file = self.get_pha_filename(getupperlim=False)
+        pha_file = self.get_pha_filename()
         input_dict = dict(infile=str(pha_file), syserrfile="CALDB")
 
         try:
@@ -1511,7 +1511,7 @@ class Spectrum(BatObservation):
 
         :return:
         """
-        pha_file = self.get_pha_filename(getupperlim=False)
+        pha_file = self.get_pha_filename()
         input_dict = dict(infile=str(pha_file), auxfile=str(self.auxil_raytracing_file))
 
         try:
@@ -1520,14 +1520,14 @@ class Spectrum(BatObservation):
             print(e)
             raise RuntimeError(f"The call to Heasoft batupdatephakw failed with inputs {input_dict}.")
 
-    def _call_batdrmgen(self, upperlim=False):
+    def _call_batdrmgen(self):
         """
         This calls heasoftpy's batdrmgen which produces the associated drm for fitting the PHA file.
 
         :return:
         """
 
-        pha_file=self.get_pha_filename(getupperlim=upperlim)
+        pha_file=self.get_pha_filename()
         output = calc_response(pha_file)
 
         if output.returncode != 0:
@@ -1584,7 +1584,7 @@ class Spectrum(BatObservation):
 
         return coord_match
 
-    def _parse_pha_file(self, upperlim=False):
+    def _parse_pha_file(self):
         """
         This method parses through a light curve file that has been created by batbinevent. The information included in
         the lightcurve file is read into the RA/DEC attributes (and checked to make sure that this is the lightcurve that
@@ -1601,7 +1601,7 @@ class Spectrum(BatObservation):
             By default, it is calculated unless the user has created a lightcurve of only 1 energy bin.
         :return: None
         """
-        pha_file = self.get_pha_filename(getupperlim=upperlim)
+        pha_file = self.get_pha_filename()
         with fits.open(pha_file) as f:
             header = f[1].header
             data = f[1].data
@@ -1664,16 +1664,14 @@ class Spectrum(BatObservation):
         # see if there is a response file associated with this and that it exists
         if "RESPFILE" in header.keys():
             drm_file = header["RESPFILE"]
-            #self.set_drm_filename(drm_file)
+            self.drm_file = drm_file
             if drm_file == "NONE":
-                #self.drm_file = None
-                pass
+                self.drm_file = None
             else:
                 drm_file = pha_file.parent.joinpath(header["RESPFILE"])
-                self.set_drm_filename(drm_file)
+                self.drm_file = drm_file
                 if not drm_file.exists():
-                    #self.drm_file = None
-                    pass
+                    self.drm_file = None
 
         # if self.pha_input_dict ==None, then we will need to try to read in the hisotry of parameters passed into
         # batbinevt to create the pha file. thsi usually is needed when we first parse a file so we know what things
@@ -1769,7 +1767,7 @@ class Spectrum(BatObservation):
         if output_file is None:
             # use the same filename as for the lightcurve file but replace suffix with gti and put it in gti subdir
             # instead of lc
-            pha_file = self.get_pha_filename(getupperlim=False)
+            pha_file = self.get_pha_filename()
             new_path = pha_file.parts
             new_name = pha_file.name.replace("pha", "gti")
 
@@ -1777,16 +1775,13 @@ class Spectrum(BatObservation):
 
         return create_gti_file(timebins, output_file, T0=None, is_relative=False, overwrite=True)
 
-    def plot(self, emin=15*u.keV, emax=195*u.keV, plot_model=True, plot_upperlim=False):
+    def plot(self, emin=15*u.keV, emax=195*u.keV, plot_model=True):
         """
         This method allows the user to conveniently plot the spectrum that has been created. If it has been fitted
         with a model, then the model can also be plotted as well.
 
         :return: matplotlib figure, matplotlib axis
         """
-
-        #if the user wants to plot the upper limit, then load that data in explicitly
-        self._parse_pha_file(upperlim=plot_upperlim)
 
         # calculate the center of the energy bin
         ecen = 0.5*(self.ebins["E_MIN"]+self.ebins["E_MAX"])
@@ -1849,7 +1844,7 @@ class Spectrum(BatObservation):
 
         return fig, ax
 
-    def calculate_drm(self, upperlim=False):
+    def calculate_drm(self):
         """
         This function calculates the detector response matrix for the created PHA file.
 
@@ -1859,31 +1854,16 @@ class Spectrum(BatObservation):
         :return: heasoftpy result object for the batdrmgen heasoft call
         """
 
-        return self._call_batdrmgen(upperlim=upperlim)
+        return self._call_batdrmgen()
 
-    def get_drm_filename(self, getupperlim=False):
+    def get_drm_filename(self):
         """
         This method returns the detector response function file
 
         :return: Path object of the DRM file
         """
 
-        if not getupperlim:
-            val = [i for i in self.drm_file_list if "upperlim" not in i.name]
-            if len(val) == 1:
-                val = val[0]
-            else:
-                raise ValueError(
-                    f'There were {len(val)} drm files found for this Spectrum object. There should only be 1.')
-        else:
-            val = [i for i in self.drm_file_list if "upperlim" in i.name]
-            if len(val) == 1:
-                val = val[0]
-            else:
-                raise ValueError(
-                    f'There were {len(val)} upperlimit drm files found for this Spectrum object. There should only be 1.')
-
-        return val
+        return self.drm_file
 
 
     def set_drm_filename(self, drmfile):
@@ -1894,30 +1874,10 @@ class Spectrum(BatObservation):
         :param phafile:
         :return:
         """
-        file=Path(drmfile).expanduser().resolve()
-        existing_files=[i.name for i in self.drm_file_list]
 
-        if len(self.drm_file_list)==0:
-            self.drm_file_list=[file]
-        else:
-            if "upperlim" in file.name:
-                #see if there exists an upperlimit file in the pha file list
-                if any("upperlim" in i for i in existing_files):
-                    #get the index and replace the upperlimit file
-                    idx=[i for i, j in enumerate(existing_files) if "upperlim" in j][0]
-                    existing_files[idx]=file
-                else:
-                    #just append the file
-                    self.drm_file_list.append(file)
-            else:
-                #we are trying to save a new non-pha filename, although I am not sure why we would do this? so raise a
-                #an error
-                idx = [i for i, j in enumerate(existing_files) if "upperlim" not in j][0]
-                raise ValueError(f"The current phafile {existing_files[idx]} is associated with this spectrum object. Saving the new phafile"
-                                 f"{file} is not permitted.")
+        self.drm_file=drmfile
 
-
-    def get_pha_filename(self, getupperlim=False):
+    def get_pha_filename(self):
         """
         This method returns the pha filename
 
@@ -1925,20 +1885,8 @@ class Spectrum(BatObservation):
             False, meaning that just the normal PHA file will be returned
         :return: a path object of the specified pha filename
         """
-        if not getupperlim:
-            val = [i for i in self.pha_file_list if "upperlim" not in i.name]
-            if len(val)==1:
-                val=val[0]
-            else:
-                raise ValueError(f'There were {len(val)} pha files found for this Spectrum object. There should only be 1.')
-        else:
-            val = [i for i in self.pha_file_list if "upperlim" in i.name]
-            if len(val)==1:
-                val=val[0]
-            else:
-                raise ValueError(f'There were {len(val)} upperlimit pha files found for this Spectrum object. There should only be 1.')
 
-        return val
+        return self.pha_file
 
     def set_pha_files(self, phafile):
         """
@@ -1948,27 +1896,8 @@ class Spectrum(BatObservation):
         :param phafile:
         :return:
         """
-        file=Path(phafile).expanduser().resolve()
-        existing_files=[i.name for i in self.pha_file_list]
 
-        if len(self.pha_file_list)==0:
-            self.pha_file_list=[file]
-        else:
-            if "upperlim" in file.name:
-                #see if there exists an upperlimit file in the pha file list
-                if any("upperlim" in i for i in existing_files):
-                    #get the index and replace the upperlimit file
-                    idx=[i for i, j in enumerate(existing_files) if "upperlim" in j][0]
-                    existing_files[idx]=file
-                else:
-                    #just append the file
-                    self.pha_file_list.append(file)
-            else:
-                #we are trying to save a new non-pha filename, although I am not sure why we would do this? so raise a
-                #an error
-                idx = [i for i, j in enumerate(existing_files) if "upperlim" not in j][0]
-                raise ValueError(f"The current phafile {existing_files[idx]} is associated with this spectrum object. Saving the new phafile"
-                                 f"{file} is not permitted.")
+        self.pha_file=phafile
 
     def calc_upper_limit(self, bkg_nsigma=5):
         """
@@ -2010,8 +1939,6 @@ class Spectrum(BatObservation):
 
             pha_hdulist.flush()
 
-
-        # do we want to set the pha_file to the upper limit one and reparse the pha upperlim file?
 
         return self.from_file(upperlimit_pha_file, self.event_file, self.detector_quality_mask,
                               self.auxil_raytracing_file)
