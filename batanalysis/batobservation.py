@@ -36,6 +36,8 @@ except ModuleNotFoundError as err:
 # Error handling
 # print(err)
 
+_warn_skips = (os.path.dirname(__file__),)
+
 
 class BatObservation(object):
     """
@@ -1163,21 +1165,21 @@ class Spectrum(BatObservation):
         else:
             self.event_file = None
             warnings.warn("No event file has been specified. The resulting spectrum object will not be able to be"
-                          "modified either by rebinning in energy or time.")
+                          "modified either by rebinning in energy or time.", stacklevel=2)
 
         if detector_quality_mask is not None:
             self.detector_quality_mask = Path(detector_quality_mask).expanduser().resolve()
         else:
             self.detector_quality_mask = None
             warnings.warn("No detector quality mask file has been specified. The resulting spectrum object will not "
-                          "be able to be modified either by rebinning in energy or time.")
+                          "be able to be modified either by rebinning in energy or time.", stacklevel=2)
 
         if auxil_raytracing_file is not None:
             self.auxil_raytracing_file = Path(auxil_raytracing_file).expanduser().resolve()
         else:
             self.auxil_raytracing_file = None
             warnings.warn("No auxiliary ray tracing file has been specified. The resulting spectrum object will not "
-                          "be able to be modified either by rebinning in energy or time.")
+                          "be able to be modified either by rebinning in energy or time.", stacklevel=2)
 
         self.drm_file = None
         self.spectral_model = None
