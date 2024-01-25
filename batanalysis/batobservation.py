@@ -217,9 +217,33 @@ class Lightcurve(BatObservation):
         # spectrum object and vice versa
 
         # save these variables
-        self.event_file = Path(event_file).expanduser().resolve()
         self.lightcurve_file = Path(lightcurve_file).expanduser().resolve()
-        self.detector_quality_mask = Path(detector_quality_mask).expanduser().resolve()
+        if not self.lightcurve_file.exists():
+            raise ValueError(f"The specified lightcurve file {self.lightcurve_file} does not seem to exist. "
+                             f"Please double check that it does.")
+
+        # if any of these below are None, produce a warning that we wont be able to modify the spectrum. Also do
+        # error checking for the files existing, etc
+        if event_file is not None:
+            self.event_file = Path(event_file).expanduser().resolve()
+            if not self.event_file.exists():
+                raise ValueError(f"The specified event file {self.event_file} does not seem to exist. "
+                                 f"Please double check that it does.")
+        else:
+            self.event_file = None
+            warnings.warn("No event file has been specified. The resulting lightcurve object will not be able "
+                          "to be modified either by rebinning in energy or time.", stacklevel=2)
+
+        if detector_quality_mask is not None:
+            self.detector_quality_mask = Path(detector_quality_mask).expanduser().resolve()
+            if not self.detector_quality_mask.exists():
+                raise ValueError(f"The specified detector quality mask file {self.detector_quality_mask} does not seem "
+                                 f"to exist. Please double check that it does.")
+        else:
+            self.detector_quality_mask = None
+            warnings.warn("No detector quality mask file has been specified. The resulting lightcurve object "
+                          "will not be able to be modified either by rebinning in energy or time.", stacklevel=2)
+
 
         # error checking for weighting
         if type(mask_weighting) is not bool:
@@ -1149,12 +1173,6 @@ class Lightcurve(BatObservation):
         :param detector_quality_mask:
         :return:
         """
-        lightcurve_file = Path(lightcurve_file).expanduser().resolve()
-
-        if not lightcurve_file.exists():
-            raise ValueError(f"The lightcurve file {lightcurve_file} does not seem to exist. "
-                             f"Please double check that it does.")
-
         return cls(lightcurve_file, event_file, detector_quality_mask)
 
 
