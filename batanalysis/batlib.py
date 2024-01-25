@@ -430,12 +430,11 @@ def fit_spectrum(*args, **kwargs):
     :return: None
     """
     from .batobservation import Spectrum
-    from .bat_survey import BatSurvey
 
     if isinstance(args[0], Spectrum):
         # we have a spectrum object
         fit_TTE_spectrum(*args, **kwargs)
-    elif isinstance(args[0], BatSurvey):
+    elif isinstance(args[0], Path) or isinstance(args[0], str):
         # we are passing in a phafilename for
         fit_survey_spectrum(*args, **kwargs)
     else:
@@ -1307,8 +1306,8 @@ def calculate_TTE_detection(
         upper_lim_spect=spectrum.calc_upper_limit(bkg_nsigma)
 
         #fit the spectrum
-        fit_TTE_spectrum(upper_lim_spect, generic_model="po", setPars={1:f"{pl_index},-1", 2:"0.001"}, get_upperlim=True,
-                         plotting=plotting)
+        fit_TTE_spectrum(upper_lim_spect, generic_model="po", setPars={1: f"{pl_index},-1", 2: "0.001"},
+                         get_upperlim=True, plotting=plotting)
 
     else:  # Detection
         if verbose:
