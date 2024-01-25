@@ -1136,6 +1136,35 @@ class Lightcurve(BatObservation):
         self.tdurs[duration_str]["TSTART"] = tstart
         self.tdurs[duration_str]["TSTOP"] = tstop
 
+    @classmethod
+    def from_file(cls, lightcurve_file, event_file=None, detector_quality_mask=None):
+        """
+        This class method takes an existing lightcurve file and returns a Lightcurve class object with the data
+        contained in the lightcurve file. The user will be able to plot the lightcurve. If the event file, or the
+        detector quality mask files are not specified, then the user will not be able to dynamically change the
+        lightcurve energy bins or time bins
+
+        :param lightcurve_file:
+        :param event_file:
+        :param detector_quality_mask:
+        :return:
+        """
+        lightcurve_file = Path(lightcurve_file).expanduser().resolve()
+
+        if event_file is not None:
+            event_file = Path(event_file).expanduser().resolve()
+
+        if detector_quality_mask is not None:
+            detector_quality_mask = Path(detector_quality_mask).expanduser().resolve()
+
+
+        if not lightcurve_file.exists():
+            raise ValueError(f"The lightcurve file {lightcurve_file} does not seem to exist. "
+                             f"Please double check that it does.")
+
+        return cls(lightcurve_file, event_file, detector_quality_mask)
+
+
 
 class Spectrum(BatObservation):
     def __init__(self, pha_file, event_file, detector_quality_mask, auxil_raytracing_file, ra=None, dec=None,
@@ -2001,6 +2030,15 @@ class Spectrum(BatObservation):
         :return:
         """
         pha_file = Path(pha_file).expanduser().resolve()
+
+        if event_file is not None:
+            event_file = Path(event_file).expanduser().resolve()
+
+        if detector_quality_mask is not None:
+            detector_quality_mask = Path(detector_quality_mask).expanduser().resolve()
+
+        if auxil_raytracing_file is not None:
+            auxil_raytracing_file = Path(auxil_raytracing_file).expanduser().resolve()
 
         if not pha_file.exists():
             raise ValueError(f"The pha file {pha_file} does not seem to exist. Please double check that it does.")
