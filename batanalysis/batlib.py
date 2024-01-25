@@ -888,7 +888,7 @@ def fit_TTE_spectrum(
     This is an extension of the fit_spectrum function which allows for the use of the Spectrum object to
     get the relevant information and saves the model parameters to the  object.
 
-    The user can specfiy their own spectral model that is XSPEC compatible.
+    The user can specify their own spectral model that is XSPEC compatible.
     To learn about how to specify a spectral model in pyXspec the user can
     look at the following link: https://heasarc.gsfc.nasa.gov/xanadu/xspec/python/html/index.html
 
@@ -905,14 +905,14 @@ def fit_TTE_spectrum(
 
     :param spectrum: The Spectrum object which contains the spectrum that will be fit.
     :param plotting: Boolean statement, if the user wants to plot the spectrum.
-    :param generic_model: String with XSPEC compatible model, which must include cflux.
+    :param generic_model: String with XSPEC compatible model, which must include cflux if the user is not attempting
+        to calculate flux upper limits. If the get_upperlim parameter (see below) is set to True, then the generic_model
+        that is passed in does not need a cflux component.
     :param setPars: Boolean to set the parameter values of the model specified above.
     :param use_cstat: Boolean to use cstat in case of low counts (Poisson statistics), otherwise use chi squared stats.
-    :param fit_iterations: Number of fit iterations to be carried out by XSPEC.
-     Since BAT data has just 8 energy channels, a default of 100 is enough.
-     But the user can specify any value that may be needed.
+    :param fit_iterations: default 1000, to specify the number of fit iterations to be carried out by XSPEC.
     :param verbose: Boolean to show every output during the fitting process.
-     Set to True by default, that'll help the user to identify any issues with the fits.
+     Set to True by default, which will help the user to identify any issues with the fits.
     :param get_upperlim: Boolean to denote if the fitting is being done with the goal of obtaining an upper limit flux.
         If so, then the generic_model does not need to include a cflux component.
     :return: None
@@ -1022,15 +1022,6 @@ def fit_TTE_spectrum(
 
         # Get coordinates from XSPEC plot to use in matplotlib:
         xsp.Plot.device = "/null"
-        """
-        xsp.Plot("data")
-        chans = xsp.Plot.x()
-        rates = xsp.Plot.y()
-        xerr = xsp.Plot.xErr()
-        yerr = xsp.Plot.yErr()
-        folded = xsp.Plot.model()
-        """
-        ## above is old
 
         #this gives the energy of the fitted model. units of the model values should be
         # count/s/keV which is the default below but have checks to make sure we arent doing anything weird
@@ -1156,24 +1147,22 @@ def calculate_TTE_detection(
     verbose=True,
 ):
     """
-    This function uses the fitting function and statistically checks if there is any significant detection (at a specfied confidence).
-    If there is no detection, then the function re-calculates the PHA with a bkg_nsigma times the background to calculate the
-    upper limit on the flux, at a certain confidence level (given by the user specified bkg_nsigma).
+    This function uses the fitting function and statistically checks if there is any significant detection (at a
+    specified confidence). If there is no detection, then the function re-calculates the PHA with a bkg_nsigma times
+    the background to calculate the upper limit on the flux, at a certain confidence level (given by the user
+    specified bkg_nsigma).
 
     We deal with two cases:
 
-     (1) Non-detection:  Checking if nsigma error on  The 14-195 keV flux is consistent with the equation (measured flux - nsigma*error)<=0,
-     then return: upper limit=True
-     and then recalculate the PHA +response again.... with count rate= bkg_nsigma*BKG_VAR
+     (1) Non-detection:  Checking if nsigma error on  The 14-195 keV flux is consistent with the equation (measured
+     flux - nsigma*error)<=0, then then recalculate the PHA +response again with
+     count rate= bkg_nsigma*BKG_VAR (for survey data) or  rate= bkg_nsigma*STAT_ERROR (for TTE data) and return a
+     Spectrum object with this new upper limit spectrum and spectral fit that was done.
 
-     (2) Detection: If (measured flux - nsigma*error)>=0 then return: "detection has been measured"
+     (2) Detection: If (measured flux - nsigma*error)>=0 then return the input Spectrum object
 
      This operates on the entire batsurvey object (corresponding to a batobservation id),
      and we want to see if there is a detection for 'any number of pointings for a given source' in that batobservation id.
-
-     Note that it operates ONLY on one source.
-     For different sources one can specify separate detection threshold ('sigma') for different sources.
-     Thus we have kept this function to operate only ONE source at a time.
 
     :param surveyobservation: Object denoting the batsurvey observation object which contains all the necessary
         information related to this observation.
@@ -1186,7 +1175,9 @@ def calculate_TTE_detection(
     :param plotting: Boolean statement, if the user wants to plot the spectrum.
     :param verbose: Boolean to show every output during the fitting process. Set to True by default, that'll help the
         user to identify any issues with the fits.
-    :return: In case of a non-detection a flux upper limit is returned.
+    :return: Spectrum object. If an upper limit has been determined, then the spectrum object is the new upper limit
+        spectrum. If the source is detected to the specified significance level, then the original spectrum that was
+        provided to the function is returned
     """
 
     from .batobservation import Spectrum
@@ -1265,19 +1256,20 @@ def calculate_TTE_detection(
         upper_lim_spect=spectrum.calc_upper_limit(bkg_nsigma)
 
         #fit the spectrum
-        fit_TTE_spectrum(upper_lim_spect, generic_model="po", setPars={1:f"{pl_index},-1", 2:"0.001"}, get_upperlim=True)
+        fit_TTE_spectrum(upper_lim_spect, generic_model="po", setPars={1:f"{pl_index},-1", 2:"0.001"}, get_upperlim=True,
+                         plotting=plotting)
 
     else:  # Detection
         if verbose:
             print("A detection has been measured at the %d sigma level" % (nsigma))
 
-        upper_lim_spect = None
+        upper_lim_spect = spectrum
 
     # cd back
     if str(pha_dir) != str(current_dir):
         os.chdir(current_dir)
 
-    return upper_lim_spect  # This is a list for all the Valid non-detection pointings
+    return upper_lim_spect
 
 
 
