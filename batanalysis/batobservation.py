@@ -1151,7 +1151,7 @@ class Spectrum(BatObservation):
         self.event_file = Path(event_file).expanduser().resolve()
         self.detector_quality_mask = Path(detector_quality_mask).expanduser().resolve()
         self.auxil_raytracing_file = Path(auxil_raytracing_file).expanduser().resolve()
-        self.drm_file_list = None
+        self.drm_file = None
         self.spectral_model = None
 
         # need to see if we have to construct the lightcurve if the file doesnt exist
@@ -1939,11 +1939,10 @@ class Spectrum(BatObservation):
 
             pha_hdulist.flush()
 
-
         return self.from_file(upperlimit_pha_file, self.event_file, self.detector_quality_mask,
                               self.auxil_raytracing_file)
 
     @classmethod
-    def from_file(cls, pha_file, event_file, detector_quality_mask, auxil_raytracing_file):
+    def from_file(cls, pha_file, event_file=None, detector_quality_mask=None, auxil_raytracing_file=None):
         return cls(pha_file, event_file, detector_quality_mask, auxil_raytracing_file)
 
