@@ -934,12 +934,14 @@ class Lightcurve(BatObservation):
                 if len(self.ebins["INDEX"]) > 1:
                     rate = self.data["RATE"][:, e_idx]
                     rate_error = self.data["ERROR"][:, e_idx]
+                    l=f'{self.ebins["E_MIN"][e_idx].value}-{self.ebins["E_MAX"][e_idx].value} '+ f'{self.ebins["E_MAX"][e_idx].unit}'
                 else:
                     rate = self.data["RATE"]
                     rate_error = self.data["ERROR"]
+                    l=f'{self.ebins["E_MIN"][0].value}-{self.ebins["E_MAX"][0].value} '+ f'{self.ebins["E_MAX"].unit}'
 
                 line = ax_rate.plot(start_times, rate, ds='steps-post')
-                ax_rate.plot(end_times, rate, ds='steps-pre', color=line[-1].get_color())
+                ax_rate.plot(end_times, rate, ds='steps-pre', color=line[-1].get_color(), label=l)
                 ax_rate.errorbar(mid_times, rate, yerr=rate_error, ls='None', color=line[-1].get_color())
 
         if num_plots > 1:
@@ -964,7 +966,8 @@ class Lightcurve(BatObservation):
                 ax_rate.axvline(T0, 0, 1, ls='--', label=f"T0={T0:.2f}", color='k')
 
         if num_plots > 1:
-            ax[1].legend()
+            if T0 is not None and not plot_relative:
+                ax[1].legend()
             ax[-1].set_xlabel(xlabel)
         else:
             ax_rate.legend()
@@ -975,7 +978,6 @@ class Lightcurve(BatObservation):
         else:
             ax_rate.set_ylabel('Counts (ct)')
 
-        # fig.savefig("test.pdf")
         return fig, ax
 
     def _create_custom_timebins(self, timebins, output_file=None):
