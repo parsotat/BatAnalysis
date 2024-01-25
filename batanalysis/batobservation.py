@@ -61,7 +61,7 @@ class BatObservation(object):
             else:
                 raise FileNotFoundError(
                     'The directory %s does not contain the observation data corresponding to ID: %s' % (
-                    obs_dir, self.obs_id))
+                        obs_dir, self.obs_id))
         else:
             obs_dir = datadir()  # Path.cwd()
 
@@ -71,7 +71,7 @@ class BatObservation(object):
             else:
                 raise FileNotFoundError(
                     'The directory %s does not contain the observation data correponding to ID: %s' % (
-                    obs_dir, self.obs_id))
+                        obs_dir, self.obs_id))
 
     def _set_local_pfile_dir(self, dir):
         """
@@ -329,6 +329,10 @@ class Lightcurve(BatObservation):
 
         # create a temp copy incase the time rebinning doesnt complete successfully
         tmp_lc_input_dict = self.lc_input_dict.copy()
+
+        # return an error if there is no event file set
+        if self.event_file is None:
+            raise RuntimeError("There was no event file specified ")
 
         # error checking for calc_energy_integrated
         if type(is_relative) is not bool:
@@ -702,8 +706,12 @@ class Lightcurve(BatObservation):
 
         # read in all the info for the weights and save it such that we can use these weights in the future for
         # redoing lightcurve calculation
-        with fits.open(self.event_file) as file:
-            self._event_weights = file[1].data["MASK_WEIGHT"]
+        if self.event_file is not None:
+            with fits.open(self.event_file) as file:
+                self._event_weights = file[1].data["MASK_WEIGHT"]
+        else:
+            # no event file was specified when the object was created
+            self._event_weights = None
 
     def _set_event_weights(self):
         """
@@ -717,7 +725,7 @@ class Lightcurve(BatObservation):
         :return: None
         """
 
-        if not self._same_event_lc_coords():
+        if self.event_file is not None and not self._same_event_lc_coords():
             # read in the event file and replace the values in the MASK_WEIGHT with the appropriate values in self._event_weights
             with fits.open(self.event_file, mode="update") as file:
                 file[1].data["MASK_WEIGHT"] = self._event_weights
@@ -1142,21 +1150,42 @@ class Spectrum(BatObservation):
         :param recalc:
         :param mask_weighting:
         """
-        # NOTE: Lots of similarities here as with the lightcurve since we are using batbinevt as the base. If there are any
-        # issues with the lightcurve object, then we should make sure that these same problems do not occur in the
-        # spectrum object and vice versa
+        # NOTE: Lots of similarities here as with the lightcurve since we are using batbinevt as the base. If there
+        # are any issues with the lightcurve object, then we should make sure that these same problems do not occur
+        # in the spectrum object and vice versa
 
         # save these variables
         self.pha_file = Path(pha_file).expanduser().resolve()
-        self.event_file = Path(event_file).expanduser().resolve()
-        self.detector_quality_mask = Path(detector_quality_mask).expanduser().resolve()
-        self.auxil_raytracing_file = Path(auxil_raytracing_file).expanduser().resolve()
+
+        # if any of these below are None, produce a warning that we wont be able to modify the
+        if event_file is not None:
+            self.event_file = Path(event_file).expanduser().resolve()
+        else:
+            self.event_file = None
+            warnings.warn("No event file has been specified. The resulting spectrum object will not be able to be"
+                          "modified either by rebinning in energy or time.")
+
+        if detector_quality_mask is not None:
+            self.detector_quality_mask = Path(detector_quality_mask).expanduser().resolve()
+        else:
+            self.detector_quality_mask = None
+            warnings.warn("No detector quality mask file has been specified. The resulting spectrum object will not "
+                          "be able to be modified either by rebinning in energy or time.")
+
+        if auxil_raytracing_file is not None:
+            self.auxil_raytracing_file = Path(auxil_raytracing_file).expanduser().resolve()
+        else:
+            self.auxil_raytracing_file = None
+            warnings.warn("No auxiliary ray tracing file has been specified. The resulting spectrum object will not "
+                          "be able to be modified either by rebinning in energy or time.")
+
         self.drm_file = None
         self.spectral_model = None
 
         # need to see if we have to construct the lightcurve if the file doesnt exist
         if not self.pha_file.exists() or recalc:
-            # see if the input dict is None so we can set these defaults, otherwise save the requested inputs for use later
+            # see if the input dict is None so we can set these defaults, otherwise save the requested inputs for use
+            # later
             if pha_input_dict is None:
                 # energybins = "CALDB" gives us the 80 channel spectrum
                 self.pha_input_dict = dict(infile=str(self.event_file), outfile=str(self.pha_file), outtype="PHA",
@@ -1186,7 +1215,7 @@ class Spectrum(BatObservation):
         self.lc_ra = ra
         self.lc_dec = dec
 
-        # read info from the lightcurve file
+        # read info from the lightcurve file including if there is a drm file associated through the RESP header key
         self._parse_pha_file()
 
         # read in the information about the weights
@@ -1196,8 +1225,6 @@ class Spectrum(BatObservation):
         # or if we are directed to
         if self.drm_file is None or recalc:
             self._call_batdrmgen()
-
-
 
         # were done getting all the info that we need. From here, the user can rebin the timebins and the energy bins
 
@@ -1271,6 +1298,12 @@ class Spectrum(BatObservation):
 
         # create a temp copy incase the time rebinning doesnt complete successfully
         tmp_pha_input_dict = self.pha_input_dict.copy()
+
+        # make sure we have all the info to do the rebinning
+        if self.event_file is None or self.auxil_raytracing_file is None or self.detector_quality_mask is None:
+            raise RuntimeError("The spectrum cannot be rebinned in time since one of the following files was not "
+                               "initalized with this Spectrum object: the event file, the auxiliary raytracing file, "
+                               "or the detector quality mask file.")
 
         # error checking for calc_energy_integrated
         if type(is_relative) is not bool:
@@ -1389,6 +1422,12 @@ class Spectrum(BatObservation):
             NOTE: If emin/emax are specified, the energybins parameter is ignored.
         :return: None.
         """
+
+        # make sure we have all the info to do the rebinning
+        if self.event_file is None or self.auxil_raytracing_file is None or self.detector_quality_mask is None:
+            raise RuntimeError("The spectrum cannot be rebinned in energy since at least one of the following files was"
+                               " not initalized with this Spectrum object: the event file, the auxiliary raytracing "
+                               "file, or the detector quality mask file.")
 
         # see if the user specified either the energy bins directly or emin/emax separately
         if emin is None and emax is None:
@@ -1527,7 +1566,7 @@ class Spectrum(BatObservation):
         :return:
         """
 
-        pha_file=self.get_pha_filename()
+        pha_file = self.get_pha_filename()
         output = calc_response(pha_file)
 
         if output.returncode != 0:
@@ -1536,10 +1575,9 @@ class Spectrum(BatObservation):
         drm_file = pha_file.parent.joinpath(f"{pha_file.stem}.rsp")
         self.set_drm_filename(drm_file)
 
-
     def _get_event_weights(self):
         """
-        This method reads in the appropriate weights for event data once it has been applied to a event file, for a
+        This method reads in the appropriate weights for event data once it has been applied to an event file, for a
         given RA/DEC position. This should only need to be done once, when the user has applied mask weighting
         in the BatEvent object and is creating a lightcurve.
 
@@ -1548,8 +1586,12 @@ class Spectrum(BatObservation):
 
         # read in all the info for the weights and save it such that we can use these weights in the future for
         # redoing lightcurve calculation
-        with fits.open(self.event_file) as file:
-            self._event_weights = file[1].data["MASK_WEIGHT"]
+        if self.event_file is not None:
+            with fits.open(self.event_file) as file:
+                self._event_weights = file[1].data["MASK_WEIGHT"]
+        else:
+            # no event file was specified when the object was created
+            self._event_weights = None
 
     def _set_event_weights(self):
         """
@@ -1563,8 +1605,9 @@ class Spectrum(BatObservation):
         :return: None
         """
 
-        if not self._same_event_lc_coords():
-            # read in the event file and replace the values in the MASK_WEIGHT with the appropriate values in self._event_weights
+        if self.event_file is not None and not self._same_event_lc_coords():
+            # read in the event file and replace the values in the MASK_WEIGHT with the appropriate values in
+            # self._event_weights
             with fits.open(self.event_file, mode="update") as file:
                 file[1].data["MASK_WEIGHT"] = self._event_weights
                 file.flush()
@@ -1632,7 +1675,7 @@ class Spectrum(BatObservation):
         else:
             key = "COUNTS"
 
-        self.data["SYS_ERR"] = self.data["SYS_ERR"]*self.data[key]
+        self.data["SYS_ERR"] = self.data["SYS_ERR"] * self.data[key]
 
         # fill in the energy bin info
         self.ebins = {}
@@ -1748,8 +1791,6 @@ class Spectrum(BatObservation):
 
             self.pha_input_dict = default_params_dict.copy()
 
-
-
     def _create_custom_timebins(self, timebins, output_file=None):
         """
         This method creates custom time bins from a user defined set of time bin edges. The created fits file with the
@@ -1775,7 +1816,7 @@ class Spectrum(BatObservation):
 
         return create_gti_file(timebins, output_file, T0=None, is_relative=False, overwrite=True)
 
-    def plot(self, emin=15*u.keV, emax=195*u.keV, plot_model=True):
+    def plot(self, emin=15 * u.keV, emax=195 * u.keV, plot_model=True):
         """
         This method allows the user to conveniently plot the spectrum that has been created. If it has been fitted
         with a model, then the model can also be plotted as well.
@@ -1784,17 +1825,17 @@ class Spectrum(BatObservation):
         """
 
         # calculate the center of the energy bin
-        ecen = 0.5*(self.ebins["E_MIN"]+self.ebins["E_MAX"])
+        ecen = 0.5 * (self.ebins["E_MIN"] + self.ebins["E_MAX"])
 
         # get where the energy is >15 keV and <195 keV
         if emin is not None and emax is not None:
             energy_idx = np.where((self.ebins["E_MIN"] >= emin) & (self.ebins["E_MAX"] < emax))
         else:
-            energy_idx = np.where((self.ebins["E_MIN"] > -1*np.inf) & (self.ebins["E_MAX"] < np.inf))
+            energy_idx = np.where((self.ebins["E_MIN"] > -1 * np.inf) & (self.ebins["E_MAX"] < np.inf))
 
         # calculate error including both systematic error and statistical error, note that systematic error has
         # been multiplied by the rates/counts in the _parse_pha method
-        tot_error = np.sqrt(self.data["STAT_ERR"].value**2+self.data["SYS_ERR"].value**2)
+        tot_error = np.sqrt(self.data["STAT_ERR"].value ** 2 + self.data["SYS_ERR"].value ** 2)
 
         # get the quantity to be plotted
         if "RATE" in self.data.keys():
@@ -1804,11 +1845,11 @@ class Spectrum(BatObservation):
 
         fig, ax = plt.subplots(1)
         ax.loglog(self.ebins["E_MIN"][energy_idx], plot_data[energy_idx], color="k", drawstyle="steps-post")
-        ax.loglog(self.ebins["E_MAX"][energy_idx],  plot_data[energy_idx], color="k", drawstyle="steps-pre")
+        ax.loglog(self.ebins["E_MAX"][energy_idx], plot_data[energy_idx], color="k", drawstyle="steps-pre")
         ax.errorbar(
             ecen[energy_idx],
             plot_data[energy_idx],
-            yerr=tot_error[energy_idx]*plot_data.unit,
+            yerr=tot_error[energy_idx] * plot_data.unit,
             color="k",
             marker="None",
             ls="None",
@@ -1825,8 +1866,8 @@ class Spectrum(BatObservation):
 
         # if there is a fitted model need to get that and plot it
         if self.spectral_model is not None and plot_model:
-            model_emin=self.spectral_model["ebins"]["E_MIN"]
-            model_emax=self.spectral_model["ebins"]["E_MAX"]
+            model_emin = self.spectral_model["ebins"]["E_MIN"]
+            model_emax = self.spectral_model["ebins"]["E_MAX"]
 
             # get where the energy is >15 keV and <195 keV
             if emin is not None and emax is not None:
@@ -1834,8 +1875,7 @@ class Spectrum(BatObservation):
             else:
                 energy_idx = np.where((model_emin > -1 * np.inf) & (model_emax < np.inf))
 
-            model=self.spectral_model["data"]["model_spectrum"][energy_idx]
-
+            model = self.spectral_model["data"]["model_spectrum"][energy_idx]
 
             ax.loglog(model_emin[energy_idx], model, color="r", drawstyle="steps-post")
             ax.loglog(model_emax[energy_idx], model, color="r", drawstyle="steps-pre", label="Folded Model")
@@ -1862,9 +1902,10 @@ class Spectrum(BatObservation):
 
         :return: Path object of the DRM file
         """
+        if self.drm_file is None:
+            self.calculate_drm()
 
         return self.drm_file
-
 
     def set_drm_filename(self, drmfile):
         """
@@ -1875,7 +1916,7 @@ class Spectrum(BatObservation):
         :return:
         """
 
-        self.drm_file=drmfile
+        self.drm_file = drmfile
 
     def get_pha_filename(self):
         """
@@ -1897,7 +1938,7 @@ class Spectrum(BatObservation):
         :return:
         """
 
-        self.pha_file=phafile
+        self.pha_file = phafile
 
     def calc_upper_limit(self, bkg_nsigma=5):
         """
@@ -1944,5 +1985,22 @@ class Spectrum(BatObservation):
 
     @classmethod
     def from_file(cls, pha_file, event_file=None, detector_quality_mask=None, auxil_raytracing_file=None):
-        return cls(pha_file, event_file, detector_quality_mask, auxil_raytracing_file)
+        """
+        This class method takes an existing PHA file and returns a Spectrum class object with the data contained in the
+        PHA file. The user will be able to plot the spectrum, calculate the detector response matrix for the file (if it
+        doesnt exist already), and fit the spectrum. If the event file, the detector quality mask, or the auxiliary ray
+        tracing files are not specified, then the user will not be able to dynamically change the spectrum energy bins
+        or time bin
 
+        :param pha_file:
+        :param event_file:
+        :param detector_quality_mask:
+        :param auxil_raytracing_file:
+        :return:
+        """
+        pha_file = Path(pha_file).expanduser().resolve()
+
+        if not pha_file.exists():
+            raise ValueError(f"The pha file {pha_file} does not seem to exist. Please double check that it does.")
+
+        return cls(pha_file, event_file, detector_quality_mask, auxil_raytracing_file)
