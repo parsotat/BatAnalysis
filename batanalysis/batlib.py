@@ -420,7 +420,58 @@ def calc_response(phafilename):
     return output
 
 
-def fit_spectrum(
+def fit_spectrum(*args, **kwargs):
+    """
+    This is a wrapper function that allows users to pass in arguments for fitting spectra produced from BAT survey data
+    or TTE data. For fitting survey data spectra, see the documentation for fit_survey_spectrum for the values that need
+    to be passed in/can be passed in. For TTE spectra, using the Spectrum object, refer to
+    the fit_TTE_spectrum function for potential inputs to this function.
+
+    :return: None
+    """
+    from .batobservation import Spectrum
+    from .bat_survey import BatSurvey
+
+    if isinstance(args[0], Spectrum):
+        # we have a spectrum object
+        fit_TTE_spectrum(*args, **kwargs)
+    elif isinstance(args[0], BatSurvey):
+        # we are passing in a phafilename for
+        fit_survey_spectrum(*args, **kwargs)
+    else:
+        raise ValueError("The inputs cannot be parsed appropriately. Please consult the documentation for "
+                         "fit_TTE_spectrum or fit_survey_spectrum for the values that should be passed in.")
+
+    return None
+
+def calculate_detection(*args, **kwargs):
+    """
+    This is a wrapper function that allows users to pass in arguments for determining if sources are detected
+    in spectra produced from BAT survey data or TTE data. For calculating the detection of sources in survey data
+    spectra, see the documentation for calculate_survey_detection for the values that need to be passed in/can be passed
+    in. For TTE spectra, using the Spectrum object, refer to
+    the calculate_TTE_detection function for potential inputs to this function.
+
+    :return: either a flux_upperlim list for calls to calculate_survey_detection, or a Spectrum object for calls to
+        calculate_TTE_detection
+    """
+    from .batobservation import Spectrum
+    from .bat_survey import BatSurvey
+
+    if isinstance(args[0], Spectrum):
+        # we have a spectrum object
+        val = calculate_TTE_detection(*args, **kwargs)
+    elif isinstance(args[0], BatSurvey):
+        # then we are passing in the survey spectrum
+        val = calculate_survey_detection(*args, **kwargs)
+    else:
+        raise ValueError("The inputs cannot be parsed appropriately. Please consult the documentation for "
+                         "calculate_TTE_detection or calculate_survey_detection for the values that should be passed in.")
+
+    return val
+
+
+def fit_survey_spectrum(
     phafilename,
     surveyobservation,
     plotting=True,
@@ -657,7 +708,7 @@ def fit_spectrum(
     return None
 
 
-def calculate_detection(
+def calculate_survey_detection(
     surveyobservation,
     source_id,
     pl_index=2,
