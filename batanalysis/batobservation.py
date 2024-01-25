@@ -353,6 +353,12 @@ class Lightcurve(BatObservation):
         :return: None
         """
 
+        # make sure we have all the info to do the rebinning
+        if self.event_file is None or self.detector_quality_mask is None:
+            raise RuntimeError("The lightcurve cannot be rebinned in time since one of the following files was not "
+                               "initalized with this Lightcurve object: the event file "
+                               "or the detector quality mask file.")
+
         # create a temp copy incase the time rebinning doesnt complete successfully
         tmp_lc_input_dict = self.lc_input_dict.copy()
 
@@ -503,6 +509,12 @@ class Lightcurve(BatObservation):
             then this argument does nothing.
         :return: None.
         """
+        # make sure we have all the info to do the rebinning
+        if self.event_file is None or self.detector_quality_mask is None:
+            raise RuntimeError("The lightcurve cannot be rebinned in energy since one of the following files was not "
+                               "initalized with this Lightcurve object: the event file "
+                               "or the detector quality mask file.")
+
 
         # error checking for calc_energy_integrated
         if type(calc_energy_integrated) is not bool:
