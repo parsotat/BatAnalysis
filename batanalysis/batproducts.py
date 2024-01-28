@@ -1094,7 +1094,7 @@ class Spectrum(BatObservation):
 
         # save these variables
         self.pha_file = Path(pha_file).expanduser().resolve()
-        if not pha_file.exists():
+        if not self.pha_file.exists():
             raise ValueError(f"The pha file {pha_file} does not seem to exist. Please double check that it does.")
 
         # if any of these below are None, produce a warning that we wont be able to modify the spectrum. Also do
