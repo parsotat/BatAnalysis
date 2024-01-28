@@ -429,7 +429,7 @@ def fit_spectrum(*args, **kwargs):
 
     :return: None
     """
-    from .batobservation import Spectrum
+    from .batproducts import Spectrum
 
     if isinstance(args[0], Spectrum):
         # we have a spectrum object
@@ -454,7 +454,7 @@ def calculate_detection(*args, **kwargs):
     :return: either a flux_upperlim list for calls to calculate_survey_detection, or a Spectrum object for calls to
         calculate_TTE_detection
     """
-    from .batobservation import Spectrum
+    from .batproducts import Spectrum
     from .bat_survey import BatSurvey
 
     if isinstance(args[0], Spectrum):
@@ -967,7 +967,7 @@ def fit_TTE_spectrum(
         If so, then the generic_model does not need to include a cflux component.
     :return: None
     """
-    from .batobservation import Spectrum
+    from .batproducts import Spectrum
 
     try:
         import xspec as xsp
@@ -1230,7 +1230,7 @@ def calculate_TTE_detection(
         provided to the function is returned
     """
 
-    from .batobservation import Spectrum
+    from .batproducts import Spectrum
 
     try:
         import xspec as xsp

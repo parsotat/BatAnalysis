@@ -14,7 +14,8 @@ import sys
 import batanalysis
 
 from .batlib import datadir, dirtest, met2mjd, met2utc
-from .batobservation import BatObservation, Lightcurve, Spectrum
+from .batobservation import BatObservation
+from .batproducts import Lightcurve, Spectrum
 import glob
 from astropy.io import fits
 import numpy as np
