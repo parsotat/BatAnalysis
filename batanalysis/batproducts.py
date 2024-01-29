@@ -492,6 +492,10 @@ class Lightcurve(BatObservation):
         :return: None
         """
 
+
+        #determine if we have a rate lightcurve file, produced by the SDC, or a normally produced one calcualted with
+        #batbinevt
+
         # error checking for calc_energy_integrated
         if type(calc_energy_integrated) is not bool:
             raise ValueError("The calc_energy_integrated parameter should be a boolean value.")
@@ -499,8 +503,16 @@ class Lightcurve(BatObservation):
         with fits.open(self.lightcurve_file) as f:
             header = f[1].header
             data = f[1].data
-            energies = f["EBOUNDS"].data
-            energies_header = f["EBOUNDS"].header
+
+            # if we are reading in a mask weighted event lightcurve then we need to read in the energy bins, otherwise
+            # the energy bins are already known
+            if "event" in header["DATAMODE"].lower():
+                energies = f["EBOUNDS"].data
+                energies_header = f["EBOUNDS"].header
+                self._is_rate_lc=False
+            else:
+                self._is_rate_lc=True
+
 
         if self.lc_ra is None and self.lc_dec is None:
             self.lc_ra = header["RA_OBJ"]
@@ -517,12 +529,23 @@ class Lightcurve(BatObservation):
             self.data[i.name] = u.Quantity(data[i.name], i.unit)
 
         # fill in the energy bin info
-        self.ebins = {}
-        for i in energies.columns:
-            if "CHANNEL" in i.name:
-                self.ebins["INDEX"] = energies[i.name]
-            elif "E" in i.name:
-                self.ebins[i.name] = u.Quantity(energies[i.name], i.unit)
+        if "event" in header["DATAMODE"].lower():
+            self.ebins = {}
+            for i in energies.columns:
+                if "CHANNEL" in i.name:
+                    self.ebins["INDEX"] = energies[i.name]
+                elif "E" in i.name:
+                    self.ebins[i.name] = u.Quantity(energies[i.name], i.unit)
+        else:
+            if "1s" in header["DATAMODE"].lower():
+                idx=np.array([0], dtype=np.int16)
+                emin=[-np.inf]*u.keV
+                emax=[np.inf]*u.keV
+            else:
+                idx=np.array([0,1,2,3], dtype=np.int16)
+                emin=[15,  25,  50, 100]*u.keV
+                emax=[25,  50,  100, 350]*u.keV
+            self.ebins={"INDEX": idx, "E_MIN": emin, "E_MAX": emax}
 
         # fill in the time info separately
         timepixr = header["TIMEPIXR"]
@@ -581,7 +604,7 @@ class Lightcurve(BatObservation):
         # P32 mode = ql
         # END PARAMETER list for batbinevt_1.48
 
-        if self.lc_input_dict is None:
+        if "event" in header["DATAMODE"].lower() and self.lc_input_dict is None:
             # get the default names of the parameters for batbinevt including its name 9which should never change)
             test = hsp.HSPTask('batbinevt')
             default_params_dict = test.default_params.copy()
@@ -612,7 +635,7 @@ class Lightcurve(BatObservation):
 
             self.lc_input_dict = default_params_dict.copy()
 
-        if calc_energy_integrated:
+        if calc_energy_integrated and not self._is_rate_lc:
             self._calc_energy_integrated()
 
     def _get_event_weights(self):
@@ -801,6 +824,11 @@ class Lightcurve(BatObservation):
         else:
             ax_rate = ax
 
+        if "RATE" in self.data.keys():
+            plot_data_key = "RATE"
+        else:
+            plot_data_key = "COUNTS"
+
         # plot everything for the rates by default
         for e_idx, emin, emax in zip(self.ebins["INDEX"], self.ebins["E_MIN"], self.ebins["E_MAX"]):
             plotting = True
@@ -814,17 +842,24 @@ class Lightcurve(BatObservation):
             if plotting:
                 # use the proper indexing for the array
                 if len(self.ebins["INDEX"]) > 1:
-                    rate = self.data["RATE"][:, e_idx]
-                    rate_error = self.data["ERROR"][:, e_idx]
-                    l=f'{self.ebins["E_MIN"][e_idx].value}-{self.ebins["E_MAX"][e_idx].value} '+ f'{self.ebins["E_MAX"][e_idx].unit}'
+                    rate = self.data[plot_data_key][:, e_idx]
+                    if not self._is_rate_lc:
+                        rate_error = self.data["ERROR"][:, e_idx]
+                        l=f'{self.ebins["E_MIN"][e_idx].value}-{self.ebins["E_MAX"][e_idx].value} '+ f'{self.ebins["E_MAX"][e_idx].unit}'
+                    else:
+                        l="TEST"
                 else:
-                    rate = self.data["RATE"]
-                    rate_error = self.data["ERROR"]
-                    l=f'{self.ebins["E_MIN"][0].value}-{self.ebins["E_MAX"][0].value} '+ f'{self.ebins["E_MAX"].unit}'
+                    rate = self.data[plot_data_key]
+                    if not self._is_rate_lc:
+                        rate_error = self.data["ERROR"]
+                        l=f'{self.ebins["E_MIN"][0].value}-{self.ebins["E_MAX"][0].value} '+ f'{self.ebins["E_MAX"].unit}'
+                    else:
+                        l="TEST"
 
                 line = ax_rate.plot(start_times, rate, ds='steps-post')
                 ax_rate.plot(end_times, rate, ds='steps-pre', color=line[-1].get_color(), label=l)
-                ax_rate.errorbar(mid_times, rate, yerr=rate_error, ls='None', color=line[-1].get_color())
+                if not self._is_rate_lc:
+                    ax_rate.errorbar(mid_times, rate, yerr=rate_error, ls='None', color=line[-1].get_color())
 
         if num_plots > 1:
             ax_rate.legend()
