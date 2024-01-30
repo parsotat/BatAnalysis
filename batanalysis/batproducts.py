@@ -924,7 +924,18 @@ class Lightcurve(BatObservation):
                         ax_rate.errorbar(mid_times, rate, yerr=rate_error, ls='None', color=line[-1].get_color())
 
                     #add the axis labels
-                    ax_rate.set_ylabel(data_key + f" ({rate.unit})")
+                    data_label=data_key.replace('_', " ")
+
+                    #for the quad counts just have Q0 for example
+                    if "QUAD" in data_label:
+                        data_label=data_label.replace("UAD", '')
+
+                    #for the combined quad counts, to have Q_0_1 -> Q0+1
+                    if len(data_label.split()) > 2:
+                        str_list=["".join(data_label.split(" ", 2)[:2]), data_label.split(" ", 2)[-1]]
+                        data_label="+".join(str_list)
+
+                    ax_rate.set_ylabel(data_label + f" ({rate.unit})")
 
         #if we have multiple count related plots put legend at the top
         if len(plot_data_key) > 1 or not self._is_rate_lc:
