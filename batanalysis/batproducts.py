@@ -237,6 +237,10 @@ class Lightcurve(BatObservation):
         :return: None
         """
 
+        #make sure the user isnt trying to rebin a rate file
+        if self._is_rate_lc:
+            raise RuntimeError("The rate light curves cannot be rebinned in energy")
+
         # make sure we have all the info to do the rebinning
         if self.event_file is None or self.detector_quality_mask is None:
             raise RuntimeError("The lightcurve cannot be rebinned in time since one of the following files was not "
@@ -393,6 +397,10 @@ class Lightcurve(BatObservation):
             then this argument does nothing.
         :return: None.
         """
+        #make sure the user isnt trying to rebin a rate file
+        if self._is_rate_lc:
+            raise RuntimeError("The rate light curves cannot be rebinned in energy")
+
         # make sure we have all the info to do the rebinning
         if self.event_file is None or self.detector_quality_mask is None:
             raise RuntimeError("The lightcurve cannot be rebinned in energy since one of the following files was not "
