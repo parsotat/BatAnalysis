@@ -549,7 +549,7 @@ class Lightcurve(BatObservation):
         else:
             if "1s" in header["DATAMODE"].lower():
                 idx=np.array([0], dtype=np.int16)
-                emin=[-np.inf]*u.keV
+                emin=[0]*u.keV
                 emax=[np.inf]*u.keV
             else:
                 idx=np.array([0,1,2,3], dtype=np.int16)
@@ -647,6 +647,10 @@ class Lightcurve(BatObservation):
 
         if calc_energy_integrated and not self._is_rate_lc:
             self._calc_energy_integrated()
+
+    def _get_data_keys(self):
+
+        return None
 
     def _get_event_weights(self):
         """
@@ -855,16 +859,24 @@ class Lightcurve(BatObservation):
                     rate = self.data[plot_data_key][:, e_idx]
                     if not self._is_rate_lc:
                         rate_error = self.data["ERROR"][:, e_idx]
-                        l=f'{self.ebins["E_MIN"][e_idx].value}-{self.ebins["E_MAX"][e_idx].value} '+ f'{self.ebins["E_MAX"][e_idx].unit}'
-                    else:
-                        l="TEST"
+                    l=f'{self.ebins["E_MIN"][e_idx].value}-{self.ebins["E_MAX"][e_idx].value} '+ f'{self.ebins["E_MAX"][e_idx].unit}'
                 else:
                     rate = self.data[plot_data_key]
                     if not self._is_rate_lc:
                         rate_error = self.data["ERROR"]
-                        l=f'{self.ebins["E_MIN"][0].value}-{self.ebins["E_MAX"][0].value} '+ f'{self.ebins["E_MAX"].unit}'
-                    else:
-                        l="TEST"
+                    l=f'{self.ebins["E_MIN"][0].value}-{self.ebins["E_MAX"][0].value} '+ f'{self.ebins["E_MAX"].unit}'
+
+                    #for the 1 second rate lightcurve, we have that the energy goes from -infinity to +infinity
+                    l=r"$0 - \infty$ "+ f'{self.ebins["E_MAX"].unit}'
+
+                if self._is_rate_lc:
+                    # if we are looking at a rate lightcurve, there may be gaps in the data. so filter these out for
+                    # plotting. Min dt can be 1 sec, 1.6 sec, or up to 64 ms. To remove these gaps for all these
+                    #  different time binnings just ID gaps that are larger than the mean dt
+                    idx=np.where(np.diff(self.data["TIME"])>np.diff(self.data["TIME"]).mean())[0]
+                    rate[idx]=np.nan
+                    start_times[idx]=np.nan
+                    end_times[idx]=np.nan
 
                 line = ax_rate.plot(start_times, rate, ds='steps-post')
                 ax_rate.plot(end_times, rate, ds='steps-pre', color=line[-1].get_color(), label=l)
