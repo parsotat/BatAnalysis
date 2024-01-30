@@ -166,7 +166,9 @@ class Lightcurve(BatObservation):
         self.lc_ra = ra
         self.lc_dec = dec
 
-        # read info from the lightcurve file
+        # read info from the lightcurve file assume that the lightcurve file is not a rate file. The parsing will
+        # determine if it is or not
+        self._is_rate_lc=False
         self._parse_lightcurve_file()
 
         # read in the information about the weights
