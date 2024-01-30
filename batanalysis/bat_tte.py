@@ -101,7 +101,7 @@ class BatEvent(BatObservation):
             #the detector quality is combination of enable/disable detectors and currently (at time of trigger) hot detectors
             # https://swift.gsfc.nasa.gov/analysis/threads/batqualmapthread.html
             self.detector_quality_file=list(self.obs_dir.joinpath("bat").joinpath("hk").glob('*bdqcb*'))
-            self.event_files=sorted(list(self.obs_dir.joinpath("bat").joinpath("event").glob('*bevsh*_uf*')))
+            self.event_files=sorted(list(self.obs_dir.joinpath("bat").joinpath("event").glob('*bev*_uf*')))
             self.attitude_file=list(self.obs_dir.joinpath("auxil").glob('*sat.*'))
             self.tdrss_files=list(self.obs_dir.joinpath("tdrss").glob('*msb*.fits*'))
             self.gain_offset_file=list(self.obs_dir.joinpath("bat").joinpath("hk").glob('*bgocb*'))
