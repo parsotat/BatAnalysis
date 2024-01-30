@@ -223,17 +223,12 @@ class BatEvent(BatObservation):
             #also need to check of the coordinates we want are what is in the event file.
             if len(self.auxil_raytracing_file) < 1 or not coord_match:
                 if verbose:
-                    print(f"There seem to be no auxiliary ray tracing file for this trigger with observation ID" \
-                f"{self.obs_id} located at {self.obs_dir}. This file is necessary for the remaining processing.")
+                    print(f"There seem to be no auxiliary ray tracing file for this trigger with observation ID "
+                          f"{self.obs_id} located at {self.obs_dir}. This file is necessary for the remaining "
+                          f"processing.")
 
                 #need to create this map can get to this if necessary,
-                #TODO: improve on this later, for now just raise an error
-                #TODO: improvement will be that when BAT is slewing that this file will need to be remade for each time interval
-                # and will also have to consider drmgen and mask weighing for each timestep
-
-                #self.auxil_raytracing_file = self.apply_mask_weighting(self.ra, self.dec)
-                raise FileNotFoundError(f"There seem to be no auxiliary ray tracing file for this trigger with observation ID" \
-                                f"{self.obs_id} located at {self.obs_dir}. This file is necessary for the remaining processing.")
+                self.auxil_raytracing_file = self.apply_mask_weighting(self.ra, self.dec)
             elif len(self.auxil_raytracing_file) > 1:
                 raise ValueError(
                     f"There seem to be more than one auxiliary ray tracing file for this trigger with observation ID "
