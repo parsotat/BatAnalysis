@@ -445,7 +445,11 @@ class BatEvent(BatObservation):
             #if we have the file, then we need to call bateconvert
             input_dict=dict(infile=str(self.event_files), calfile=str(self.gain_offset_file),
                             residfile="CALDB", pulserfile="CALDB", fltpulserfile="CALDB")
-            self._call_bateconvert(input_dict)
+            bateconvert_return=self._call_bateconvert(input_dict)
+
+            if bateconvert_return.returncode != 0:
+                raise RuntimeError(f'The call to Heasoft bateconvert failed with message: {bateconvert_return.output}')
+
 
         return None
 
@@ -471,7 +475,10 @@ class BatEvent(BatObservation):
 
         input_dict=dict(infile=str(self.event_files), attitude=str(self.attitude_file), detmask=str(self.detector_quality_file),
                         ra=ra, dec=dec, auxfile=str(self.auxil_raytracing_file), clobber="YES")
-        self._call_batmaskwtevt(input_dict)
+        batmaskwtevt_return=self._call_batmaskwtevt(input_dict)
+
+        if batmaskwtevt_return.returncode != 0:
+            raise RuntimeError(f'The call to Heasoft batmaskwtevt failed with message: {batmaskwtevt_return.output}')
 
         #modify the event file header with the RA/DEC of the weights that were applied, if they are different
         with fits.open(self.event_files, mode='update') as file:

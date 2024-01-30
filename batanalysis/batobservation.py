@@ -131,7 +131,6 @@ class BatObservation(object):
     def _call_batmaskwtevt(self, input_dict):
         """
         Calls heasoftpy's batmaskwtevt with an error wrapper,
-        TODO: apply keyword correction for spectrum file (using the auxfile) via batupdatephakw
 
         :param input_dict: Dictionary of inputs that will be passed to heasoftpy's batmaskwtevt
         :return: heasoftpy Result object from batmaskwtevt
