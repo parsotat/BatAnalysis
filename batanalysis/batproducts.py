@@ -717,8 +717,10 @@ class Lightcurve(BatObservation):
     def _calc_energy_integrated(self):
         """
         This method just goes though the count rates in each energy bin that has been precalulated and adds them up.
-        It also calcualtes the errors. These arrays are added to self.data appropriately and the total energy min/max is
-        added to self.ebins
+        It also calcualtes the errors for lightcurved generated from event data. These arrays are added to self.data
+        appropriately and the total energy min/max is added to self.ebins. For rate lightcurves in particular there can
+        be multiple fits file extensions which is why this iterates over the data keys list that is returned from the
+        _get_count_related_keys method.
 
         NOTE: This method can be expanded in the future to be an independent way of rebinning the lightcurves in
             energy without any calls to heasoftpy
@@ -730,7 +732,7 @@ class Lightcurve(BatObservation):
 
         # if we have more than 1 energy bin then we can calculate an energy integrated count rate, etc
         # otherwise we dont have to do anything since theres only one energy bin.
-        #for rate lightcurves exclude error calculations since this is the hardware rates with no measurement error
+        # for rate lightcurves exclude error calculations since this is the hardware rates with no measurement error
         for data_key in data_keys:
             if self.data[data_key].ndim > 1:
                 # calculate the total count rate and error
@@ -779,7 +781,8 @@ class Lightcurve(BatObservation):
     def plot(self, energybins=None, plot_counts=False, plot_exposure_fraction=False, time_unit="MET", T0=None,
              plot_relative=False):
         """
-        This convenience method allows the user to plot the rate/count lightcurve.
+        This convenience method allows the user to plot the lightcurve generated from an event file or the rate
+        lightcurve typically generated from hardware counts.
 
         :param energybins: None or a list or an astropy.units.Quantity object of 2 elements denoting the min and maximum
             of the energy bin that the user wants to plot. None defaults to plotting all the energy bins that have been
@@ -837,83 +840,106 @@ class Lightcurve(BatObservation):
             xlabel = "UTC"
 
         # get the number of axes we may need
-        num_plots = 1
-        num_plots += (plot_counts + plot_exposure_fraction)
-        fig, ax = plt.subplots(num_plots, sharex=True)
+        plot_data_key = self._get_count_related_keys()
+        if not self._is_rate_lc:
+            num_plots = 1
+            num_plots += (plot_counts + plot_exposure_fraction)
+            fig, ax = plt.subplots(num_plots, sharex=True)
+        else:
+            #if len(plot_data_key) >= 1:
+            #    plot_data_key = plot_data_key[0]
+
+            #want to have separate plots for the potential quad rate plots for the rtqd/rtmc rate lightcurves or just
+            # the 1 plot for the 1s or ms rate lightcurves
+            num_plots = len(plot_data_key)
+            fig, ax = plt.subplots(num_plots, sharex=True)
+
 
         # assign the axes for each type of plot we may want
         axes_queue = [i for i in range(num_plots)]
 
         if num_plots > 1:
-            ax_rate = ax[axes_queue[0]]
-            axes_queue.pop(0)
-
-            if plot_counts:
-                ax_count = ax[axes_queue[0]]
+            if not self._is_rate_lc:
+                rate_axes=[ax[axes_queue[0]]]
                 axes_queue.pop(0)
 
-            if plot_exposure_fraction:
-                ax_exposure = ax[axes_queue[0]]
-                axes_queue.pop(0)
+                if plot_counts:
+                    ax_count = ax[axes_queue[0]]
+                    axes_queue.pop(0)
+
+                if plot_exposure_fraction:
+                    ax_exposure = ax[axes_queue[0]]
+                    axes_queue.pop(0)
+            else:
+                rate_axes=ax[:len(plot_data_key)]
         else:
-            ax_rate = ax
+            rate_axes = [ax]
 
-        plot_data_key=self._get_count_related_keys()
-        if len(plot_data_key)==1:
-            plot_data_key=plot_data_key[0]
-
+        all_lines=[]
+        all_labels=[]
         # plot everything for the rates by default
-        for e_idx, emin, emax in zip(self.ebins["INDEX"], self.ebins["E_MIN"], self.ebins["E_MAX"]):
-            plotting = True
-            if energybins is not None:
-                # need to see if the energy range is what the user wants
-                if emin == energybins.min() and emax == energybins.max():
-                    plotting = True
-                else:
-                    plotting = False
+        for ax_idx, data_key in enumerate(plot_data_key):
+            ax_rate=rate_axes[ax_idx]
+            for e_idx, emin, emax in zip(self.ebins["INDEX"], self.ebins["E_MIN"], self.ebins["E_MAX"]):
+                plotting = True
+                if energybins is not None:
+                    # need to see if the energy range is what the user wants
+                    if emin == energybins.min() and emax == energybins.max():
+                        plotting = True
+                    else:
+                        plotting = False
 
-            if plotting:
-                # use the proper indexing for the array
-                if len(self.ebins["INDEX"]) > 1:
-                    rate = self.data[plot_data_key][:, e_idx]
-                    if not self._is_rate_lc:
-                        rate_error = self.data["ERROR"][:, e_idx]
-                    l=f'{self.ebins["E_MIN"][e_idx].value}-{self.ebins["E_MAX"][e_idx].value} '+ f'{self.ebins["E_MAX"][e_idx].unit}'
-                else:
-                    rate = self.data[plot_data_key]
-                    if not self._is_rate_lc:
-                        rate_error = self.data["ERROR"]
-                    l=f'{self.ebins["E_MIN"][0].value}-{self.ebins["E_MAX"][0].value} '+ f'{self.ebins["E_MAX"].unit}'
+                if plotting:
+                    # use the proper indexing for the array
+                    if len(self.ebins["INDEX"]) > 1:
+                        rate = self.data[data_key][:, e_idx]
+                        if not self._is_rate_lc:
+                            rate_error = self.data["ERROR"][:, e_idx]
+                        l=f'{self.ebins["E_MIN"][e_idx].value}-{self.ebins["E_MAX"][e_idx].value} '+ f'{self.ebins["E_MAX"][e_idx].unit}'
+                    else:
+                        rate = self.data[data_key]
+                        if not self._is_rate_lc:
+                            rate_error = self.data["ERROR"]
+                        l=f'{self.ebins["E_MIN"][0].value}-{self.ebins["E_MAX"][0].value} '+ f'{self.ebins["E_MAX"].unit}'
 
-                    #for the 1 second rate lightcurve, we have that the energy goes from 0 to +infinity. this is the
-                    # only rate lightcurve that has a single energy bin
+                        #for the 1 second rate lightcurve, we have that the energy goes from 0 to +infinity. this is the
+                        # only rate lightcurve that has a single energy bin
+                        if self._is_rate_lc:
+                            l=r"$0 - \infty$ "+ f'{self.ebins["E_MAX"].unit}'
+
                     if self._is_rate_lc:
-                        l=r"$0 - \infty$ "+ f'{self.ebins["E_MAX"].unit}'
+                        # if we are looking at a rate lightcurve, there may be gaps in the data. so filter these out for
+                        # plotting. Min dt can be 1 sec, 1.6 sec, or up to 64 ms. To remove these gaps for all these
+                        #  different time binnings just ID gaps that are larger than the mean dt
+                        idx=np.where(np.diff(self.data["TIME"]) > np.diff(self.data["TIME"]).mean())[0]
+                        rate[idx]=np.nan
+                        start_times[idx]=np.nan
+                        end_times[idx]=np.nan
 
-                if self._is_rate_lc:
-                    # if we are looking at a rate lightcurve, there may be gaps in the data. so filter these out for
-                    # plotting. Min dt can be 1 sec, 1.6 sec, or up to 64 ms. To remove these gaps for all these
-                    #  different time binnings just ID gaps that are larger than the mean dt
-                    idx=np.where(np.diff(self.data["TIME"]) > np.diff(self.data["TIME"]).mean())[0]
-                    rate[idx]=np.nan
-                    start_times[idx]=np.nan
-                    end_times[idx]=np.nan
+                    line = ax_rate.plot(start_times, rate, ds='steps-post')
+                    line_handle, =ax_rate.plot(end_times, rate, ds='steps-pre', color=line[-1].get_color(), label=l)
+                    all_lines.append(line_handle)
+                    all_labels.append(l)
+                    if not self._is_rate_lc:
+                        ax_rate.errorbar(mid_times, rate, yerr=rate_error, ls='None', color=line[-1].get_color())
 
-                line = ax_rate.plot(start_times, rate, ds='steps-post')
-                ax_rate.plot(end_times, rate, ds='steps-pre', color=line[-1].get_color(), label=l)
-                if not self._is_rate_lc:
-                    ax_rate.errorbar(mid_times, rate, yerr=rate_error, ls='None', color=line[-1].get_color())
+                    #add the axis labels
+                    ax_rate.set_ylabel(data_key + f" ({rate.unit})")
 
-        if num_plots > 1:
-            ax_rate.legend()
+        #if we have multiple count related plots put legend at the top
+        if len(plot_data_key) > 1 or not self._is_rate_lc:
+            #calc the number of energy bins that we need to have labels for
+            num_e=int(len(all_lines)/len(plot_data_key))
+            ax[0].legend(handles=all_lines[:num_e], labels=all_labels[:num_e],
+                         bbox_to_anchor=(0, 1.02, 1, 0.2), loc="lower left", mode="expand", ncol=3)
 
         if plot_counts:
-            line = ax_count.plot(start_times, self.data["TOTCOUNTS"], ds='steps-post')
+            line = ax_count.plot(start_times, self.data["TOTCOUNTS"], ds='steps-post', c='k')
             ax_count.plot(end_times, self.data["TOTCOUNTS"], ds='steps-pre', color=line[-1].get_color())
             ax_count.set_ylabel('Total counts (ct)')
 
         if plot_exposure_fraction:
-            line = ax_exposure.plot(start_times, self.data["FRACEXP"], ds='steps-post')
+            line = ax_exposure.plot(start_times, self.data["FRACEXP"], ds='steps-post', c='k')
             ax_exposure.plot(end_times, self.data["FRACEXP"], ds='steps-pre', color=line[-1].get_color())
             ax_exposure.set_ylabel('Fractional Exposure')
 
@@ -921,22 +947,17 @@ class Lightcurve(BatObservation):
             # plot the trigger time for all panels if we dont want the plotted times to be relative
             if num_plots > 1:
                 for axis in ax:
-                    axis.axvline(T0, 0, 1, ls='--', label=f"T0={T0:.2f}", color='k')
+                    line_handle=axis.axvline(T0, 0, 1, ls='--', label=f"T0={T0:.2f}", color='k')
             else:
-                ax_rate.axvline(T0, 0, 1, ls='--', label=f"T0={T0:.2f}", color='k')
+                line_handle=ax_rate.axvline(T0, 0, 1, ls='--', label=f"T0={T0:.2f}", color='k')
 
         if num_plots > 1:
             if T0 is not None and not plot_relative:
-                ax[1].legend()
+                ax[1].legend([line_handle], [line_handle.get_label()])
             ax[-1].set_xlabel(xlabel)
         else:
             ax_rate.legend()
             ax_rate.set_xlabel(xlabel)
-
-        if "RATE" in plot_data_key:
-            ax_rate.set_ylabel('Rate (ct/s)')
-        else:
-            ax_rate.set_ylabel('Counts (ct)')
 
         return fig, ax
 
