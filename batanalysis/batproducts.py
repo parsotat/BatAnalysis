@@ -645,7 +645,7 @@ class Lightcurve(BatObservation):
 
             self.lc_input_dict = default_params_dict.copy()
 
-        if calc_energy_integrated and not self._is_rate_lc:
+        if calc_energy_integrated:
             self._calc_energy_integrated()
 
     def _get_data_keys(self):
@@ -715,12 +715,20 @@ class Lightcurve(BatObservation):
         :return: None
         """
 
+        if "RATE" in self.data.keys():
+            data_key = "RATE"
+        else:
+            data_key = "COUNTS"
+
+
         # if we have more than 1 energy bin then we can calculate an energy integrated count rate, etc
-        # otherwise we dont have to do anything since theres only one energy bin
-        if self.data["RATE"].ndim > 1:
+        # otherwise we dont have to do anything since theres only one energy bin.
+        #for rate lightcurves exclude error calculations since this is the hardware rates with no measurement error
+        if self.data[data_key].ndim > 1:
             # calculate the total count rate and error
-            integrated_count_rate = self.data["RATE"].sum(axis=1)
-            integrated_count_rate_err = np.sqrt(np.sum(self.data["ERROR"] ** 2, axis=1))
+            integrated_count_rate = self.data[data_key].sum(axis=1)
+            if not self._is_rate_lc:
+                integrated_count_rate_err = np.sqrt(np.sum(self.data["ERROR"] ** 2, axis=1))
 
             # get the energy info
             min_e = self.ebins["E_MIN"].min()
@@ -739,22 +747,23 @@ class Lightcurve(BatObservation):
             new_emax[:-1] = self.ebins["E_MAX"]
             new_emax[-1] = max_e
 
-            new_rate = np.zeros((self.data["RATE"].shape[0], new_energy_bin_size)) * self.data["RATE"].unit
-            new_rate_err = np.zeros_like(new_rate)
-
-            new_rate[:, :-1] = self.data["RATE"]
+            new_rate = np.zeros((self.data[data_key].shape[0], new_energy_bin_size)) * self.data[data_key].unit
+            new_rate[:, :-1] = self.data[data_key]
             new_rate[:, -1] = integrated_count_rate
 
-            new_rate_err[:, :-1] = self.data["ERROR"]
-            new_rate_err[:, -1] = integrated_count_rate_err
 
             # save the updated arrays
             self.ebins["INDEX"] = new_e_index
             self.ebins["E_MIN"] = new_emin
             self.ebins["E_MAX"] = new_emax
 
-            self.data["RATE"] = new_rate
-            self.data["ERROR"] = new_rate_err
+            self.data[data_key] = new_rate
+            if not self._is_rate_lc:
+                new_rate_err = np.zeros_like(new_rate)
+                new_rate_err[:, :-1] = self.data["ERROR"]
+                new_rate_err[:, -1] = integrated_count_rate_err
+
+                self.data["ERROR"] = new_rate_err
 
     def plot(self, energybins=None, plot_counts=False, plot_exposure_fraction=False, time_unit="MET", T0=None,
              plot_relative=False):
@@ -873,7 +882,7 @@ class Lightcurve(BatObservation):
                     # if we are looking at a rate lightcurve, there may be gaps in the data. so filter these out for
                     # plotting. Min dt can be 1 sec, 1.6 sec, or up to 64 ms. To remove these gaps for all these
                     #  different time binnings just ID gaps that are larger than the mean dt
-                    idx=np.where(np.diff(self.data["TIME"])>np.diff(self.data["TIME"]).mean())[0]
+                    idx=np.where(np.diff(self.data["TIME"]) > np.diff(self.data["TIME"]).mean())[0]
                     rate[idx]=np.nan
                     start_times[idx]=np.nan
                     end_times[idx]=np.nan
