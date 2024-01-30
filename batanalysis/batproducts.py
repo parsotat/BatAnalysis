@@ -970,6 +970,8 @@ class Lightcurve(BatObservation):
             ax_rate.legend()
             ax_rate.set_xlabel(xlabel)
 
+        plt.gca().ticklabel_format(useMathText=True)
+
         return fig, ax
 
     def _create_custom_timebins(self, timebins, output_file=None):
