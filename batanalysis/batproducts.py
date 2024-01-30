@@ -726,55 +726,55 @@ class Lightcurve(BatObservation):
         :return: None
         """
 
-
-        data_key=self._get_count_related_keys()
-
-        if len(data_key)==1:
-            data_key=data_key[0]
+        data_keys=self._get_count_related_keys()
 
         # if we have more than 1 energy bin then we can calculate an energy integrated count rate, etc
         # otherwise we dont have to do anything since theres only one energy bin.
         #for rate lightcurves exclude error calculations since this is the hardware rates with no measurement error
-        if self.data[data_key].ndim > 1:
-            # calculate the total count rate and error
-            integrated_count_rate = self.data[data_key].sum(axis=1)
-            if not self._is_rate_lc:
-                integrated_count_rate_err = np.sqrt(np.sum(self.data["ERROR"] ** 2, axis=1))
+        for data_key in data_keys:
+            if self.data[data_key].ndim > 1:
+                # calculate the total count rate and error
+                integrated_count_rate = self.data[data_key].sum(axis=1)
+                if not self._is_rate_lc:
+                    integrated_count_rate_err = np.sqrt(np.sum(self.data["ERROR"] ** 2, axis=1))
 
-            # get the energy info
-            min_e = self.ebins["E_MIN"].min()
-            max_e = self.ebins["E_MAX"].max()
-            max_energy_index = self.ebins["INDEX"].max()
+                # get the energy info
+                min_e = self.ebins["E_MIN"].min()
+                max_e = self.ebins["E_MAX"].max()
+                max_energy_index = self.ebins["INDEX"].max()
 
-            # append energy integrated count rate, the error, and the additional energy bin to the respective dicts
-            new_energy_bin_size = self.ebins["INDEX"].size + 1
-            new_e_index = np.arange(new_energy_bin_size, dtype=self.ebins["INDEX"].dtype)
+                # append energy integrated count rate, the error, and the additional energy bin to the respective dicts
+                # only calculate the energy index/energy ranges for the first iteration of the outer loop since these
+                # arrays should stay the same among all data dictionary keys
+                if data_key == data_keys[0]:
+                    new_energy_bin_size = self.ebins["INDEX"].size + 1
+                    new_e_index = np.arange(new_energy_bin_size, dtype=self.ebins["INDEX"].dtype)
 
-            new_emin = np.zeros(new_energy_bin_size) * self.ebins["E_MIN"].unit
-            new_emin[:-1] = self.ebins["E_MIN"]
-            new_emin[-1] = min_e
+                    new_emin = np.zeros(new_energy_bin_size) * self.ebins["E_MIN"].unit
+                    new_emin[:-1] = self.ebins["E_MIN"]
+                    new_emin[-1] = min_e
 
-            new_emax = np.zeros_like(new_emin)  # the zeros_like gets the units from the array that is passed in
-            new_emax[:-1] = self.ebins["E_MAX"]
-            new_emax[-1] = max_e
+                    new_emax = np.zeros_like(new_emin)  # the zeros_like gets the units from the array that is passed in
+                    new_emax[:-1] = self.ebins["E_MAX"]
+                    new_emax[-1] = max_e
 
-            new_rate = np.zeros((self.data[data_key].shape[0], new_energy_bin_size)) * self.data[data_key].unit
-            new_rate[:, :-1] = self.data[data_key]
-            new_rate[:, -1] = integrated_count_rate
+                new_rate = np.zeros((self.data[data_key].shape[0], new_energy_bin_size)) * self.data[data_key].unit
+                new_rate[:, :-1] = self.data[data_key]
+                new_rate[:, -1] = integrated_count_rate
 
 
-            # save the updated arrays
-            self.ebins["INDEX"] = new_e_index
-            self.ebins["E_MIN"] = new_emin
-            self.ebins["E_MAX"] = new_emax
+                # save the updated arrays
+                self.ebins["INDEX"] = new_e_index
+                self.ebins["E_MIN"] = new_emin
+                self.ebins["E_MAX"] = new_emax
 
-            self.data[data_key] = new_rate
-            if not self._is_rate_lc:
-                new_rate_err = np.zeros_like(new_rate)
-                new_rate_err[:, :-1] = self.data["ERROR"]
-                new_rate_err[:, -1] = integrated_count_rate_err
+                self.data[data_key] = new_rate
+                if not self._is_rate_lc:
+                    new_rate_err = np.zeros_like(new_rate)
+                    new_rate_err[:, :-1] = self.data["ERROR"]
+                    new_rate_err[:, -1] = integrated_count_rate_err
 
-                self.data["ERROR"] = new_rate_err
+                    self.data["ERROR"] = new_rate_err
 
     def plot(self, energybins=None, plot_counts=False, plot_exposure_fraction=False, time_unit="MET", T0=None,
              plot_relative=False):
