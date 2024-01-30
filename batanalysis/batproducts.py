@@ -648,9 +648,20 @@ class Lightcurve(BatObservation):
         if calc_energy_integrated:
             self._calc_energy_integrated()
 
-    def _get_data_keys(self):
+    def _get_count_related_keys(self):
+        """
+        This method, returns only the names of the self.data keys that contain count information. This method
+        explicitly exlcudes the following keys:
+            - "TIME" for both rate lightcurves and normal batbinevt lightcurves
+            - for normal lightcurves:
+                - 'ERROR', 'TOTCOUNTS', 'FRACEXP', 'TIMEDEL'
+        This is necessary for eg calculating the energy integrated rates/parsing the lightcurve files/plotting the lightcurves
 
-        return None
+        :return: list of keys
+        """
+        exclude_keys=["TIME", "ERROR", 'TOTCOUNTS', 'FRACEXP', 'TIMEDEL']
+
+        return [i for i in self.data.keys() if i not in exclude_keys]
 
     def _get_event_weights(self):
         """
@@ -715,11 +726,11 @@ class Lightcurve(BatObservation):
         :return: None
         """
 
-        if "RATE" in self.data.keys():
-            data_key = "RATE"
-        else:
-            data_key = "COUNTS"
 
+        data_key=self._get_count_related_keys()
+
+        if len(data_key)==1:
+            data_key=data_key[0]
 
         # if we have more than 1 energy bin then we can calculate an energy integrated count rate, etc
         # otherwise we dont have to do anything since theres only one energy bin.
@@ -847,10 +858,9 @@ class Lightcurve(BatObservation):
         else:
             ax_rate = ax
 
-        if "RATE" in self.data.keys():
-            plot_data_key = "RATE"
-        else:
-            plot_data_key = "COUNTS"
+        plot_data_key=self._get_count_related_keys()
+        if len(plot_data_key)==1:
+            plot_data_key=plot_data_key[0]
 
         # plot everything for the rates by default
         for e_idx, emin, emax in zip(self.ebins["INDEX"], self.ebins["E_MIN"], self.ebins["E_MAX"]):
@@ -875,8 +885,10 @@ class Lightcurve(BatObservation):
                         rate_error = self.data["ERROR"]
                     l=f'{self.ebins["E_MIN"][0].value}-{self.ebins["E_MAX"][0].value} '+ f'{self.ebins["E_MAX"].unit}'
 
-                    #for the 1 second rate lightcurve, we have that the energy goes from -infinity to +infinity
-                    l=r"$0 - \infty$ "+ f'{self.ebins["E_MAX"].unit}'
+                    #for the 1 second rate lightcurve, we have that the energy goes from 0 to +infinity. this is the
+                    # only rate lightcurve that has a single energy bin
+                    if self._is_rate_lc:
+                        l=r"$0 - \infty$ "+ f'{self.ebins["E_MAX"].unit}'
 
                 if self._is_rate_lc:
                     # if we are looking at a rate lightcurve, there may be gaps in the data. so filter these out for
@@ -921,7 +933,7 @@ class Lightcurve(BatObservation):
             ax_rate.legend()
             ax_rate.set_xlabel(xlabel)
 
-        if "RATE" in self.data.keys():
+        if "RATE" in plot_data_key:
             ax_rate.set_ylabel('Rate (ct/s)')
         else:
             ax_rate.set_ylabel('Counts (ct)')
