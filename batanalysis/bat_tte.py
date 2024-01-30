@@ -381,6 +381,8 @@ class BatEvent(BatObservation):
             input_dict=dict(infile=str(self.event_files[0]), outfile=str(output_dpi),
                             outtype="DPI", timedel=0.0, timebinalg = "uniform", energybins = "-", weighted = "no", outunits = "counts")
             binevt_return=self._call_batbinevt(input_dict)
+            if binevt_return.returncode != 0:
+                raise RuntimeError(f'The call to Heasoft batbinevt failed with message: {binevt_return.output}')
 
             #Get list of known problematic detectors, do we need to do this? This might be handled by the SDC
             #eg batdetmask date=output_dpi outfile=master.detmask clobber=YES detmask= self.enable_disable_file
@@ -394,6 +396,8 @@ class BatEvent(BatObservation):
                               detmask = str(self.enable_disable_file)
                               )
             hotpix_return=self._call_bathotpix(input_dict)
+            if hotpix_return.returncode != 0:
+                raise RuntimeError(f'The call to Heasoft bathotpix failed with message: {hotpix_return.output}')
 
             self.detector_quality_file=output_detector_quality
         except Exception as e:
@@ -427,13 +431,13 @@ class BatEvent(BatObservation):
                       f"energy calibration needs to be applied.")
             # need to create this gain/offset file or get it somehow
 
-            raise AttributeError(f'The event file {ev_file} has not had the energy calibration applied and there is no gain/offset '
+            raise AttributeError(f'The event file {self.event_files} has not had the energy calibration applied and there is no gain/offset '
                                      f'file for this trigger with observation ID \
                 {self.obs_id} located at {self.obs_dir}. This file is necessary for the remaining processing since an' \
                           f"energy calibration needs to be applied.")
         elif len(self.gain_offset_file) > 1:
             raise AttributeError(
-                f'The event file {ev_file} has not had the energy calibration applied and there are too many gain/offset '
+                f'The event file {self.event_files} has not had the energy calibration applied and there are too many gain/offset '
                 f'files for this trigger with observation ID \
                             {self.obs_id} located at {self.obs_dir}. One of these files is necessary for the remaining processing since an' \
                 f"energy calibration needs to be applied.")
