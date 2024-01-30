@@ -75,15 +75,7 @@ class BatEvent(BatObservation):
         complete_file = load_dir.joinpath(".batevent_complete")
         self._set_local_pfile_dir(load_dir.joinpath(".local_pfile"))
 
-        #THIS SHOULDNT BE NECESSARY NOW WITH THE BATOBSERVATION GET/SET
-        # make the local pfile dir if it doesnt exist and set this value
-        #self._local_pfile_dir.mkdir(parents=True, exist_ok=True)
-        #try:
-        #    hsp.local_pfiles(pfiles_dir=str(self._local_pfile_dir))
-        #except AttributeError:
-        #    hsp.utils.local_pfiles(par_dir=str(self._local_pfile_dir))
 
-        # if load_file is None:
         # if the user wants to recalculate things or if there is no batevent.pickle file, or if there is no
         # .batevent_complete file (meaning that the __init__ method didnt complete)
         if recalc or not load_file.exists() or not complete_file.exists():
@@ -161,10 +153,8 @@ class BatEvent(BatObservation):
                     print(f"There seem to be no detector quality file for this trigger with observation ID" \
                 f"{self.obs_id} located at {self.obs_dir}. This file is necessary for the remaining processing.")
 
-                #need to create this map can get to this if necessary, TODO improve on this later, for now just raise an error
-                #self.detector_quality_file = self.create_detector_quality_map()
-                raise FileNotFoundError(f"There seem to be no detector quality file for this trigger with observation ID" \
-                                f"{self.obs_id} located at {self.obs_dir}. This file is necessary for the remaining processing.")
+                #need to create this map can get to this if necessary
+                self.create_detector_quality_map()
             elif len(self.detector_quality_file) > 1:
                 raise ValueError(
                     f"There seem to be more than one detector quality file for this trigger with observation ID "
@@ -227,8 +217,11 @@ class BatEvent(BatObservation):
                           f"{self.obs_id} located at {self.obs_dir}. This file is necessary for the remaining "
                           f"processing.")
 
+                #set the default auxil ray tracing attribute to None for recreation in the apply_mask_weighting method
+                self.auxil_raytracing_file=None
+
                 #need to create this map can get to this if necessary,
-                self.auxil_raytracing_file = self.apply_mask_weighting(self.ra, self.dec)
+                self.apply_mask_weighting(self.ra, self.dec)
             elif len(self.auxil_raytracing_file) > 1:
                 raise ValueError(
                     f"There seem to be more than one auxiliary ray tracing file for this trigger with observation ID "
@@ -459,6 +452,8 @@ class BatEvent(BatObservation):
         :return:
         """
 
+        #TODO: what to do if self.auxil_raytracing_file has length 0 during init or if we are recreating this file?
+
         #batmaskwtevt infile=bat/event/sw01116441000bevshsp_uf.evt attitude=auxil/sw01116441000sat.fits.gz detmask=grb.mask ra= dec=
         if ra is None and dec is None:
             ra=self.ra
@@ -468,8 +463,15 @@ class BatEvent(BatObservation):
             self.ra=ra
             self.dec=dec
 
+        #if this attribute is None, we need to define it and create it using the standard naming convention
+        if self.auxil_raytracing_file is None:
+            temp_auxil_raytracing_file=self.event_files.parent.join(f"sw{self.obs_id}bevtr.fits")
+        else:
+            temp_auxil_raytracing_file=self.auxil_raytracing_file
+
+
         input_dict=dict(infile=str(self.event_files), attitude=str(self.attitude_file), detmask=str(self.detector_quality_file),
-                        ra=ra, dec=dec, auxfile=str(self.auxil_raytracing_file), clobber="YES")
+                        ra=ra, dec=dec, auxfile=str(temp_auxil_raytracing_file), clobber="YES")
         batmaskwtevt_return=self._call_batmaskwtevt(input_dict)
 
         if batmaskwtevt_return.returncode != 0:
@@ -490,15 +492,15 @@ class BatEvent(BatObservation):
                     i.header["BAT_RA"]=self.ra
                     i.header["BAT_DEC"]=self.dec
 
-
-
             file.flush()
 
         #reread in the event file data
         self._parse_event_file()
 
-        #TODO how to handle a different auxiliary ray tracing file bieng produced here? what is there is none before?
-        #how do we handle the name of the file?
+        #save the file as the attribute if everything else is successful
+        self.auxil_raytracing_file = temp_auxil_raytracing_file
+
+        #TODO how to handle a different auxiliary ray tracing file bieng produced here?
 
         return None
 
