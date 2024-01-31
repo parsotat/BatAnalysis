@@ -1877,10 +1877,11 @@ class Spectrum(BatObservation):
                     if "=" not in values:
                         # this belongs with the previous parameter and is a line continuation
                         default_params_dict[old_parameter] = default_params_dict[old_parameter] + values[-1]
+                        #assume that we need to keep appending to the previous parameter
                     else:
                         default_params_dict[parameter] = values[-1]
 
-                    old_parameter = parameter
+                        old_parameter = parameter
 
             self.pha_input_dict = default_params_dict.copy()
 
