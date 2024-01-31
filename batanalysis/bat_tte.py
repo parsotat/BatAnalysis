@@ -526,9 +526,10 @@ class BatEvent(BatObservation):
             if not recalc:
                 #make up a name for the light curve that hasnt been used already in the LC directory
                 lc_files=list(self.result_dir.joinpath("lc").glob("*.lc"))
+                lc_files=[str(i) for i in lc_files]
                 base="lightcurve_"
                 count=0
-                while f"{base}{count}.lc" in lc_files:
+                while np.any([f"{base}{count}.lc" in t for t in lc_files]):
                     count+=1
                 lc_file=self.result_dir.joinpath("lc").joinpath(f"{base}{count}.lc")
             else:
