@@ -100,9 +100,11 @@ class Lightcurve(BatObservation):
 
         # save these variables
         self.lightcurve_file = Path(lightcurve_file).expanduser().resolve()
-        if not self.lightcurve_file.exists():
-            raise ValueError(f"The specified lightcurve file {self.lightcurve_file} does not seem to exist. "
-                             f"Please double check that it does.")
+        #this below block of code doesnt matter since we can always create the lightcurve below if it doesnt exist/if
+        # recalc=True
+        #if not recalc and not self.lightcurve_file.exists():
+        #    raise ValueError(f"The specified lightcurve file {self.lightcurve_file} does not seem to exist. "
+        #                    f"Please double check that it does.")
 
         # if any of these below are None, produce a warning that we wont be able to modify the spectrum. Also do
         # error checking for the files existing, etc
