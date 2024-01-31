@@ -699,6 +699,18 @@ class Lightcurve(BatObservation):
             # read in the event file and replace the values in the MASK_WEIGHT with the appropriate values in self._event_weights
             with fits.open(self.event_file, mode="update") as file:
                 file[1].data["MASK_WEIGHT"] = self._event_weights
+                # also make sure to modify the RA/DEC in header so we know what points in the sky the weights are
+                # calculated for
+                #update the event file RA/DEC_OBJ values everywhere
+                for i in file:
+                    i.header["RA_OBJ"]=self.lc_ra
+                    i.header["DEC_OBJ"]=self.lc_dec
+
+                    #the BAT_RA/BAT_DEC keys have to updated too since this is something
+                    #that the software manual points out should be updated
+                    i.header["BAT_RA"]=self.lc_ra
+                    i.header["BAT_DEC"]=self.lc_dec
+
                 file.flush()
 
     def _same_event_lc_coords(self):
