@@ -535,7 +535,7 @@ class BatEvent(BatObservation):
             else:
                 lc_files = list(self.result_dir.joinpath("lc").glob("*.lc"))
                 if len(lc_files)==1:
-                    outfile=lc_files[0]
+                    lc_file=lc_files[0]
                 else:
                     raise ValueError(f"There are too many files which meet the criteria to be loaded. Please specify one of {lc_files}.")
         else:
