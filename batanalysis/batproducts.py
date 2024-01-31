@@ -165,8 +165,8 @@ class Lightcurve(BatObservation):
             self.lc_input_dict = None
 
         # set default RA/DEC coordinates correcpondent to the LC file which will be filled in later if it is set to None
-        self.lc_ra = ra
-        self.lc_dec = dec
+        self.ra = ra
+        self.dec = dec
 
         # read info from the lightcurve file assume that the lightcurve file is not a rate file. The parsing will
         # determine if it is or not
@@ -526,14 +526,14 @@ class Lightcurve(BatObservation):
                 self._is_rate_lc=True
 
 
-        if self.lc_ra is None and self.lc_dec is None:
-            self.lc_ra = header["RA_OBJ"]
-            self.lc_dec = header["DEC_OBJ"]
+        if self.ra is None and self.dec is None:
+            self.ra = header["RA_OBJ"]
+            self.dec = header["DEC_OBJ"]
         else:
             # test if the passed in coordinates are what they should be for the light curve file
             # TODO: see if we are ~? arcmin close to one another
-            assert (np.isclose(self.lc_ra, header["RA_OBJ"]) and np.isclose(self.lc_dec, header["DEC_OBJ"])), \
-                f"The passed in RA/DEC values ({self.lc_ra},{self.lc_dec}) do not match the values used to produce the lightcurve which are ({header['RA_OBJ']},{header['DEC_OBJ']})"
+            assert (np.isclose(self.ra, header["RA_OBJ"]) and np.isclose(self.dec, header["DEC_OBJ"])), \
+                f"The passed in RA/DEC values ({self.ra},{self.dec}) do not match the values used to produce the lightcurve which are ({header['RA_OBJ']},{header['DEC_OBJ']})"
 
         # read in the data and save to data attribute which is a dictionary of the column names as keys and the numpy arrays as values
         self.data = {}
@@ -703,13 +703,13 @@ class Lightcurve(BatObservation):
                 # calculated for
                 #update the event file RA/DEC_OBJ values everywhere
                 for i in file:
-                    i.header["RA_OBJ"]=self.lc_ra
-                    i.header["DEC_OBJ"]=self.lc_dec
+                    i.header["RA_OBJ"]=self.ra
+                    i.header["DEC_OBJ"]=self.dec
 
                     #the BAT_RA/BAT_DEC keys have to updated too since this is something
                     #that the software manual points out should be updated
-                    i.header["BAT_RA"]=self.lc_ra
-                    i.header["BAT_DEC"]=self.lc_dec
+                    i.header["BAT_RA"]=self.ra
+                    i.header["BAT_DEC"]=self.dec
 
                 file.flush()
 
@@ -724,7 +724,7 @@ class Lightcurve(BatObservation):
         with fits.open(self.event_file) as file:
             event_ra = file[0].header["RA_OBJ"]
             event_dec = file[0].header["DEC_OBJ"]
-            coord_match = (event_ra == self.lc_ra) and (event_dec == self.lc_dec)
+            coord_match = (event_ra == self.ra) and (event_dec == self.dec)
 
         return coord_match
 
