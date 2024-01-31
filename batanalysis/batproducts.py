@@ -943,7 +943,11 @@ class Lightcurve(BatObservation):
         if len(plot_data_key) > 1 or not self._is_rate_lc:
             #calc the number of energy bins that we need to have labels for
             num_e=int(len(all_lines)/len(plot_data_key))
-            ax[0].legend(handles=all_lines[:num_e], labels=all_labels[:num_e],
+            if num_plots==1:
+                legend_ax=ax
+            else:
+                legend_ax=ax[0]
+            legend_ax.legend(handles=all_lines[:num_e], labels=all_labels[:num_e],
                          bbox_to_anchor=(0, 1.02, 1, 0.2), loc="lower left", mode="expand", ncol=3)
 
         if plot_counts:
