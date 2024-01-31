@@ -570,21 +570,21 @@ class BatEvent(BatObservation):
                 count=0
                 while f"{base}{count}.pha" in pha_files:
                     count+=1
-                pha_file=self.result_dir.joinpath("pha").joinpath(f"{base}{count}.pha")
+                final_pha_file=self.result_dir.joinpath("pha").joinpath(f"{base}{count}.pha")
             else:
                 pha_files = list(self.result_dir.joinpath("pha").glob("*.pha"))
                 if len(pha_files)==1:
-                    pha_files=pha_files[0]
+                    final_pha_file=pha_files[0]
                 else:
                     raise ValueError(f"There are too many files which meet the criteria to be loaded. Please specify one of {pha_files}.")
         else:
-            pha_file=Path(pha_file).expanduser().resolve()
+            final_pha_file=Path(pha_file).expanduser().resolve()
 
-        spectrum = Spectrum(pha_file, self.event_files, self.detector_quality_file, self.auxil_raytracing_file,
+        spectrum = Spectrum(final_pha_file, self.event_files, self.detector_quality_file, self.auxil_raytracing_file,
                             mask_weighting=mask_weighting, recalc=recalc)
 
         #need to check about recalculating this if recalc=False
-        if recalc:
+        if pha_file is None or recalc:
             spectrum.set_timebins(tmin=tstart, tmax=tstop)
             if energybins is not None:
                 spectrum.set_energybins(energybins=energybins)
