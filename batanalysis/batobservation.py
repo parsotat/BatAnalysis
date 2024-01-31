@@ -114,6 +114,22 @@ class BatObservation(object):
             print(e)
             raise RuntimeError(f"The call to Heasoft bathotpix failed with inputs: {input_dict}.")
 
+    def _call_batdetmask(self, input_dict):
+        """
+        Calls heasoftpy's batdetmask with an error wrapper
+
+        :param input_dict: Dictionary of inputs that will be passed to heasoftpy's batdetmask
+        :return: heasoftpy Result object from batdetmask
+        """
+
+        # directly calls batdetmask
+        try:
+            return hsp.bathotpix(**input_dict)
+        except Exception as e:
+            print(e)
+            raise RuntimeError(f"The call to Heasoft batdetmask failed with inputs: {input_dict}.")
+
+
     def _call_batbinevt(self, input_dict):
         """
         Calls heasoftpy's batbinevt with an error wrapper

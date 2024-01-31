@@ -367,22 +367,28 @@ class BatEvent(BatObservation):
             #batbinevt bat/event/*bevshsp_uf.evt.gz grb.dpi DPI 0 u - weighted = no outunits = counts
             output_dpi=self.obs_dir.joinpath("bat").joinpath("hk").joinpath('detector_quality.dpi')
             input_dict=dict(infile=str(self.event_files[0]), outfile=str(output_dpi),
-                            outtype="DPI", timedel=0.0, timebinalg = "uniform", energybins = "-", weighted = "no", outunits = "counts")
+                            outtype="DPI", timedel=0.0, timebinalg = "uniform", energybins = "-", weighted = "no", outunits = "counts", clobber="YES")
             binevt_return=self._call_batbinevt(input_dict)
             if binevt_return.returncode != 0:
                 raise RuntimeError(f'The call to Heasoft batbinevt failed with message: {binevt_return.output}')
 
-            #Get list of known problematic detectors, do we need to do this? This might be handled by the SDC
+            #Get list of known problematic detectors
             #eg batdetmask date=output_dpi outfile=master.detmask clobber=YES detmask= self.enable_disable_file
             #then master.detmask gets passed as detmask parameter in bathotpix call
+            master_detmask=self.enable_disable_file.parent.joinpath("master.detmask")
+            input_dict=dict(date=str(output_dpi), outfile=str(master_detmask), detmask = str(self.enable_disable_file), clobber="YES")
+            detmask_return=self._call_batdetmask(input_dict)
+            if detmask_return.returncode != 0:
+                raise RuntimeError(f'The call to Heasoft batdetmask failed with message: {detmask_return.output}')
+
 
             #get the hot pixels
             #bathotpix grb.dpi grb.mask detmask = bat/hk/sw01116441000bdecb.hk.gz
             output_detector_quality=self.obs_dir.joinpath("bat").joinpath("hk").joinpath(f'sw{self.obs_id}bdqcb.hk.gz')
             input_dict = dict(infile=str(output_dpi),
                               outfile=str(output_detector_quality),
-                              detmask = str(self.enable_disable_file)
-                              )
+                              detmask = str(master_detmask),
+                              clobber="YES")
             hotpix_return=self._call_bathotpix(input_dict)
             if hotpix_return.returncode != 0:
                 raise RuntimeError(f'The call to Heasoft bathotpix failed with message: {hotpix_return.output}')
