@@ -574,7 +574,7 @@ class BatEvent(BatObservation):
             else:
                 pha_files = list(self.result_dir.joinpath("pha").glob("*.pha"))
                 if len(pha_files)==1:
-                    outfile=pha_files[0]
+                    pha_files=pha_files[0]
                 else:
                     raise ValueError(f"There are too many files which meet the criteria to be loaded. Please specify one of {pha_files}.")
         else:
