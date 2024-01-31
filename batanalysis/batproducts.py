@@ -2052,7 +2052,7 @@ class Spectrum(BatObservation):
 
         # calculate error including both systematic error and statistical error, note that systematic error has
         # been multiplied by the rates/counts in the _parse_pha method
-        tot_error = np.sqrt(self.data["STAT_ERR"].value ** 2 + self.data["SYS_ERR"].value ** 2)
+        tot_error = np.sqrt(self.data["STAT_ERR"].value ** 2) #+ self.data["SYS_ERR"].value ** 2)
 
         # modify the filename
         upperlimit_pha_file = pha_file.parent.joinpath(
