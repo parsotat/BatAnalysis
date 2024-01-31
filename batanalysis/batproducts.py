@@ -100,11 +100,6 @@ class Lightcurve(BatObservation):
 
         # save these variables
         self.lightcurve_file = Path(lightcurve_file).expanduser().resolve()
-        #this below block of code doesnt matter since we can always create the lightcurve below if it doesnt exist/if
-        # recalc=True
-        #if not recalc and not self.lightcurve_file.exists():
-        #    raise ValueError(f"The specified lightcurve file {self.lightcurve_file} does not seem to exist. "
-        #                    f"Please double check that it does.")
 
         # if any of these below are None, produce a warning that we wont be able to modify the spectrum. Also do
         # error checking for the files existing, etc
@@ -1199,6 +1194,12 @@ class Lightcurve(BatObservation):
         :param detector_quality_mask:
         :return:
         """
+        lightcurve_file=Path(lightcurve_file).expanduser().resolve()
+
+        if not lightcurve_file.exists():
+            raise ValueError(f"The specified lightcurve file {lightcurve_file} does not seem to exist. "
+                            f"Please double check that it does.")
+
         return cls(lightcurve_file, event_file, detector_quality_mask)
 
 
@@ -1224,10 +1225,6 @@ class Spectrum(BatObservation):
 
         # save these variables
         self.pha_file = Path(pha_file).expanduser().resolve()
-        #this below block of code doesnt matter since we can always create the pha file below if it doesnt exist/if
-        # recalc=True
-        #if not self.pha_file.exists():
-        #    raise ValueError(f"The pha file {pha_file} does not seem to exist. Please double check that it does.")
 
         # if any of these below are None, produce a warning that we wont be able to modify the spectrum. Also do
         # error checking for the files existing, etc
@@ -2094,5 +2091,10 @@ class Spectrum(BatObservation):
         :param auxil_raytracing_file:
         :return:
         """
+        pha_file = Path(pha_file).expanduser().resolve()
+
+        if not pha_file.exists():
+            raise ValueError(f"The specified PHA file {pha_file} does not seem to exist. "
+                             f"Please double check that it does.")
 
         return cls(pha_file, event_file, detector_quality_mask, auxil_raytracing_file)
