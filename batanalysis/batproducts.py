@@ -246,6 +246,10 @@ class Lightcurve(BatObservation):
         # create a temp copy incase the time rebinning doesnt complete successfully
         tmp_lc_input_dict = self.lc_input_dict.copy()
 
+        #create a copy of the timebins if it is not None to prevent modifying the original array
+        if timebins is not None:
+            timebins=timebins.copy()
+
         # return an error if there is no event file set
         if self.event_file is None:
             raise RuntimeError("There was no event file specified ")
@@ -1421,6 +1425,11 @@ class Spectrum(BatObservation):
 
         # create a temp copy incase the time rebinning doesnt complete successfully
         tmp_pha_input_dict = self.pha_input_dict.copy()
+
+        #create a copy of the timebins if it is not None to prevent modifying the original array
+        if timebins is not None:
+            timebins=timebins.copy()
+
 
         # make sure we have all the info to do the rebinning
         if self.event_file is None or self.auxil_raytracing_file is None or self.detector_quality_mask is None:
