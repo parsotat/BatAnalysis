@@ -45,7 +45,6 @@ class Lightcurve(BatObservation):
     This is a general light curve class that contains typical information that a user may want from their lightcurve.
     This object is a wrapper around a light curve created from BAT event data.
 
-    TODO: make this flexible enough to read in the raw rates lightcurves if necessary, maybe can look at 'DATAMODE' keyword?
     """
 
     def __init__(self, lightcurve_file, event_file, detector_quality_mask, ra=None, dec=None, lc_input_dict=None,
@@ -53,7 +52,7 @@ class Lightcurve(BatObservation):
         """
         This constructor either creates a lightcurve fits file based off of a passed in event file where mask weighting
         has been applied and the detector quality mask has been constructed. Alternatively, this method can read in a
-        previously calculated lightcurve. If recalc=True, then the lightcuve can be recalculated using the passed in
+        previously calculated lightcurve. If recalc=True, then the lightcurve can be recalculated using the passed in
         lc_input_dict or a default input_dict defined as:
 
         dict(infile=str(event_file), outfile=str(lightcurve_file), outtype="LC",
@@ -62,20 +61,20 @@ class Lightcurve(BatObservation):
                               tstart="INDEF", tstop="INDEF", clobber="YES", timebinalg="uniform")
 
         The ra/dec of the source that this lightcurve was constructed for (and for which the weighting was applied to
-        the event file), can be specified or it can be dynamically read from the lightcurve file.
+        the event file), can be specified or it can be dynamically read from the event file.
 
-        :param event_file: Path object for the event file with mask weighting already applied, from which we will construct
-            the lightcurve or read the previously ocnstructed lightcurve file
         :param lightcurve_file: path object of the lightcurve file that will be read in, if previously calculated,
             or the location/name of the new lightcurve file that will contain the newly calculated lightcurve.
+        :param event_file: Path object for the event file with mask weighting already applied, from which we will construct
+            the lightcurve or read the previously ocnstructed lightcurve file
         :param detector_quality_mask: Path object for the detector quality mask that was constructed for the associated
             event file
         :param ra: None or float representing the decimal degree RA value of the source for which the mask weighting was
             applied to the passed in event file. A value of None indicates that the RA of the source will be obtained
-            from the calculated lightcurve which is then saved to lightcurve_file
+            from the event file which is then saved to lightcurve_file
         :param dec: None or float representing the decimal degree DEC value of the source for which the mask weighting was
             applied to the passed in event file. A value of None indicates that the DEC of the source will be obtained
-            from the calculated lightcurve which is then saved to lightcurve_file
+            from the event file which is then saved to lightcurve_file
         :param lc_input_dict: None or a dict of values that will be passed to batbinevt in the creation of the lightcurve.
             If a lightcurve is being read in from one that was previously created, the prior parameters that were used to
             calculate the lightcurve will be used.
@@ -90,7 +89,7 @@ class Lightcurve(BatObservation):
         :param recalc: Boolean to denote if the lightcurve specified by lightcurve_file should be recalculated with the
             lc_input_dict values (either those passed in or those that are defined by default)
         :param mask_weighting: Boolean to denote if mask weighting should be applied. By default this is set to True,
-            however if a source if out of the BAT field of view the mask weighting will produce a lightcurve of 0 counts.
+            however if a source is out of the BAT field of view the mask weighting will produce a lightcurve of 0 counts.
             Setting mask_weighting=False in this case ignores the position of the source and allows the pure rates/counts
             to be calculated.
         """
@@ -1208,16 +1207,51 @@ class Spectrum(BatObservation):
     def __init__(self, pha_file, event_file, detector_quality_mask, auxil_raytracing_file, ra=None, dec=None,
                  pha_input_dict=None, mask_weighting=True, recalc=False):
         """
+        This initalizes a pha fits file based off of a passed in event file where mask weighting
+        has been applied and the detector quality mask has been constructed. Alternatively, this method can read in a
+        previously calculated pha file. If recalc=True then the passed in pha file will be recalculated using the passed
+        in pha_input_dict or a default pha_input_dict defined as:
 
-        :param pha_file:
-        :param event_file:
-        :param detector_quality_mask:
-        :param auxiliary_file:
-        :param ra:
-        :param dec:
-        :param pha_input_dict:
-        :param recalc:
-        :param mask_weighting:
+        dict(infile=str(event_file), outfile=str(pha_file), outtype="PHA",
+                            energybins="CALDB", weighted="YES", timedel=0.0,
+                            detmask=str(detector_quality_mask),
+                            tstart="INDEF", tstop="INDEF", clobber="YES", timebinalg="uniform")
+
+        The ra/dec of the source that this lightcurve was constructed for (and for which the weighting was applied to
+        the event file), can be specified or it can be dynamically read from the event file.
+
+        :param pha_file: Path object of the pha file that will be read in, if previously calculated,
+            or the full path and name of the new lightcurve file that will contain the newly calculated pha file.
+        :param event_file: Path object for the event file with mask weighting already applied, from which we will construct
+            the pha file or read the previously constructed pha file
+        :param detector_quality_mask: Path object for the detector quality mask that was constructed for the associated
+            event file
+        :param auxil_raytracing_file: Path object pointing to the auxiliary ray tracing file that is created by applying
+            the mask weighting to the event file that is passed in.
+        :param ra: None or float representing the decimal degree RA value of the source for which the mask weighting was
+            applied to the passed in event file. A value of None indicates that the RA of the source will be obtained
+            from the event file which is then saved to pha_file
+        :param dec: None or float representing the decimal degree DEC value of the source for which the mask weighting was
+            applied to the passed in event file. A value of None indicates that the DEC of the source will be obtained
+            from the event file which is then saved to pha_file
+        :param pha_input_dict: None or a dict of values that will be passed to batbinevt in the creation of the pha file.
+            If a pha file is being read in that was previously created, the prior parameters that were used to
+            calculate the lightcurve will be used.
+            If pha_input_dict is None, this will be set to:
+                dict(infile=str(event_file), outfile=str(pha_file), outtype="PHA",
+                            energybins="CALDB", weighted="YES", timedel=0.0,
+                            detmask=str(detector_quality_mask),
+                            tstart="INDEF", tstop="INDEF", clobber="YES", timebinalg="uniform")
+            See HEASoft documentation on batbinevt to see what these parameters mean. Alternatively, these defaults can
+            be used in the initial call and time/energy rebinning can be done using the set_timebins and set_energybins
+            methods associated with the Spectrum object.
+        :param mask_weighting: Boolean to denote if mask weighting should be applied. By default this is set to True,
+            however if a source is out of the BAT field of view the mask weighting will produce a pha with of 0 counts.
+            Setting mask_weighting=False in this case ignores the position of the source and allows the pure rates/counts
+            to be calculated.
+        :param recalc: Boolean to denote if the pha specified by pha_file should be recalculated with the
+            pha_input_dict values (either those passed in or those that are defined by default)
+
         """
         # NOTE: Lots of similarities here as with the lightcurve since we are using batbinevt as the base. If there
         # are any issues with the lightcurve object, then we should make sure that these same problems do not occur
@@ -1485,6 +1519,9 @@ class Spectrum(BatObservation):
         # recalculate the drm file
         self._call_batdrmgen()
 
+        #reset any spectral fits
+        self.spectral_model = None
+
     @u.quantity_input(emin=['energy'], emax=['energy'])
     def set_energybins(self, energybins="CALDB", emin=None, emax=None):
         """
@@ -1590,6 +1627,9 @@ class Spectrum(BatObservation):
             self._parse_pha_file()
 
             self._call_batdrmgen()
+
+            #reset any spectral fit
+            self.spectral_model = None
 
     def _call_batbinevt(self, input_dict):
         """
@@ -1733,8 +1773,6 @@ class Spectrum(BatObservation):
               timepixr=0.5 for non-unformly binned light curves. We recommend using the unambiguous TIME_CENT in the
               tbins attribute to prevent any confusion instead of the data["TIME"] values
 
-        :param calc_energy_integrated: Boolean to denote if the energy integrated lightcurve should be calculated or not.
-            By default, it is calculated unless the user has created a lightcurve of only 1 energy bin.
         :return: None
         """
         pha_file = self.get_pha_filename()
