@@ -512,14 +512,71 @@ class BatEvent(BatObservation):
 
         return None
 
-    def create_lightcurve(self, lc_file=None, timedelta=np.timedelta64(64, 'ms'), tstart=None, tstop=None,
-                          timebinalg="uniform", timebins=None, is_relative=False, T0=None,
+    def create_lightcurve(self, lc_file=None, timebinalg="uniform", timedelta=np.timedelta64(64, 'ms'),
+                          tstart=None, tstop=None, timebins=None, T0=None, is_relative=False,
                           energybins=["15-25", "25-50", "50-100", "100-350"], mask_weighting=True, recalc=False,
                           ):
         """
-        This method returns a lightcurve object which can be manipulated in different energies/timebins
+        This method returns a lightcurve object which can be manipulated in different energies/timebins. The lightcurve
+        path may be provided, which can be a lightcurve that should be loaded (if created already), or the name of the
+        lightcurve that will be created with the specified energy/time binning. If no lightcurve file name is provided,
+        the method will determine a generic lightcurve name.
 
-        :return:
+        This method allows one to specify different energy/time binnings however since this method returns a Lightcurve
+        class, the resulting Lightcurve class instance can be used to rebin the lightcurve however the user wants. The
+        lightcurve is also saved to the BatEvent.lightcurve attribute when it is created thorugh this method.
+
+        :param lc_file: path object of the lightcurve file that will be read in, if previously calculated,
+            or the location/name of the new lightcurve file that will contain the newly calculated lightcurve.
+        :param timebinalg: a string that can be set to "uniform", "snr", "highsnr", or "bayesian"
+            "uniform" will do a uniform time binning from the specified tmin to tmax with the size of the bin set by
+                the timedelta parameter.
+            "snr" will bin the lightcurve until a maximum snr threshold is achieved, as is specified by the snrthresh parameter,
+                or the width of the timebin becomes the size of timedelta
+            "highsnr" will bin the lightcurve with a minimum bin size specified by the timedelta parameter. Longer
+                timebin widths will be used if the source is not deteted at the snr level specified by the snrthresh parameter
+            "bayesian" will use the battblocks bayesian algorithm to calculate the timebins based off of the energy
+                energy integrated lightcurve with 64 ms time binning. Then the lightcurve will be binned in time to the
+                tiembins determined by the battblocks algorithm. Using this option also allows for the calculation of
+                T90, T50, background time periods, etc if the save_durations parameter =True (more information can
+                be found from the battblocks HEASoft documentation).
+            NOTE: more information can be found by looking at the HEASoft documentation for batbinevt and battblocks
+        :param timedelta: numpy.timedelta64 object denoting the size of the timebinning. This value is used when
+            timebinalg is used in the binning algorithm
+        :param tstart: astropy.units.Quantity denoting the minimum values of the timebin edges that the user would like
+            the lightcurve to be binned into. Units will usually be in seconds for this. The values can be relative to
+            the specified T0. If so, then the T0 needs to be specified andthe is_relative parameter should be True.
+            NOTE: if tmin/tmax are specified then anything passed to the timebins parameter is ignored.
+
+            If the length of tmin is 1 then this denotes the time when the binned lightcurve should start. For this single
+            value, it can also be defined relative to T0. If so, then the T0 needs to be specified and the is_relative parameter
+            should be True.
+
+            NOTE: if tmin/tmax are specified then anything passed to the timebins parameter is ignored.
+        :param tstop: astropy.units.Quantity denoting the maximum values of the timebin edges that the user would like
+            the lightcurve to be binned into. Units will usually be in seconds for this. The values can be relative to
+            the specified T0. If so, then the T0 needs to be specified andthe is_relative parameter should be True.
+            NOTE: if tmin/tmax are specified then anything passed to the timebins parameter is ignored.
+
+            If the length of tmin is 1 then this denotes the time when the binned lightcurve should end. For this single
+            value, it can also be defined relative to T0. If so, then the T0 needs to be specified and the is_relative parameter
+            should be True.
+
+            NOTE: if tmin/tmax are specified then anything passed to the timebins parameter is ignored.
+        :param timebins: astropy.units.Quantity denoting the array of time bin edges. Units will usually be in seconds
+            for this. The values can be relative to the specified T0. If so, then the T0 needs to be specified and
+            the is_relative parameter should be True.
+        :param T0: float or an astropy.units.Quantity object with some tiem of interest (eg trigger time)
+        :param is_relative: Boolean switch denoting if the T0 that is passed in should be added to the
+            timebins/tmin/tmax that were passed in.
+        :param energybins:
+        :param mask_weighting: Boolean to denote if mask weighting should be applied. By default this is set to True,
+            however if a source is out of the BAT field of view the mask weighting will produce a lightcurve of 0 counts.
+            Setting mask_weighting=False in this case ignores the position of the source and allows the pure rates/counts
+            to be calculated.
+        :param recalc: Boolean to denote if the lightcurve specified by lightcurve_file should be recalculated with the
+            specified time/energy binning. See the Lightcurve class for a list of these defaults.
+        :return: Lightcurve class instance
         """
         #batbinevt infile=sw00145675000bevshsp_uf.evt.gz outfile=onesec.lc outtype=LC
         # timedel=1.0 timebinalg=u energybins=15-150

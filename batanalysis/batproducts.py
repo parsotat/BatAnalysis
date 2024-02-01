@@ -211,7 +211,7 @@ class Lightcurve(BatObservation):
             should be True.
 
             NOTE: if tmin/tmax are specified then anything passed to the timebins parameter is ignored.
-        :param tmax:astropy.units.Quantity denoting the maximum values of the timebin edges that the user would like
+        :param tmax: astropy.units.Quantity denoting the maximum values of the timebin edges that the user would like
             the lightcurve to be binned into. Units will usually be in seconds for this. The values can be relative to
             the specified T0. If so, then the T0 needs to be specified andthe is_relative parameter should be True.
             NOTE: if tmin/tmax are specified then anything passed to the timebins parameter is ignored.
@@ -225,6 +225,7 @@ class Lightcurve(BatObservation):
         :param is_relative: Boolean switch denoting if the T0 that is passed in should be added to the
             timebins/tmin/tmax that were passed in.
         :param timedelta: numpy.timedelta64 object denoting the size of the timebinning. This value is used when
+            timebinalg is used in the binning algorithm
         :param snrthresh: float representing the snr threshold associated with the timebinalg="snr" or timebinalg="highsnr"
             parameter values. See above description of the timebinalg parameter to see how this snrthresh parameter is used.
         :param save_durations: Boolean switch denoting if the T90, T50, and other durations calculated by the battblocks
