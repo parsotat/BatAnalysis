@@ -319,7 +319,7 @@ class BatEvent(BatObservation):
 
     def _parse_event_file(self):
         """
-        This funciton reads in the data from the event file
+        This function reads in the data from the event file
         :return:
         """
 
@@ -459,6 +459,8 @@ class BatEvent(BatObservation):
         """
 
         #TODO: what to do if self.auxil_raytracing_file has length 0 during init or if we are recreating this file?
+        #TODO: create a mask weight image which can also be used for each RA/DEC coordinate and be passed to batbinevt
+        #   without a need for reading in the MASK WEIGHT column of the event file
 
         #batmaskwtevt infile=bat/event/sw01116441000bevshsp_uf.evt attitude=auxil/sw01116441000sat.fits.gz detmask=grb.mask ra= dec=
         if ra is None and dec is None:

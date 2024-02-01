@@ -685,7 +685,8 @@ class Lightcurve(BatObservation):
         obtained.
 
         Note: event weightings need to be set if the RA/DEC of the light curve doesnt match what is in the event file
-
+        Note: if we have a mask weight image, then this can be used in batbinevt and supersedes the MASK_WEIGHT column
+            of the event file
         :return: None
         """
 
@@ -709,7 +710,7 @@ class Lightcurve(BatObservation):
 
     def _same_event_lc_coords(self):
         """
-        This method reads in the event data coordinates and compares it to what is obained from the lightcurve
+        This method reads in the event data coordinates and compares it to what is obtained from the lightcurve
         file that has been loaded in.
 
         :return: Boolean
@@ -1188,10 +1189,13 @@ class Lightcurve(BatObservation):
         detector quality mask files are not specified, then the user will not be able to dynamically change the
         lightcurve energy bins or time bins
 
-        :param lightcurve_file:
-        :param event_file:
-        :param detector_quality_mask:
-        :return:
+        :param lightcurve_file: path object of the lightcurve file that will be read in, if previously calculated,
+            or the location/name of the new lightcurve file that will contain the newly calculated lightcurve.
+        :param event_file: None or Path object for the event file with mask weighting already applied, from which we
+            will construct the lightcurve or read the previously constructed lightcurve file
+        :param detector_quality_mask: None or Path object for the detector quality mask that was constructed for
+            the associated event file
+        :return: Lightcurve class object with the loaded light curve file data
         """
         lightcurve_file=Path(lightcurve_file).expanduser().resolve()
 
@@ -1348,7 +1352,10 @@ class Spectrum(BatObservation):
         This method calls all necessary bits of creating a PHA file:
         _call_batbinevt, _call_batphasyserr, & _call_batupdatephakw.
 
-        :param batbinevt_input_dict:
+        These create the PHA file, applies the systematic error, and updates the keywords based on the auxiliary
+        ray tracing file.
+
+        :param batbinevt_input_dict:  dict of values that will be passed to batbinevt in the creation of the pha file
         :return: None
         """
 
@@ -1367,17 +1374,16 @@ class Spectrum(BatObservation):
     def set_timebins(self, timebinalg="uniform", timebins=None, tmin=None, tmax=None, T0=None, is_relative=False,
                      timedelta=np.timedelta64(64, 'ms'), snrthresh=None):
         """
-        This method allows for the rebinning of the lightcurve in time. The timebins can be uniform, snr-based,
-        custom defined, or based on bayesian blocks (using battblocks). The time binning is done dymaically and the
-        information for the rebinned lightcurve is automatically updated in the data attribute (which holds the light
-        curve information itself including rates/counts, errors, fracitonal exposure, total counts, etc),
-        and the tbins attibute with the time bin edges and the time bin centers.
+        This method allows for the rebinning of the pha in time. The time binning is done dymaically and the
+        information for the rebinned pha file is automatically updated in the data attribute (which holds the pha
+        information itself including rates/counts, errors, etc),
+        and the tbins attribute with the time bin edges and the time bin centers.
 
-        :param timebinalg: a string that can be set to "uniform", "snr", "highsnr", or "bayesian"
+        :param timebinalg: a string that can be set to "uniform" or "snr"
             "uniform" will do a uniform time binning from the specified tmin to tmax with the size of the bin set by
                 the timedelta parameter.
-            "snr" will bin the lightcurve until a maximum snr threshold is achieved, as is specified by the snrthresh parameter,
-                or the width of the timebin becomes the size of timedelta
+            "snr" will bin the pha until a maximum snr threshold is achieved, as is specified by the snrthresh parameter,
+
             NOTE: more information can be found by looking at the HEASoft documentation for batbinevt and battblocks
         :param timebins: astropy.units.Quantity denoting the array of time bin edges. Units will usually be in seconds
             for this. The values can be relative to the specified T0. If so, then the T0 needs to be specified and
@@ -1387,13 +1393,13 @@ class Spectrum(BatObservation):
             the specified T0. If so, then the T0 needs to be specified andthe is_relative parameter should be True.
             NOTE: if tmin/tmax are specified then anything passed to the timebins parameter is ignored.
 
-            If the length of tmin is 1 then this denotes the time when the binned lightcurve should start. For this single
+            If the length of tmin is 1 then this denotes the time when the binned pha file should start. For this single
             value, it can also be defined relative to T0. If so, then the T0 needs to be specified and the is_relative parameter
             should be True.
 
             NOTE: if tmin/tmax are specified then anything passed to the timebins parameter is ignored.
         :param tmax:astropy.units.Quantity denoting the maximum values of the timebin edges that the user would like
-            the lightcurve to be binned into. Units will usually be in seconds for this. The values can be relative to
+            the pha to be binned into. Units will usually be in seconds for this. The values can be relative to
             the specified T0. If so, then the T0 needs to be specified andthe is_relative parameter should be True.
             NOTE: if tmin/tmax are specified then anything passed to the timebins parameter is ignored.
 
@@ -1402,10 +1408,12 @@ class Spectrum(BatObservation):
             should be True.
 
             NOTE: if tmin/tmax are specified then anything passed to the timebins parameter is ignored.
-        :param T0: float or an astropy.units.Quantity object with some tiem of interest (eg trigger time)
+        :param T0: float or an astropy.units.Quantity object with some time of interest (eg trigger time)
         :param is_relative: Boolean switch denoting if the T0 that is passed in should be added to the
             timebins/tmin/tmax that were passed in.
-        :param timedelta: numpy.timedelta64 object denoting the size of the timebinning. This value is used when
+        :param timedelta: numpy.timedelta64 object denoting the size of the time binning. This value is used when
+            timebinalg is set. When timebin=np.timedelta64(0, "s") the whole event dataset gets
+            accumulated into a spectrum.
         :param snrthresh: float representing the snr threshold associated with the timebinalg="snr" or timebinalg="highsnr"
             parameter values. See above description of the timebinalg parameter to see how this snrthresh parameter is used.
         :return: None
@@ -1525,12 +1533,12 @@ class Spectrum(BatObservation):
     @u.quantity_input(emin=['energy'], emax=['energy'])
     def set_energybins(self, energybins="CALDB", emin=None, emax=None):
         """
-        This method allows the energy binning to be set for the lightcurve. The energy rebinning is done automatically
+        This method allows the energy binning to be set for the pha file. The energy rebinning is done automatically
         and the information for the rebinned lightcurve is automatically updated in the data attribute (which holds the
-        light curve information itself including rates/counts, errors, fracitonal exposure, total counts, etc) and the
-        ebins attribute which holds the energybins associated with the lightcurve.
+        pha file information itself including rates/counts, errors,  etc) and the
+        ebins attribute which holds the energybins associated with the pha file.
 
-        :param energybins: a list or single string denoting the energy bins in keV that the lightcurve shoudl be binned into
+        :param energybins: a list or single string denoting the energy bins in keV that the pha should be binned into
             The string should be formatted as "15-25" where the dash is necessary. A list should be formatted as multiple
             elements of the strings, where none of the energy ranges overlap.
         :param emin: a list or a astropy.unit.Quantity object of 1 or more elements. These are the minimum edges of the
@@ -1653,7 +1661,7 @@ class Spectrum(BatObservation):
         Calls heasoftpy's batphasyserr which applies systematic errors to the 80 channel PHA spectrum. The systematic
         errors live in CALDB at: https://heasarc.gsfc.nasa.gov/FTP/caldb/data/swift/bat/cpf/swbsyserr20030101v003.fits
 
-        :return:
+        :return: heasoftpy Result object from batphasyserr
         """
         pha_file = self.get_pha_filename()
         input_dict = dict(infile=str(pha_file), syserrfile="CALDB")
@@ -1669,7 +1677,7 @@ class Spectrum(BatObservation):
         Calls heasoftpy's batupdatephakw which applies geometrical corrections to the PHA spectrum which is especially
         important is BAT is slewing during an observation and the source position is changing.
 
-        :return:
+        :return: heasoftpy Result object from batupdatephakw
         """
         pha_file = self.get_pha_filename()
         input_dict = dict(infile=str(pha_file), auxfile=str(self.auxil_raytracing_file))
@@ -1683,8 +1691,9 @@ class Spectrum(BatObservation):
     def _call_batdrmgen(self):
         """
         This calls heasoftpy's batdrmgen which produces the associated drm for fitting the PHA file.
+        TODO: Create a response object that can be manipulated
 
-        :return:
+        :return: None
         """
 
         pha_file = self.get_pha_filename()
@@ -1722,6 +1731,8 @@ class Spectrum(BatObservation):
         obtained.
 
         Note: event weightings need to be set if the RA/DEC of the light curve doesnt match what is in the event file
+        Note: if we have a mask weight image, then this can be used in batbinevt and supersedes the MASK_WEIGHT column
+            of the event file
 
         :return: None
         """
@@ -1747,7 +1758,7 @@ class Spectrum(BatObservation):
 
     def _same_event_lc_coords(self):
         """
-        This method reads in the event data coordinates and compares it to what is obained from the lightcurve
+        This method reads in the event data coordinates and compares it to what is obtained from the lightcurve
         file that has been loaded in.
 
         :return: Boolean
@@ -1762,11 +1773,11 @@ class Spectrum(BatObservation):
 
     def _parse_pha_file(self):
         """
-        This method parses through a light curve file that has been created by batbinevent. The information included in
-        the lightcurve file is read into the RA/DEC attributes (and checked to make sure that this is the lightcurve that
-        the user wants to load in), the data attribute (which holds the light curve information itself including rates/counts,
-        errors, fracitonal exposure, total counts, etc), the ebins attribute which holds the energybins associated with
-        the lightcurve, the tbins attibute with the time bin edges and the time bin centers
+        This method parses through a pha file that has been created by batbinevent. The information included in
+        the pha file is read into the RA/DEC attributes (and checked to make sure that this is the pha that
+        the user wants to load in), the data attribute (which holds the pha information itself including rates/counts,
+        errors,  etc), the ebins attribute which holds the energybins associated with
+        the pha file, the tbins attibute with the time bin edges and the time bin centers
 
         NOTE: A special value of timepixr=-1 (the default used when constructing light curves) specifies that
               timepixr=0.0 for uniformly binned light curves and
@@ -1836,6 +1847,7 @@ class Spectrum(BatObservation):
             self.tbins["TIME_CENT"] = 0.5 * (self.tbins[f"TIME_START"] + self.tbins[f"TIME_STOP"])
 
         # see if there is a response file associated with this and that it exists
+        # TODO: create a DRM object to hold this info
         if "RESPFILE" in header.keys():
             drm_file = header["RESPFILE"]
             self.drm_file = drm_file
@@ -1926,8 +1938,8 @@ class Spectrum(BatObservation):
     def _create_custom_timebins(self, timebins, output_file=None):
         """
         This method creates custom time bins from a user defined set of time bin edges. The created fits file with the
-        timebins of interest will by default have the same name as the lightcurve file, however it will have a "gti"
-        suffix instead of a "lc" suffix and it will be stored in the gti subdirectory of the event results directory.
+        timebins of interest will by default have the same name as the pha file, however it will have a "gti"
+        suffix instead of a "pha" suffix and it will be stored in the gti subdirectory of the event results directory.
 
         Note: This method is here so the call to create a gti file with custom timebins can be phased out eventually.
 
@@ -1948,11 +1960,16 @@ class Spectrum(BatObservation):
 
         return create_gti_file(timebins, output_file, T0=None, is_relative=False, overwrite=True)
 
+    @u.quantity_input(emin=['energy'], emax=['energy'])
     def plot(self, emin=15 * u.keV, emax=195 * u.keV, plot_model=True):
         """
         This method allows the user to conveniently plot the spectrum that has been created. If it has been fitted
         with a model, then the model can also be plotted as well.
 
+        :param emin: an astropy.unit.Quantity denoting the min energy that should be plotted
+        :param emax: an astropy.unit.Quantity denoting the max energy that should be plotted
+        :param plot_model: Boolean to denote if the model that has been fit to the pha file should also be plotted, if
+            it exists
         :return: matplotlib figure, matplotlib axis
         """
 
@@ -2041,11 +2058,10 @@ class Spectrum(BatObservation):
 
     def set_drm_filename(self, drmfile):
         """
-        This funciton allows the pha_file_list attribute to have pha file names to be saved to it.
-        The upper limit pha file can be overwritten but the original pha file cannot be changed.
+        This method allows the drm_file attribute to be set
 
-        :param phafile:
-        :return:
+        :param drmfile:a Path object to the drm file.
+        :return: None
         """
 
         self.drm_file = drmfile
@@ -2054,20 +2070,17 @@ class Spectrum(BatObservation):
         """
         This method returns the pha filename
 
-        :param getupperlim: Boolean to specify if the function should return just the upper limit PHA file. Default is
-            False, meaning that just the normal PHA file will be returned
-        :return: a path object of the specified pha filename
+        :return: a path object of the pha filename
         """
 
         return self.pha_file
 
     def set_pha_files(self, phafile):
         """
-        This funciton allows the pha_file_list attribute to have pha file names to be saved to it.
-        The upper limit pha file can be overwritten but the original pha file cannot be changed.
+        This function allows the pha_file attribute to be changed to phafile.
 
-        :param phafile:
-        :return:
+        :param phafile: Path object for the phafile that should be saved to the pha_file attribute
+        :return: None
         """
 
         self.pha_file = phafile
@@ -2080,8 +2093,7 @@ class Spectrum(BatObservation):
         :param bkg_nsigma: Float for the significance of the background scaling to obtain an upper limit at that limit
             (eg PHA count = bkg_nsigma*bkg_var), here
 
-
-        :return:
+        :return: a Spectrum object with the upperlimit calculated pha file
         """
         try:
             pha_file = self.get_pha_filename()
@@ -2124,11 +2136,14 @@ class Spectrum(BatObservation):
         tracing files are not specified, then the user will not be able to dynamically change the spectrum energy bins
         or time bin
 
-        :param pha_file:
-        :param event_file:
-        :param detector_quality_mask:
-        :param auxil_raytracing_file:
-        :return:
+        :param pha_file: Path object of the pha file that will be read in.
+        :param event_file: Path object for the event file with mask weighting already applied so we can load the
+            appropriate mask weights
+        :param detector_quality_mask: Path object for the detector quality mask that was constructed for the associated
+            event file
+        :param auxil_raytracing_file: Path object pointing to the auxiliary ray tracing file that is created by applying
+            the mask weighting to the event file that is passed in.
+        :return: a Spectrum object with the loaded pha file data
         """
         pha_file = Path(pha_file).expanduser().resolve()
 
