@@ -295,7 +295,7 @@ class Lightcurve(BatObservation):
 
         # do error checking on tmin/tmax
         if (tmin is None and tmax is not None) or (tmax is None and tmin is not None):
-            raise ValueError('Both emin and emax must be defined.')
+            raise ValueError('Both tmin and tmax must be defined.')
 
         if tmin is not None and tmax is not None:
             if tmin.size != tmax.size:

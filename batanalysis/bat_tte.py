@@ -512,6 +512,7 @@ class BatEvent(BatObservation):
 
         return None
 
+    @u.quantity_input(timebins=['time'], tstart=['time'], tstop=['time'])
     def create_lightcurve(self, lc_file=None, timebinalg="uniform", timedelta=np.timedelta64(64, 'ms'),
                           tstart=None, tstop=None, timebins=None, T0=None, is_relative=False,
                           energybins=["15-25", "25-50", "50-100", "100-350"], mask_weighting=True, recalc=False,
@@ -609,7 +610,8 @@ class BatEvent(BatObservation):
 
         return self.lightcurve
 
-    def create_pha(self, pha_file=None, tstart=None, tstop=None,
+    @u.quantity_input(timebins=['time'], tstart=['time'], tstop=['time'])
+    def create_pha(self, pha_file=None, tstart=None, tstop=None, timebins=None, T0=None, is_relative=False,
                     energybins=None, recalc=False, mask_weighting=True):
         """
         This method returns a spectrum object or list of spectrum objects.
@@ -621,34 +623,69 @@ class BatEvent(BatObservation):
         # timedel=0.0 timebinalg=u energybins=CALDB
         # detmask=../hk/sw00145675000bcbdq.hk.gz clobber=YES
 
-        if pha_file is None:
-            if not recalc:
-                #make up a name for the light curve that hasnt been used already in the LC directory
-                pha_files = [i.name for i in list(self.result_dir.joinpath("pha").glob("*.pha"))]
-                base="spectrum_"
-                count=0
-                while f"{base}{count}.pha" in pha_files:
-                    count+=1
-                final_pha_file=self.result_dir.joinpath("pha").joinpath(f"{base}{count}.pha")
+        # do error checking on tmin/tmax make sure both are defined and that they are the same length
+        if (tstart is None and tstop is not None) or (tstart is None and tstop is not None):
+            raise ValueError('Both emin and emax must be defined.')
+
+        if tstart is not None and tstop is not None:
+            if tstart.size == tstop.size:
+                input_tstart=tstart.copy()
+                input_tstop=tstop.copy()
             else:
-                pha_files = list(self.result_dir.joinpath("pha").glob("*.pha"))
-                if len(pha_files)==1:
-                    final_pha_file=pha_files[0]
+                raise ValueError('Both tmin and tmax must have the same length.')
+
+        #if the timebins is defined, will need to break it up into the tstart and tstop arrays to iterate over
+        if timebins is not None:
+            input_tstart=timebins[:-1]
+            input_tstop=timebins[1:]
+
+        #if we are passing in a number of timebins, the user can pass in a number of pha files to load/create so make
+        #sure that we have the same number of pha_files passed in or that it is None
+        if pha_file is not None and type(pha_file) is not list:
+            pha_file=[pha_file]
+
+        if pha_file is not None and len(pha_file) != input_tstart.size:
+            raise ValueError("The number of pha files does not match the number of timebins. Please make sure these are "
+                             "the same length or that pha_files is set to None")
+
+        spectrum_list=[]
+        for i in range(input_tstart.size):
+
+            if pha_file is None:
+                if not recalc:
+                    #make up a name for the light curve that hasnt been used already in the LC directory
+                    pha_files = [i.name for i in list(self.result_dir.joinpath("pha").glob("*.pha"))]
+                    base="spectrum_"
+                    count=0
+                    while f"{base}{count}.pha" in pha_files:
+                        count+=1
+                    final_pha_file=self.result_dir.joinpath("pha").joinpath(f"{base}{count}.pha")
                 else:
-                    raise ValueError(f"There are too many files which meet the criteria to be loaded. Please specify one of {pha_files}.")
+                    pha_files = list(self.result_dir.joinpath("pha").glob("*.pha"))
+                    if len(pha_files)==1:
+                        final_pha_file=pha_files[0]
+                    else:
+                        raise ValueError(f"There are too many files which meet the criteria to be loaded. Please specify one of {pha_files}.")
+            else:
+                final_pha_file=Path(pha_file[i]).expanduser().resolve()
+
+            spectrum = Spectrum(final_pha_file, self.event_files, self.detector_quality_file, self.auxil_raytracing_file,
+                                mask_weighting=mask_weighting, recalc=recalc)
+
+            #need to check about recalculating this if recalc=False
+            if pha_file is None or recalc:
+                spectrum.set_timebins(tmin=input_tstart[i], tmax=input_tstop[i], T0=T0, is_relative=is_relative)
+                if energybins is not None:
+                    #if energybins is None, then the default energybinning of "CALDB" is used
+                    spectrum.set_energybins(energybins=energybins)
+
+            spectrum_list.append(spectrum)
+
+        #save the spectrum list as an attribute, if there is one spectrum then index it appropriately
+        if len(spectrum_list)==1:
+            self.spectrum=spectrum_list[0]
         else:
-            final_pha_file=Path(pha_file).expanduser().resolve()
-
-        spectrum = Spectrum(final_pha_file, self.event_files, self.detector_quality_file, self.auxil_raytracing_file,
-                            mask_weighting=mask_weighting, recalc=recalc)
-
-        #need to check about recalculating this if recalc=False
-        if pha_file is None or recalc:
-            spectrum.set_timebins(tmin=tstart, tmax=tstop)
-            if energybins is not None:
-                spectrum.set_energybins(energybins=energybins)
-
-        self.spectrum=spectrum
+            self.spectrum = spectrum_list
 
         return self.spectrum
 

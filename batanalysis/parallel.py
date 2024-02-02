@@ -20,6 +20,7 @@ from .batlib import (
 )
 from .batlib import combine_survey_lc as serial_combine_survey_lc
 from .bat_survey import MosaicBatSurvey, BatSurvey
+from .batproducts import Spectrum
 from .mosaic import (
     _mosaic_loop,
     merge_mosaics,
@@ -142,7 +143,7 @@ def batsurvey_analysis(
     return final_obs
 
 
-def _spectrum_analysis(
+def _survey_spectrum_analysis(
     obs,
     source_name,
     recalc=False,
@@ -273,7 +274,7 @@ def _spectrum_analysis(
     return obs
 
 
-def batspectrum_analysis(
+def batspectrum_survey_analysis(
     batsurvey_obs_list,
     source_name,
     recalc=False,
@@ -343,6 +344,192 @@ def batspectrum_analysis(
         return obs[0]
     else:
         return obs
+
+def _TTE_spectrum_analysis(
+    spectrum,
+    recalc=False,
+    generic_model=None,
+    setPars=None,
+    fit_iterations=1000,
+    use_cstat=True,
+    ul_pl_index=2,
+    nsigma=3,
+    bkg_nsigma=5,
+):
+    """
+    Fit a single spectrum object and determine if a detection has been made. If a detection has been made, the Spectrum
+    object is returned with it's spectral_model attribute updated. If no detection has been made, a new Spectrum object
+    is returned where the spectrum correponds to the upper limit spectrum that is calculated and is used to place
+    flux upper limits on the source that the spectrum corresponds to.
+
+    :param spectrum: The Spectrum object or list of Spectrum objects which contains the spectrum/spectra that will be fit.
+    :param recalc: Boolean False by default. The default, will cause the function to try to load a save file to save on
+        computational time. If set to True, do not try to load the results of prior calculations. Instead rerun the
+        fitting on the pointings of the observation ID.
+    :param generic_model: Default None or a generic model that can be passed to pyXspec, see the pyXspec documentation
+        or the fit_spectrum docustring for more information on how to define this. The default None uses the basic
+        powerlaw function (see the fit_spectrum function)
+    :param setPars: None or a dictionary to specify values for the pyXspec model parameters. The value of None defaults
+        to using the default parameter values found in the fit_spectrum function. More inforamtion on how to define this
+        can be found by looking at the fit_spectrum docustring or the pyXspec documentation.
+    :param fit_iterations: Integer, default 100, that defines the maximum iterations that can occur to conduct the
+        fitting
+    :param use_cstat: boolean, default False, to determine if CSTAT statistics should be used. In very bright sources,
+        with lots of counts this should be set to False. For sources with small counts where the errors are not expected
+        to be gaussian, this should be set to True.
+    :param ul_pl_index: Float (default 2) denoting the power law photon index that will be used to obtain a flux upper
+        limit
+    :param nsigma: Integer, denoting the number for sigma the user needs to justify a detection
+    :param bkg_nsigma: Integer, denoting the number of sigma the user needs to calculate flux upper limit in case
+        of a non detection.
+    :return: a Spectrum object with updated spectral information. If there is a detection of a source, then the
+        returned Spectrum object will be identical to what is passed in. If there is no detection, then the Spectrum
+        that is returned will be that correspondent to the upper limit spectrum that gets fit.
+    """
+
+    #determine if we really need to do the fitting again. If recalc=True, do the refitting. If not then see which spectra
+    # have been fit already and thus be skipped in fitting.
+    if recalc:
+        val = True
+    else:
+        if spectrum.spectral_model is None:
+            val=True
+        else:
+            val=False
+
+    if val:
+        fit_spectrum(
+            spectrum,
+            use_cstat=use_cstat,
+            plotting=False,
+            verbose=False,
+            generic_model=generic_model,
+            setPars=setPars,
+            fit_iterations=fit_iterations,
+        )
+
+        return_spect=calculate_detection(
+            spectrum,
+            pl_index=ul_pl_index,
+            nsigma=nsigma,
+            bkg_nsigma=bkg_nsigma,
+            verbose=False,
+        )
+    else:
+        return_spect=spectrum
+
+    return return_spect
+
+def batspectrum_TTE_analysis(
+    spectrum,
+    recalc=False,
+    generic_model=None,
+    setPars=None,
+    fit_iterations=1000,
+    use_cstat=True,
+    ul_pl_index=2,
+    nsigma=3,
+    bkg_nsigma=5,
+    nprocs=1,
+):
+    """
+    Calculates and fits the spectra that are passed in parallel. These should be BatAnalysis.Spectrum objects in a list.
+    Note that this function returns spectrum objects that have the spectral_model parameter filled in, when there is a
+    detection measured at the specified significance level. If there is not a detection measured, the returned Spectrum
+    is correspondent to the upper limit spectrum that is calculated and fitted to obtain upper limit fluxes.
+
+    :param spectrum: The Spectrum object or list of Spectrum objects which contains the spectrum/spectra that will be fit.
+    :param recalc: Boolean False by default. The default, will cause the function to try to load a save file to save on
+        computational time. If set to True, do not try to load the results of prior calculations. Instead rerun the
+        fitting on the pointings of the observation ID.
+    :param generic_model: Default None or a generic model that can be passed to pyXspec, see the pyXspec documentation
+        or the fit_spectrum docustring for more information on how to define this. The default None uses the basic
+        powerlaw function (see the fit_spectrum function)
+    :param setPars: None or a dictionary to specify values for the pyXspec model parameters. The value of None defaults
+        to using the default parameter values found in the fit_spectrum function. More inforamtion on how to define this
+        can be found by looking at the fit_spectrum docustring or the pyXspec documentation.
+    :param fit_iterations: Integer, default 100, that defines the maximum iterations that can occur to conduct the
+        fitting
+    :param use_cstat: boolean, default False, to determine if CSTAT statistics should be used. In very bright sources,
+        with lots of counts this should be set to False. For sources with small counts where the errors are not expected
+        to be gaussian, this should be set to True.
+    :param ul_pl_index: Float (default 2) denoting the power law photon index that will be used to obtain a flux upper
+        limit
+    :param nsigma: Integer, denoting the number for sigma the user needs to justify a detection
+    :param bkg_nsigma: Integer, denoting the number of sigma the user needs to calculate flux upper limit in case of
+        a non detection.
+    :param nprocs: The number of processes that will be run simulaneously. This number should not be larger than the
+        number of CPUs that a user has available to them.
+    :return: a list of Spectrum objects with updated spectral information. If there is a detection of a source, then the
+        returned spectrum object will be identical to what is passed in. If there is no detection, then the Spectrum
+        that is returned will be that correspondent to the upper limit spectrum that gets fit.
+    """
+
+    _remove_pfiles()
+
+    not_list = False
+    if type(spectrum) is not list:
+        not_list = True
+        spectrum = [spectrum]
+    else:
+        # verify that we have all elements be a Spectrum object
+        if np.any([not isinstance(i,Spectrum) for i in spectrum]):
+            raise ValueError("The input list must be made of all BatAnalysis Spectrum objects. "
+                         "Please ensure that this condition is met.")
+
+
+    out_spect = Parallel(n_jobs=nprocs)(
+        delayed(_TTE_spectrum_analysis)(
+            i,
+            recalc=recalc,
+            use_cstat=use_cstat,
+            generic_model=generic_model,
+            setPars=setPars,
+            fit_iterations=fit_iterations,
+            ul_pl_index=ul_pl_index,
+            nsigma=nsigma,
+            bkg_nsigma=bkg_nsigma,
+        )
+        for i in spectrum
+    )
+
+    # if this wasnt a list, just return the single object otherwise return the list
+    if not_list:
+        return out_spect[0]
+    else:
+        return out_spect
+
+def batspectrum_analysis(*args, **kwargs):
+    """
+    This is a wrapper function that allows users to pass in arguments for fitting spectra produced from BAT survey data
+    or TTE data. For fitting survey data spectra, see the documentation for batspectrum_survey_analysis for the values
+    that need to be passed in/can be passed in. For TTE spectra, using the Spectrum object, refer to
+    the batspectrum_TTE_analysis function for potential inputs to this function.
+
+    :return: See the documentation for
+    """
+
+    #input can be a list of/single Spectrum objects or a list of/single BatSurvey objects, or a list of/single MosaicBatSurvey
+    # object.
+
+    if type(args[0]) is list:
+        test_arg=args[0][0]
+    else:
+        test_arg=args[0]
+
+    if isinstance(test_arg, Spectrum):
+        # we have a spectrum object
+        ret=batspectrum_TTE_analysis(*args, **kwargs)
+    elif isinstance(test_arg, BatSurvey) or isinstance(test_arg, MosaicBatSurvey):
+        # we are passing in a phafilename for
+        ret=batspectrum_survey_analysis(*args, **kwargs)
+    else:
+        raise ValueError("The inputs cannot be parsed appropriately. Please consult the documentation for "
+                         "batspectrum_TTE_analysis or batspectrum_survey_analysis for the values that should be passed in.")
+
+    return ret
+
+
 
 
 def batmosaic_analysis(
