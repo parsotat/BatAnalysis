@@ -667,6 +667,11 @@ class BatEvent(BatObservation):
                         raise ValueError("The number of pha files that exist in the pha directory do not match the "
                                          "specified time binning for the creation of spectra when recalc=False. ")
 
+                    #if the tstart/tstop is None, we need to fill these to iterate over them and load in the pha files
+                    if input_tstart is None:
+                        input_tstart = np.array([None] * len(final_pha_files))
+                        input_tstop = input_tstart
+
                 elif len(pha_files)==0:
                     #iterate through the pha files that need to be created
                     final_pha_files=[]
@@ -717,7 +722,7 @@ class BatEvent(BatObservation):
                                 mask_weighting=mask_weighting, recalc=recalc)
 
             #need to check about recalculating this if recalc=False
-            if pha_file is None or recalc:
+            if pha_file is None and recalc or pha_file is not None:
                 spectrum.set_timebins(tmin=input_tstart[i], tmax=input_tstop[i], T0=T0, is_relative=is_relative)
                 if energybins is not None:
                     #if energybins is None, then the default energybinning of "CALDB" is used
