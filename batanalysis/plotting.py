@@ -3,6 +3,8 @@ import numpy as np
 from pathlib import Path
 from .batlib import met2utc, met2mjd, concatenate_data
 from astropy.time import Time, TimeDelta
+from .batproducts import Spectrum, Lightcurve
+import astropy.units as u
 
 # for python>3.6
 try:
@@ -259,20 +261,105 @@ def plot_survey_lc(
 
     return fig, axes
 
-def plot_TTE_lightcurve(lightcurves, spectra, T0=None, time_unit="MET", is_relative=False, energy_range=[15,350],):
+def plot_TTE_lightcurve(lightcurves, spectra, values=["flux", "phoindex"], T0=None, time_unit="MET", is_relative=False, energy_range=[15,350]*u.keV):
     """
     This convenience function allows one to plot a set of lightcurves alongside a set of spectra. The spectra should all
     be fit with the same model.
 
+    Thsi doesnt plot rate lightcurves
 
     :return:
     """
 
     #first see how many lightcurves we need to plot
+    if type(lightcurves) is not list:
+        lcs=[lightcurves]
+    else:
+        lcs=lightcurves
 
-    #then see how many spectra we need to plot
+    if type(spectra) is not list:
+        spect=[spectra]
+    else:
+        spect=spectra
 
-    #make sure that all the spectra have the same parameters. for upper limits, we dont have to do anything
+    #do some error checking for types
+    if np.any([not isinstance(i, Lightcurve) for i in lcs]):
+        raise ValueError("Not all the elements of the values passed in to the lightcurves variable are Lightcurve objects.")
+
+    if np.any([not isinstance(i, Spectrum) for i in spect]):
+        raise ValueError("Not all the elements of the values passed in to the spectra variable are Spectrum objects.")
+
+    #make sure all the spectra have been fitted with a model and that all the models are the same
+    #TODO: get the times of the spectra here
+    spect_models=[]
+    for i in spect:
+        try:
+            spect_models.append(i.spectral_model)
+        except AttributeError as e:
+            raise AttributeError("Not all of the spectra that have been passed in have been fit with a spectral model")
+
+    #if the user has passed in explicit values to plot we want to check for these, otherwise plot everything
+    if values is None:
+        template=None
+    else:
+        #if values has flux in it, change it to lg10flux isnce this is what xspec provides
+        if "flux" in values:
+            values[values.index("flux")]="lg10Flux"
+        template=[i.lower() for i in values]
+    for model in spect_models:
+        #if we do not have an upper limit and the template is None save the parameters as the template model parameters
+        if template is None and "nsigma_lg10flux_upperlim" not in model.keys():
+            template = model["parameters"].keys()
+        elif template is not None:
+            #otherwise if we have a template, compare it to the model parameters
+            if set(template)!=set([i.lower() for i in model["parameters"].keys()]):
+                raise ValueError("The input spectra do not all have the same fitted model parameters (excluding spectra"
+                                 " that were used to calculate flux upper limits.")
+
+
+    #then see how many figure axes we need
+    # one for LC and some number for the spectral ligthcurve parameters we want to plot
+    num_ax=1+len(template)
+    fig, axes = plt.subplots(len(num_ax), sharex=True)
+
+    if len(lcs)>1 and energy_range.size>2:
+        #we can only plot a single energy range for each LC otherwise we get plots that are too cluttered
+        raise ValueError("There can only be a single energy range plotted when there are multiple lightcurves to plot")
+
+    #plot the ligthcurves on the first axis
+    #if a single lc is passed in and energy range is None, we want to plot all the energy bins of the Lightcurve object
+    for lc in lcs:
+        #need to get the times here for the LC
+
+
+        for e_idx, emin, emax in zip(lc.ebins["INDEX"], lc.ebins["E_MIN"], lc.ebins["E_MAX"]):
+            plotting=True
+            if energybins is not None:
+                # need to see if the energy range is what the user wants
+                if emin == energybins.min() and emax == energybins.max():
+                    plotting = True
+                else:
+                    plotting = False
+
+            if plotting:
+                # use the proper indexing for the array
+                if len(lc.ebins["INDEX"]) > 1:
+                    rate = lc.data[data_key][:, e_idx]
+                    rate_error = self.data["ERROR"][:, e_idx]
+                    l = f'{self.ebins["E_MIN"][e_idx].value}-{self.ebins["E_MAX"][e_idx].value} ' + f'{self.ebins["E_MAX"][e_idx].unit}'
+                else:
+                    rate = self.data[data_key]
+                    rate_error = self.data["ERROR"]
+                    l = f'{self.ebins["E_MIN"][0].value}-{self.ebins["E_MAX"][0].value} ' + f'{self.ebins["E_MAX"].unit}'
+
+                line = ax_rate.plot(start_times, rate, ds='steps-post')
+                line_handle, = ax_rate.plot(end_times, rate, ds='steps-pre', color=line[-1].get_color(), label=l)
+                all_lines.append(line_handle)
+                all_labels.append(l)
+                ax_rate.errorbar(mid_times, rate, yerr=rate_error, ls='None', color=line[-1].get_color())
+
+                axes[0].plot()
+
 
 
 
