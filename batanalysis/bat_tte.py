@@ -623,16 +623,18 @@ class BatEvent(BatObservation):
         # timedel=0.0 timebinalg=u energybins=CALDB
         # detmask=../hk/sw00145675000bcbdq.hk.gz clobber=YES
 
+        input_tstart=None
+        input_tstop=None
         # do error checking on tmin/tmax make sure both are defined and that they are the same length
         if (tstart is None and tstop is not None) or (tstart is None and tstop is not None):
-            raise ValueError('Both emin and emax must be defined.')
+            raise ValueError('Both tstart and tstop must be defined.')
 
         if tstart is not None and tstop is not None:
             if tstart.size == tstop.size:
                 input_tstart=tstart.copy()
                 input_tstop=tstop.copy()
             else:
-                raise ValueError('Both tmin and tmax must have the same length.')
+                raise ValueError('Both tstart and tstop must have the same length.')
 
         #if the timebins is defined, will need to break it up into the tstart and tstop arrays to iterate over
         if timebins is not None:
@@ -644,32 +646,74 @@ class BatEvent(BatObservation):
         if pha_file is not None and type(pha_file) is not list:
             pha_file=[pha_file]
 
-        if pha_file is not None and len(pha_file) != input_tstart.size:
-            raise ValueError("The number of pha files does not match the number of timebins. Please make sure these are "
-                             "the same length or that pha_files is set to None")
+        #The user has not specified a set or single pha file to load in or create then we need to determine which ones
+        # to load. By default, we load all of them and dont recalculate anything. If recalc=true, we load all of them
+        # and then they get recalcualted with whatever paramters get passed to the Lightcurve object.
+
+        if pha_file is None:
+            # identify any pha files that may already exist. If there are make a list of them. If not then create a
+            # new set based on the timebins that the user has provided
+            pha_files = [i.name for i in list(self.result_dir.joinpath("pha").glob("*.pha"))]
+
+            if not recalc:
+
+                if len(pha_files)>0:
+                    final_pha_files = [self.result_dir.joinpath("pha").joinpath(f"{i}") for i in pha_files]
+
+                    # can have some number of pha files that dont correspond to the number of timebins which we dont want to
+                    # handle right now. In the future can create the necessary amount if input_tstart.size > len(pha_files),
+                    # or choose a subset if input_tstart.size < len(pha_files)
+                    if input_tstart is not None and input_tstart.size != len(final_pha_files):
+                        raise ValueError("The number of pha files that exist in the pha directory do not match the "
+                                         "specified time binning for the creation of spectra when recalc=False. ")
+
+                elif len(pha_files)==0:
+                    #iterate through the pha files that need to be created
+                    final_pha_files=[]
+                    base = "spectrum_"
+                    count = 0
+                    for i in range(input_tstart.size):
+                        final_pha_files.append(self.result_dir.joinpath("pha").joinpath(f"{base}{count}.pha"))
+                        count += 1
+
+            else:
+                #list the currently existing pha files
+                final_pha_files = [self.result_dir.joinpath("pha").joinpath(f"{i}") for i in pha_files]
+
+                #can have that the input_tstart is None, in which case what are we doing? can have different number of
+                # input_tstart than final_pha_file, then just delete all files in pha
+                # directory for this case
+                if input_tstart is None:
+                    raise ValueError("The number of pha files that exist in the pha directory do not match the "
+                                     "specified time binning for the creation of spectra when recalc=True. ")
+
+                if input_tstart is not None and input_tstart.size != len(final_pha_files):
+                    warnings.warn(f"Deleting all files in {self.result_dir.joinpath('pha')} and creating new"
+                                        f"pha files for the passed in timebins")
+                    dirtest(self.result_dir.joinpath('pha'))
+
+        else:
+            final_pha_files = [Path(i).expanduser().resolve() for i in pha_file]
+
+            #need to see if input_tstart/input_tstop is None. If not None, then need to check that the lengths are the
+            #same
+            if input_tstop is not None and len(pha_file) != input_tstart.size:
+                raise ValueError(
+                    "The number of pha files does not match the number of timebins. Please make sure these are "
+                    "the same length or that pha_files is set to None")
+
+            #if input_stop/input_start is None, then we need to just set it to be the same length as the final_pha_files
+            # list. this is to get the loop below going.
+            if recalc and input_tstart is None and energybins is None:
+                raise ValueError("recalc has been set to True, but there is not sufficient information for rebinning "
+                                 f"the following lightcurves {','.join([i.name for i in final_pha_files])}. Please enter"
+                                 "information related to a change in timebins or energy bins")
 
         spectrum_list=[]
         for i in range(input_tstart.size):
 
-            if pha_file is None:
-                if not recalc:
-                    #make up a name for the light curve that hasnt been used already in the LC directory
-                    pha_files = [i.name for i in list(self.result_dir.joinpath("pha").glob("*.pha"))]
-                    base="spectrum_"
-                    count=0
-                    while f"{base}{count}.pha" in pha_files:
-                        count+=1
-                    final_pha_file=self.result_dir.joinpath("pha").joinpath(f"{base}{count}.pha")
-                else:
-                    pha_files = list(self.result_dir.joinpath("pha").glob("*.pha"))
-                    if len(pha_files)==1:
-                        final_pha_file=pha_files[0]
-                    else:
-                        raise ValueError(f"There are too many files which meet the criteria to be loaded. Please specify one of {pha_files}.")
-            else:
-                final_pha_file=Path(pha_file[i]).expanduser().resolve()
 
-            spectrum = Spectrum(final_pha_file, self.event_files, self.detector_quality_file, self.auxil_raytracing_file,
+            spectrum = Spectrum(final_pha_files[i], self.event_files, self.detector_quality_file, self.auxil_raytracing_file,
                                 mask_weighting=mask_weighting, recalc=recalc)
 
             #need to check about recalculating this if recalc=False
