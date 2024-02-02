@@ -251,7 +251,7 @@ Project Link: [https://github.com/parsotat/BatAnalysis.git](https://github.com/p
 ## Acknowledgements
 
 * In using the BatAnalysis code, we ask that you cite the following paper: 
-    * [Parsotan et. al. 2023 (submitted to ApJ)](https://arxiv.org/abs/2303.06255)
+    * [Parsotan et. al. 2023](https://arxiv.org/abs/2303.06255)
 * [README Template from: othneildrew/Best-README-Template](https://github.com/othneildrew/Best-README-Template)
 
 
