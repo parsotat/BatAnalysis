@@ -259,3 +259,21 @@ def plot_survey_lc(
 
     return fig, axes
 
+def plot_TTE_lightcurve(lightcurves, spectra, T0=None, time_unit="MET", is_relative=False, energy_range=[15,350],):
+    """
+    This convenience function allows one to plot a set of lightcurves alongside a set of spectra. The spectra should all
+    be fit with the same model.
+
+
+    :return:
+    """
+
+    #first see how many lightcurves we need to plot
+
+    #then see how many spectra we need to plot
+
+    #make sure that all the spectra have the same parameters. for upper limits, we dont have to do anything
+
+
+
+    return fig, axes
