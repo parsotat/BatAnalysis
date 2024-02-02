@@ -392,10 +392,14 @@ def _TTE_spectrum_analysis(
     if recalc:
         val = True
     else:
-        if spectrum.spectral_model is None:
+        try:
+            if spectrum.spectral_model is None:
+                val=True
+            else:
+                val=False
+        except AttributeError as e:
+            #if the attribute doesnt exist then it hasnt been set so need to do the fit
             val=True
-        else:
-            val=False
 
     if val:
         fit_spectrum(
