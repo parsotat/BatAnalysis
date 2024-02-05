@@ -612,7 +612,7 @@ class BatEvent(BatObservation):
 
     @u.quantity_input(timebins=['time'], tstart=['time'], tstop=['time'])
     def create_pha(self, pha_file=None, tstart=None, tstop=None, timebins=None, T0=None, is_relative=False,
-                    energybins=None, recalc=False, mask_weighting=True):
+                    energybins=None, recalc=False, mask_weighting=True, load_upperlims=False):
         """
         This method returns a spectrum object or list of spectrum objects.
 
@@ -654,6 +654,9 @@ class BatEvent(BatObservation):
             # identify any pha files that may already exist. If there are make a list of them. If not then create a
             # new set based on the timebins that the user has provided
             pha_files = [i.name for i in list(self.result_dir.joinpath("pha").glob("*.pha"))]
+
+            if not load_upperlims:
+                pha_files = [i for i in pha_files if "upperlim" not in i]
 
             if not recalc:
 

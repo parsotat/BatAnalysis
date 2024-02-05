@@ -330,6 +330,50 @@ def plot_TTE_lightcurve(lightcurves, spectra, values=["flux", "phoindex"], T0=No
     #if a single lc is passed in and energy range is None, we want to plot all the energy bins of the Lightcurve object
     for lc in lcs:
         #need to get the times here for the LC
+        if "MET" in time_unit:
+            start_times = lc.tbins["TIME_START"]
+            end_times = lc.tbins["TIME_STOP"]
+            mid_times = lc.tbins["TIME_CENT"]
+            xlabel = "MET (s)"
+
+            if plot_relative:
+                if T0 is None:
+                    raise ValueError('The plot_relative value is set to True however there is no T0 that is defined ' +
+                                     '(ie the time from which the time bins are defined relative to is not specified).')
+                else:
+                    # see if T0 is Quantity class
+                    if type(T0) is not u.Quantity:
+                        T0 *= u.s
+
+                    start_times = start_times - T0
+                    end_times = end_times - T0
+                    mid_times = mid_times - T0
+                    xlabel = f"MET - T0 (T0= {T0})"
+
+        elif "MJD" in time_unit:
+            start_times = met2mjd(lc.tbins["TIME_START"].value)
+            end_times = met2mjd(lc.tbins["TIME_STOP"].value)
+            mid_times = met2mjd(lc.tbins["TIME_CENT"].value)
+            xlabel = "MJD"
+
+            if plot_relative:
+                if T0 is None:
+                    raise ValueError('The plot_relative value is set to True however there is no T0 that is defined ' +
+                                     '(ie the time from which the time bins are defined relative to is not specified).')
+                else:
+                    raise NotImplementedError("plot_relative with MJD time unit is not implemented at this time.")
+        else:
+            start_times = met2utc(lc.tbins["TIME_START"])
+            end_times = met2utc(lc.tbins["TIME_STOP"])
+            mid_times = met2utc(lc.tbins["TIME_CENT"].value)
+            xlabel = "UTC"
+
+            if plot_relative:
+                if T0 is None:
+                    raise ValueError('The plot_relative value is set to True however there is no T0 that is defined ' +
+                                     '(ie the time from which the time bins are defined relative to is not specified).')
+                else:
+                    raise ValueError("plot_relative with UTC time unit is not a permitted combination.")
 
 
         for e_idx, emin, emax in zip(lc.ebins["INDEX"], lc.ebins["E_MIN"], lc.ebins["E_MAX"]):
