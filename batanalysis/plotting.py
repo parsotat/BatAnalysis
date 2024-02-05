@@ -314,9 +314,20 @@ def plot_TTE_lightcurve(lightcurves, spectra, values=["flux", "phoindex"], T0=No
         #if values has flux in it, change it to lg10flux isnce this is what xspec provides
         if "flux" in values:
             values[values.index("flux")]="lg10Flux"
-        template=[i.lower() for i in values]
+        if "phoindex" in values:
+            values[values.index("phoindex")] = "PhoIndex"
+        if "index" in values:
+            values[values.index("index")] = "PhoIndex"
+
+        template=values #[i.lower() for i in values]
 
     #TODO: accumulate spectral info data here
+    #spect_model_data=dict.fromkeys(template,dict.fromkeys())
+    #for i in concat_data.keys():
+    #    concat_data[i] = dict().fromkeys(keys)
+    #    for j in concat_data[i].keys():
+    #        concat_data[i][j] = []
+
     for model in spect_models:
         #if we do not have an upper limit and the template is None save the parameters as the template model parameters
         if template is None and "nsigma_lg10flux_upperlim" not in model.keys():
@@ -328,11 +339,11 @@ def plot_TTE_lightcurve(lightcurves, spectra, values=["flux", "phoindex"], T0=No
 
             #otherwise if we have a template, compare it to the model parameters
             #need to get the list fo parameters that have been fit:
-            model_par=[i.lower() for i in model["parameters"].keys()]
+            model_par=[i for i in model["parameters"].keys()] #[i.lower() for i in model["parameters"].keys()]
 
             #then need to determine if the spectrum has a flux upper limit, if so add it to the
-            if "nsigma_lg10flux_upperlim" in model.keys() and "lg10Flux".lower() in template:
-                model_par.append("lg10flux")
+            if "nsigma_lg10flux_upperlim" in model.keys() and "lg10Flux" in template:
+                model_par.append("lg10Flux")
 
             #add norm since we dont care about this
             if "norm" in model_par and "norm" not in template:
@@ -341,6 +352,12 @@ def plot_TTE_lightcurve(lightcurves, spectra, values=["flux", "phoindex"], T0=No
             if set(mod_template)!=set(model_par):
                 raise ValueError("The input spectra do not all have the same fitted model parameters (excluding spectra"
                                  " that were used to calculate flux upper limits.")
+
+        #iterate through the template keys and fill in data. We are iterating through in the same order as the for loop
+        # above where we get the spectral time bin info
+        #for par in spect_model_data.keys():
+        #    spect_model_data[par].append()
+
 
 
     #then see how many figure axes we need
