@@ -261,7 +261,7 @@ def plot_survey_lc(
 
     return fig, axes
 
-def plot_TTE_lightcurve(lightcurves, spectra, values=["flux", "phoindex"], T0=None, time_unit="MET", is_relative=False, energy_range=[15,350]*u.keV):
+def plot_TTE_lightcurve(lightcurves, spectra, values=["flux", "phoindex"], T0=None, time_unit="MET", plot_relative=False, energy_range=[15,350]*u.keV):
     """
     This convenience function allows one to plot a set of lightcurves alongside a set of spectra. The spectra should all
     be fit with the same model.
@@ -292,11 +292,20 @@ def plot_TTE_lightcurve(lightcurves, spectra, values=["flux", "phoindex"], T0=No
     #make sure all the spectra have been fitted with a model and that all the models are the same
     #TODO: get the times of the spectra here
     spect_models=[]
+    start_spect_times=[]
+    stop_spect_times=[]
     for i in spect:
         try:
             spect_models.append(i.spectral_model)
+            start_spect_times.append(i.tbins["TIME_START"])
+            stop_spect_times.append(i.tbins["TIME_STOP"])
         except AttributeError as e:
             raise AttributeError("Not all of the spectra that have been passed in have been fit with a spectral model")
+
+    #convert the times to astropy Quantity arrays with one dimension:
+    start_spect_times=u.Quantity(start_spect_times)[:,0]
+    stop_spect_times=u.Quantity(stop_spect_times)[:,0]
+
 
     #if the user has passed in explicit values to plot we want to check for these, otherwise plot everything
     if values is None:
@@ -306,13 +315,30 @@ def plot_TTE_lightcurve(lightcurves, spectra, values=["flux", "phoindex"], T0=No
         if "flux" in values:
             values[values.index("flux")]="lg10Flux"
         template=[i.lower() for i in values]
+
+    #TODO: accumulate spectral info data here
     for model in spect_models:
         #if we do not have an upper limit and the template is None save the parameters as the template model parameters
         if template is None and "nsigma_lg10flux_upperlim" not in model.keys():
             template = model["parameters"].keys()
         elif template is not None:
+            #get our modified template which can be changed due to different nusiance xspec paramters that we may not
+            # care about
+            mod_template = [*template]
+
             #otherwise if we have a template, compare it to the model parameters
-            if set(template)!=set([i.lower() for i in model["parameters"].keys()]):
+            #need to get the list fo parameters that have been fit:
+            model_par=[i.lower() for i in model["parameters"].keys()]
+
+            #then need to determine if the spectrum has a flux upper limit, if so add it to the
+            if "nsigma_lg10flux_upperlim" in model.keys() and "lg10Flux".lower() in template:
+                model_par.append("lg10flux")
+
+            #add norm since we dont care about this
+            if "norm" in model_par and "norm" not in template:
+                mod_template=[*template, "norm"]
+
+            if set(mod_template)!=set(model_par):
                 raise ValueError("The input spectra do not all have the same fitted model parameters (excluding spectra"
                                  " that were used to calculate flux upper limits.")
 
@@ -320,7 +346,7 @@ def plot_TTE_lightcurve(lightcurves, spectra, values=["flux", "phoindex"], T0=No
     #then see how many figure axes we need
     # one for LC and some number for the spectral ligthcurve parameters we want to plot
     num_ax=1+len(template)
-    fig, axes = plt.subplots(len(num_ax), sharex=True)
+    fig, axes = plt.subplots(num_ax, sharex=True)
 
     if len(lcs)>1 and energy_range.size>2:
         #we can only plot a single energy range for each LC otherwise we get plots that are too cluttered
@@ -328,6 +354,9 @@ def plot_TTE_lightcurve(lightcurves, spectra, values=["flux", "phoindex"], T0=No
 
     #plot the ligthcurves on the first axis
     #if a single lc is passed in and energy range is None, we want to plot all the energy bins of the Lightcurve object
+    lc_keys=None
+    all_lc_lines=[]
+    all_lc_labels=[]
     for lc in lcs:
         #need to get the times here for the LC
         if "MET" in time_unit:
@@ -349,6 +378,9 @@ def plot_TTE_lightcurve(lightcurves, spectra, values=["flux", "phoindex"], T0=No
                     end_times = end_times - T0
                     mid_times = mid_times - T0
                     xlabel = f"MET - T0 (T0= {T0})"
+
+                    start_spect_times = start_spect_times - T0
+                    stop_spect_times = stop_spect_times - T0
 
         elif "MJD" in time_unit:
             start_times = met2mjd(lc.tbins["TIME_START"].value)
@@ -375,12 +407,26 @@ def plot_TTE_lightcurve(lightcurves, spectra, values=["flux", "phoindex"], T0=No
                 else:
                     raise ValueError("plot_relative with UTC time unit is not a permitted combination.")
 
+        #make sure that all the LCs have rates/counts/same data keys
+        new_lc_keys=lc._get_count_related_keys()
+        if lc_keys is None:
+            lc_keys = new_lc_keys
+        else:
+            if set(lc_keys)!=set(new_lc_keys):
+                raise ValueError("Not all the lightcurves have the same data quantities.")
+
+
+        #see if we should be using rates or counts for the lightcurve
+        if "RATE" in lc_keys:
+            data_key="RATE"
+        else:
+            data_key="COUNTS"
 
         for e_idx, emin, emax in zip(lc.ebins["INDEX"], lc.ebins["E_MIN"], lc.ebins["E_MAX"]):
             plotting=True
-            if energybins is not None:
+            if energy_range is not None:
                 # need to see if the energy range is what the user wants
-                if emin == energybins.min() and emax == energybins.max():
+                if emin == energy_range.min() and emax == energy_range.max():
                     plotting = True
                 else:
                     plotting = False
@@ -389,22 +435,40 @@ def plot_TTE_lightcurve(lightcurves, spectra, values=["flux", "phoindex"], T0=No
                 # use the proper indexing for the array
                 if len(lc.ebins["INDEX"]) > 1:
                     rate = lc.data[data_key][:, e_idx]
-                    rate_error = self.data["ERROR"][:, e_idx]
-                    l = f'{self.ebins["E_MIN"][e_idx].value}-{self.ebins["E_MAX"][e_idx].value} ' + f'{self.ebins["E_MAX"][e_idx].unit}'
+                    rate_error = lc.data["ERROR"][:, e_idx]
+                    l = f'{lc.ebins["E_MIN"][e_idx].value}-{lc.ebins["E_MAX"][e_idx].value} ' + f'{lc.ebins["E_MAX"][e_idx].unit}'
                 else:
-                    rate = self.data[data_key]
-                    rate_error = self.data["ERROR"]
-                    l = f'{self.ebins["E_MIN"][0].value}-{self.ebins["E_MAX"][0].value} ' + f'{self.ebins["E_MAX"].unit}'
+                    rate = lc.data[data_key]
+                    rate_error = lc.data["ERROR"]
+                    l = f'{lc.ebins["E_MIN"][0].value}-{lc.ebins["E_MAX"][0].value} ' + f'{lc.ebins["E_MAX"].unit}'
 
-                line = ax_rate.plot(start_times, rate, ds='steps-post')
-                line_handle, = ax_rate.plot(end_times, rate, ds='steps-pre', color=line[-1].get_color(), label=l)
-                all_lines.append(line_handle)
-                all_labels.append(l)
-                ax_rate.errorbar(mid_times, rate, yerr=rate_error, ls='None', color=line[-1].get_color())
+                line = axes[0].plot(start_times, rate, ds='steps-post')
+                line_handle, = axes[0].plot(end_times, rate, ds='steps-pre', color=line[-1].get_color(), label=l)
+                all_lc_lines.append(line_handle)
+                all_lc_labels.append(l)
+                axes[0].errorbar(mid_times, rate, yerr=rate_error, ls='None', color=line[-1].get_color())
 
-                axes[0].plot()
+    #add the axis labels
+    axes[0].legend()#(handles=all_lines[:num_e], labels=all_labels[:num_e], bbox_to_anchor=(0, 1.02, 1, 0.2), loc="lower left", mode="expand", ncol=3)
+
+    axes[0].set_ylabel(data_key + f" ({rate.unit})")
+
+    #now move onto to plotting the different spectral model parameters
+    #for ax, spec_param in zip(axes[1:], template):
 
 
 
+
+    if T0 is not None and not plot_relative:
+        # plot the trigger time for all panels if we dont want the plotted times to be relative
+        if num_ax > 1:
+            for axis in axes:
+                line_handle = axis.axvline(T0, 0, 1, ls='--', label=f"T0={T0:.2f}", color='k')
+        else:
+            line_handle = axes[0].axvline(T0, 0, 1, ls='--', label=f"T0={T0:.2f}", color='k')
+
+    axes[-1].set_xlabel(xlabel)
+
+    plt.gca().ticklabel_format(useMathText=True)
 
     return fig, axes
