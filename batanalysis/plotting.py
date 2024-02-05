@@ -322,12 +322,8 @@ def plot_TTE_lightcurve(lightcurves, spectra, values=["flux", "phoindex"], T0=No
         template=values #[i.lower() for i in values]
 
     #TODO: accumulate spectral info data here
-    #spect_model_data=dict.fromkeys(template,dict.fromkeys())
-    #for i in concat_data.keys():
-    #    concat_data[i] = dict().fromkeys(keys)
-    #    for j in concat_data[i].keys():
-    #        concat_data[i][j] = []
-
+    mod_keys = list(spect_models[0]["parameters"].keys())
+    spect_model_data=dict.fromkeys(template,dict.fromkeys(spect_models[0]["parameters"][mod_keys[0]].keys(), []))
     for model in spect_models:
         #if we do not have an upper limit and the template is None save the parameters as the template model parameters
         if template is None and "nsigma_lg10flux_upperlim" not in model.keys():
@@ -355,8 +351,45 @@ def plot_TTE_lightcurve(lightcurves, spectra, values=["flux", "phoindex"], T0=No
 
         #iterate through the template keys and fill in data. We are iterating through in the same order as the for loop
         # above where we get the spectral time bin info
-        #for par in spect_model_data.keys():
-        #    spect_model_data[par].append()
+        for par in spect_model_data.keys():
+            for subpar in par.keys():
+                if "nsigma_lg10flux_upperlim" in model.keys() and "lg10Flux" in par:
+                    if "val" in subpar:
+                        spect_model_data[par][subpar].append(10**model["nsigma_lg10flux_upperlim"])
+                    elif "err" in subpar:
+                        spect_model_data[par][subpar].append(True)
+                    else:
+                        spect_model_data[par][subpar].append(np.nan)
+                elif "nsigma_lg10flux_upperlim" not in model.keys() and "lg10Flux" in par:
+                    if "val" in subpar:
+                        spect_model_data[par][subpar].append(10**model["parameters"][par][subpar])
+                    elif "err" in subpar:
+                        if "T" in model["parameters"][par][subpar]:
+                            spect_model_data[par][subpar].append(True)
+                        else:
+                            spect_model_data[par][subpar].append(False)
+                    else:
+                        if "T" in model["parameters"][par][subpar]:
+                            error=np.nan
+                        else:
+                            error=10**model["parameters"][par][subpar]
+                        spect_model_data[par][subpar].append(error)
+                else:
+                    if "val" in subpar:
+                        spect_model_data[par][subpar].append(model["parameters"][par][subpar])
+                    elif "err" in subpar:
+                        if "T" in model["parameters"][par][subpar]:
+                            spect_model_data[par][subpar].append(True)
+                        else:
+                            spect_model_data[par][subpar].append(False)
+                    else:
+                        if "T" in model["parameters"][par][subpar]:
+                            error = np.nan
+                        else:
+                            error = 10 ** model["parameters"][par][subpar]
+                        spect_model_data[par][subpar].append(error)
+
+
 
 
 
