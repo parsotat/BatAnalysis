@@ -352,7 +352,7 @@ def plot_TTE_lightcurve(lightcurves, spectra, values=["flux", "phoindex"], T0=No
         #iterate through the template keys and fill in data. We are iterating through in the same order as the for loop
         # above where we get the spectral time bin info
         for par in spect_model_data.keys():
-            for subpar in par.keys():
+            for subpar in spect_model_data[par].keys():
                 if "nsigma_lg10flux_upperlim" in model.keys() and "lg10Flux" in par:
                     if "val" in subpar:
                         spect_model_data[par][subpar].append(10**model["nsigma_lg10flux_upperlim"])
@@ -369,7 +369,7 @@ def plot_TTE_lightcurve(lightcurves, spectra, values=["flux", "phoindex"], T0=No
                         else:
                             spect_model_data[par][subpar].append(False)
                     else:
-                        if "T" in model["parameters"][par][subpar]:
+                        if "T" in model["parameters"][par]["errflag"]:
                             error=np.nan
                         else:
                             error=10**model["parameters"][par][subpar]
@@ -378,18 +378,37 @@ def plot_TTE_lightcurve(lightcurves, spectra, values=["flux", "phoindex"], T0=No
                     if "val" in subpar:
                         spect_model_data[par][subpar].append(model["parameters"][par][subpar])
                     elif "err" in subpar:
-                        if "T" in model["parameters"][par][subpar]:
+                        if "T" in model["parameters"][par]["errflag"]:
                             spect_model_data[par][subpar].append(True)
                         else:
                             spect_model_data[par][subpar].append(False)
                     else:
-                        if "T" in model["parameters"][par][subpar]:
+                        if "T" in model["parameters"][par]["errflag"]:
                             error = np.nan
                         else:
                             error = 10 ** model["parameters"][par][subpar]
                         spect_model_data[par][subpar].append(error)
 
 
+    #get the data arrays in the format that expect them for the spectral parameters
+    plot_spect_model_data=dict.fromkeys(spect_model_data.keys(), dict.fromkeys(["val","error","upperlim"]))
+    for par in spect_model_data.keys():
+        #make this a numpy array
+        plot_spect_model_data[par]["val"]=np.array(spect_model_data[par]["val"])
+
+        #format the errors
+        error = np.array(
+            [
+                spect_model_data[par]["lolim"],
+                spect_model_data[par]["hilim"],
+            ]
+        )
+        error = np.abs(save_value - error)
+
+        plot_spect_model_data[par]["error"]=np.array([error[0], error[1]])
+
+        #get the upperlimit designator array
+        #plot_spect_model_data[par]["errflag"]=
 
 
 
