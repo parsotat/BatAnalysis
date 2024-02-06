@@ -2168,6 +2168,9 @@ def concatenate_spectrum_data(
     :return: dict with the keys specified by the user and numpy lists as the concatenated values for each key
     """
 
+    from .batproducts import Spectrum
+
+
     # make sure that the keys are a list
     if type(keys) is not list:
         # it is a single string:
@@ -2180,9 +2183,6 @@ def concatenate_spectrum_data(
 
     if np.any([not isinstance(i, Spectrum) for i in spect]):
         raise ValueError("Not all the elements of the values passed in to the spectra variable are Spectrum objects.")
-
-
-
 
     # create a dict from the keys for soure and what the user is interested in
     concat_data = dict().fromkeys(keys)
@@ -2202,6 +2202,13 @@ def concatenate_spectrum_data(
     for idx in sorted_obs_idx:
         spectrum = spectra[idx]
 
+        #make sure that we can access the spectral model info
+        try:
+            spect_model=spectrum.spectral_model
+        except AttributeError as e:
+            raise AttributeError("Not all of the spectra that have been passed in have been fit with a spectral model")
+
+
         # iterate over the keys of interest
         for user_key in keys:
             save_val = np.nan
@@ -2212,8 +2219,6 @@ def concatenate_spectrum_data(
             if (
                 continue_search
                 and np.sum(np.isnan(save_val)) > 0
-                and "model_params"
-                in obs.get_pointing_info(pointings, source_id=source).keys()
             ):
                 # can have obs.get_pointing_info(pointings, source_id=source)["model_params"]
                 # but it can be None if the source isn't detected
@@ -2221,14 +2226,16 @@ def concatenate_spectrum_data(
                 # have to modify the name of the flux related quantity here
                 if "flux" in user_key.lower():
                     real_user_key = "lg10Flux"
+                elif "index" in user_key.lower() or "photon index" in user_key.lower():
+                    real_user_key = "PhoIndex"
                 else:
                     real_user_key = user_key
 
                 # try to access the dictionary key
                 try:
                     save_val = dpath.get(
-                        obs.get_pointing_info(pointings, source_id=source)[
-                            "model_params"
+                        spect_model[
+                            "parameters"
                         ],
                         real_user_key,
                     )
@@ -2242,9 +2249,7 @@ def concatenate_spectrum_data(
                         # see if there is a nsigma_lg10flux_upperlim
                         try:
                             save_val = dpath.get(
-                                obs.get_pointing_info(
-                                    pointings, source_id=source
-                                ),
+                                spect_model,
                                 real_user_key,
                             )
                         except KeyError:
@@ -2289,33 +2294,32 @@ def concatenate_spectrum_data(
                             error = np.ones(2) * np.nan
 
                 # save the value to the appropriate list under the appropriate key
-                concat_data[source][user_key].append(save_value)
+                concat_data[user_key].append(save_value)
 
                 # save the errors as well. We may need to create the dictionary key for the error/upperlimit
                 user_key_lolim = user_key + "_lolim"
                 user_key_hilim = user_key + "_hilim"
                 user_key_upperlim = user_key + "_upperlim"
                 try:
-                    concat_data[source][user_key_lolim].append(error[0])
-                    concat_data[source][user_key_hilim].append(error[1])
-                    concat_data[source][user_key_upperlim].append(
+                    concat_data[user_key_lolim].append(error[0])
+                    concat_data[user_key_hilim].append(error[1])
+                    concat_data[user_key_upperlim].append(
                         is_upper_lim
                     )
                 except KeyError:
-                    concat_data[source][user_key_lolim] = []
-                    concat_data[source][user_key_hilim] = []
-                    concat_data[source][user_key_upperlim] = []
+                    concat_data[user_key_lolim] = []
+                    concat_data[user_key_hilim] = []
+                    concat_data[user_key_upperlim] = []
 
-                    concat_data[source][user_key_lolim].append(error[0])
-                    concat_data[source][user_key_hilim].append(error[1])
-                    concat_data[source][user_key_upperlim].append(
+                    concat_data[user_key_lolim].append(error[0])
+                    concat_data[user_key_hilim].append(error[1])
+                    concat_data[user_key_upperlim].append(
                         is_upper_lim
                     )
 
     # turn things into numpy array for easier handling
-    for src_key in concat_data.keys():
-        for key, val in concat_data[src_key].items():
-            concat_data[src_key][key] = np.array(val)
+    for key, val in concat_data.items():
+        concat_data[key] = np.array(val)
 
     return concat_data
 

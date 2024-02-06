@@ -1,7 +1,7 @@
 from matplotlib import pyplot as plt
 import numpy as np
 from pathlib import Path
-from .batlib import met2utc, met2mjd, concatenate_data
+from .batlib import met2utc, met2mjd, concatenate_data, concatenate_spectrum_data
 from astropy.time import Time, TimeDelta
 from .batproducts import Spectrum, Lightcurve
 import astropy.units as u
