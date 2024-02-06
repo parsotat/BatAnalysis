@@ -2147,6 +2147,178 @@ def concatenate_data(
 
     return concat_data
 
+def concatenate_spectrum_data(
+    spectra, keys, chronological_order=True
+):
+    """
+    This convenience function collects the data that was requested by the user as passed into the keys variable. The
+    data is returned in the form of a dictionary with the same keys and numpy arrays of all the concatenated data. if
+    the user asks for parameters with errors associated with them these errors will be automatically included. For
+    example if the user wants rates information then the function will automatically include a dicitonary key to
+    hold the rates error information as well
+
+    :param bat_observation: a list of BatObservation objects including BatSurvey and MosaicBatSurvey objects that the
+        user wants to extract the relevant data from.
+    :param source_ids: The sources that the user would like to collect data for
+    :param keys: a string or list of strings
+    :param energy_range: a list or array of the minimum energy range that should be considered and the maximum energy
+        range that should be considered
+    :param chronological_order: Boolean to denote if the outputs should be sorted chronologically or kept in the same
+        order as the BATSurvey objects that were passed in
+    :return: dict with the keys specified by the user and numpy lists as the concatenated values for each key
+    """
+
+    # make sure that the keys are a list
+    if type(keys) is not list:
+        # it is a single string:
+        keys = [keys]
+
+    if type(spectra) is not list:
+        spect=[spectra]
+    else:
+        spect=spectra
+
+    if np.any([not isinstance(i, Spectrum) for i in spect]):
+        raise ValueError("Not all the elements of the values passed in to the spectra variable are Spectrum objects.")
+
+
+
+
+    # create a dict from the keys for soure and what the user is interested in
+    concat_data = dict().fromkeys(keys)
+    for i in concat_data.keys():
+        concat_data[i] = []
+
+    if chronological_order:
+        # sort the info by central time bin of each spectrum
+        all_met = u.Quantity([
+            i.tbins["TIME_CENT"][0] for i in spect
+        ])
+        sorted_obs_idx = np.argsort(all_met)
+    else:
+        sorted_obs_idx = np.arange(len(spect))
+
+    # iterate over observation IDs
+    for idx in sorted_obs_idx:
+        spectrum = spectra[idx]
+
+        # iterate over the keys of interest
+        for user_key in keys:
+            save_val = np.nan
+
+            # search in all
+            continue_search = True
+            # see if the values are for the model fit
+            if (
+                continue_search
+                and np.sum(np.isnan(save_val)) > 0
+                and "model_params"
+                in obs.get_pointing_info(pointings, source_id=source).keys()
+            ):
+                # can have obs.get_pointing_info(pointings, source_id=source)["model_params"]
+                # but it can be None if the source isn't detected
+                # if obs.get_pointing_info(pointings, source_id=source)["model_params"] is not None:
+                # have to modify the name of the flux related quantity here
+                if "flux" in user_key.lower():
+                    real_user_key = "lg10Flux"
+                else:
+                    real_user_key = user_key
+
+                # try to access the dictionary key
+                try:
+                    save_val = dpath.get(
+                        obs.get_pointing_info(pointings, source_id=source)[
+                            "model_params"
+                        ],
+                        real_user_key,
+                    )
+                except KeyError:
+                    # if the key doest exist don't do anything but add np.nan
+                    save_val = np.nan
+                    # if the value that we want is flux but we only have an upper limit then we have to get
+                    # the nsigma_lg10flux_upperlim value
+                    if real_user_key == "lg10Flux":
+                        real_user_key = "nsigma_lg10flux_upperlim"
+                        # see if there is a nsigma_lg10flux_upperlim
+                        try:
+                            save_val = dpath.get(
+                                obs.get_pointing_info(
+                                    pointings, source_id=source
+                                ),
+                                real_user_key,
+                            )
+                        except KeyError:
+                            # if the key doest exist don't do anything but add np.nan
+                            save_val = np.nan
+
+                # need to calculate the error on the value
+                # first do the case of flux upper limit
+                if real_user_key == "nsigma_lg10flux_upperlim":
+                    save_value = 10**save_val
+                    # there is no upper/lower error since we have an upper limit
+                    error = np.ones(2) * np.nan
+                    is_upper_lim = True
+                else:
+                    is_upper_lim = False
+                    if real_user_key == "lg10Flux":
+                        save_value = 10 ** save_val["val"]
+                        error = np.array(
+                            [
+                                10 ** save_val["lolim"],
+                                10 ** save_val["hilim"],
+                            ]
+                        )
+                        error = np.abs(save_value - error)
+                    else:
+                        try:
+                            save_value = save_val["val"]
+                            error = np.array(
+                                [save_val["lolim"], save_val["hilim"]]
+                            )
+
+                            if "T" in save_val["errflag"]:
+                                error = np.ones(2) * np.nan
+                            else:
+                                error = np.abs(save_value - error)
+
+                        except TypeError:
+                            # this is the last resort for catching any keys that aren't found in the dict
+                            # so we may have save_val be = np.nan and we will get TypeError trying to
+                            # call it as a dict
+                            save_value = np.nan
+                            error = np.ones(2) * np.nan
+
+                # save the value to the appropriate list under the appropriate key
+                concat_data[source][user_key].append(save_value)
+
+                # save the errors as well. We may need to create the dictionary key for the error/upperlimit
+                user_key_lolim = user_key + "_lolim"
+                user_key_hilim = user_key + "_hilim"
+                user_key_upperlim = user_key + "_upperlim"
+                try:
+                    concat_data[source][user_key_lolim].append(error[0])
+                    concat_data[source][user_key_hilim].append(error[1])
+                    concat_data[source][user_key_upperlim].append(
+                        is_upper_lim
+                    )
+                except KeyError:
+                    concat_data[source][user_key_lolim] = []
+                    concat_data[source][user_key_hilim] = []
+                    concat_data[source][user_key_upperlim] = []
+
+                    concat_data[source][user_key_lolim].append(error[0])
+                    concat_data[source][user_key_hilim].append(error[1])
+                    concat_data[source][user_key_upperlim].append(
+                        is_upper_lim
+                    )
+
+    # turn things into numpy array for easier handling
+    for src_key in concat_data.keys():
+        for key, val in concat_data[src_key].items():
+            concat_data[src_key][key] = np.array(val)
+
+    return concat_data
+
 
 def make_fake_tdrss_message(
     obs_id, trig_time, trig_stop, ra_obj, dec_obj, obs_dir=None
