@@ -2220,6 +2220,7 @@ def concatenate_spectrum_data(
         except AttributeError as e:
             raise AttributeError("Not all of the spectra that have been passed in have been fit with a spectral model")
 
+        #TODO: check that all spectra have the same spectral model fit to them
 
         # iterate over the keys of interest
         for user_key in keys:
@@ -2329,9 +2330,10 @@ def concatenate_spectrum_data(
                         is_upper_lim
                     )
 
-    # turn things into numpy array for easier handling
+    # turn things into numpy array for easier handling, except for times
     for key, val in concat_data.items():
-        concat_data[key] = np.array(val)
+        if "time" not in key.lower():
+            concat_data[key] = np.array(val)
 
     return concat_data
 
