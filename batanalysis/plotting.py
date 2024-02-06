@@ -5,6 +5,7 @@ from .batlib import met2utc, met2mjd, concatenate_data
 from astropy.time import Time, TimeDelta
 from .batproducts import Spectrum, Lightcurve
 import astropy.units as u
+import dpath
 
 # for python>3.6
 try:
@@ -323,7 +324,11 @@ def plot_TTE_lightcurve(lightcurves, spectra, values=["flux", "phoindex"], T0=No
 
     #TODO: accumulate spectral info data here
     mod_keys = list(spect_models[0]["parameters"].keys())
-    spect_model_data=dict.fromkeys(template,dict.fromkeys(spect_models[0]["parameters"][mod_keys[0]].keys(), []))
+    spect_model_data=dict.fromkeys(template)
+    for i in spect_model_data.keys():
+        spect_model_data[i]=dict.fromkeys(spect_models[0]["parameters"][mod_keys[0]].keys())
+        for j in spect_model_data[i].keys():
+            spect_model_data[i][j]=[]
     for model in spect_models:
         #if we do not have an upper limit and the template is None save the parameters as the template model parameters
         if template is None and "nsigma_lg10flux_upperlim" not in model.keys():
@@ -391,7 +396,12 @@ def plot_TTE_lightcurve(lightcurves, spectra, values=["flux", "phoindex"], T0=No
 
 
     #get the data arrays in the format that expect them for the spectral parameters
-    plot_spect_model_data=dict.fromkeys(spect_model_data.keys(), dict.fromkeys(["val","error","upperlim"]))
+    plot_spect_model_data=dict.fromkeys(spect_model_data.keys())
+    for i in plot_spect_model_data.keys():
+        plot_spect_model_data[i]=dict.fromkeys(["val","error","upperlim"])
+        for j in plot_spect_model_data[i].keys():
+            plot_spect_model_data[i][j]=[]
+
     for par in spect_model_data.keys():
         #make this a numpy array
         plot_spect_model_data[par]["val"]=np.array(spect_model_data[par]["val"])
@@ -403,14 +413,13 @@ def plot_TTE_lightcurve(lightcurves, spectra, values=["flux", "phoindex"], T0=No
                 spect_model_data[par]["hilim"],
             ]
         )
-        error = np.abs(save_value - error)
+        error = np.abs(plot_spect_model_data[par]["val"] - error)
 
         plot_spect_model_data[par]["error"]=np.array([error[0], error[1]])
 
         #get the upperlimit designator array
-        #plot_spect_model_data[par]["errflag"]=
-
-
+        plot_spect_model_data[par]["error"][:,spect_model_data[par]["errflag"]]=0.2 * plot_spect_model_data[par]["val"][spect_model_data[par]["errflag"]]
+        plot_spect_model_data[par]["upperlim"]=np.array(spect_model_data[par]["errflag"])
 
     #then see how many figure axes we need
     # one for LC and some number for the spectral ligthcurve parameters we want to plot
@@ -523,7 +532,30 @@ def plot_TTE_lightcurve(lightcurves, spectra, values=["flux", "phoindex"], T0=No
     axes[0].set_ylabel(data_key + f" ({rate.unit})")
 
     #now move onto to plotting the different spectral model parameters
-    #for ax, spec_param in zip(axes[1:], template):
+    tbin_cent=0.5*(start_spect_times+stop_spect_times)
+    tbin_err=0.5*(stop_spect_times-start_spect_times)
+
+    for ax, spec_param in zip(axes[1:], template):
+        ax.errorbar(
+            tbin_cent,
+            plot_spect_model_data[spec_param]["val"],
+            xerr=tbin_err,
+            yerr=plot_spect_model_data[spec_param]["error"],
+            uplims=plot_spect_model_data[spec_param]["upperlim"],
+            linestyle="None",
+            marker="o",
+            markersize=3,
+            zorder=3,
+        )  # color="red"
+
+        if "flux" in spec_param.lower():
+            ax.set_yscale("log")
+            label="flux"
+        else:
+            label=spec_param
+
+        ax.set_ylabel(label)
+
 
 
 
