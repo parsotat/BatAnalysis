@@ -2170,7 +2170,6 @@ def concatenate_spectrum_data(
 
     from .batproducts import Spectrum
 
-
     # make sure that the keys are a list
     if type(keys) is not list:
         # it is a single string:
@@ -2191,12 +2190,25 @@ def concatenate_spectrum_data(
 
     if chronological_order:
         # sort the info by central time bin of each spectrum
-        all_met = u.Quantity([
+        all_cent_met = u.Quantity([
             i.tbins["TIME_CENT"][0] for i in spect
         ])
-        sorted_obs_idx = np.argsort(all_met)
+        sorted_obs_idx = np.argsort(all_cent_met)
     else:
         sorted_obs_idx = np.arange(len(spect))
+
+    #get the start/stop time when the spectra were binned
+    all_start_met = u.Quantity([
+        i.tbins["TIME_START"][0] for i in spect
+    ])
+    all_stop_met = u.Quantity([
+        i.tbins["TIME_STOP"][0] for i in spect
+    ])
+
+    #save the times to the data dictionary
+    concat_data["TIME_START"]=all_start_met[sorted_obs_idx]
+    concat_data["TIME_STOP"] = all_stop_met[sorted_obs_idx]
+
 
     # iterate over observation IDs
     for idx in sorted_obs_idx:
