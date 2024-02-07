@@ -290,24 +290,6 @@ def plot_TTE_lightcurve(lightcurves, spectra, values=["flux", "phoindex"], T0=No
     if np.any([not isinstance(i, Spectrum) for i in spect]):
         raise ValueError("Not all the elements of the values passed in to the spectra variable are Spectrum objects.")
 
-    #make sure all the spectra have been fitted with a model and that all the models are the same
-    #TODO: get the times of the spectra here
-    spect_models=[]
-    start_spect_times=[]
-    stop_spect_times=[]
-    for i in spect:
-        try:
-            spect_models.append(i.spectral_model)
-            start_spect_times.append(i.tbins["TIME_START"])
-            stop_spect_times.append(i.tbins["TIME_STOP"])
-        except AttributeError as e:
-            raise AttributeError("Not all of the spectra that have been passed in have been fit with a spectral model")
-
-    #convert the times to astropy Quantity arrays with one dimension:
-    start_spect_times=u.Quantity(start_spect_times)[:,0]
-    stop_spect_times=u.Quantity(stop_spect_times)[:,0]
-
-
     #if the user has passed in explicit values to plot we want to check for these, otherwise plot everything
     if values is None:
         template=None
@@ -322,104 +304,19 @@ def plot_TTE_lightcurve(lightcurves, spectra, values=["flux", "phoindex"], T0=No
 
         template=values #[i.lower() for i in values]
 
-    #TODO: accumulate spectral info data here
-    mod_keys = list(spect_models[0]["parameters"].keys())
-    spect_model_data=dict.fromkeys(template)
-    for i in spect_model_data.keys():
-        spect_model_data[i]=dict.fromkeys(spect_models[0]["parameters"][mod_keys[0]].keys())
-        for j in spect_model_data[i].keys():
-            spect_model_data[i][j]=[]
-    for model in spect_models:
-        #if we do not have an upper limit and the template is None save the parameters as the template model parameters
-        if template is None and "nsigma_lg10flux_upperlim" not in model.keys():
-            template = model["parameters"].keys()
-        elif template is not None:
-            #get our modified template which can be changed due to different nusiance xspec paramters that we may not
-            # care about
-            mod_template = [*template]
+    # accumulate spectral info data here
+    # this function also makes sure all the spectra have been fitted with a model and that all the models are the same
+    spect_data=concatenate_spectrum_data(spectra, values)
 
-            #otherwise if we have a template, compare it to the model parameters
-            #need to get the list fo parameters that have been fit:
-            model_par=[i for i in model["parameters"].keys()] #[i.lower() for i in model["parameters"].keys()]
-
-            #then need to determine if the spectrum has a flux upper limit, if so add it to the
-            if "nsigma_lg10flux_upperlim" in model.keys() and "lg10Flux" in template:
-                model_par.append("lg10Flux")
-
-            #add norm since we dont care about this
-            if "norm" in model_par and "norm" not in template:
-                mod_template=[*template, "norm"]
-
-            if set(mod_template)!=set(model_par):
-                raise ValueError("The input spectra do not all have the same fitted model parameters (excluding spectra"
-                                 " that were used to calculate flux upper limits.")
-
-        #iterate through the template keys and fill in data. We are iterating through in the same order as the for loop
-        # above where we get the spectral time bin info
-        for par in spect_model_data.keys():
-            for subpar in spect_model_data[par].keys():
-                if "nsigma_lg10flux_upperlim" in model.keys() and "lg10Flux" in par:
-                    if "val" in subpar:
-                        spect_model_data[par][subpar].append(10**model["nsigma_lg10flux_upperlim"])
-                    elif "err" in subpar:
-                        spect_model_data[par][subpar].append(True)
-                    else:
-                        spect_model_data[par][subpar].append(np.nan)
-                elif "nsigma_lg10flux_upperlim" not in model.keys() and "lg10Flux" in par:
-                    if "val" in subpar:
-                        spect_model_data[par][subpar].append(10**model["parameters"][par][subpar])
-                    elif "err" in subpar:
-                        if "T" in model["parameters"][par][subpar]:
-                            spect_model_data[par][subpar].append(True)
-                        else:
-                            spect_model_data[par][subpar].append(False)
-                    else:
-                        if "T" in model["parameters"][par]["errflag"]:
-                            error=np.nan
-                        else:
-                            error=10**model["parameters"][par][subpar]
-                        spect_model_data[par][subpar].append(error)
-                else:
-                    if "val" in subpar:
-                        spect_model_data[par][subpar].append(model["parameters"][par][subpar])
-                    elif "err" in subpar:
-                        if "T" in model["parameters"][par]["errflag"]:
-                            spect_model_data[par][subpar].append(True)
-                        else:
-                            spect_model_data[par][subpar].append(False)
-                    else:
-                        if "T" in model["parameters"][par]["errflag"]:
-                            error = np.nan
-                        else:
-                            error = 10 ** model["parameters"][par][subpar]
-                        spect_model_data[par][subpar].append(error)
-
-
-    #get the data arrays in the format that expect them for the spectral parameters
-    plot_spect_model_data=dict.fromkeys(spect_model_data.keys())
-    for i in plot_spect_model_data.keys():
-        plot_spect_model_data[i]=dict.fromkeys(["val","error","upperlim"])
-        for j in plot_spect_model_data[i].keys():
-            plot_spect_model_data[i][j]=[]
-
-    for par in spect_model_data.keys():
-        #make this a numpy array
-        plot_spect_model_data[par]["val"]=np.array(spect_model_data[par]["val"])
-
-        #format the errors
-        error = np.array(
-            [
-                spect_model_data[par]["lolim"],
-                spect_model_data[par]["hilim"],
-            ]
-        )
-        error = np.abs(plot_spect_model_data[par]["val"] - error)
-
-        plot_spect_model_data[par]["error"]=np.array([error[0], error[1]])
-
-        #get the upperlimit designator array
-        plot_spect_model_data[par]["error"][:,spect_model_data[par]["errflag"]]=0.2 * plot_spect_model_data[par]["val"][spect_model_data[par]["errflag"]]
-        plot_spect_model_data[par]["upperlim"]=np.array(spect_model_data[par]["errflag"])
+    #potentially set the T0 to the correct u.Quantity object
+    if plot_relative:
+        if T0 is None:
+            raise ValueError('The plot_relative value is set to True however there is no T0 that is defined ' +
+                             '(ie the time from which the time bins are defined relative to is not specified).')
+        else:
+            # see if T0 is Quantity class
+            if type(T0) is not u.Quantity:
+                T0 *= u.s
 
     #then see how many figure axes we need
     # one for LC and some number for the spectral ligthcurve parameters we want to plot
@@ -444,21 +341,10 @@ def plot_TTE_lightcurve(lightcurves, spectra, values=["flux", "phoindex"], T0=No
             xlabel = "MET (s)"
 
             if plot_relative:
-                if T0 is None:
-                    raise ValueError('The plot_relative value is set to True however there is no T0 that is defined ' +
-                                     '(ie the time from which the time bins are defined relative to is not specified).')
-                else:
-                    # see if T0 is Quantity class
-                    if type(T0) is not u.Quantity:
-                        T0 *= u.s
-
-                    start_times = start_times - T0
-                    end_times = end_times - T0
-                    mid_times = mid_times - T0
-                    xlabel = f"MET - T0 (T0= {T0})"
-
-                    start_spect_times = start_spect_times - T0
-                    stop_spect_times = stop_spect_times - T0
+                start_times = start_times - T0
+                end_times = end_times - T0
+                mid_times = mid_times - T0
+                xlabel = f"MET - T0 (T0= {T0})"
 
         elif "MJD" in time_unit:
             start_times = met2mjd(lc.tbins["TIME_START"].value)
@@ -532,16 +418,33 @@ def plot_TTE_lightcurve(lightcurves, spectra, values=["flux", "phoindex"], T0=No
     axes[0].set_ylabel(data_key + f" ({rate.unit})")
 
     #now move onto to plotting the different spectral model parameters
-    tbin_cent=0.5*(start_spect_times+stop_spect_times)
-    tbin_err=0.5*(stop_spect_times-start_spect_times)
+    tbin_cent=0.5*(spect_data["TIME_START"]+spect_data["TIME_STOP"])
+    tbin_err=0.5*(spect_data["TIME_STOP"]-spect_data["TIME_START"])
+
+    #modify the time if we want to plot relative times
+    if plot_relative:
+        tbin_cent -= T0
 
     for ax, spec_param in zip(axes[1:], template):
+        y=spect_data[spec_param]
+
+        # get the errors
+        lolim = spect_data[f"{spec_param}_lolim"]
+        hilim = spect_data[f"{spec_param}_hilim"]
+
+        yerr = np.array([lolim, hilim])
+        y_upperlim = spect_data[f"{spec_param}_upperlim"]
+
+        # find where we have upper limits and set the error to 1 since the nan error value isnt
+        # compatible with upperlimits
+        yerr[:, y_upperlim] = 0.2 * y[y_upperlim]
+
         ax.errorbar(
             tbin_cent,
-            plot_spect_model_data[spec_param]["val"],
+            y,
             xerr=tbin_err,
-            yerr=plot_spect_model_data[spec_param]["error"],
-            uplims=plot_spect_model_data[spec_param]["upperlim"],
+            yerr=yerr,
+            uplims=y_upperlim,
             linestyle="None",
             marker="o",
             markersize=3,
@@ -555,8 +458,6 @@ def plot_TTE_lightcurve(lightcurves, spectra, values=["flux", "phoindex"], T0=No
             label=spec_param
 
         ax.set_ylabel(label)
-
-
 
 
 
