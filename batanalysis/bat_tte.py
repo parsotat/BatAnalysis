@@ -614,7 +614,7 @@ class BatEvent(BatObservation):
     def create_pha(self, pha_file=None, tstart=None, tstop=None, timebins=None, T0=None, is_relative=False,
                     energybins=None, recalc=False, mask_weighting=True, load_upperlims=False):
         """
-
+        This function creates a
         :param pha_file:
         :param tstart:
         :param tstop:
@@ -720,7 +720,9 @@ class BatEvent(BatObservation):
                     dirtest(self.result_dir.joinpath('pha'))
 
         else:
-            final_pha_files = [Path(i).expanduser().resolve() for i in pha_file]
+            #if a single file has been specified, assume that is should go in the event/pha directory unless
+            # the user has passed in an absolute file path
+            final_pha_files = [self.result_dir.joinpath("pha").joinpath(f"{i}")  if not Path(i).is_absolute() else Path(i).expanduser().resolve() for i in pha_file]
 
             #need to see if input_tstart/input_tstop is None. If not None, then need to check that the lengths are the
             #same
