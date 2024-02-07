@@ -274,14 +274,17 @@ def plot_TTE_lightcurve(lightcurves, spectra, values=["flux", "phoindex"], T0=No
 
     This function does not handle plotting rate lightcurves.
 
-
-    :param lightcurves:
-    :param spectra:
-    :param values:
-    :param T0:
-    :param time_unit:
-    :param plot_relative:
-    :param energy_range:
+    :param lightcurves: list of Lightcurve objects or a single Lightcurve object to be plotted
+    :param spectra: list of Spectrum objects or a single Spectrum object to be plotted
+    :param values: a list of strings for the spectral model parameters that the user would like plotted as a function of
+        time
+    :param T0: a time of interest expressed in MET (eg a trigger time)
+    :param time_unit: Default is "MET", but can be set to "UTC" or "MJD". String that denotes the plot's time axis unit.
+    :param plot_relative: Boolean to denote if the tiems should be plotted relative to the provided T0
+    :param energy_range: astropy Quantity object with 2 elements to denote the minimum and maximum energy of the energy
+        range that the user would like plotted. When multiple lightcurves are provided, this denotes the single energy
+        range that will be plotted for each lightcurve. If a single lightcurve is provided, this can be set to None to
+        plot all energy ranges for the provided Lightcurve object.
     :return: matplotlib figure, axes
     """
 
