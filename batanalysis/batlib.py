@@ -2151,20 +2151,17 @@ def concatenate_spectrum_data(
     spectra, keys, chronological_order=True
 ):
     """
-    This convenience function collects the data that was requested by the user as passed into the keys variable. The
-    data is returned in the form of a dictionary with the same keys and numpy arrays of all the concatenated data. if
+    This convenience function collects the spectra data that was requested by the user as passed into the keys variable.
+    The data is returned in the form of a dictionary with the same keys and numpy/astropy.Quantity arrays of all the concatenated data. if
     the user asks for parameters with errors associated with them these errors will be automatically included. For
-    example if the user wants rates information then the function will automatically include a dicitonary key to
-    hold the rates error information as well
+    example if the user wants flux information then the function will automatically include a dicitonary key to
+    hold the flux error information as well. If there is a flux upper limit, then the flux upper limit will be returned
+    while the error will be set to numpy nan.
 
-    :param bat_observation: a list of BatObservation objects including BatSurvey and MosaicBatSurvey objects that the
-        user wants to extract the relevant data from.
-    :param source_ids: The sources that the user would like to collect data for
+    :param spectra: a list of Spectrum objects that the user wants to extract the relevant data from.
     :param keys: a string or list of strings
-    :param energy_range: a list or array of the minimum energy range that should be considered and the maximum energy
-        range that should be considered
     :param chronological_order: Boolean to denote if the outputs should be sorted chronologically or kept in the same
-        order as the BATSurvey objects that were passed in
+        order as the Spectrum objects that are passed in
     :return: dict with the keys specified by the user and numpy lists as the concatenated values for each key
     """
 
@@ -2330,7 +2327,7 @@ def concatenate_spectrum_data(
                         is_upper_lim
                     )
 
-    # turn things into numpy array for easier handling, except for times
+    # turn things into numpy array for easier handling, except for times which should be astropy quantity objects
     for key, val in concat_data.items():
         if "time" not in key.lower():
             concat_data[key] = np.array(val)
