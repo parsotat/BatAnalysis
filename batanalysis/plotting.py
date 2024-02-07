@@ -43,7 +43,7 @@ def plot_survey_lc(
     :param T0: None or a MET time of interest that should be highlighted on the plot.
     :param same_figure: Boolean to denote if the passed in list of BatSurvey lists should be plotted on the same set of
         axis, alongside one another. Default is False.
-    :return: None
+    :return: matplotlib figure, axes
     """
 
     # save this for use later
@@ -262,15 +262,29 @@ def plot_survey_lc(
 
     return fig, axes
 
+@u.quantity_input(energy_range=['energy'])
 def plot_TTE_lightcurve(lightcurves, spectra, values=["flux", "phoindex"], T0=None, time_unit="MET", plot_relative=False, energy_range=[15,350]*u.keV):
     """
-    This convenience function allows one to plot a set of lightcurves alongside a set of spectra. The spectra should all
-    be fit with the same model.
+    This convenience function allows for plotting multiple lightcurves/spectra. If multiple lightcurves are passed in
+    they should be in the form of a list. If multiple spectra are passed in, they should be in the form of a list as
+    well. Currently, if multiple lightcurves are passed in, a single energy range is plotted for each lightcurve to
+    prevent the plot from becoming over populated. This energy range is provided by the energy_range parameter.
+    The function also accepts a time of interest, T0, to be specified and the plot times to be specified relative to
+    the T0. This capability is currently only possible with MET time units.
 
-    Thsi doesnt plot rate lightcurves
+    This function does not handle plotting rate lightcurves.
 
-    :return:
+
+    :param lightcurves:
+    :param spectra:
+    :param values:
+    :param T0:
+    :param time_unit:
+    :param plot_relative:
+    :param energy_range:
+    :return: matplotlib figure, axes
     """
+
 
     #first see how many lightcurves we need to plot
     if type(lightcurves) is not list:
