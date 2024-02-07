@@ -458,8 +458,8 @@ class BatEvent(BatObservation):
         :return:
         """
 
-        #TODO: what to do if self.auxil_raytracing_file has length 0 during init or if we are recreating this file?
-        #TODO: create a mask weight image which can also be used for each RA/DEC coordinate and be passed to batbinevt
+        # TODO: what to do if self.auxil_raytracing_file has length 0 during init or if we are recreating this file?
+        # TODO: create a mask weight image which can also be used for each RA/DEC coordinate and be passed to batbinevt
         #   without a need for reading in the MASK WEIGHT column of the event file
 
         #batmaskwtevt infile=bat/event/sw01116441000bevshsp_uf.evt attitude=auxil/sw01116441000sat.fits.gz detmask=grb.mask ra= dec=
@@ -614,24 +614,50 @@ class BatEvent(BatObservation):
     def create_pha(self, pha_file=None, tstart=None, tstop=None, timebins=None, T0=None, is_relative=False,
                     energybins=None, recalc=False, mask_weighting=True, load_upperlims=False):
         """
-        This function creates a
-        :param pha_file:
-        :param tstart:
-        :param tstop:
-        :param timebins:
-        :param T0:
-        :param is_relative:
-        :param energybins:
-        :param recalc:
-        :param mask_weighting:
-        :param load_upperlims:
-        :return:
-        """
-        """
-        This method returns a spectrum object or list of spectrum objects.
+        This function creates a pha file that spans a given time range. The pha filename can be specified for a file
+        name that the user wants the created pha file to be saved as or this can be set as None to allow for existing
+        files to be loaded/recreated with a new set of time/energy binings.
 
-        :param kwargs:
-        :return:
+        The time bin of the created spectrum can be provided through the tstart and tstop parameters, which should
+        specify the start and stop times of the timebins for which the spectrum can be constructed. Alternatively, the
+        time bin can be specified through the timebins parameter which allows the user to pass in an array of time bin
+        edges. A spectrum will be constructed for each timebin, similarly if an array of values are passed to the tstart
+        and tstop parameters then multiple spectra will be constructed. The time bins can be specified relative to some
+        time of interest, T0, which allows for maximal flexibilty. In this case, the user needs to specify T0 and set
+        is_relative=True.
+
+        The energy bins of the spectrum/spectra can be set, however we recommend leaving this parameter to None to allow
+        for the normal 80 channel spectra to be constructed. Additionally, the spectra can be mask weighted or not, and
+        this is set to be enabled by default.
+
+        This method can load upper limit spectral files (spectra that allow users to construct flux upper limits when
+        sources are not well detected). By default, these files are not loaded.
+
+        The spectrum/spectra get dynamically loaded to the spectrum attribute where the newly created spectrum/spectra
+        replaces what was saved in this attribute. This method also returns the Spectrum object or list of Spectrum
+        objects that is/are created.
+
+        :param pha_file: None, string, or Path object denoting whether a new predetermied filename should be used, or if
+            previous existing files should be loaded or written over (in conjunction with the recalc parameter). The
+            file should end with ".pha". If a string is passed without an abolute filepath then it is assumed that the
+            created pha file should be placed in the pha/ subdirectory  of the results directory
+        :param tstart: astropy Quantity scalar or array denoting the start MET time of timebins that the user would like
+            to create pha files for. A pha file will be created for each time range specified by tstart and tstop. The
+            times can be defined relative to some time of interest which can be specified with the T0 parameter.
+        :param tstop: astropy Quantity scalar or array denoting the end MET time of timebins that the user would like to
+            create pha files for. A pha file will be created for each time range specified by tstart and tstop. The
+            times can be defined relative to some time of interest which can be specified with the T0 parameter.
+        :param timebins: astropy Quantity  array denoting the MET timebin edges that the spectra should be constructed
+            for. The times can be defined relative to some time of interest which can be specified with the T0 parameter
+        :param T0: float or astropy Quantity scalar denoting the time that time bins may be defined relative to
+        :param is_relative: boolean to denote if the specified timebins are relative times with respect to T0
+        :param energybins: None or an array of energy bin edges that the pha files should be created with. None defaults
+            to the 80 channel CALDB energy bins.
+        :param recalc: Boolean to denote if a set of
+        :param mask_weighting: boolean, default True, to denote if the mask weighting should be applied in constructing the pha file.
+        :param load_upperlims: boolean, default False, to denote if any of the upper limit pha files should be loaded
+            from the pha directory within the results directory.
+        :return: Spectrum object or list of Spectrum objects
         """
         #batbinevt infile=sw00145675000bevshsp_uf.evt.gz outfile=onesec.lc outtype=PHA
         # timedel=0.0 timebinalg=u energybins=CALDB
