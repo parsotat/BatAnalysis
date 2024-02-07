@@ -2221,7 +2221,7 @@ def concatenate_spectrum_data(
         except AttributeError as e:
             raise AttributeError("Not all of the spectra that have been passed in have been fit with a spectral model")
 
-        #TODO: check that all spectra have the same spectral model fit to them, except for models which were used for
+        # check that all spectra have the same spectral model fit to them, except for models which were used for
         # getting flux upper limits
         if check_model is None or not np.any(["upperlim" in i for i in spect_model.keys()]):
             if check_model is None:
