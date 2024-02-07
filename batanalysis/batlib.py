@@ -2152,11 +2152,12 @@ def concatenate_spectrum_data(
 ):
     """
     This convenience function collects the spectra data that was requested by the user as passed into the keys variable.
-    The data is returned in the form of a dictionary with the same keys and numpy/astropy.Quantity arrays of all the concatenated data. if
-    the user asks for parameters with errors associated with them these errors will be automatically included. For
-    example if the user wants flux information then the function will automatically include a dicitonary key to
-    hold the flux error information as well. If there is a flux upper limit, then the flux upper limit will be returned
-    while the error will be set to numpy nan.
+    The data is returned in the form of a dictionary with the same keys and numpy/astropy.Quantity arrays of all the
+    concatenated data. if the user asks for parameters with errors associated with them these errors will be
+    automatically included. For example if the user wants flux information then the function will automatically include
+    a dicitonary key to hold the flux error information as well. If there is a flux upper limit, then the flux upper
+    limit will be returned while the error will be set to numpy nan. The start and end times for each spectra are also
+    automatically included in the dictionary that is returned from this function.
 
     :param spectra: a list of Spectrum objects that the user wants to extract the relevant data from.
     :param keys: a string or list of strings
@@ -2185,6 +2186,8 @@ def concatenate_spectrum_data(
     for i in concat_data.keys():
         concat_data[i] = []
 
+
+
     if chronological_order:
         # sort the info by central time bin of each spectrum
         all_cent_met = u.Quantity([
@@ -2208,6 +2211,7 @@ def concatenate_spectrum_data(
 
 
     # iterate over observation IDs
+    check_model=None
     for idx in sorted_obs_idx:
         spectrum = spectra[idx]
 
@@ -2217,7 +2221,18 @@ def concatenate_spectrum_data(
         except AttributeError as e:
             raise AttributeError("Not all of the spectra that have been passed in have been fit with a spectral model")
 
-        #TODO: check that all spectra have the same spectral model fit to them
+        #TODO: check that all spectra have the same spectral model fit to them, except for models which were used for
+        # getting flux upper limits
+        if check_model is None or not np.any(["upperlim" in i for i in spect_model.keys()]):
+            if check_model is None:
+                #save the list of parameters when we first get to a non-flux upper limit spectrum
+                check_model=[i for i in spect_model["parameters"].keys()]
+            else:
+                #check to see if the spectrum model parameters matches those that were saved
+                if set(check_model) != set(spect_model["parameters"].keys()):
+                    raise ValueError("The input Spectrum objects do not have the same model parameters. Please ensure"
+                                     "that the same model was used to fit the non flux upper limit spectra.")
+
 
         # iterate over the keys of interest
         for user_key in keys:
