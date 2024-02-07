@@ -614,6 +614,20 @@ class BatEvent(BatObservation):
     def create_pha(self, pha_file=None, tstart=None, tstop=None, timebins=None, T0=None, is_relative=False,
                     energybins=None, recalc=False, mask_weighting=True, load_upperlims=False):
         """
+
+        :param pha_file:
+        :param tstart:
+        :param tstop:
+        :param timebins:
+        :param T0:
+        :param is_relative:
+        :param energybins:
+        :param recalc:
+        :param mask_weighting:
+        :param load_upperlims:
+        :return:
+        """
+        """
         This method returns a spectrum object or list of spectrum objects.
 
         :param kwargs:
@@ -633,6 +647,11 @@ class BatEvent(BatObservation):
             if tstart.size == tstop.size:
                 input_tstart=tstart.copy()
                 input_tstop=tstop.copy()
+
+            #make sure that we can iterate over the times even if the user passed in a single scalar quantity
+            if input_tstart.isscalar:
+                input_tstart=u.Quantity([input_tstart])
+                input_tstop=u.Quantity([input_tstop])
             else:
                 raise ValueError('Both tstart and tstop must have the same length.')
 
