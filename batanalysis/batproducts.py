@@ -2168,5 +2168,6 @@ class Spectrum(BatObservation):
             with gzip.open(pha_file, 'rb') as f_in:
                 with open(pha_file.parent.joinpath(pha_file.stem), 'wb') as f_out:
                     shutil.copyfileobj(f_in, f_out)
+            pha_file=pha_file.parent.joinpath(pha_file.stem)
 
         return cls(pha_file, event_file, detector_quality_mask, auxil_raytracing_file)
