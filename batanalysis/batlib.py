@@ -1172,6 +1172,11 @@ def fit_TTE_spectrum(
         spectrum.spectral_model = model_dict
 
     # Incorporating the model names, parameters, errors into the BatSurvey object.
+    #remove the .xcm if it already exists
+    xcm_file=Path(phafilename.stem + ".xcm")
+    if xcm_file.exists():
+        xcm_file.unlink()
+
     xsp.Xset.save(phafilename.stem + ".xcm")
     xspec_savefile = phafilename.parent.joinpath(
         phafilename.stem + ".xcm"
