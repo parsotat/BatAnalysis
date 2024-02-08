@@ -22,6 +22,8 @@ from datetime import datetime, timedelta
 import re
 import warnings
 import matplotlib.pyplot as plt
+import gzip
+
 
 # for python>3.6
 try:
@@ -2160,5 +2162,11 @@ class Spectrum(BatObservation):
         if not pha_file.exists():
             raise ValueError(f"The specified PHA file {pha_file} does not seem to exist. "
                              f"Please double check that it does.")
+
+        # also make sure that the file is gunzipped which is necessary the user wants to do spectral fitting
+        if ".gz" in pha_file.suffix:
+            with gzip.open(pha_file, 'rb') as f_in:
+                with open(pha_file.parent.joinpath(pha_file.stem), 'wb') as f_out:
+                    shutil.copyfileobj(f_in, f_out)
 
         return cls(pha_file, event_file, detector_quality_mask, auxil_raytracing_file)
