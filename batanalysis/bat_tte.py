@@ -744,6 +744,13 @@ class BatEvent(BatObservation):
                     warnings.warn(f"Deleting all files in {self.result_dir.joinpath('pha')} and creating new"
                                         f"pha files for the passed in timebins")
                     dirtest(self.result_dir.joinpath('pha'))
+                    #iterate through the pha files that need to be created
+                    final_pha_files=[]
+                    base = "spectrum_"
+                    count = 0
+                    for i in range(input_tstart.size):
+                        final_pha_files.append(self.result_dir.joinpath("pha").joinpath(f"{base}{count}.pha"))
+                        count += 1
 
         else:
             #if a single file has been specified, assume that is should go in the event/pha directory unless
