@@ -1973,7 +1973,7 @@ class Spectrum(BatObservation):
         return create_gti_file(timebins, output_file, T0=None, is_relative=False, overwrite=True)
 
     @u.quantity_input(emin=['energy'], emax=['energy'])
-    def plot(self, emin=15 * u.keV, emax=195 * u.keV, plot_model=True):
+    def plot(self, emin=15 * u.keV, emax=150 * u.keV, plot_model=True):
         """
         This method allows the user to conveniently plot the spectrum that has been created. If it has been fitted
         with a model, then the model can also be plotted as well.
