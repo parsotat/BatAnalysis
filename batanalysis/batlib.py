@@ -2228,7 +2228,8 @@ def concatenate_spectrum_data(
 
         # check that all spectra have the same spectral model fit to them, except for models which were used for
         # getting flux upper limits
-        if check_model is None or not np.any(["upperlim" in i for i in spect_model.keys()]):
+        has_upperlimit=np.any(["upperlim" in i for i in spect_model.keys()])
+        if check_model is None and not has_upperlimit:
             if check_model is None:
                 #save the list of parameters when we first get to a non-flux upper limit spectrum
                 check_model=[i for i in spect_model["parameters"].keys()]
