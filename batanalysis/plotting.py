@@ -262,7 +262,7 @@ def plot_survey_lc(
 
     return fig, axes
 
-@u.quantity_input(energy_range=['energy'])
+@u.quantity_input(energy_range=[None,'energy'])
 def plot_TTE_lightcurve(lightcurves, spectra, values=["flux", "phoindex"], T0=None, time_unit="MET", plot_relative=False, energy_range=[15,350]*u.keV):
     """
     This convenience function allows for plotting multiple lightcurves/spectra. If multiple lightcurves are passed in

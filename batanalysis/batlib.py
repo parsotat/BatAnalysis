@@ -1042,8 +1042,8 @@ def fit_TTE_spectrum(
 
         # Setting the vlaues and freezing them.
 
-        p1.values = 14  # already frozen
-        p2.values = 195  # already frozen
+        p1.values = 15  # already frozen
+        p2.values = 150  # already frozen
         p4.values = 2
         p4.frozen = False
         p5.values = 0.001
@@ -1139,7 +1139,7 @@ def fit_TTE_spectrum(
                                     'E_MIN': xspec_energy_min,
                                     'E_MAX': xspec_energy_max}
         if get_upperlim:
-            xsp.AllModels.calcFlux("14.0 195.0")
+            xsp.AllModels.calcFlux("15.0 150.0")
             model_dict["nsigma_lg10flux_upperlim"]=np.log10(s.flux[0])
 
         spectrum.spectral_model = model_dict
