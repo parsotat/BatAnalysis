@@ -76,7 +76,13 @@ def datadir(new=None, mkdir=False, makepersistent=False, tdrss=False, trend=Fals
     datadirnamefile = Path("~/.swift/swift_datadir_name").expanduser()
 
     if new is not None:
-        newdir = Path(new).expanduser().resolve()
+        #.resolve adds /private/ to the beginning of an absolute path eg /tmp/... so test to make sure that it is abolute
+        # if not thn we resolve the path
+        newdir = Path(new).expanduser()
+
+        if not newdir.is_absolute():
+            newdir = newdir.resolve()
+
         if mkdir:
             newdir.mkdir(parents=True, exist_ok=True)
             newdir.joinpath('tdrss').mkdir(exist_ok=True)
