@@ -1564,7 +1564,13 @@ def download_swiftdata(
 
     if save_dir is None:
         save_dir = datadir()
-    save_dir = Path(save_dir).resolve()
+
+    # .resolve adds /private/ to the beginning of an absolute path eg /tmp/... so test to make sure that it is abolute
+    # if not thn we resolve the path
+    save_dir = Path(save_dir)
+    if not save_dir.is_absolute():
+        save_dir=save_dir.resolve()
+
     if np.isscalar(observations) or isinstance(observations, ap.table.row.Row):
         observations = [observations]
     obsids = []
