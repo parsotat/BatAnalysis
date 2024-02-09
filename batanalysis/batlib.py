@@ -1059,6 +1059,10 @@ def fit_TTE_spectrum(
     # Stop fit at nIterations and do not query.
     xsp.Fit.query = "no"
 
+    #set the range to ignore, need to be floats
+    xsp.Plot.xAxis = "keV"
+    s.ignore("**-15. 150.-**")
+
     xsp.Fit.nIterations = fit_iterations
     xsp.Fit.renorm()
 
