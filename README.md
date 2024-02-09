@@ -86,6 +86,18 @@ steps to upload a distribution to PyPi is at: https://stackoverflow.com/question
   </ol>
 </details>
 
+## Installation instructions for Beta testers:
+
+Thanks to all who are willing to test the TTE portion of BatAnalysis. Here are some quick instructions for getting the code and installing it for access in python:
+- `git clone -b TTE_analysis https://github.com/parsotat/BatAnalysis.git`
+- `cd BatAnalysis`
+- if BatAnalysis is already installed: `pip uninstall BatAnalysis`
+- `pip install -e .`
+
+Then in a jupyter notebook or an ipython session `import batanalysis as ba` should work.
+
+Any issues that get brought up will be pushed to the github branch. To get these changes simply do `git pull` in the BatAnalysis directory and the next time you do `import batanalysis as ba` the changes will be implemented.
+
 
 
 <!-- ABOUT THE PROJECT -->
@@ -93,11 +105,11 @@ steps to upload a distribution to PyPi is at: https://stackoverflow.com/question
 
 <!-- [![Product Name Screen Shot][product-screenshot]](https://example.com) -->
 
-BatAnalysis is a python package that allows for the convenient analysis of BAT Survey data. 
+BatAnalysis is a python package that allows for the convenient analysis of BAT Survey and TTE data. 
 This code allows users to: 
-* easily download BAT survey data, 
-* batch process the survey observations,
-* extract light curves and spectra for each survey observation for a given source,
+* easily download BAT  data, 
+* batch process the observations,
+* extract light curves and spectra for each  observation for a given source,
 * create mosaiced images at different time bins, and
 * extract light curves and spectra from the mosaiced images for a given source. 
 
