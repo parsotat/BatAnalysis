@@ -70,7 +70,7 @@ class BatEvent(BatObservation):
             # just give dummy values that will be written over later
             load_dir = self.obs_dir
 
-
+        #stop
         load_file = load_dir.joinpath("batevent.pickle")
         complete_file = load_dir.joinpath(".batevent_complete")
         self._set_local_pfile_dir(load_dir.joinpath(".local_pfile"))
@@ -303,6 +303,7 @@ class BatEvent(BatObservation):
             self._parse_event_file()
 
             # create the marker file that tells us that the __init__ method completed successfully
+            complete_file = self.result_dir.joinpath(".batevent_complete")
             complete_file.touch()
 
             # save the state so we can load things later
@@ -335,6 +336,7 @@ class BatEvent(BatObservation):
         :param f: String of the file that contains the previously saved BatSurvey object
         :return: None
         """
+
         with open(f, 'rb') as pickle_file:
             content = pickle.load(pickle_file)
         self.__dict__.update(content)
