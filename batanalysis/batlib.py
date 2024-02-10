@@ -76,12 +76,7 @@ def datadir(new=None, mkdir=False, makepersistent=False, tdrss=False, trend=Fals
     datadirnamefile = Path("~/.swift/swift_datadir_name").expanduser()
 
     if new is not None:
-        #.resolve adds /private/ to the beginning of an absolute path eg /tmp/... so test to make sure that it is abolute
-        # if not thn we resolve the path
-        newdir = Path(new).expanduser()
-
-        if not newdir.is_absolute():
-            newdir = newdir.resolve()
+        newdir = Path(new).expanduser().resolve()
 
         if mkdir:
             newdir.mkdir(parents=True, exist_ok=True)
@@ -1565,11 +1560,7 @@ def download_swiftdata(
     if save_dir is None:
         save_dir = datadir()
 
-    # .resolve adds /private/ to the beginning of an absolute path eg /tmp/... so test to make sure that it is abolute
-    # if not thn we resolve the path
-    save_dir = Path(save_dir)
-    if not save_dir.is_absolute():
-        save_dir=save_dir.resolve()
+    save_dir = Path(save_dir).resolve()
 
     if np.isscalar(observations) or isinstance(observations, ap.table.row.Row):
         observations = [observations]
