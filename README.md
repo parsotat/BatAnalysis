@@ -134,7 +134,7 @@ To get a local copy up and running follow these simple steps.
 
 The following software are necessary for the BatAnalysis python module. 
 
-1. Python 3.8 or larger
+1. Python 3.9 or greater
     - We recommend installing via Anaconda
 2. swiftbat_python 
    - This can be easily installed via pip
