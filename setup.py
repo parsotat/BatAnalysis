@@ -49,7 +49,7 @@ setup(
         "Programming Language :: Python :: 3",
         "Topic :: Scientific/Engineering :: Astronomy",
     ],
-    python_requires=">=3.8",
+    python_requires=">=3.9",
     install_requires=required,
     package_data={"": extra_files},
     include_package_data=True,
