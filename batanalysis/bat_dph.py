@@ -16,6 +16,7 @@ from astropy.io import fits
 from pathlib import Path
 from astropy.time import Time
 import astropy.units as u
+import warnings
 
 try:
     import heasoftpy as hsp
@@ -39,8 +40,28 @@ class BatDPH(BatObservation):
         :param dph_file:
         :param event_file:
         """
-        self.dph_file=dph_file
-        self.dph_input_dict=None
+        self.dph_file=Path(dph_file).expanduser().resolve()
+
+        # if any of these below are None, produce a warning that we wont be able to modify the spectrum. Also do
+        # error checking for the files existing, etc
+        if event_file is not None:
+            self.event_file = Path(event_file).expanduser().resolve()
+            if not self.event_file.exists():
+                raise ValueError(f"The specified event file {self.event_file} does not seem to exist. "
+                                 f"Please double check that it does.")
+        else:
+            self.event_file = None
+            warnings.warn("No event file has been specified. The resulting lightcurve object will not be able "
+                          "to be modified either by rebinning in energy or time.", stacklevel=2)
+
+        #if ther is no event file we just have the instrument produced DPH or a previously calculated one
+        if self.event_file is None:
+            self.dph_input_dict=None
+
+        if not self.dph_file.exists() or recalc:
+            test
+
+
 
         self._parse_dph_file()
 
