@@ -4,6 +4,25 @@ This file holds the BAT Detector plane histogram class
 Tyler Parsotan Feb 21 2024
 """
 
+import shutil
+import numpy as np
+
+from .batobservation import BatObservation
+import matplotlib.pyplot as plt
+from mpl_toolkits.axes_grid1 import make_axes_locatable
+import gzip
+from astropy.io import fits
+from pathlib import Path
+from astropy.time import Time
+import astropy.units as u
+
+try:
+    import heasoftpy as hsp
+except ModuleNotFoundError as err:
+    # Error handling
+    print(err)
+
+
 class BatDPH(BatObservation):
     """
     This class encapsulates the BAT detector plane historgrams (DPH) that are collected onboard. It also allows for the
