@@ -8,6 +8,7 @@ import shutil
 import numpy as np
 
 from .batobservation import BatObservation
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 import gzip
@@ -214,22 +215,23 @@ class BatDPH(BatObservation):
         if emin is None and emax is None:
             plot_emin=self.ebins["E_MIN"].min()
             plot_emax=self.ebins["E_MAX"].max()
-            plot_e_idx=np.where((self.ebins["E_MIN"]>=plot_emin) & (self.ebins["E_MAX"] <= plot_emax))[0]
         elif emin is not None and emax is not None:
             plot_emin=emin
             plot_emax=emax
         else:
             raise ValueError("emin and emax must either both be None or both be specified.")
+        plot_e_idx=np.where((self.ebins["E_MIN"]>=plot_emin) & (self.ebins["E_MAX"] <= plot_emax))[0]
+
 
         if tmin is None and tmax is None:
             plot_tmin=self.tbins["TIME_START"].min()
             plot_tmax=self.tbins["TIME_STOP"].max()
-            plot_t_idx = np.where((self.tbins["TIME_START"] >= plot_tmin) & (self.tbins["TIME_STOP"] <= plot_tmax))[0]
         elif tmin is not None and tmax is not None:
             plot_tmin=tmin
             plot_tmax=tmax
         else:
             raise ValueError("tmin and tmax must either both be None or both be specified.")
+        plot_t_idx = np.where((self.tbins["TIME_START"] >= plot_tmin) & (self.tbins["TIME_STOP"] <= plot_tmax))[0]
 
         #now start to accumulate the DPH counts based on the time and energy range that we care about
         plot_data = self.data["DPH_COUNTS"][plot_t_idx, :, :, :]
@@ -247,11 +249,18 @@ class BatDPH(BatObservation):
             exposure_tot=np.sum(self.data["EXPOSURE"][plot_t_idx])
             plot_data /= exposure_tot
 
+        #set any 0 count detectors to nan so they get plotted in black
+        # this includes detectors that are off and "space holders" between detectors where the value is 0
+        plot_data[plot_data==0]=np.nan
+
         fig, ax = plt.subplots()
         divider = make_axes_locatable(ax)
         cax = divider.append_axes('right', size='5%', pad=0.05)
 
-        im = ax.imshow(plot_data.value, origin="lower", interpolation='none', cmap="bone")
+        cmap = mpl.colormaps.get_cmap('viridis')
+        cmap.set_bad(color='k')
+
+        im = ax.imshow(plot_data.value, origin="lower", interpolation='none', cmap=cmap)
 
         fig.colorbar(im, cax=cax, orientation='vertical', label=plot_data.unit)
 
