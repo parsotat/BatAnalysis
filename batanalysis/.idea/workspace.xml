@@ -1,0 +1,157 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="SELECTIVE" />
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="f9b12b81-262e-461e-bb76-2c7cc097c9a1" name="Changes" comment="">
+      <change afterPath="$PROJECT_DIR$/../BatAnalysis.egg-info/PKG-INFO" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../BatAnalysis.egg-info/SOURCES.txt" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../BatAnalysis.egg-info/dependency_links.txt" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../BatAnalysis.egg-info/requires.txt" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../BatAnalysis.egg-info/top_level.txt" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/.gitignore" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/.name" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/batanalysis.iml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/inspectionProfiles/profiles_settings.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/modules.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/dec_c0_ZEA.img" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/dec_c1_ZEA.img" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/dec_c2_ZEA.img" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/dec_c3_ZEA.img" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/dec_c4_ZEA.img" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/dec_c5_ZEA.img" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/ra_c0_ZEA.img" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/ra_c1_ZEA.img" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/ra_c2_ZEA.img" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/ra_c3_ZEA.img" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/ra_c4_ZEA.img" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/ra_c5_ZEA.img" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../build/lib/batanalysis/__init__.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../build/lib/batanalysis/_version.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../build/lib/batanalysis/bat_survey.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../build/lib/batanalysis/bat_tte.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../build/lib/batanalysis/batlib.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../build/lib/batanalysis/batobservation.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../build/lib/batanalysis/data/batanalysis_logo.jpg" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../build/lib/batanalysis/data/batanalysis_logo.key" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../build/lib/batanalysis/data/batanalysis_logo.pdf" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../build/lib/batanalysis/data/batanalysis_logo/batanalysis_logo.001.jpeg" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../build/lib/batanalysis/data/offaxiscorr_8bin_20061221.img" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../build/lib/batanalysis/data/survey6b_2.cat" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../build/lib/batanalysis/data/survey6b_2.txt" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../build/lib/batanalysis/data/swiftbat_survey_full_157m.rsp" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../build/lib/batanalysis/mosaic.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../build/lib/batanalysis/parallel.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../build/lib/batanalysis/plotting.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../dist/BatAnalysis-0.0.1-py3-none-any.whl" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../dist/BatAnalysis-0.0.1.tar.gz" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../dist/BatAnalysis-0.0.2-py3-none-any.whl" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../dist/BatAnalysis-0.0.2.tar.gz" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../dist/BatAnalysis-1.0.0-py3-none-any.whl" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../dist/BatAnalysis-1.0.0.tar.gz" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../dist/BatAnalysis-1.0.1-py3-none-any.whl" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../dist/BatAnalysis-1.0.1.tar.gz" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../dist/BatAnalysis-1.0.2-py3-none-any.whl" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../dist/BatAnalysis-1.0.2.tar.gz" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../dist/BatAnalysis-1.0.3-py3-none-any.whl" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../dist/BatAnalysis-1.0.3.tar.gz" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../dist/BatAnalysis-1.0.4-py3-none-any.whl" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../dist/BatAnalysis-1.0.4.tar.gz" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../dist/BatAnalysis-1.0.6-py3-none-any.whl" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../dist/BatAnalysis-1.0.6.tar.gz" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../notebooks/.ipynb_checkpoints/BatAnalysis_objects_intro-checkpoint.ipynb" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../notebooks/.ipynb_checkpoints/Example_Survey_Data_Analysis-checkpoint.ipynb" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../notebooks/.ipynb_checkpoints/Example_TTE_data_analysis-checkpoint.ipynb" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../notebooks/.ipynb_checkpoints/Example_data_download-checkpoint.ipynb" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../notebooks/.ipynb_checkpoints/trial_NGC2992-checkpoint.ipynb" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../notebooks/.ipynb_checkpoints/trial_detection_Crab-checkpoint.ipynb" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../notebooks/.ipynb_checkpoints/trial_nondetection_MAXI-checkpoint.ipynb" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../.gitignore" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/bat_dph.py" beforeDir="false" afterPath="$PROJECT_DIR$/bat_dph.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/batanalysis_logo.jpg" beforeDir="false" afterPath="$PROJECT_DIR$/data/batanalysis_logo.jpg" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/batanalysis_logo.key" beforeDir="false" afterPath="$PROJECT_DIR$/data/batanalysis_logo.key" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/batanalysis_logo.pdf" beforeDir="false" afterPath="$PROJECT_DIR$/data/batanalysis_logo.pdf" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/batanalysis_logo/batanalysis_logo.001.jpeg" beforeDir="false" afterPath="$PROJECT_DIR$/data/batanalysis_logo/batanalysis_logo.001.jpeg" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="FileTemplateManagerImpl">
+    <option name="RECENT_TEMPLATES">
+      <list>
+        <option value="Python Script" />
+      </list>
+    </option>
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$/.." />
+  </component>
+  <component name="HighlightingSettingsPerFile">
+    <setting file="file://$PROJECT_DIR$/__init__.py" root0="SKIP_INSPECTION" />
+    <setting file="file://$PROJECT_DIR$/_version.py" root0="SKIP_INSPECTION" />
+    <setting file="file://$PROJECT_DIR$/bat_survey.py" root0="SKIP_INSPECTION" />
+    <setting file="file://$PROJECT_DIR$/bat_tte.py" root0="SKIP_INSPECTION" />
+    <setting file="file://$PROJECT_DIR$/batlib.py" root0="SKIP_INSPECTION" />
+    <setting file="file://$PROJECT_DIR$/batobservation.py" root0="SKIP_INSPECTION" />
+    <setting file="file://$PROJECT_DIR$/batproducts.py" root0="SKIP_INSPECTION" />
+    <setting file="file://$PROJECT_DIR$/mosaic.py" root0="SKIP_INSPECTION" />
+    <setting file="file://$PROJECT_DIR$/parallel.py" root0="SKIP_INSPECTION" />
+    <setting file="file://$PROJECT_DIR$/plotting.py" root0="SKIP_INSPECTION" />
+  </component>
+  <component name="MarkdownSettingsMigration">
+    <option name="stateVersion" value="1" />
+  </component>
+  <component name="ProblemsViewState">
+    <option name="selectedTabId" value="CurrentFile" />
+  </component>
+  <component name="ProjectColorInfo">{
+  &quot;associatedIndex&quot;: 7
+}</component>
+  <component name="ProjectId" id="2XZkRqpfY5p3tQwSoQAFu4xBsqW" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;RunOnceActivity.OpenProjectViewOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;TTE__analysis&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;com.jetbrains.python.configuration.PyIntegratedToolsModulesConfigurable&quot;
+  }
+}</component>
+  <component name="SharedIndexes">
+    <attachedChunks>
+      <set>
+        <option value="bundled-python-sdk-5a2391486177-d3b881c8e49f-com.jetbrains.pycharm.community.sharedIndexes.bundled-PC-233.13763.11" />
+      </set>
+    </attachedChunks>
+  </component>
+  <component name="SpellCheckerSettings" RuntimeDictionaries="0" Folders="0" CustomDictionaries="0" DefaultDictionary="application-level" UseSingleDictionary="true" transferred="true" />
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="f9b12b81-262e-461e-bb76-2c7cc097c9a1" name="Changes" comment="" />
+      <created>1698843984133</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1698843984133</updated>
+    </task>
+    <servers />
+  </component>
+  <component name="Vcs.Log.Tabs.Properties">
+    <option name="TAB_STATES">
+      <map>
+        <entry key="MAIN">
+          <value>
+            <State />
+          </value>
+        </entry>
+      </map>
+    </option>
+  </component>
+</project>
