@@ -58,7 +58,7 @@ class BatDPH(BatObservation):
         # if self.event_file is None:
         #    self.dph_input_dict = None
 
-        if (not self.dph_file.exists() or recalc) and self.event_file is None:
+        if (not self.dph_file.exists() or recalc) and self.event_file is not None:
             # we need to create the file
             stop
 
