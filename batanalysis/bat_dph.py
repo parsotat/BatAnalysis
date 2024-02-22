@@ -55,11 +55,15 @@ class BatDPH(BatObservation):
                           "to be arbitrarily modified either by rebinning in energy or time.", stacklevel=2)
 
         #if ther is no event file we just have the instrument produced DPH or a previously calculated one
-        if self.event_file is None:
-            self.dph_input_dict = None
+        #if self.event_file is None:
+        #    self.dph_input_dict = None
 
-        if not self.dph_file.exists() or recalc:
-            test
+        if (not self.dph_file.exists() or recalc) and self.event_file is None:
+            #we need to create the file
+            stop
+
+        else:
+            self.dph_input_dict = None
 
 
 
