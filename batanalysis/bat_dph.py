@@ -60,14 +60,32 @@ class BatDPH(BatObservation):
 
         if (not self.dph_file.exists() or recalc) and self.event_file is not None:
             # we need to create the file
-            stop
+            if input_dict is None:
+                self.dph_input_dict = dict(infile=str(self.event_file), outfile=str(self.dph_file), outtype="DPH",
+                                          energybins="15-350", weighted="YES", timedel=0.064,
+                                          detmask=str(self.detector_quality_mask),
+                                          tstart="INDEF", tstop="INDEF", clobber="YES", timebinalg="uniform")
+
+                # specify if we want mask weighting
+                if mask_weighting:
+                    self.dph_input_dict["weighted"] = "YES"
+                else:
+                    self.dph_input_dict["weighted"] = "NO"
+            else:
+                self.dph_input_dict = input_dict
+
+            # create the DPH
+            self.bat_dph_result = self._call_batbinevt(self.dph_input_dict)
+
+            # make sure that this calculation ran successfully
+            if self.bat_dph_result.returncode != 0:
+                raise RuntimeError(f'The creation of the DPH failed with message: {self.bat_dph_result.output}')
 
         else:
             self.dph_input_dict = None
 
         self._parse_dph_file()
 
-        return None
 
     @classmethod
     def from_file(cls, dph_file, event_file=None):
@@ -289,3 +307,4 @@ class BatDPH(BatObservation):
         fig.colorbar(im, cax=cax, orientation='vertical', label=plot_data.unit)
 
         return fig, ax
+
