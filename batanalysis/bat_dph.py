@@ -31,8 +31,8 @@ class BatDPH(BatObservation):
     creation of a DPH from event data and rebinning in time/energy.
     """
 
-    #this class variable states which columns form the DPH files should be excluded from being read in
-    _exclude_data_cols=["GAIN_INDEX", "OFFSET_INDEX", "LDPNAME", "BLOCK_MAP", "NUM_DETS", "APID", "LDP"]
+    # this class variable states which columns form the DPH files should be excluded from being read in
+    _exclude_data_cols = ["GAIN_INDEX", "OFFSET_INDEX", "LDPNAME", "BLOCK_MAP", "NUM_DETS", "APID", "LDP"]
 
     def __init__(self, dph_file, event_file, input_dict=None, recalc=False, verbose=False, load_dir=None):
         """
@@ -40,7 +40,7 @@ class BatDPH(BatObservation):
         :param dph_file:
         :param event_file:
         """
-        self.dph_file=Path(dph_file).expanduser().resolve()
+        self.dph_file = Path(dph_file).expanduser().resolve()
 
         # if any of these below are None, produce a warning that we wont be able to modify the spectrum. Also do
         # error checking for the files existing, etc
@@ -54,18 +54,16 @@ class BatDPH(BatObservation):
             warnings.warn("No event file has been specified. The resulting DPH object will not be able "
                           "to be arbitrarily modified either by rebinning in energy or time.", stacklevel=2)
 
-        #if ther is no event file we just have the instrument produced DPH or a previously calculated one
-        #if self.event_file is None:
+        # if ther is no event file we just have the instrument produced DPH or a previously calculated one
+        # if self.event_file is None:
         #    self.dph_input_dict = None
 
         if (not self.dph_file.exists() or recalc) and self.event_file is None:
-            #we need to create the file
+            # we need to create the file
             stop
 
         else:
             self.dph_input_dict = None
-
-
 
         self._parse_dph_file()
 
@@ -93,10 +91,9 @@ class BatDPH(BatObservation):
             with gzip.open(dph_file, 'rb') as f_in:
                 with open(dph_file.parent.joinpath(dph_file.stem), 'wb') as f_out:
                     shutil.copyfileobj(f_in, f_out)
-            dph_file=dph_file.parent.joinpath(dph_file.stem)
+            dph_file = dph_file.parent.joinpath(dph_file.stem)
 
         return cls(dph_file, event_file)
-
 
     def _parse_dph_file(self):
         """
@@ -121,11 +118,10 @@ class BatDPH(BatObservation):
             energies_header = f["EBOUNDS"].header
             times = f["GTI"].data
 
-
         # read in the data and save to data attribute which is a dictionary of the column names as keys and the numpy
         # arrays as values
         self.data = {}
-        data_columns=[i for i in data.columns if i.name not in self._exclude_data_cols]
+        data_columns = [i for i in data.columns if i.name not in self._exclude_data_cols]
         for i in data_columns:
             try:
                 self.data[i.name] = u.Quantity(data[i.name], i.unit)
@@ -150,7 +146,7 @@ class BatDPH(BatObservation):
             self.gti[f"TIME_{i.name}"] = u.Quantity(times[i.name], i.unit)
         self.tbins["TIME_CENT"] = 0.5 * (self.gti[f"TIME_START"] + self.gti[f"TIME_STOP"])
 
-        #now do the time bins for the dphs
+        # now do the time bins for the dphs
         self.tbins["TIME_START"] = self.data["TIME"]
         self.tbins["TIME_STOP"] = self.data["TIME"] + self.data["EXPOSURE"]
         self.tbins["TIME_CENT"] = 0.5 * (self.tbins["TIME_START"] + self.tbins["TIME_STOP"])
@@ -223,7 +219,7 @@ class BatDPH(BatObservation):
                     if "=" not in values:
                         # this belongs with the previous parameter and is a line continuation
                         default_params_dict[old_parameter] = default_params_dict[old_parameter] + values[-1]
-                        #assume that we need to keep appending to the previous parameter
+                        # assume that we need to keep appending to the previous parameter
                     else:
                         default_params_dict[parameter] = values[-1]
 
@@ -241,47 +237,45 @@ class BatDPH(BatObservation):
         :return:
         """
 
-
         if emin is None and emax is None:
-            plot_emin=self.ebins["E_MIN"].min()
-            plot_emax=self.ebins["E_MAX"].max()
+            plot_emin = self.ebins["E_MIN"].min()
+            plot_emax = self.ebins["E_MAX"].max()
         elif emin is not None and emax is not None:
-            plot_emin=emin
-            plot_emax=emax
+            plot_emin = emin
+            plot_emax = emax
         else:
             raise ValueError("emin and emax must either both be None or both be specified.")
-        plot_e_idx=np.where((self.ebins["E_MIN"]>=plot_emin) & (self.ebins["E_MAX"] <= plot_emax))[0]
-
+        plot_e_idx = np.where((self.ebins["E_MIN"] >= plot_emin) & (self.ebins["E_MAX"] <= plot_emax))[0]
 
         if tmin is None and tmax is None:
-            plot_tmin=self.tbins["TIME_START"].min()
-            plot_tmax=self.tbins["TIME_STOP"].max()
+            plot_tmin = self.tbins["TIME_START"].min()
+            plot_tmax = self.tbins["TIME_STOP"].max()
         elif tmin is not None and tmax is not None:
-            plot_tmin=tmin
-            plot_tmax=tmax
+            plot_tmin = tmin
+            plot_tmax = tmax
         else:
             raise ValueError("tmin and tmax must either both be None or both be specified.")
         plot_t_idx = np.where((self.tbins["TIME_START"] >= plot_tmin) & (self.tbins["TIME_STOP"] <= plot_tmax))[0]
 
-        #now start to accumulate the DPH counts based on the time and energy range that we care about
+        # now start to accumulate the DPH counts based on the time and energy range that we care about
         plot_data = self.data["DPH_COUNTS"][plot_t_idx, :, :, :]
 
         if len(plot_t_idx) > 0:
-            plot_data=plot_data.sum(axis=0)
+            plot_data = plot_data.sum(axis=0)
 
-        plot_data = plot_data[:,:,plot_e_idx]
+        plot_data = plot_data[:, :, plot_e_idx]
 
         if len(plot_e_idx) > 0:
-            plot_data=plot_data.sum(axis=-1)
+            plot_data = plot_data.sum(axis=-1)
 
         if plot_rate:
-            #calcualte the totoal exposure
-            exposure_tot=np.sum(self.data["EXPOSURE"][plot_t_idx])
+            # calcualte the totoal exposure
+            exposure_tot = np.sum(self.data["EXPOSURE"][plot_t_idx])
             plot_data /= exposure_tot
 
-        #set any 0 count detectors to nan so they get plotted in black
+        # set any 0 count detectors to nan so they get plotted in black
         # this includes detectors that are off and "space holders" between detectors where the value is 0
-        plot_data[plot_data==0]=np.nan
+        plot_data[plot_data == 0] = np.nan
 
         fig, ax = plt.subplots()
         divider = make_axes_locatable(ax)
