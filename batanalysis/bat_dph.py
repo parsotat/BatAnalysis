@@ -51,12 +51,12 @@ class BatDPH(BatObservation):
                                  f"Please double check that it does.")
         else:
             self.event_file = None
-            warnings.warn("No event file has been specified. The resulting lightcurve object will not be able "
-                          "to be modified either by rebinning in energy or time.", stacklevel=2)
+            warnings.warn("No event file has been specified. The resulting DPH object will not be able "
+                          "to be arbitrarily modified either by rebinning in energy or time.", stacklevel=2)
 
         #if ther is no event file we just have the instrument produced DPH or a previously calculated one
         if self.event_file is None:
-            self.dph_input_dict=None
+            self.dph_input_dict = None
 
         if not self.dph_file.exists() or recalc:
             test
@@ -123,7 +123,12 @@ class BatDPH(BatObservation):
         self.data = {}
         data_columns=[i for i in data.columns if i.name not in self._exclude_data_cols]
         for i in data_columns:
-            self.data[i.name] = u.Quantity(data[i.name], i.unit)
+            try:
+                self.data[i.name] = u.Quantity(data[i.name], i.unit)
+            except TypeError:
+                # if the user wants to read in any of the stuff in the class _exclude_data_cols variable this will take
+                # care of that.
+                self.data[i.name] = data[i.name]
 
         # fill in the energy bin info
         self.ebins = {}
