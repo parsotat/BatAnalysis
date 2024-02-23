@@ -63,7 +63,6 @@ class BatDPH(BatObservation):
             if input_dict is None:
                 self.dph_input_dict = dict(infile=str(self.event_file), outfile=str(self.dph_file), outtype="DPH",
                                           energybins="15-350", weighted="YES", timedel=0.064,
-                                          detmask=str(self.detector_quality_mask),
                                           tstart="INDEF", tstop="INDEF", clobber="YES", timebinalg="uniform")
 
                 # specify if we want mask weighting

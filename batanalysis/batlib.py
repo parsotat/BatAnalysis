@@ -2491,6 +2491,37 @@ def create_gti_file(timebin_edges, output_filename, T0=None, is_relative=False, 
 
     return output_filename
 
+def decompose_det_id(detector_id):
+    """
+    This function converts from detector ID to the block, detector module, sandwich and channel for the specified
+    detector(s). This follows:
+     DetID = (2048 * Block) + (256 * DM) + (128 * Side) + (Channel).
+     0 ≤ Block ≤ 15 ; 0 ≤ DM ≤ 7; 0 ≤ Side ≤ 1; 0 ≤ Channel ≤ 127.
+
+    """
+
+    #get the value and make sure that we have an int16 number
+    if isinstance(detector_id, u.Quantity):
+        detector_id=np.int16(detector_id.value)
+    else:
+        detector_id = np.int16(detector_id)
+
+    block_and_dm, det_in_dm = np.divmod(detector_id, np.int16(128))
+    block, dm_in_block = np.divmod(block_and_dm, np.int16(16))
+    dm = np.divmod(dm_in_block, np.int16(8))[1]
+
+    _, channel = np.divmod(det_in_dm, np.int16(128))
+    _, side = np.divmod(det_in_dm, np.int16(2))
+
+    return block, dm, side, channel
+
+
+
+
+
+
+
+
 
 
 
