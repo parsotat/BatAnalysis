@@ -31,6 +31,8 @@ class BatDPH(BatObservation):
     """
     This class encapsulates the BAT detector plane historgrams (DPH) that are collected onboard. It also allows for the
     creation of a DPH from event data and rebinning in time/energy.
+
+    TODO: to get DPI need to apply batsurvey-erebin and baterebin and select good time intervals batsurvey-gti
     """
 
     # this class variable states which columns form the DPH files should be excluded from being read in
@@ -65,7 +67,7 @@ class BatDPH(BatObservation):
             # image mask weight
             if input_dict is None:
                 self.dph_input_dict = dict(infile=str(self.event_file), outfile=str(self.dph_file), outtype="DPH",
-                                          energybins="15-195", weighted="NO", timedel=0,
+                                          energybins="14-195", weighted="NO", timedel=0,
                                           tstart="INDEF", tstop="INDEF", clobber="YES", timebinalg="uniform")
 
             else:
@@ -318,4 +320,85 @@ class BatDPH(BatObservation):
         fig.colorbar(im, cax=cax, orientation='vertical', label=plot_data.unit)
 
         return fig, ax
+
+    @u.quantity_input(timebins=['time'], tmin=['time'], tmax=['time'])
+    def set_timebins(self, timebins=None, tmin=None, tmax=None, T0=None, is_relative=False, savefile=False):
+        """
+        This method allows for the DPHs to be rebinned to different time binnings. The exposure time accounts for
+        good time intervals that are added together. The timebins must exist in the original DPH that is being rebinned.
+
+
+        """
+
+        #create a copy of the timebins if it is not None to prevent modifying the original array
+        if timebins is not None:
+            timebins=timebins.copy()
+
+        #check the inputs
+        # error checking for calc_energy_integrated
+        if type(is_relative) is not bool:
+            raise ValueError("The is_relative parameter should be a boolean value.")
+
+        # test if is_relative is false and make sure that T0 is defined
+        if is_relative and T0 is None:
+            raise ValueError('The is_relative value is set to True however there is no T0 that is defined ' +
+                             '(ie the time from which the time bins are defined relative to is not specified).')
+
+        # do error checking on tmin/tmax
+        if (tmin is None and tmax is not None) or (tmax is None and tmin is not None):
+            raise ValueError('Both emin and emax must be defined.')
+
+
+        if tmin is not None and tmax is not None:
+            if tmin.size != tmax.size:
+                raise ValueError('Both tmin and tmax must have the same length.')
+
+            # now try to construct single array of all timebin edges in seconds
+            timebins = np.zeros(tmin.size + 1) * u.s
+            timebins[:-1] = tmin
+            if tmin.size > 1:
+                timebins[-1] = tmax[-1]
+            else:
+                timebins[-1] = tmax
+
+        # See if we need to add T0 to everything
+        if is_relative:
+            # see if T0 is Quantity class
+            if type(T0) is u.Quantity:
+                timebins += T0
+            else:
+                timebins += T0 * u.s
+
+
+        #see if the timebins exist in the DPHs that are loaded
+        np.intersect1d(timebins, self.tbins)
+
+        return None
+
+    @u.quantity_input(energybins=['energy'], emin=['energy'], emax=['energy'])
+    def set_energybins(self, energybins=[14.0, 20.0, 24.0, 35.0, 50.0, 75.0, 100.0, 150.0, 195.0]*u.keV, emin=None, emax=None,
+                       savefile=False):
+        """
+        This method allows for the DPH to be rebinned to different energy binnings
+        """
+
+        return None
+
+    def to_fits(self, fits_filename=None):
+        """
+        This method allows the user to save the rebinned DPH to a file. If no file is specified, then the dph_file
+        attribute is used.
+        """
+
+        if fits_filename is None and self.dph_file is not None:
+            with fits.open(self.dph_file, mode="update") as f:
+                #code to modify the table here
+
+                f.flush()
+        else:
+            raise NotImplementedError("Saving to a new file is not yet implemented.")
+
+        return None
+
+
 
