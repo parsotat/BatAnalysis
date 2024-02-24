@@ -293,11 +293,16 @@ class BatDPH(BatObservation):
 
         if len(plot_t_idx) > 0:
             plot_data = plot_data.sum(axis=0)
+        else:
+            raise ValueError(f"There are no DPH time bins that fall between {plot_tmin} and {plot_tmax}")
 
         plot_data = plot_data[:, :, plot_e_idx]
 
         if len(plot_e_idx) > 0:
             plot_data = plot_data.sum(axis=-1)
+        else:
+            raise ValueError(f"There are no DPH energy bins that fall between {plot_emin} and {plot_emax}")
+
 
         if plot_rate:
             # calcualte the totoal exposure
@@ -328,7 +333,7 @@ class BatDPH(BatObservation):
         good time intervals that are added together. The timebins must exist in the original DPH that is being rebinned.
 
         This method, modifies the object and for the original data to be reloaded, the reset() method must be called
-        (assuming that the to_fits() method was not called after the set_timebins() method was called).
+        (assuming that the to_fits() method, with overwrite=True, was not called after the set_timebins() method was called).
         """
 
         #create a copy of the timebins if it is not None to prevent modifying the original array
@@ -391,13 +396,21 @@ class BatDPH(BatObservation):
         attribute is used.
         """
 
-        if fits_filename is None and self.dph_file is not None and overwrite:
-            with fits.open(self.dph_file, mode="update") as f:
-                #code to modify the table here
+        #get the defualt file name otherwise use what was passed in and expand to absolute path
+        if fits_filename is None and self.dph_file is not None:
+            fits_filename=self.dph_file
+        else:
+            fits_filename = Path(fits_filename).expanduser().resolve()
 
-                f.flush()
-        elif not overwrite and self.dph_file is not None:
-            raise  ValueError(f"The file {self.dph_file} will not be overwritten if the overwrite parameter is not explicitly set to True.")
+        if fits_filename.exists():
+            if overwrite:
+                with fits.open(self.dph_file, mode="update") as f:
+                    #code to modify the table here
+
+                    f.flush()
+            else:
+                raise ValueError(
+                    f"The file {fits_filename} will not be overwritten if the overwrite parameter is not explicitly set to True.")
         else:
             raise NotImplementedError("Saving to a new file is not yet implemented.")
 
