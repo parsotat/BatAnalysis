@@ -327,7 +327,8 @@ class BatDPH(BatObservation):
         This method allows for the DPHs to be rebinned to different time binnings. The exposure time accounts for
         good time intervals that are added together. The timebins must exist in the original DPH that is being rebinned.
 
-
+        This method, modifies the object and for the original data to be reloaded, the reset() method must be called
+        (assuming that the to_fits() method was not called after the set_timebins() method was called).
         """
 
         #create a copy of the timebins if it is not None to prevent modifying the original array
@@ -379,26 +380,35 @@ class BatDPH(BatObservation):
     def set_energybins(self, energybins=[14.0, 20.0, 24.0, 35.0, 50.0, 75.0, 100.0, 150.0, 195.0]*u.keV, emin=None, emax=None,
                        savefile=False):
         """
-        This method allows for the DPH to be rebinned to different energy binnings
+        This method allows for the DPH(s) to be rebinned to different energy binnings
         """
 
         return None
 
-    def to_fits(self, fits_filename=None):
+    def to_fits(self, fits_filename=None, overwrite=False):
         """
         This method allows the user to save the rebinned DPH to a file. If no file is specified, then the dph_file
         attribute is used.
         """
 
-        if fits_filename is None and self.dph_file is not None:
+        if fits_filename is None and self.dph_file is not None and overwrite:
             with fits.open(self.dph_file, mode="update") as f:
                 #code to modify the table here
 
                 f.flush()
+        elif not overwrite and self.dph_file is not None:
+            raise  ValueError(f"The file {self.dph_file} will not be overwritten if the overwrite parameter is not explicitly set to True.")
         else:
             raise NotImplementedError("Saving to a new file is not yet implemented.")
 
         return None
+
+    def reset(self):
+        """
+        This method allows the DPH object to be reset to the inputs in the passed in DPH file
+        """
+
+        self._parse_dph_file()
 
 
 
