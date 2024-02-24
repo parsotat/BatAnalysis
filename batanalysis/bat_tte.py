@@ -13,7 +13,7 @@ import sys
 
 import batanalysis
 
-from .batlib import datadir, dirtest, met2mjd, met2utc
+from .batlib import datadir, dirtest, met2mjd, met2utc, decompose_det_id
 from .batobservation import BatObservation
 from .batproducts import Lightcurve, Spectrum
 import glob
@@ -329,6 +329,13 @@ class BatEvent(BatObservation):
             data=file[1].data
             for i in data.columns:
                 self.data[i.name] = u.Quantity(data[i.name], i.unit)
+
+        #get the block/DM/sandwich/channel info
+        block, dm, side, channel = decompose_det_id(self.data["DET_ID"])
+        data["DET_BLOCK"]=block
+        data["DET_DM"]=dm
+        data["DET_SAND"]=side
+        data["DET_CHAN"]=channel
 
     def load(self, f):
         """

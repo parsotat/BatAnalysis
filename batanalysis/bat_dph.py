@@ -61,17 +61,13 @@ class BatDPH(BatObservation):
         #    self.dph_input_dict = None
 
         if (not self.dph_file.exists() or recalc) and self.event_file is not None:
-            # we need to create the file
+            # we need to create the file, default is no mask weighting if we want to include that then we need the
+            # image mask weight
             if input_dict is None:
                 self.dph_input_dict = dict(infile=str(self.event_file), outfile=str(self.dph_file), outtype="DPH",
-                                          energybins="15-350", weighted="YES", timedel=0.064,
+                                          energybins="15-195", weighted="NO", timedel=0,
                                           tstart="INDEF", tstop="INDEF", clobber="YES", timebinalg="uniform")
 
-                # specify if we want mask weighting
-                if mask_weighting:
-                    self.dph_input_dict["weighted"] = "YES"
-                else:
-                    self.dph_input_dict["weighted"] = "NO"
             else:
                 self.dph_input_dict = input_dict
 
