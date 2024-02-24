@@ -18,6 +18,8 @@ from astropy.time import Time
 import astropy.units as u
 import warnings
 
+from histpy import Histogram, Axes, Axis, HealpixAxis
+
 try:
     import heasoftpy as hsp
 except ModuleNotFoundError as err:
@@ -167,6 +169,20 @@ class BatDPH(BatObservation):
         self.tbins["TIME_START"] = self.data["TIME"]
         self.tbins["TIME_STOP"] = self.data["TIME"] + self.data["EXPOSURE"]
         self.tbins["TIME_CENT"] = 0.5 * (self.tbins["TIME_START"] + self.tbins["TIME_STOP"])
+
+        # convert the actual DPH to a Histogram object for easy manipulation
+        time_edges=np.zeros(self.tbins["TIME_START"].size+1)*self.tbins["TIME_START"].unit
+        time_edges[:self.tbins["TIME_START"].size]=self.tbins["TIME_START"]
+        time_edges[-1]=self.tbins["TIME_STOP"][-1]
+
+        energy_edges=np.zeros(self.ebins["E_MIN"].size+1)*self.ebins["E_MIN"].unit
+        energy_edges[:self.ebins["E_MIN"].size]=self.ebins["E_MIN"]
+        energy_edges[-1]=self.ebins["E_MAX"][-1]
+
+        det_x_edges=np.arange(data["DPH_COUNTS"].shape[2]+1)-0.5
+        det_y_edges=np.arange(data["DPH_COUNTS"].shape[1]+1)-0.5
+
+        self.data["DPH_COUNTS"] = Histogram([time_edges,det_y_edges,det_x_edges,energy_edges], contents=self.data["DPH_COUNTS"], labels=["TIME", "DETY", "DETX", "ENERGY"])
 
         # if self.dph_input_dict ==None, then we will need to try to read in the hisotry of parameters passed into
         # batbinevt to create the dph file. thsi usually is needed when we first parse a file so we know what things
