@@ -180,6 +180,7 @@ class BatDPH(BatObservation):
         det_x_edges=np.arange(data["DPH_COUNTS"].shape[2]+1)-0.5
         det_y_edges=np.arange(data["DPH_COUNTS"].shape[1]+1)-0.5
 
+        #note that the histogram tiem binnings may not be continuous in time (due to good time intervals not being contiguous)
         self.data["DPH_COUNTS"] = Histogram([time_edges,det_y_edges,det_x_edges,energy_edges], contents=self.data["DPH_COUNTS"], labels=["TIME", "DETY", "DETX", "ENERGY"])
 
         # if self.dph_input_dict ==None, then we will need to try to read in the hisotry of parameters passed into
@@ -332,13 +333,23 @@ class BatDPH(BatObservation):
         This method allows for the DPHs to be rebinned to different time binnings. The exposure time accounts for
         good time intervals that are added together. The timebins must exist in the original DPH that is being rebinned.
 
+        For timebinning where the time intervals are not contiguous, it is recomended to specify tmin and tmax
+
         This method, modifies the object and for the original data to be reloaded, the reset() method must be called
         (assuming that the to_fits() method, with overwrite=True, was not called after the set_timebins() method was called).
         """
 
+        #first make sure that we have a time binning axis of our histogram
+        if "TIME" not in test_proj.axes.labels or self.data["DPH_COUNTS"].axes["TIME"].nbins == 1:
+            raise ValueError("The DPH either has  not timing information or there is only one time bin which means that"
+                             "the DPH cannot be rebinned in time.")
+
         #create a copy of the timebins if it is not None to prevent modifying the original array
         if timebins is not None:
             timebins=timebins.copy()
+
+            tmin=timebins[:-1]
+            tmax=timebins[1:]
 
         #check the inputs
         # error checking for calc_energy_integrated
@@ -359,25 +370,34 @@ class BatDPH(BatObservation):
             if tmin.size != tmax.size:
                 raise ValueError('Both tmin and tmax must have the same length.')
 
-            # now try to construct single array of all timebin edges in seconds
-            timebins = np.zeros(tmin.size + 1) * u.s
-            timebins[:-1] = tmin
-            if tmin.size > 1:
-                timebins[-1] = tmax[-1]
-            else:
-                timebins[-1] = tmax
-
         # See if we need to add T0 to everything
         if is_relative:
             # see if T0 is Quantity class
             if type(T0) is u.Quantity:
-                timebins += T0
+                tmin += T0
+                tmax += T0
             else:
-                timebins += T0 * u.s
+                tmin += T0 * u.s
+                tmax += T0 * u.s
+
+        #make sure that the times exist in the array of timebins that the DPH has been binned into
+        for s,e in zip(tmin, tmax):
+            if not np.all(np.in1d(s, self.tbins["TIME_START"])) or not np.all(np.in1d(e, self.tbins["TIME_STOP"])):
+                raise ValueError(f"The requested time binning from {s}-{e} is not encompassed by the current timebins "
+                                 f"of the loaded DPH. Please choose the closest TIME_START and TIME_STOP values from"
+                                 f" the tbin attribute")
 
 
-        #see if the timebins exist in the DPHs that are loaded
-        np.intersect1d(timebins, self.tbins)
+        #do the rebinning along those dimensions and modify the appropriate attibutes
+        #TODO: this may change if there is no time dimension or if there is only 1 time bin, need to check for this
+        new_hist_size=(len(tmin), *self.data["DPH_COUNTS"].nbins[1:])
+        histograms=np.zeros()
+        for s, e in zip(tmin, tmax):
+            idx = np.where((self.tbins["TIME_START"] >= s) & (self.tbins["TIME_STOP"] <= e))[0]
+
+
+
+
 
         return None
 
