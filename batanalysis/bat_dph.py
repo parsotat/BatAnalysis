@@ -183,6 +183,13 @@ class BatDPH(BatObservation):
         #note that the histogram tiem binnings may not be continuous in time (due to good time intervals not being contiguous)
         self.data["DPH_COUNTS"] = Histogram([time_edges,det_y_edges,det_x_edges,energy_edges], contents=self.data["DPH_COUNTS"], labels=["TIME", "DETY", "DETX", "ENERGY"])
 
+        #can try this but it is weird to have DPH where it is a list of histograms for plotting and accessing data
+        #for i, tstart, tend in zip(np.arange(self.tbins["TIME_START"].size), self.tbins["TIME_START"], self.tbins["TIME_STOP"]):
+        #    h=Histogram([[tstart, tend],det_y_edges,det_x_edges,energy_edges], contents=self.data["DPH_COUNTS"][i,:,:,:], labels=["TIME", "DETY", "DETX", "ENERGY"])
+        #    self.data["DPH_COUNTS"].append(h)
+
+
+
         # if self.dph_input_dict ==None, then we will need to try to read in the hisotry of parameters passed into
         # batbinevt to create the dph file. thsi usually is needed when we first parse a file so we know what things
         # are if we need to do some sort of rebinning.
@@ -382,18 +389,29 @@ class BatDPH(BatObservation):
 
         #make sure that the times exist in the array of timebins that the DPH has been binned into
         for s,e in zip(tmin, tmax):
-            if not np.all(np.in1d(s, self.tbins["TIME_START"])) or not np.all(np.in1d(e, self.tbins["TIME_STOP"])):
+            if not np.all(np.in1d(s, test.tbins["TIME_START"])) or not np.all(np.in1d(e, test.tbins["TIME_STOP"])):
                 raise ValueError(f"The requested time binning from {s}-{e} is not encompassed by the current timebins "
                                  f"of the loaded DPH. Please choose the closest TIME_START and TIME_STOP values from"
                                  f" the tbin attribute")
 
 
-        #do the rebinning along those dimensions and modify the appropriate attibutes
-        #TODO: this may change if there is no time dimension or if there is only 1 time bin, need to check for this
-        new_hist_size=(len(tmin), *self.data["DPH_COUNTS"].nbins[1:])
-        histograms=np.zeros()
-        for s, e in zip(tmin, tmax):
-            idx = np.where((self.tbins["TIME_START"] >= s) & (self.tbins["TIME_STOP"] <= e))[0]
+        #do the rebinning along those dimensions and modify the appropriate attibutes. We cannot use the normal
+        # Histogram methods since we dont have continuous time bins. If needed, can ensure that only the good DPHs are
+        #included in the rebinning
+        new_hist_size=(len(tmin), *test.data["DPH_COUNTS"].nbins[1:])
+        histograms=np.zeros(new_hist_size)
+        new_exposures=np.zeros(len(tmin))
+        for i, s, e in zip(np.arange(tmin.size), tmin, tmax):
+            idx = np.where((test.tbins["TIME_START"] >= s) & (test.tbins["TIME_STOP"] <= e))[0]
+            histograms[i,:]=test.data["DPH_COUNTS"][idx].sum(axis=0)
+
+        #save the final DPH as a Histogram object and the other modified values
+        
+
+
+
+
+
 
 
 
