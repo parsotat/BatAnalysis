@@ -478,24 +478,20 @@ class BatDPH(BatObservation):
         return None
 
     @u.quantity_input(energybins=['energy'], emin=['energy'], emax=['energy'])
-    def set_energybins(self, energybins=[14.0, 20.0, 24.0, 35.0, 50.0, 75.0, 100.0, 150.0, 195.0]*u.keV, emin=None, emax=None,
+    def set_energybins(self, energybins=None, emin=None, emax=None,
                        savefile=False):
         """
         This method allows for the DPH(s) to be rebinned to different energy binnings. Here we require the enerybins to
         be contiguous.
+
+        Could have energybins=[14.0, 20.0, 24.0, 35.0, 50.0, 75.0, 100.0, 150.0, 195.0]*u.keV, but the erebin batsurvey
+        has to be run first to correct for energy.
         """
 
         #first make sure that we have a energy binning axis of our histogram
         if "ENERGY" not in self.data["DPH_COUNTS"].axes.labels or self.data["DPH_COUNTS"].axes["ENERGY"].nbins == 1:
             raise ValueError("The DPH either has  no energy information or there is only one energy bin which means that"
                              "the DPH cannot be rebinned in energy.")
-
-        #create a copy of the enerbins if it is not None to prevent modifying the original array
-        if energybins is not None:
-            energybins=energybins.copy()
-
-            emin=energybins[:-1]
-            emax=energybins[1:]
 
         # do error checking on tmin/tmax
         if (emin is None and emax is not None) or (emin is None and emax is not None):
@@ -504,6 +500,16 @@ class BatDPH(BatObservation):
         if emin is not None and emax is not None:
             if emin.size != emax.size:
                 raise ValueError('Both emin and emax must have the same length.')
+        else:
+            if energybins is not None:
+                # create a copy of the enerbins if it is not None to prevent modifying the original array
+                energybins=energybins.copy()
+
+                emin=energybins[:-1]
+                emax=energybins[1:]
+            else:
+                raise ValueError("No energy bins have been specified.")
+
 
         #make sure that emin/emax can be iterated over
         if emin.shape == ():
@@ -528,15 +534,16 @@ class BatDPH(BatObservation):
 
         for i, s, e in zip(np.arange(emin.size), emin, emax):
             idx = np.where((self.ebins["E_MIN"] >= s) & (self.ebins["E_MAX"] <= e))[0]
-            histograms[:,i]=self.data["DPH_COUNTS"][:,:,:,idx].sum(axis=-1)
+            histograms[:,:,:,i]=self.data["DPH_COUNTS"][:,:,:,idx].sum(axis=-1)
+
+        #set the new ebin attrubute
+        self.ebins["E_MIN"]=emin
+        self.ebins["E_MAX"]=emax
+        self.ebins["INDEX"]=np.arange(len(emin))+1
 
 
-
-        histograms=self.data["DPH_COUNTS"].slice
-
-
-
-
+        #the new self.ebins wil be used in this method by default when creating the histogram object
+        self._format_dph(input_histogram=histograms)
 
         return None
 
