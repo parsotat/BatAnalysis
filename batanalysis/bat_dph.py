@@ -168,27 +168,8 @@ class BatDPH(BatObservation):
         self.tbins["TIME_STOP"] = self.data["TIME"] + self.data["EXPOSURE"]
         self.tbins["TIME_CENT"] = 0.5 * (self.tbins["TIME_START"] + self.tbins["TIME_STOP"])
 
-        # convert the actual DPH to a Histogram object for easy manipulation
-        time_edges=np.zeros(self.tbins["TIME_START"].size+1)*self.tbins["TIME_START"].unit
-        time_edges[:self.tbins["TIME_START"].size]=self.tbins["TIME_START"]
-        time_edges[-1]=self.tbins["TIME_STOP"][-1]
-
-        energy_edges=np.zeros(self.ebins["E_MIN"].size+1)*self.ebins["E_MIN"].unit
-        energy_edges[:self.ebins["E_MIN"].size]=self.ebins["E_MIN"]
-        energy_edges[-1]=self.ebins["E_MAX"][-1]
-
-        det_x_edges=np.arange(data["DPH_COUNTS"].shape[2]+1)-0.5
-        det_y_edges=np.arange(data["DPH_COUNTS"].shape[1]+1)-0.5
-
-        #note that the histogram tiem binnings may not be continuous in time (due to good time intervals not being contiguous)
-        self.data["DPH_COUNTS"] = Histogram([time_edges,det_y_edges,det_x_edges,energy_edges], contents=self.data["DPH_COUNTS"], labels=["TIME", "DETY", "DETX", "ENERGY"])
-
-        #can try this but it is weird to have DPH where it is a list of histograms for plotting and accessing data
-        #for i, tstart, tend in zip(np.arange(self.tbins["TIME_START"].size), self.tbins["TIME_START"], self.tbins["TIME_STOP"]):
-        #    h=Histogram([[tstart, tend],det_y_edges,det_x_edges,energy_edges], contents=self.data["DPH_COUNTS"][i,:,:,:], labels=["TIME", "DETY", "DETX", "ENERGY"])
-        #    self.data["DPH_COUNTS"].append(h)
-
-
+        #properly format the DPH
+        self._format_dph()
 
         # if self.dph_input_dict ==None, then we will need to try to read in the hisotry of parameters passed into
         # batbinevt to create the dph file. thsi usually is needed when we first parse a file so we know what things
@@ -265,6 +246,32 @@ class BatDPH(BatObservation):
                         old_parameter = parameter
 
             self.dph_input_dict = default_params_dict.copy()
+
+    def _format_dph(self):
+        """
+        This method properly formats the DPH into a Histpy histogram which allows for easy manipulation.
+        """
+
+        # convert the actual DPH to a Histogram object for easy manipulation
+        time_edges=np.zeros(self.tbins["TIME_START"].size+1)*self.tbins["TIME_START"].unit
+        time_edges[:self.tbins["TIME_START"].size]=self.tbins["TIME_START"]
+        time_edges[-1]=self.tbins["TIME_STOP"][-1]
+
+        energy_edges=np.zeros(self.ebins["E_MIN"].size+1)*self.ebins["E_MIN"].unit
+        energy_edges[:self.ebins["E_MIN"].size]=self.ebins["E_MIN"]
+        energy_edges[-1]=self.ebins["E_MAX"][-1]
+
+        det_x_edges=np.arange(data["DPH_COUNTS"].shape[2]+1)-0.5
+        det_y_edges=np.arange(data["DPH_COUNTS"].shape[1]+1)-0.5
+
+        #note that the histogram tiem binnings may not be continuous in time (due to good time intervals not being contiguous)
+        self.data["DPH_COUNTS"] = Histogram([time_edges,det_y_edges,det_x_edges,energy_edges], contents=self.data["DPH_COUNTS"], labels=["TIME", "DETY", "DETX", "ENERGY"])
+
+        #can try this but it is weird to have DPH where it is a list of histograms for plotting and accessing data
+        #for i, tstart, tend in zip(np.arange(self.tbins["TIME_START"].size), self.tbins["TIME_START"], self.tbins["TIME_STOP"]):
+        #    h=Histogram([[tstart, tend],det_y_edges,det_x_edges,energy_edges], contents=self.data["DPH_COUNTS"][i,:,:,:], labels=["TIME", "DETY", "DETX", "ENERGY"])
+        #    self.data["DPH_COUNTS"].append(h)
+
 
     @u.quantity_input(emin=['energy'], emax=['energy'], tmin=['time'], tmax=['time'])
     def plot(self, emin=None, emax=None, tmin=None, tmax=None, plot_rate=False):
@@ -406,7 +413,7 @@ class BatDPH(BatObservation):
             histograms[i,:]=test.data["DPH_COUNTS"][idx].sum(axis=0)
 
         #save the final DPH as a Histogram object and the other modified values
-        
+
 
 
 
