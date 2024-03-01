@@ -422,6 +422,11 @@ class BatDPH(BatObservation):
             if tmin.size != tmax.size:
                 raise ValueError('Both tmin and tmax must have the same length.')
 
+        #make sure that tmin/tmax can be iterated over
+        if tmin.shape == ():
+            tmin=u.Quantity([tmin])
+            tmax=u.Quantity([tmax])
+
         # See if we need to add T0 to everything
         if is_relative:
             # see if T0 is Quantity class
@@ -476,7 +481,8 @@ class BatDPH(BatObservation):
     def set_energybins(self, energybins=[14.0, 20.0, 24.0, 35.0, 50.0, 75.0, 100.0, 150.0, 195.0]*u.keV, emin=None, emax=None,
                        savefile=False):
         """
-        This method allows for the DPH(s) to be rebinned to different energy binnings
+        This method allows for the DPH(s) to be rebinned to different energy binnings. Here we require the enerybins to
+        be contiguous.
         """
 
         #first make sure that we have a energy binning axis of our histogram
@@ -499,13 +505,34 @@ class BatDPH(BatObservation):
             if emin.size != emax.size:
                 raise ValueError('Both emin and emax must have the same length.')
 
+        #make sure that emin/emax can be iterated over
+        if emin.shape == ():
+            emin=u.Quantity([emin])
+            emax=u.Quantity([emax])
+
+
 
         #make sure that the energies exist in the array of energybins that the DPH has been binned into
         for s,e in zip(emin, emax):
             if not np.all(np.in1d(s, self.ebins["E_MIN"])) or not np.all(np.in1d(e, self.ebins["E_MAX"])):
-                raise ValueError(f"The requested time binning from {s}-{e} is not encompassed by the current timebins "
+                raise ValueError(f"The requested energy binning from {s}-{e} is not encompassed by the current energybins "
                                  f"of the loaded DPH. Please choose the closest E_MIN and E_MAX values from"
                                  f" the ebin attribute")
+
+
+        #do the rebinning along those dimensions, here dont need to modify the appropriate attibutes since they dont
+        # depend on energy. We cannot use the normal
+        # Histogram methods since we may have non-uniform energy bins.
+        new_hist_size=(*self.data["DPH_COUNTS"].nbins[:-1], len(emin))
+        histograms=np.zeros(new_hist_size)
+
+        for i, s, e in zip(np.arange(emin.size), emin, emax):
+            idx = np.where((self.ebins["E_MIN"] >= s) & (self.ebins["E_MAX"] <= e))[0]
+            histograms[:,i]=self.data["DPH_COUNTS"][:,:,:,idx].sum(axis=-1)
+
+
+
+        histograms=self.data["DPH_COUNTS"].slice
 
 
 
