@@ -281,10 +281,10 @@ class BatDPH(BatObservation):
         if input_histogram is None:
             hist=self.data["DPH_COUNTS"]
         else:
-            if isinstance(input_histogram, Histogram):
-                hist=input_histogram
-                if hist.unit is None:
-                    hist *= self.data["DPH_COUNTS"].unit
+            hist=input_histogram
+
+        #save the old unit incase we need it
+        old_hist_unit = self.data["DPH_COUNTS"].unit
 
         #now calculate edges for histogram
         time_edges=np.zeros(tmin.size+1)*tmin.unit
@@ -300,6 +300,10 @@ class BatDPH(BatObservation):
 
         #note that the histogram tiem binnings may not be continuous in time (due to good time intervals not being contiguous)
         self.data["DPH_COUNTS"] = Histogram([time_edges,det_y_edges,det_x_edges,energy_edges], contents=hist, labels=["TIME", "DETY", "DETX", "ENERGY"])
+
+        #make sure that we have units
+        if self.data["DPH_COUNTS"].unit is None:
+            self.data["DPH_COUNTS"] *= old_hist_unit
 
         #can try this but it is weird to have DPH where it is a list of histograms for plotting and accessing data
         #for i, tstart, tend in zip(np.arange(self.tbins["TIME_START"].size), self.tbins["TIME_START"], self.tbins["TIME_STOP"]):
