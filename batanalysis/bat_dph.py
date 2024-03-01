@@ -250,7 +250,9 @@ class BatDPH(BatObservation):
     @u.quantity_input(tmin=['time'], tmax=['time'], emin=['energy'], emax=['energy'])
     def _format_dph(self, tmin=None, tmax=None, emin=None, emax=None, input_histogram=None):
         """
-        This method properly formats the DPH into a Histpy histogram which allows for easy manipulation.
+        This method properly formats the DPH into a Histpy histogram which allows for easy manipulation. By default, if
+        the input histogram is specified and has no units, it is assumed that it has the same units as the original
+        histogram
 
         Note: Can try to have additional DPHs between non-consecutive timebins with 0 counts, and have these be masked?
         Will also need to set dataflags to bad
@@ -279,7 +281,10 @@ class BatDPH(BatObservation):
         if input_histogram is None:
             hist=self.data["DPH_COUNTS"]
         else:
-            hist=input_histogram
+            if isinstance(input_histogram, Histogram):
+                hist=input_histogram
+                if hist.unit is None:
+                    hist *= self.data["DPH_COUNTS"].unit
 
         #now calculate edges for histogram
         time_edges=np.zeros(tmin.size+1)*tmin.unit
@@ -383,7 +388,7 @@ class BatDPH(BatObservation):
         """
 
         #first make sure that we have a time binning axis of our histogram
-        if "TIME" not in test_proj.axes.labels or self.data["DPH_COUNTS"].axes["TIME"].nbins == 1:
+        if "TIME" not in self.data["DPH_COUNTS"].axes.labels or self.data["DPH_COUNTS"].axes["TIME"].nbins == 1:
             raise ValueError("The DPH either has  not timing information or there is only one time bin which means that"
                              "the DPH cannot be rebinned in time.")
 
@@ -425,7 +430,7 @@ class BatDPH(BatObservation):
 
         #make sure that the times exist in the array of timebins that the DPH has been binned into
         for s,e in zip(tmin, tmax):
-            if not np.all(np.in1d(s, test.tbins["TIME_START"])) or not np.all(np.in1d(e, test.tbins["TIME_STOP"])):
+            if not np.all(np.in1d(s, self.tbins["TIME_START"])) or not np.all(np.in1d(e, self.tbins["TIME_STOP"])):
                 raise ValueError(f"The requested time binning from {s}-{e} is not encompassed by the current timebins "
                                  f"of the loaded DPH. Please choose the closest TIME_START and TIME_STOP values from"
                                  f" the tbin attribute")
@@ -434,22 +439,32 @@ class BatDPH(BatObservation):
         #do the rebinning along those dimensions and modify the appropriate attibutes. We cannot use the normal
         # Histogram methods since we dont have continuous time bins. If needed, can ensure that only the good DPHs are
         #included in the rebinning
-        new_hist_size=(len(tmin), *test.data["DPH_COUNTS"].nbins[1:])
+        new_hist_size=(len(tmin), *self.data["DPH_COUNTS"].nbins[1:])
         histograms=np.zeros(new_hist_size)
-        new_data=dict.fromkeys([i for i in test.data.keys() if "DPH_COUNTS" not in i], np.zeros(len(tmin)))
+        new_data=dict.fromkeys([i for i in self.data.keys() if "DPH_COUNTS" not in i])
+        for key in new_data:
+            new_data[key]=np.zeros(len(tmin))
+
         for i, s, e in zip(np.arange(tmin.size), tmin, tmax):
-            idx = np.where((test.tbins["TIME_START"] >= s) & (test.tbins["TIME_STOP"] <= e))[0]
-            histograms[i,:]=test.data["DPH_COUNTS"][idx].sum(axis=0)
+            idx = np.where((self.tbins["TIME_START"] >= s) & (self.tbins["TIME_STOP"] <= e))[0]
+            histograms[i,:]=self.data["DPH_COUNTS"][idx].sum(axis=0)
 
-            #fill in the other key/value pairs
-            for key, value in new_data.keys():
-                new_data[key][i,:]=test.data[key][i].value
+            #fill in the other key/value pairs where the values are astropy quantities
+            for key in new_data.keys():
+                new_data[key][i]=np.sum(self.data[key][idx].value)
 
-        #save the final DPH as a Histogram object and the other modified values
-        histograms[i, :]
+        #save the new time bins
+        self.tbins["TIME_START"]=tmin
+        self.tbins["TIME_STOP"]=tmax
+        self.tbins["TIME_CENT"]= 0.5 * (self.tbins[f"TIME_START"] + self.tbins[f"TIME_STOP"])
 
-        for key, value in new_data.keys():
-            new_data[key][i, :] = test.data[key][i].value
+
+        #save the final DPH as a Histogram object and the other modified data values
+        for key in new_data.keys():
+             self.data[key]=new_data[key]*self.data[key].unit
+
+
+        self._format_dph(input_histogram=histograms)
 
         return None
 
