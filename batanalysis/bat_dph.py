@@ -247,25 +247,54 @@ class BatDPH(BatObservation):
 
             self.dph_input_dict = default_params_dict.copy()
 
-    def _format_dph(self):
+    @u.quantity_input(tmin=['time'], tmax=['time'], emin=['energy'], emax=['energy'])
+    def _format_dph(self, tmin=None, tmax=None, emin=None, emax=None, input_histogram=None):
         """
         This method properly formats the DPH into a Histpy histogram which allows for easy manipulation.
+
+        Note: Can try to have additional DPHs between non-consecutive timebins with 0 counts, and have these be masked?
+        Will also need to set dataflags to bad
         """
 
         # convert the actual DPH to a Histogram object for easy manipulation
-        time_edges=np.zeros(self.tbins["TIME_START"].size+1)*self.tbins["TIME_START"].unit
-        time_edges[:self.tbins["TIME_START"].size]=self.tbins["TIME_START"]
-        time_edges[-1]=self.tbins["TIME_STOP"][-1]
+        #first do error checking
+        if tmin is None and tmax is None:
+            tmin=self.tbins["TIME_START"]
+            tmax=self.tbins["TIME_STOP"]
+        elif tmin is not None and tmax is not None:
+            tmin=tmin
+            tmax=tmax
+        else:
+            raise ValueError("tmin and tmax must either both be None or both be specified.")
 
-        energy_edges=np.zeros(self.ebins["E_MIN"].size+1)*self.ebins["E_MIN"].unit
-        energy_edges[:self.ebins["E_MIN"].size]=self.ebins["E_MIN"]
-        energy_edges[-1]=self.ebins["E_MAX"][-1]
+        if emin is None and emax is None:
+            emin=self.ebins["E_MIN"]
+            emax=self.ebins["E_MAX"]
+        elif emin is not None and emax is not None:
+            emin=emin
+            emax=emax
+        else:
+            raise ValueError("emin and emax must either both be None or both be specified.")
 
-        det_x_edges=np.arange(data["DPH_COUNTS"].shape[2]+1)-0.5
-        det_y_edges=np.arange(data["DPH_COUNTS"].shape[1]+1)-0.5
+        if input_histogram is None:
+            hist=self.data["DPH_COUNTS"]
+        else:
+            hist=input_histogram
+
+        #now calculate edges for histogram
+        time_edges=np.zeros(tmin.size+1)*tmin.unit
+        time_edges[:tmin.size]=tmin
+        time_edges[-1]=tmax[-1]
+
+        energy_edges=np.zeros(emin.size+1)*emin.unit
+        energy_edges[:emin.size]=emin
+        energy_edges[-1]=emax[-1]
+
+        det_x_edges=np.arange(hist.shape[2]+1)-0.5
+        det_y_edges=np.arange(hist.shape[1]+1)-0.5
 
         #note that the histogram tiem binnings may not be continuous in time (due to good time intervals not being contiguous)
-        self.data["DPH_COUNTS"] = Histogram([time_edges,det_y_edges,det_x_edges,energy_edges], contents=self.data["DPH_COUNTS"], labels=["TIME", "DETY", "DETX", "ENERGY"])
+        self.data["DPH_COUNTS"] = Histogram([time_edges,det_y_edges,det_x_edges,energy_edges], contents=hist, labels=["TIME", "DETY", "DETX", "ENERGY"])
 
         #can try this but it is weird to have DPH where it is a list of histograms for plotting and accessing data
         #for i, tstart, tend in zip(np.arange(self.tbins["TIME_START"].size), self.tbins["TIME_START"], self.tbins["TIME_STOP"]):
@@ -407,22 +436,20 @@ class BatDPH(BatObservation):
         #included in the rebinning
         new_hist_size=(len(tmin), *test.data["DPH_COUNTS"].nbins[1:])
         histograms=np.zeros(new_hist_size)
-        new_exposures=np.zeros(len(tmin))
+        new_data=dict.fromkeys([i for i in test.data.keys() if "DPH_COUNTS" not in i], np.zeros(len(tmin)))
         for i, s, e in zip(np.arange(tmin.size), tmin, tmax):
             idx = np.where((test.tbins["TIME_START"] >= s) & (test.tbins["TIME_STOP"] <= e))[0]
             histograms[i,:]=test.data["DPH_COUNTS"][idx].sum(axis=0)
 
+            #fill in the other key/value pairs
+            for key, value in new_data.keys():
+                new_data[key][i,:]=test.data[key][i].value
+
         #save the final DPH as a Histogram object and the other modified values
+        histograms[i, :]
 
-
-
-
-
-
-
-
-
-
+        for key, value in new_data.keys():
+            new_data[key][i, :] = test.data[key][i].value
 
         return None
 
