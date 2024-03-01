@@ -415,7 +415,7 @@ class BatDPH(BatObservation):
 
         # do error checking on tmin/tmax
         if (tmin is None and tmax is not None) or (tmax is None and tmin is not None):
-            raise ValueError('Both emin and emax must be defined.')
+            raise ValueError('Both tmin and tmax must be defined.')
 
 
         if tmin is not None and tmax is not None:
@@ -467,7 +467,7 @@ class BatDPH(BatObservation):
         for key in new_data.keys():
              self.data[key]=new_data[key]*self.data[key].unit
 
-
+        #the new self.tbins wil be used in this method by default when creating the histogram object
         self._format_dph(input_histogram=histograms)
 
         return None
@@ -478,6 +478,38 @@ class BatDPH(BatObservation):
         """
         This method allows for the DPH(s) to be rebinned to different energy binnings
         """
+
+        #first make sure that we have a energy binning axis of our histogram
+        if "ENERGY" not in self.data["DPH_COUNTS"].axes.labels or self.data["DPH_COUNTS"].axes["ENERGY"].nbins == 1:
+            raise ValueError("The DPH either has  no energy information or there is only one energy bin which means that"
+                             "the DPH cannot be rebinned in energy.")
+
+        #create a copy of the enerbins if it is not None to prevent modifying the original array
+        if energybins is not None:
+            energybins=energybins.copy()
+
+            emin=energybins[:-1]
+            emax=energybins[1:]
+
+        # do error checking on tmin/tmax
+        if (emin is None and emax is not None) or (emin is None and emax is not None):
+            raise ValueError('Both emin and emax must be defined.')
+
+        if emin is not None and emax is not None:
+            if emin.size != emax.size:
+                raise ValueError('Both emin and emax must have the same length.')
+
+
+        #make sure that the energies exist in the array of energybins that the DPH has been binned into
+        for s,e in zip(emin, emax):
+            if not np.all(np.in1d(s, self.ebins["E_MIN"])) or not np.all(np.in1d(e, self.ebins["E_MAX"])):
+                raise ValueError(f"The requested time binning from {s}-{e} is not encompassed by the current timebins "
+                                 f"of the loaded DPH. Please choose the closest E_MIN and E_MAX values from"
+                                 f" the ebin attribute")
+
+
+
+
 
         return None
 
