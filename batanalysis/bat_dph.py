@@ -559,8 +559,41 @@ class BatDPH(BatObservation):
 
         if fits_filename.exists():
             if overwrite:
-                with fits.open(self.dph_file, mode="update") as f:
-                    #code to modify the table here
+                with fits.open(test.dph_file, mode="update") as f:
+                    #code to modify the table here with times and DPHs
+                    #header = f[1].header
+                    data = f[1].data
+                    data_columns = [i for i in data.columns if i.name not in test._exclude_data_cols]
+                    temp_t_table = fits.FITS_rec.from_columns(data_columns, nrows=test.tbins["TIME_START"].size)
+
+                    for i in data_columns:
+                        if "DPH_COUNT" not in i.name:
+                            temp_t_table[i.name]=test.data[i.name]
+                        else:
+                            for time_idx in range(test.tbins["TIME_START"].size):
+                                temp_t_table[i.name][time_idx]=test.data[i.name][time_idx]
+
+
+                    f[1].data = temp_t_table
+
+
+
+                    #code to modify the energy bins
+                    energies = f["EBOUNDS"].data
+                    temp_energy = fits.FITS_rec.from_columns(energies.columns, nrows=test.ebins["E_MIN"].size)
+                    #energies_header = f["EBOUNDS"].header
+                    for i in energies.columns:
+                        if "CHANNEL" in i.name:
+                            temp_energy[i.name] = test.ebins["INDEX"]
+                        elif "E" in i.name:
+                            temp_energy[i.name] = test.ebins[i.name].value
+
+                    f["EBOUNDS"].data = temp_energy
+
+                    #code to modify the header info pertaining to the start/stop time
+                    for i in f:
+                        i.header["TSTART"] = test.tbins["TIME_START"].min().value
+                        i.header["TSTOP"] = test.tbins["TIME_STOP"].max().value
 
                     f.flush()
             else:
@@ -577,6 +610,24 @@ class BatDPH(BatObservation):
         """
 
         self._parse_dph_file()
+
+    def _call_batbinevt(self, input_dict):
+        """
+        Calls heasoftpy's batbinevt with an error wrapper, ensures that this bins the event data to produce a DPH
+
+        :param input_dict: Dictionary of inputs that will be passed to heasoftpy's batbinevt
+        :return: heasoftpy Result object from batbinevt
+        """
+
+        input_dict["clobber"] = "YES"
+        input_dict["outtype"] = "DPH"
+
+        try:
+            return hsp.batbinevt(**input_dict)
+        except Exception as e:
+            print(e)
+            raise RuntimeError(f"The call to Heasoft batbinevt failed with inputs {input_dict}.")
+
 
 
 
