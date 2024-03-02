@@ -804,7 +804,8 @@ class BatEvent(BatObservation):
 
         return self.spectrum
 
-    def create_dph(self):
+    def create_dph(self, dph_file=None, tstart=None, tstop=None, timebins=None, T0=None, is_relative=False,
+                    energybins=None, recalc=False, mask_weighting=True):
         """
         This method creates a detector plane histogram.
 
