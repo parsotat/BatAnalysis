@@ -161,7 +161,7 @@ class BatDPH(BatObservation):
         # we have the good itme intervals for the DPH and also the time when the DPH were accumulated
         for i in times.columns:
             self.gti[f"TIME_{i.name}"] = u.Quantity(times[i.name], i.unit)
-        self.tbins["TIME_CENT"] = 0.5 * (self.gti[f"TIME_START"] + self.gti[f"TIME_STOP"])
+        self.gti["TIME_CENT"] = 0.5 * (self.gti[f"TIME_START"] + self.gti[f"TIME_STOP"])
 
         # now do the time bins for the dphs
         self.tbins["TIME_START"] = self.data["TIME"]
@@ -515,8 +515,6 @@ class BatDPH(BatObservation):
         if emin.shape == ():
             emin=u.Quantity([emin])
             emax=u.Quantity([emax])
-
-
 
         #make sure that the energies exist in the array of energybins that the DPH has been binned into
         for s,e in zip(emin, emax):
