@@ -271,13 +271,11 @@ class DetectorPlaneHistogram:
             tmax=None,
     ):
         """
-        This method allows for the DPHs to be rebinned to different time binnings. The exposure time accounts for
-        good time intervals that are added together. The timebins must exist in the original DPH that is being rebinned.
 
-        For timebinning where the time intervals are not contiguous, it is recomended to specify tmin and tmax
-
-        This method, modifies the object and for the original data to be reloaded, the reset() method must be called
-        (assuming that the to_fits() method, with overwrite=True, was not called after the set_timebins() method was called).
+        :param timebins:
+        :param tmin:
+        :param tmax:
+        :return:
         """
 
         # first make sure that we have a time binning axis of our histogram
@@ -337,6 +335,76 @@ class DetectorPlaneHistogram:
         self.tbins["TIME_CENT"] = 0.5 * (
                 self.tbins[f"TIME_START"] + self.tbins[f"TIME_STOP"]
         )
+
+        # now we can reinitalize the info
+        self._set_histogram(histogram_data=histograms)
+
+        return None
+
+    @u.quantity_input(energybins=["energy"], emin=["energy"], emax=["energy"])
+    def set_energybins(self, energybins=None, emin=None, emax=None, savefile=False):
+        """
+        This method allows for the DPH(s) to be rebinned to different energy binnings. Here we require the enerybins to
+        be contiguous.
+
+        Could have energybins=[14.0, 20.0, 24.0, 35.0, 50.0, 75.0, 100.0, 150.0, 195.0]*u.keV, but the erebin batsurvey
+        has to be run first to correct for energy.
+        """
+
+        # first make sure that we have a energy binning axis of our histogram
+        if "ENERGY" not in self.data.axes.labels or self.data.axes["ENERGY"].nbins == 1:
+            raise ValueError(
+                "The DPH either has  no energy information or there is only one energy bin which means that"
+                "the DPH cannot be rebinned in energy."
+            )
+
+        # do error checking on tmin/tmax
+        if (emin is None and emax is not None) or (emin is None and emax is not None):
+            raise ValueError("Both emin and emax must be defined.")
+
+        if emin is not None and emax is not None:
+            if emin.size != emax.size:
+                raise ValueError("Both emin and emax must have the same length.")
+        else:
+            if energybins is not None:
+                # create a copy of the enerbins if it is not None to prevent modifying the original array
+                energybins = energybins.copy()
+
+                emin = energybins[:-1]
+                emax = energybins[1:]
+            else:
+                raise ValueError("No energy bins have been specified.")
+
+        # make sure that emin/emax can be iterated over
+        if emin.shape == ():
+            emin = u.Quantity([emin])
+            emax = u.Quantity([emax])
+
+        # make sure that the energies exist in the array of energybins that the DPH has been binned into
+        for s, e in zip(emin, emax):
+            if not np.all(np.in1d(s, self.ebins["E_MIN"])) or not np.all(
+                    np.in1d(e, self.ebins["E_MAX"])
+            ):
+                raise ValueError(
+                    f"The requested energy binning from {s}-{e} is not encompassed by the current energybins "
+                    f"of the loaded DPH. Please choose the closest E_MIN and E_MAX values from"
+                    f" the ebin attribute"
+                )
+
+        # do the rebinning along those dimensions, here dont need to modify the appropriate attibutes since they dont
+        # depend on energy. We cannot use the normal
+        # Histogram methods since we may have non-uniform energy bins.
+        new_hist_size = (*self.data.nbins[:-1], len(emin))
+        histograms = np.zeros(new_hist_size)
+
+        for i, s, e in zip(np.arange(emin.size), emin, emax):
+            idx = np.where((self.ebins["E_MIN"] >= s) & (self.ebins["E_MAX"] <= e))[0]
+            histograms[:, :, :, i] = self.data[:, :, :, idx].sum(axis=-1)
+
+        # set the new ebin attrubute
+        self.ebins["E_MIN"] = emin
+        self.ebins["E_MAX"] = emax
+        self.ebins["INDEX"] = np.arange(len(emin)) + 1
 
         # now we can reinitalize the info
         self._set_histogram(histogram_data=histograms)
