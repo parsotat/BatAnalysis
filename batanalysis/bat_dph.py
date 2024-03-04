@@ -35,13 +35,24 @@ class DetectorPlaneHistogram:
     det_x_edges = np.arange(286 + 1) - 0.5
     det_y_edges = np.arange(173 + 1) - 0.5
 
-    @u.quantity_input(timebins=["time"], energybins=["energy"])
+    @u.quantity_input(
+        timebins=["time"],
+        tmin=["time"],
+        tmax=["time"],
+        energybins=["energy"],
+        emin=["energy"],
+        emax=["energy"],
+    )
     def __init__(
             self,
             event_data=None,
             histogram_data=None,
             timebins=None,
+            tmin=None,
+            tmax=None,
             energybins=None,
+            emin=None,
+            emax=None,
             weights=None,
     ):
         """
@@ -50,12 +61,33 @@ class DetectorPlaneHistogram:
 
         By default, the spatial binning is in the detector x and y bins specified with the class det_x_edges and
         det_y_edges.
+
+        The times/energybins do not need to be continuous but the constructor will create timebins/energybins for the
+        unspecified times where the count across the detector plane is 0
+
+        :param event_data:
+        :param histogram_data:
+        :param timebins:
+        :param tmin:
+        :param tmax:
+        :param energybins:
+        :param emin:
+        :param emax:
+        :param weights:
         """
 
+        # do some error checking
         if event_data is None and histogram_data is None:
             raise ValueError(
                 "Either event data or a histogram needs to be passed in to initalize a DetectorPlaneHistogram object"
             )
+
+        if (tmin is None and tmax is not None) or (tmax is None and tmin is not None):
+            raise ValueError("Both tmin and tmax must be defined.")
+
+        if tmin is not None and tmax is not None:
+            if tmin.size != tmax.size:
+                raise ValueError("Both tmin and tmax must have the same length.")
 
         # determine the type of data that we have
         if event_data is not None:
@@ -64,7 +96,11 @@ class DetectorPlaneHistogram:
             parse_data = histogram_data.copy()
 
         # determine the time binnings
-        if timebins is None:
+        # can have dfault time binning be the start/end time of the event data or the times passed in by default
+        # from a potential histpy Histogram object.
+        # can also have timebins passed in with contiguous timebinning
+        # or tmin/tmax passed in where the times are not continuous due to good time intervals etc
+        if timebins is None and tmin is None and tmax is None:
             if event_data is not None:
                 timebin_edges = u.Quantity(
                     [event.data["TIME"].min(), event.data["TIME"].max()]
@@ -75,9 +111,36 @@ class DetectorPlaneHistogram:
                     raise ValueError(
                         "For a general histogram that has been passed in, the timebins need to be specified"
                     )
+        elif timebins is not None:
+            timebin_edges = timebins
+        else:
+            # need to determine if the timebins are contiguous
+            if np.all(tmin[1:] == tmax[:-1]):
+                # if all the timebins are not continuous, then need to add buffer timebins to make them so
+                combined_edges = np.concatenate((tmin, tmax))
+                timebin_edges = np.unique(np.sort(combined_edges))
+
+            else:
+                # concatenate the tmin/tmax and sort and then select the unique values. This fill in all the gaps that we
+                # may have had due to GTIs etc. Now we need to modify the input histogram if there was one
+                combined_edges = np.concatenate((tmin, tmax))
+                final_timebins = np.unique(np.sort(combined_edges))
+
+                if histogram_data is not None:
+                    idx = np.searchsorted(final_timebins[:-1], tmin)
+
+                    # get the new array size
+                    new_hist = np.zeros(
+                        (final_timebins.size - 1, *histogram_data.shape[1:])
+                    )
+                    new_hist[idx, :] = histogram_data
+
+                    parse_data = new_hist
+
+                timebin_edges = final_timebins
 
         # determine the energy binnings
-        if energybins is None:
+        if energybins is None and emin is None and emax is None:
             if event_data is not None:
                 energybin_edges = u.Quantity(
                     [event.data["ENERGY"].min(), event.data["ENERGY"].max()]
@@ -88,12 +151,47 @@ class DetectorPlaneHistogram:
                     raise ValueError(
                         "For a general histogram that has been passed in, the energybins need to be specified"
                     )
+        elif energybins is not None:
+            energybin_edges = energybins
+        else:
+            # need to determine if the energybins are contiguous
+            if np.all(emin[1:] == emax[:-1]):
+                # if all the energybins are not continuous combine them directly
+                combined_edges = np.concatenate((emin, emax))
+                energybin_edges = np.unique(np.sort(combined_edges))
+
+            else:
+                # concatenate the emin/emax and sort and then select the unique values. This fill in all the gaps that we
+                # may have had. Now we need to modify the input histogram if there was one
+                combined_edges = np.concatenate((emin, emax))
+                final_energybins = np.unique(np.sort(combined_edges))
+
+                if histogram_data is not None:
+                    idx = np.searchsorted(final_energybins[:-1], emin)
+
+                    # get the new array size
+                    new_hist = np.zeros(
+                        (
+                            *parse_data.shape[:-1],
+                            final_energybins.size - 1,
+                        )
+                    )
+                    new_hist[idx, :] = parse_data
+
+                    parse_data = new_hist
+
+                energybin_edges = final_energybins
 
         # create our histogrammed data
         if histogram_data is not None:
             if not isinstance(histogram_data, Histogram):
                 self.data = Histogram(
-                    [timebin_edges, det_y_edges, det_x_edges, energybin_edges],
+                    [
+                        timebin_edges,
+                        self.det_y_edges,
+                        self.det_x_edges,
+                        energybin_edges,
+                    ],
                     contents=parse_data,
                     labels=["TIME", "DETY", "DETX", "ENERGY"],
                 )
@@ -101,7 +199,7 @@ class DetectorPlaneHistogram:
                 self.data = histogram_data
         else:
             self.data = Histogram(
-                [timebin_edges, det_y_edges, det_x_edges, energybin_edges],
+                [timebin_edges, self.det_y_edges, self.det_x_edges, energybin_edges],
                 labels=["TIME", "DETY", "DETX", "ENERGY"],
             )
             self.data.fill(
@@ -111,6 +209,31 @@ class DetectorPlaneHistogram:
                 event.data["ENERGY"],
                 weight=weights,
             )
+
+        # get the good time intervals, the time intervals for the histogram, the energy intervals for the histograms as well
+        self.gti = {}
+        if tmin is not None:
+            self.gti["TIME_START"] = tmin
+            self.gti["TIME_STOP"] = tmax
+        else:
+            self.gti["TIME_START"] = timebin_edges[:-1]
+            self.gti["TIME_STOP"] = timebin_edges[1:]
+        self.gti["TIME_CENT"] = 0.5 * (self.gti["TIME_START"] + self.gti["TIME_STOP"])
+
+        self.tbins = {}
+        self.tbins["TIME_START"] = timebin_edges[:-1]
+        self.tbins["TIME_STOP"] = timebin_edges[1:]
+        self.tbins["TIME_CENT"] = 0.5 * (self.tbins["TIME_START"] + self.tbins["TIME_STOP"])
+
+        self.ebins = {}
+        if emin is not None:
+            self.ebins["INDEX"] = np.arange(emin.size) + 1
+            self.ebins["E_MIN"] = emin
+            self.ebins["E_MAX"] = emax
+        else:
+            self.ebins["INDEX"] = np.arange(energybin_edges.size - 1) + 1
+            self.ebins["E_MIN"] = energybin_edges[:-1]
+            self.ebins["E_MAX"] = energybin_edges[1:]
 
 
 class BatDPH(BatObservation):
