@@ -37,7 +37,12 @@ class DetectorPlaneHistogram:
 
     @u.quantity_input(timebins=["time"], energybins=["energy"])
     def __init__(
-            self, event_data=None, histogram_data=None, timebins=None, energybins=None
+            self,
+            event_data=None,
+            histogram_data=None,
+            timebins=None,
+            energybins=None,
+            weights=None,
     ):
         """
         This class can be initiated from individual event data that gets histogrammed in space/time/energy. It can be
@@ -61,11 +66,42 @@ class DetectorPlaneHistogram:
         # determine the time binnings
         if timebins is None:
             if event_data is not None:
-                timebin_edges = event_data["TIME"].min()
+                timebin_edges = u.Quantity(
+                    [event.data["TIME"].min(), event.data["TIME"].max()]
+                )
+            else:
+                if not isinstance(histogram_data, Histogram):
+                    # if we dont have a histpy histogram, need to have the timebins
+                    raise ValueError(
+                        "For a general histogram that has been passed in, the timebins need to be specified"
+                    )
 
         # determine the energy binnings
+        if energybins is None:
+            if event_data is not None:
+                energybin_edges = u.Quantity(
+                    [event.data["ENERGY"].min(), event.data["ENERGY"].max()]
+                )
+            else:
+                if not isinstance(histogram_data, Histogram):
+                    # if we dont have a histpy histogram, need to have the energybins
+                    raise ValueError(
+                        "For a general histogram that has been passed in, the energybins need to be specified"
+                    )
 
         # create our histogrammed data
+        if histogram_data is not None:
+            self.data = Histogram(
+                [timebin_edges, det_y_edges, det_x_edges, energybin_edges],
+                contents=parse_data,
+                labels=["TIME", "DETY", "DETX", "ENERGY"],
+            )
+        else:
+            self.data = Histogram(
+                [timebin_edges, det_y_edges, det_x_edges, energybin_edges],
+                labels=["TIME", "DETY", "DETX", "ENERGY"],
+            )
+            self.data.fill(event.data["DETX"], event.data["DETY"], weight=weights)
 
 
 class BatDPH(BatObservation):
