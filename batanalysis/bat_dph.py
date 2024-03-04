@@ -91,17 +91,26 @@ class DetectorPlaneHistogram:
 
         # create our histogrammed data
         if histogram_data is not None:
-            self.data = Histogram(
-                [timebin_edges, det_y_edges, det_x_edges, energybin_edges],
-                contents=parse_data,
-                labels=["TIME", "DETY", "DETX", "ENERGY"],
-            )
+            if not isinstance(histogram_data, Histogram):
+                self.data = Histogram(
+                    [timebin_edges, det_y_edges, det_x_edges, energybin_edges],
+                    contents=parse_data,
+                    labels=["TIME", "DETY", "DETX", "ENERGY"],
+                )
+            else:
+                self.data = histogram_data
         else:
             self.data = Histogram(
                 [timebin_edges, det_y_edges, det_x_edges, energybin_edges],
                 labels=["TIME", "DETY", "DETX", "ENERGY"],
             )
-            self.data.fill(event.data["DETX"], event.data["DETY"], weight=weights)
+            self.data.fill(
+                event.data["TIME"],
+                event.data["DETY"],
+                event.data["DETX"],
+                event.data["ENERGY"],
+                weight=weights,
+            )
 
 
 class BatDPH(BatObservation):
