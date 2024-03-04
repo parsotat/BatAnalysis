@@ -7,6 +7,7 @@ Tyler Parsotan Feb 21 2024
 import gzip
 import shutil
 import warnings
+from copy import deepcopy
 from pathlib import Path
 
 import astropy.units as u
@@ -91,9 +92,9 @@ class DetectorPlaneHistogram(Histogram):
 
         # determine the type of data that we have
         if event_data is not None:
-            parse_data = event_data.copy()
+            parse_data = deepcopy(event_data)
         else:
-            parse_data = histogram_data.copy()
+            parse_data = deepcopy(histogram_data)
 
         # determine the time binnings
         # can have dfault time binning be the start/end time of the event data or the times passed in by default
@@ -111,6 +112,8 @@ class DetectorPlaneHistogram(Histogram):
                     raise ValueError(
                         "For a general histogram that has been passed in, the timebins need to be specified"
                     )
+                else:
+                    timebin_edges = histogram_data.axes["TIME"].edges
         elif timebins is not None:
             timebin_edges = timebins
         else:
@@ -151,6 +154,8 @@ class DetectorPlaneHistogram(Histogram):
                     raise ValueError(
                         "For a general histogram that has been passed in, the energybins need to be specified"
                     )
+                else:
+                    energybin_edges = histogram_data.axes["ENERGY"].edges
         elif energybins is not None:
             energybin_edges = energybins
         else:
@@ -241,22 +246,34 @@ class DetectorPlaneHistogram(Histogram):
 
         # create our histogrammed data
         if histogram_data is not None:
+            if isinstance(histogram_data, u.Quantity):
+                hist_unit = histogram_data.unit
+            else:
+                hist_unit = u.count
+
             if not isinstance(histogram_data, Histogram):
-                self.data = super().__init__(
+                super().__init__(
                     [
                         timebin_edges,
                         self.det_y_edges,
                         self.det_x_edges,
                         energybin_edges,
                     ],
-                    contents=parse_data,
+                    contents=histogram_data,
                     labels=["TIME", "DETY", "DETX", "ENERGY"],
                     sumw2=weights,
+                    unit=hist_unit,
                 )
             else:
-                self.data = histogram_data
+                super().__init__(
+                    [i.edges for i in histogram_data.axes],
+                    contents=histogram_data.contents,
+                    labels=histogram_data.axes.labels,
+                    unit=hist_unit,
+                )
+
         else:
-            self.data = super().__init__(
+            super().__init__(
                 [timebin_edges, self.det_y_edges, self.det_x_edges, energybin_edges],
                 labels=["TIME", "DETY", "DETX", "ENERGY"],
                 sumw2=weights is not None,
@@ -475,6 +492,11 @@ class DetectorPlaneHistogram(Histogram):
             raise ValueError(
                 f"There are no DPH energy bins that fall between {plot_emin} and {plot_emax}"
             )
+
+        if plot_rate:
+            # calcualte the totoal exposure
+            exposure_tot = np.sum(self.exposure[plot_t_idx])
+            plot_data /= exposure_tot
 
         # set any 0 count detectors to nan so they get plotted in black
         # this includes detectors that are off and "space holders" between detectors where the value is 0
