@@ -26,7 +26,7 @@ except ModuleNotFoundError as err:
     print(err)
 
 
-class DetectorPlaneHistogram:
+class DetectorPlaneHistogram(Histogram):
     """
     This class encapsulates data that is spread across the detector plane in an image like format. It allows for the
     rebinning of data in space, time, and/or energy.
@@ -193,6 +193,8 @@ class DetectorPlaneHistogram:
             self.gti["TIME_STOP"] = timebin_edges[1:]
         self.gti["TIME_CENT"] = 0.5 * (self.gti["TIME_START"] + self.gti["TIME_STOP"])
 
+        self.exposure = self.gti["TIME_STOP"] - self.gti["TIME_START"]
+
         self.tbins = {}
         self.tbins["TIME_START"] = timebin_edges[:-1]
         self.tbins["TIME_STOP"] = timebin_edges[1:]
@@ -224,19 +226,23 @@ class DetectorPlaneHistogram:
         :return:
         """
         # get the timebin edges
-        timebin_edges = np.zeros(self.tbins["TIME_START"].size + 1)
+        timebin_edges = (
+                np.zeros(self.tbins["TIME_START"].size + 1) * self.tbins["TIME_START"].unit
+        )
         timebin_edges[:-1] = self.tbins["TIME_START"]
         timebin_edges[-1] = self.tbins["TIME_STOP"][-1]
 
         # get the energybin edges
-        energybin_edges = np.zeros(self.ebins["E_MIN"].size + 1)
-        timebin_edges[:-1] = self.ebins["E_MIN"]
-        timebin_edges[-1] = self.ebins["E_MAX"][-1]
+        energybin_edges = (
+                np.zeros(self.ebins["E_MIN"].size + 1) * self.ebins["E_MIN"].unit
+        )
+        energybin_edges[:-1] = self.ebins["E_MIN"]
+        energybin_edges[-1] = self.ebins["E_MAX"][-1]
 
         # create our histogrammed data
         if histogram_data is not None:
             if not isinstance(histogram_data, Histogram):
-                self.data = Histogram(
+                self.data = super().__init__(
                     [
                         timebin_edges,
                         self.det_y_edges,
@@ -250,16 +256,17 @@ class DetectorPlaneHistogram:
             else:
                 self.data = histogram_data
         else:
-            self.data = Histogram(
+            self.data = super().__init__(
                 [timebin_edges, self.det_y_edges, self.det_x_edges, energybin_edges],
                 labels=["TIME", "DETY", "DETX", "ENERGY"],
                 sumw2=weights is not None,
+                unit=u.count,
             )
-            self.data.fill(
-                event.data["TIME"],
-                event.data["DETY"],
-                event.data["DETX"],
-                event.data["ENERGY"],
+            self.fill(
+                event_data["TIME"],
+                event_data["DETY"].value,
+                event_data["DETX"].value,
+                event_data["ENERGY"],
                 weight=weights,
             )
 
@@ -279,7 +286,7 @@ class DetectorPlaneHistogram:
         """
 
         # first make sure that we have a time binning axis of our histogram
-        if "TIME" not in self.data.axes.labels or self.data.axes["TIME"].nbins == 1:
+        if "TIME" not in self.axes.labels or self.axes["TIME"].nbins == 1:
             raise ValueError(
                 "The DPH either has  not timing information or there is only one time bin which means that"
                 "the DPH cannot be rebinned in time."
@@ -320,7 +327,7 @@ class DetectorPlaneHistogram:
         # do the rebinning along those dimensions and modify the appropriate attibutes. We cannot use the normal
         # Histogram methods since we dont have continuous time bins. If needed, can ensure that only the good DPHs are
         # included in the rebinning
-        new_hist_size = (len(tmin), *self.data.nbins[1:])
+        new_hist_size = (len(tmin), *self.nbins[1:])
         histograms = np.zeros(new_hist_size)
 
         for i, s, e in zip(np.arange(tmin.size), tmin, tmax):
@@ -352,7 +359,7 @@ class DetectorPlaneHistogram:
         """
 
         # first make sure that we have a energy binning axis of our histogram
-        if "ENERGY" not in self.data.axes.labels or self.data.axes["ENERGY"].nbins == 1:
+        if "ENERGY" not in self.axes.labels or self.axes["ENERGY"].nbins == 1:
             raise ValueError(
                 "The DPH either has  no energy information or there is only one energy bin which means that"
                 "the DPH cannot be rebinned in energy."
@@ -394,7 +401,7 @@ class DetectorPlaneHistogram:
         # do the rebinning along those dimensions, here dont need to modify the appropriate attibutes since they dont
         # depend on energy. We cannot use the normal
         # Histogram methods since we may have non-uniform energy bins.
-        new_hist_size = (*self.data.nbins[:-1], len(emin))
+        new_hist_size = (*self.nbins[:-1], len(emin))
         histograms = np.zeros(new_hist_size)
 
         for i, s, e in zip(np.arange(emin.size), emin, emax):
@@ -410,6 +417,81 @@ class DetectorPlaneHistogram:
         self._set_histogram(histogram_data=histograms)
 
         return None
+
+    @u.quantity_input(emin=["energy"], emax=["energy"], tmin=["time"], tmax=["time"])
+    def plot(self, emin=None, emax=None, tmin=None, tmax=None, plot_rate=False):
+        """
+        This method allows the user to conveniently plot the DPH for a single energy bin and time interval.
+
+        :param emin:
+        :param emax:
+        :return:
+        """
+
+        if emin is None and emax is None:
+            plot_emin = self.ebins["E_MIN"].min()
+            plot_emax = self.ebins["E_MAX"].max()
+        elif emin is not None and emax is not None:
+            plot_emin = emin
+            plot_emax = emax
+        else:
+            raise ValueError(
+                "emin and emax must either both be None or both be specified."
+            )
+        plot_e_idx = np.where(
+            (self.ebins["E_MIN"] >= plot_emin) & (self.ebins["E_MAX"] <= plot_emax)
+        )[0]
+
+        if tmin is None and tmax is None:
+            plot_tmin = self.tbins["TIME_START"].min()
+            plot_tmax = self.tbins["TIME_STOP"].max()
+        elif tmin is not None and tmax is not None:
+            plot_tmin = tmin
+            plot_tmax = tmax
+        else:
+            raise ValueError(
+                "tmin and tmax must either both be None or both be specified."
+            )
+        plot_t_idx = np.where(
+            (self.tbins["TIME_START"] >= plot_tmin)
+            & (self.tbins["TIME_STOP"] <= plot_tmax)
+        )[0]
+
+        # now start to accumulate the DPH counts based on the time and energy range that we care about
+        plot_data = self.contents[plot_t_idx, :, :, :]
+
+        if len(plot_t_idx) > 0:
+            plot_data = plot_data.sum(axis=0)
+        else:
+            raise ValueError(
+                f"There are no DPH time bins that fall between {plot_tmin} and {plot_tmax}"
+            )
+
+        plot_data = plot_data[:, :, plot_e_idx]
+
+        if len(plot_e_idx) > 0:
+            plot_data = plot_data.sum(axis=-1)
+        else:
+            raise ValueError(
+                f"There are no DPH energy bins that fall between {plot_emin} and {plot_emax}"
+            )
+
+        # set any 0 count detectors to nan so they get plotted in black
+        # this includes detectors that are off and "space holders" between detectors where the value is 0
+        plot_data[plot_data == 0] = np.nan
+
+        fig, ax = plt.subplots()
+        divider = make_axes_locatable(ax)
+        cax = divider.append_axes("right", size="5%", pad=0.05)
+
+        cmap = mpl.colormaps.get_cmap("viridis")
+        cmap.set_bad(color="k")
+
+        im = ax.imshow(plot_data.value, origin="lower", interpolation="none", cmap=cmap)
+
+        fig.colorbar(im, cax=cax, orientation="vertical", label=plot_data.unit)
+
+        return fig, ax
 
 
 class BatDPH(BatObservation):
