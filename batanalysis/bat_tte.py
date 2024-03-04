@@ -6,29 +6,19 @@ Tyler Parsotan April 5 2023
 
 """
 
-import os
 import gzip
+import pickle
 import shutil
-import sys
+import warnings
+from pathlib import Path
 
-import batanalysis
+import astropy.units as u
+import numpy as np
+from astropy.io import fits
 
-from .batlib import datadir, dirtest, met2mjd, met2utc, decompose_det_id
+from .batlib import dirtest, decompose_det_id
 from .batobservation import BatObservation
 from .batproducts import Lightcurve, Spectrum
-import glob
-from astropy.io import fits
-import numpy as np
-import subprocess
-import pickle
-import sys
-import re
-from pathlib import Path
-from astropy.time import Time
-import astropy.units as u
-from datetime import datetime, timedelta
-import re
-import warnings
 
 # for python>3.6
 try:
@@ -37,10 +27,29 @@ except ModuleNotFoundError as err:
     # Error handling
     print(err)
 
+    # class EventData:
+    """
+    This class encapsulates the event data that is obtained by the BAT instrument.
+    """
+
+
+#    def __init__(self):
+
+
 class BatEvent(BatObservation):
-
-    def __init__(self, obs_id, result_dir=None, transient_name=None, ra="event", dec="event", obs_dir=None, input_dict=None, recalc=False, verbose=False, load_dir=None):
-
+    def __init__(
+            self,
+            obs_id,
+            result_dir=None,
+            transient_name=None,
+            ra="event",
+            dec="event",
+            obs_dir=None,
+            input_dict=None,
+            recalc=False,
+            verbose=False,
+            load_dir=None,
+    ):
         # make sure that the observation ID is a string
         if type(obs_id) is not str:
             obs_id = f"{int(obs_id)}"
@@ -52,7 +61,7 @@ class BatEvent(BatObservation):
         # .batsurveycomplete file (this is produced only if the batsurvey calculation was completely finished, and thus
         # know that we can safely load the batsurvey.pickle file)
         if not recalc and load_dir is None:
-            load_dir = sorted(self.obs_dir.parent.glob(obs_id + '_event*'))
+            load_dir = sorted(self.obs_dir.parent.glob(obs_id + "_event*"))
 
             # see if there are any _surveyresult dir or anything otherwise just use obs_dir as a place holder
             if len(load_dir) > 0:
@@ -60,7 +69,7 @@ class BatEvent(BatObservation):
             else:
                 load_dir = self.obs_dir
         elif not recalc and load_dir is not None:
-            load_dir_test = sorted(Path(load_dir).glob(obs_id + '_event*'))
+            load_dir_test = sorted(Path(load_dir).glob(obs_id + "_event*"))
             # see if there are any _surveyresult dir or anything otherwise just use load_dir as a place holder
             if len(load_dir_test) > 0:
                 load_dir = load_dir_test[0]
@@ -70,97 +79,130 @@ class BatEvent(BatObservation):
             # just give dummy values that will be written over later
             load_dir = self.obs_dir
 
-        #stop
+        # stop
         load_file = load_dir.joinpath("batevent.pickle")
         complete_file = load_dir.joinpath(".batevent_complete")
         self._set_local_pfile_dir(load_dir.joinpath(".local_pfile"))
 
-
         # if the user wants to recalculate things or if there is no batevent.pickle file, or if there is no
         # .batevent_complete file (meaning that the __init__ method didnt complete)
         if recalc or not load_file.exists() or not complete_file.exists():
-
-            if not self.obs_dir.joinpath("bat").joinpath("event").is_dir() or not self.obs_dir.joinpath("bat").joinpath("hk").is_dir() or\
-                    not self.obs_dir.joinpath("bat").joinpath("rate").is_dir() or not self.obs_dir.joinpath(
-                    "tdrss").is_dir() or not self.obs_dir.joinpath("auxil").is_dir():
+            if (
+                    not self.obs_dir.joinpath("bat").joinpath("event").is_dir()
+                    or not self.obs_dir.joinpath("bat").joinpath("hk").is_dir()
+                    or not self.obs_dir.joinpath("bat").joinpath("rate").is_dir()
+                    or not self.obs_dir.joinpath("tdrss").is_dir()
+                    or not self.obs_dir.joinpath("auxil").is_dir()
+            ):
                 raise ValueError(
-                    "The observation ID folder needs to contain the bat/event/, the bat/hk/, the bat/rate/, the auxil/, and tdrss/ subdirectories in order to " + \
-                    "analyze BAT event data. One or many of these folders are missing.")
+                    "The observation ID folder needs to contain the bat/event/, the bat/hk/, the bat/rate/, the auxil/, and tdrss/ subdirectories in order to "
+                    + "analyze BAT event data. One or many of these folders are missing."
+                )
 
-            #save the necessary files that we will need through the processing/analysis steps. See
+            # save the necessary files that we will need through the processing/analysis steps. See
             # https://swift.gsfc.nasa.gov/archive/archiveguide1_v2_2_apr2018.pdf for reference of files
-            self.enable_disable_file=list(self.obs_dir.joinpath("bat").joinpath("hk").glob('*bdecb*'))
-            #the detector quality is combination of enable/disable detectors and currently (at time of trigger) hot detectors
+            self.enable_disable_file = list(
+                self.obs_dir.joinpath("bat").joinpath("hk").glob("*bdecb*")
+            )
+            # the detector quality is combination of enable/disable detectors and currently (at time of trigger) hot detectors
             # https://swift.gsfc.nasa.gov/analysis/threads/batqualmapthread.html
-            self.detector_quality_file=list(self.obs_dir.joinpath("bat").joinpath("hk").glob('*bdqcb*'))
-            self.event_files=sorted(list(self.obs_dir.joinpath("bat").joinpath("event").glob('*bev*_uf*')))
-            self.attitude_file=list(self.obs_dir.joinpath("auxil").glob('*sat.*'))
-            self.tdrss_files=list(self.obs_dir.joinpath("tdrss").glob('*msb*.fits*'))
-            self.gain_offset_file=list(self.obs_dir.joinpath("bat").joinpath("hk").glob('*bgocb*'))
-            self.auxil_raytracing_file=list(self.obs_dir.joinpath("bat").joinpath("event").glob('*evtr*'))
+            self.detector_quality_file = list(
+                self.obs_dir.joinpath("bat").joinpath("hk").glob("*bdqcb*")
+            )
+            self.event_files = sorted(
+                list(self.obs_dir.joinpath("bat").joinpath("event").glob("*bev*_uf*"))
+            )
+            self.attitude_file = list(self.obs_dir.joinpath("auxil").glob("*sat.*"))
+            self.tdrss_files = list(self.obs_dir.joinpath("tdrss").glob("*msb*.fits*"))
+            self.gain_offset_file = list(
+                self.obs_dir.joinpath("bat").joinpath("hk").glob("*bgocb*")
+            )
+            self.auxil_raytracing_file = list(
+                self.obs_dir.joinpath("bat").joinpath("event").glob("*evtr*")
+            )
 
-
-            #make sure that there is only 1 attitude file
-            if len(self.attitude_file)>1:
-                raise ValueError(f"There seem to be more than one attitude file for this trigger with observation ID \
-                {self.obs_id} located at {self.obs_dir}. This file is necessary for the remaining processing.")
+            # make sure that there is only 1 attitude file
+            if len(self.attitude_file) > 1:
+                raise ValueError(
+                    f"There seem to be more than one attitude file for this trigger with observation ID \
+                {self.obs_id} located at {self.obs_dir}. This file is necessary for the remaining processing."
+                )
             elif len(self.attitude_file) < 1:
-                raise ValueError(f"There seem to be no attitude file for this trigger with observation ID \
-                                {self.obs_id} located at {self.obs_dir}. This file is necessary for the remaining processing.")
+                raise ValueError(
+                    f"There seem to be no attitude file for this trigger with observation ID \
+                                {self.obs_id} located at {self.obs_dir}. This file is necessary for the remaining processing."
+                )
             else:
-                self.attitude_file=self.attitude_file[0]
+                self.attitude_file = self.attitude_file[0]
 
-            #make sure that there is at least one event file
-            if len(self.event_files)<1:
-                raise FileNotFoundError(f"There seem to be no event files for this trigger with observation ID \
-                {self.obs_id} located at {self.obs_dir}. This file is necessary for the remaining processing.")
+            # make sure that there is at least one event file
+            if len(self.event_files) < 1:
+                raise FileNotFoundError(
+                    f"There seem to be no event files for this trigger with observation ID \
+                {self.obs_id} located at {self.obs_dir}. This file is necessary for the remaining processing."
+                )
             else:
-                self.event_files=self.event_files[0]
-                #also make sure that the file is gunzipped
+                self.event_files = self.event_files[0]
+                # also make sure that the file is gunzipped
                 if ".gz" in self.event_files.suffix:
-                    with gzip.open(self.event_files, 'rb') as f_in:
-                        with open(self.event_files.parent.joinpath(self.event_files.stem), 'wb') as f_out:
+                    with gzip.open(self.event_files, "rb") as f_in:
+                        with open(
+                                self.event_files.parent.joinpath(self.event_files.stem),
+                                "wb",
+                        ) as f_out:
                             shutil.copyfileobj(f_in, f_out)
 
-                    self.event_files=self.event_files.parent.joinpath(self.event_files.stem)
+                    self.event_files = self.event_files.parent.joinpath(
+                        self.event_files.stem
+                    )
 
-
-            #make sure that we have an enable disable map
+            # make sure that we have an enable disable map
             if len(self.enable_disable_file) < 1:
-                raise FileNotFoundError(f"There seem to be no detector enable/disable file for this trigger with observation "
-                                        f"ID {self.obs_id} located at {self.obs_dir}. This file is necessary for the remaining processing.")
+                raise FileNotFoundError(
+                    f"There seem to be no detector enable/disable file for this trigger with observation "
+                    f"ID {self.obs_id} located at {self.obs_dir}. This file is necessary for the remaining processing."
+                )
             elif len(self.enable_disable_file) > 1:
-                raise ValueError(f"There seem to be more than one detector enable/disable file for this trigger with observation ID "
-                                 f"{self.obs_id} located at {self.obs_dir}. This file is necessary for the remaining processing.")
+                raise ValueError(
+                    f"There seem to be more than one detector enable/disable file for this trigger with observation ID "
+                    f"{self.obs_id} located at {self.obs_dir}. This file is necessary for the remaining processing."
+                )
             else:
-                self.enable_disable_file=self.enable_disable_file[0]
+                self.enable_disable_file = self.enable_disable_file[0]
 
-            #make sure that we have gain offset file
+            # make sure that we have gain offset file
             if len(self.gain_offset_file) < 1:
-                warnings.warn(f"There seem to be no gain/offset file for this trigger with observation ID \
+                warnings.warn(
+                    f"There seem to be no gain/offset file for this trigger with observation ID \
                 {self.obs_id} located at {self.obs_dir}. This file is necessary for the remaining processing if an"
-                      f"energy calibration needs to be applied.")
+                    f"energy calibration needs to be applied."
+                )
             elif len(self.gain_offset_file) > 1:
-                warnings.warn(f"There seem to be too many gain/offset files for this trigger with observation ID \
+                warnings.warn(
+                    f"There seem to be too many gain/offset files for this trigger with observation ID \
                             {self.obs_id} located at {self.obs_dir}. One of these files is necessary for the remaining processing if an"
-                              f"energy calibration needs to be applied.")
+                    f"energy calibration needs to be applied."
+                )
             else:
-                self.gain_offset_file=self.gain_offset_file[0]
+                self.gain_offset_file = self.gain_offset_file[0]
 
-            #make sure that we have a detector quality map
+            # make sure that we have a detector quality map
             if len(self.detector_quality_file) < 1:
                 if verbose:
-                    print(f"There seem to be no detector quality file for this trigger with observation ID" \
-                f"{self.obs_id} located at {self.obs_dir}. This file is necessary for the remaining processing.")
+                    print(
+                        f"There seem to be no detector quality file for this trigger with observation ID"
+                        f"{self.obs_id} located at {self.obs_dir}. This file is necessary for the remaining processing."
+                    )
 
-                #need to create this map can get to this if necessary
+                # need to create this map can get to this if necessary
                 self.create_detector_quality_map()
             elif len(self.detector_quality_file) > 1:
                 raise ValueError(
                     f"There seem to be more than one detector quality file for this trigger with observation ID "
-                    f"{self.obs_id} located at {self.obs_dir}. This file is necessary for the remaining processing.")
+                    f"{self.obs_id} located at {self.obs_dir}. This file is necessary for the remaining processing."
+                )
             else:
-                self.detector_quality_file=self.detector_quality_file[0]
+                self.detector_quality_file = self.detector_quality_file[0]
 
             # if we will be doing spectra/light curves we need to do the mask weighting. This may be done by the SDC already.
             # If the SDC already did this, there will be BAT_RA and BAT_DEC header keywords in the event file(s)
@@ -168,83 +210,90 @@ class BatEvent(BatObservation):
             # TODO: possible feature here is to be able to do mask weighting for multiple sources in the BAT FOV at the time
             # of the event data being collected.
 
-            #TODO: need to get the GTI? May not need according to software guide?
+            # TODO: need to get the GTI? May not need according to software guide?
 
-            #get the relevant information from the event file/TDRSS file such as RA/DEC/trigger time. Should also make
+            # get the relevant information from the event file/TDRSS file such as RA/DEC/trigger time. Should also make
             # sure that these values agree. If so good, otherwise need to choose a coordinate/use the user supplied coordinates
             # and then rerun the auxil ray tracing
-            tdrss_centroid_file=[i for i in self.tdrss_files if "msbce" in str(i)]
-            #get the tdrss coordinates if the file exists
+            tdrss_centroid_file = [i for i in self.tdrss_files if "msbce" in str(i)]
+            # get the tdrss coordinates if the file exists
             if len(tdrss_centroid_file) > 0:
                 with fits.open(tdrss_centroid_file[0]) as file:
                     tdrss_ra = file[0].header["BRA_OBJ"]
                     tdrss_dec = file[0].header["BDEC_OBJ"]
 
-            #get info from event file which must exist to get to this point
+            # get info from event file which must exist to get to this point
             with fits.open(self.event_files) as file:
                 event_ra = file[0].header["RA_OBJ"]
                 event_dec = file[0].header["DEC_OBJ"]
 
-            #by default, ra/dec="event" to use the coordinates set here by SDC but can use other coordinates
+            # by default, ra/dec="event" to use the coordinates set here by SDC but can use other coordinates
             if "tdrss" in ra or "tdrss" in dec:
                 if len(tdrss_centroid_file) > 0:
-                    #use the TDRSS message value
-                    self.ra=tdrss_ra
-                    self.dec=tdrss_dec
+                    # use the TDRSS message value
+                    self.ra = tdrss_ra
+                    self.dec = tdrss_dec
                 else:
-                    raise ValueError("There is no TDRSS message coordinate. Please create a TDRSS file to use this option.")
+                    raise ValueError(
+                        "There is no TDRSS message coordinate. Please create a TDRSS file to use this option."
+                    )
             elif "event" in ra or "event" in dec:
-                #use the event file RA/DEC
-                self.ra=event_ra
-                self.dec=event_dec
+                # use the event file RA/DEC
+                self.ra = event_ra
+                self.dec = event_dec
             else:
                 if np.isreal(ra) and np.isreal(dec):
-                    self.ra=ra
-                    self.dec=dec
+                    self.ra = ra
+                    self.dec = dec
                 else:
-                    #the ra/dec values must be decimal degrees for the following analysis to work
-                    raise ValueError(f"The passed values of ra and dec are not decimal degrees. Please set these to appropriate values.")
+                    # the ra/dec values must be decimal degrees for the following analysis to work
+                    raise ValueError(
+                        f"The passed values of ra and dec are not decimal degrees. Please set these to appropriate values."
+                    )
 
-            #see if the RA/DEC that the user wants to use is what is in the event file
+            # see if the RA/DEC that the user wants to use is what is in the event file
             # if not, then we need to do the mask weighting again
-            coord_match=(self.ra == event_ra) and (self.dec == event_dec)
+            coord_match = (self.ra == event_ra) and (self.dec == event_dec)
 
-            #make sure that we have our auxiliary ray tracing file in order to do spectral fitting of the burst
-            #also need to check of the coordinates we want are what is in the event file.
+            # make sure that we have our auxiliary ray tracing file in order to do spectral fitting of the burst
+            # also need to check of the coordinates we want are what is in the event file.
             if len(self.auxil_raytracing_file) < 1 or not coord_match:
                 if verbose:
-                    print(f"There seem to be no auxiliary ray tracing file for this trigger with observation ID "
-                          f"{self.obs_id} located at {self.obs_dir}. This file is necessary for the remaining "
-                          f"processing.")
+                    print(
+                        f"There seem to be no auxiliary ray tracing file for this trigger with observation ID "
+                        f"{self.obs_id} located at {self.obs_dir}. This file is necessary for the remaining "
+                        f"processing."
+                    )
 
-                #set the default auxil ray tracing attribute to None for recreation in the apply_mask_weighting method
-                self.auxil_raytracing_file=None
+                # set the default auxil ray tracing attribute to None for recreation in the apply_mask_weighting method
+                self.auxil_raytracing_file = None
 
-                #need to create this map can get to this if necessary,
+                # need to create this map can get to this if necessary,
                 self.apply_mask_weighting(self.ra, self.dec)
             elif len(self.auxil_raytracing_file) > 1:
                 raise ValueError(
                     f"There seem to be more than one auxiliary ray tracing file for this trigger with observation ID "
-                    f"{self.obs_id} located at {self.obs_dir}. This file is necessary for the remaining processing.")
+                    f"{self.obs_id} located at {self.obs_dir}. This file is necessary for the remaining processing."
+                )
             else:
-                self.auxil_raytracing_file=self.auxil_raytracing_file[0]
+                self.auxil_raytracing_file = self.auxil_raytracing_file[0]
 
-            #see if the event data has been energy calibrated
+            # see if the event data has been energy calibrated
             if verbose:
-                print('Checking to see if the event file has been energy calibrated.')
+                print("Checking to see if the event file has been energy calibrated.")
 
-            #look at the header of the event file(s) and see if they have:
+            # look at the header of the event file(s) and see if they have:
             # GAINAPP =                 T / Gain correction has been applied
             # and GAINMETH= 'FIXEDDAC'           / Cubic ground gain/offset correction using DAC-b
-            #also want to get the TSTART and TSTOP for use later
+            # also want to get the TSTART and TSTOP for use later
             with fits.open(self.event_files) as file:
-                hdr=file['EVENTS'].header
-                self.tstart_met=hdr["TSTART"]
-                self.tstop_met=hdr["TSTOP"]
-                self.telapse=hdr["TELAPSE"]
-                self.trigtime_met=hdr["TRIGTIME"]
-            if not hdr["GAINAPP"] or  "FIXEDDAC" not in hdr["GAINMETH"]:
-                #need to run the energy conversion even though this should have been done by SDC
+                hdr = file["EVENTS"].header
+                self.tstart_met = hdr["TSTART"]
+                self.tstop_met = hdr["TSTOP"]
+                self.telapse = hdr["TELAPSE"]
+                self.trigtime_met = hdr["TRIGTIME"]
+            if not hdr["GAINAPP"] or "FIXEDDAC" not in hdr["GAINMETH"]:
+                # need to run the energy conversion even though this should have been done by SDC
                 self.apply_energy_correction(verbose)
 
             # at this point, we have made sure that the events are energy calibrated, the mask weighting has been done for
@@ -258,48 +307,52 @@ class BatEvent(BatObservation):
 
             self.result_dir.mkdir(parents=True, exist_ok=True)
 
-            #Now we can create the necessary directories to hold the files in the save_dir directory
-            event_dir=self.result_dir.joinpath("events")
-            gti_dir=self.result_dir.joinpath("gti")
-            auxil_dir=self.result_dir.joinpath("auxil")
-            dpi_dir=self.result_dir.joinpath("dpi")
-            img_dir=self.result_dir.joinpath("gti")
-            lc_dir=self.result_dir.joinpath("lc")
-            pha_dir=self.result_dir.joinpath("pha")
+            # Now we can create the necessary directories to hold the files in the save_dir directory
+            event_dir = self.result_dir.joinpath("events")
+            gti_dir = self.result_dir.joinpath("gti")
+            auxil_dir = self.result_dir.joinpath("auxil")
+            dpi_dir = self.result_dir.joinpath("dpi")
+            img_dir = self.result_dir.joinpath("gti")
+            lc_dir = self.result_dir.joinpath("lc")
+            pha_dir = self.result_dir.joinpath("pha")
 
             for i in [event_dir, gti_dir, auxil_dir, dpi_dir, img_dir, lc_dir, pha_dir]:
                 i.mkdir(parents=True, exist_ok=True)
 
-            #copy the necessary files over, eg the event file, the quality mask, the attitude file, etc
+            # copy the necessary files over, eg the event file, the quality mask, the attitude file, etc
             shutil.copy(self.event_files, event_dir)
             shutil.copy(self.auxil_raytracing_file, event_dir)
 
             shutil.copy(self.enable_disable_file, auxil_dir)
             shutil.copy(self.detector_quality_file, auxil_dir)
             shutil.copy(self.attitude_file, auxil_dir)
-            #move all tdrss files for reference
+            # move all tdrss files for reference
             for i in self.tdrss_files:
                 shutil.copy(i, auxil_dir)
 
             shutil.copy(self.gain_offset_file, auxil_dir)
 
-            #save the new location of the files as attributes
+            # save the new location of the files as attributes
             self.event_files = event_dir.joinpath(self.event_files.name)
-            self.auxil_raytracing_file = event_dir.joinpath(self.auxil_raytracing_file.name)
+            self.auxil_raytracing_file = event_dir.joinpath(
+                self.auxil_raytracing_file.name
+            )
             self.enable_disable_file = auxil_dir.joinpath(self.enable_disable_file.name)
-            self.detector_quality_file = auxil_dir.joinpath(self.detector_quality_file.name)
+            self.detector_quality_file = auxil_dir.joinpath(
+                self.detector_quality_file.name
+            )
             self.attitude_file = auxil_dir.joinpath(self.attitude_file.name)
             # change paths for all tdrss files
-            temp_tdrss_files=[]
+            temp_tdrss_files = []
             for i in self.tdrss_files:
                 temp_tdrss_files.append(auxil_dir.joinpath(i.name))
-            self.tdrss_files=temp_tdrss_files
+            self.tdrss_files = temp_tdrss_files
             self.gain_offset_file = auxil_dir.joinpath(self.gain_offset_file.name)
 
-            #also update the local pfile dir
+            # also update the local pfile dir
             self._set_local_pfile_dir(self.result_dir.joinpath(".local_pfile"))
 
-            #want to get some other basic information for use later, including all the photon data
+            # want to get some other basic information for use later, including all the photon data
             self._parse_event_file()
 
             # create the marker file that tells us that the __init__ method completed successfully
@@ -311,8 +364,6 @@ class BatEvent(BatObservation):
 
             # Now we can let the user define what they want to do for their light
             # curves and spctra. Need to determine how to organize this for any source in FOV to be analyzed.
-
-
 
         else:
             load_file = Path(load_file).expanduser().resolve()
@@ -326,16 +377,16 @@ class BatEvent(BatObservation):
 
         self.data = {}
         with fits.open(self.event_files) as file:
-            data=file[1].data
+            data = file[1].data
             for i in data.columns:
                 self.data[i.name] = u.Quantity(data[i.name], i.unit)
 
-        #get the block/DM/sandwich/channel info
+        # get the block/DM/sandwich/channel info
         block, dm, side, channel = decompose_det_id(self.data["DET_ID"])
-        data["DET_BLOCK"]=block
-        data["DET_DM"]=dm
-        data["DET_SAND"]=side
-        data["DET_CHAN"]=channel
+        self.data["DET_BLOCK"] = block
+        self.data["DET_DM"] = dm
+        self.data["DET_SAND"] = side
+        self.data["DET_CHAN"] = channel
 
     def load(self, f):
         """
@@ -344,7 +395,7 @@ class BatEvent(BatObservation):
         :return: None
         """
 
-        with open(f, 'rb') as pickle_file:
+        with open(f, "rb") as pickle_file:
             content = pickle.load(pickle_file)
         self.__dict__.update(content)
 
@@ -353,8 +404,10 @@ class BatEvent(BatObservation):
         Saves the current BatEvent object
         :return: None
         """
-        file = self.result_dir.joinpath('batevent.pickle')  # os.path.join(self.result_dir, "batsurvey.pickle")
-        with open(file, 'wb') as f:
+        file = self.result_dir.joinpath(
+            "batevent.pickle"
+        )  # os.path.join(self.result_dir, "batsurvey.pickle")
+        with open(file, "wb") as f:
             pickle.dump(self.__dict__, f, 2)
         print("A save file has been written to %s." % (str(file)))
 
@@ -372,40 +425,71 @@ class BatEvent(BatObservation):
         :return: Path object to the detector quality mask
         """
         try:
-            #Create DPI
-            #batbinevt bat/event/*bevshsp_uf.evt.gz grb.dpi DPI 0 u - weighted = no outunits = counts
-            output_dpi=self.obs_dir.joinpath("bat").joinpath("hk").joinpath('detector_quality.dpi')
-            input_dict=dict(infile=str(self.event_files[0]), outfile=str(output_dpi),
-                            outtype="DPI", timedel=0.0, timebinalg = "uniform", energybins = "-", weighted = "no", outunits = "counts", clobber="YES")
-            binevt_return=self._call_batbinevt(input_dict)
+            # Create DPI
+            # batbinevt bat/event/*bevshsp_uf.evt.gz grb.dpi DPI 0 u - weighted = no outunits = counts
+            output_dpi = (
+                self.obs_dir.joinpath("bat")
+                .joinpath("hk")
+                .joinpath("detector_quality.dpi")
+            )
+            input_dict = dict(
+                infile=str(self.event_files[0]),
+                outfile=str(output_dpi),
+                outtype="DPI",
+                timedel=0.0,
+                timebinalg="uniform",
+                energybins="-",
+                weighted="no",
+                outunits="counts",
+                clobber="YES",
+            )
+            binevt_return = self._call_batbinevt(input_dict)
             if binevt_return.returncode != 0:
-                raise RuntimeError(f'The call to Heasoft batbinevt failed with message: {binevt_return.output}')
+                raise RuntimeError(
+                    f"The call to Heasoft batbinevt failed with message: {binevt_return.output}"
+                )
 
-            #Get list of known problematic detectors
-            #eg batdetmask date=output_dpi outfile=master.detmask clobber=YES detmask= self.enable_disable_file
-            #then master.detmask gets passed as detmask parameter in bathotpix call
-            master_detmask=self.enable_disable_file.parent.joinpath("master.detmask")
-            input_dict=dict(date=str(output_dpi), outfile=str(master_detmask), detmask = str(self.enable_disable_file), clobber="YES")
-            detmask_return=self._call_batdetmask(input_dict)
+            # Get list of known problematic detectors
+            # eg batdetmask date=output_dpi outfile=master.detmask clobber=YES detmask= self.enable_disable_file
+            # then master.detmask gets passed as detmask parameter in bathotpix call
+            master_detmask = self.enable_disable_file.parent.joinpath("master.detmask")
+            input_dict = dict(
+                date=str(output_dpi),
+                outfile=str(master_detmask),
+                detmask=str(self.enable_disable_file),
+                clobber="YES",
+            )
+            detmask_return = self._call_batdetmask(input_dict)
             if detmask_return.returncode != 0:
-                raise RuntimeError(f'The call to Heasoft batdetmask failed with message: {detmask_return.output}')
+                raise RuntimeError(
+                    f"The call to Heasoft batdetmask failed with message: {detmask_return.output}"
+                )
 
-
-            #get the hot pixels
-            #bathotpix grb.dpi grb.mask detmask = bat/hk/sw01116441000bdecb.hk.gz
-            output_detector_quality=self.obs_dir.joinpath("bat").joinpath("hk").joinpath(f'sw{self.obs_id}bdqcb.hk.gz')
-            input_dict = dict(infile=str(output_dpi),
-                              outfile=str(output_detector_quality),
-                              detmask = str(master_detmask),
-                              clobber="YES")
-            hotpix_return=self._call_bathotpix(input_dict)
+            # get the hot pixels
+            # bathotpix grb.dpi grb.mask detmask = bat/hk/sw01116441000bdecb.hk.gz
+            output_detector_quality = (
+                self.obs_dir.joinpath("bat")
+                .joinpath("hk")
+                .joinpath(f"sw{self.obs_id}bdqcb.hk.gz")
+            )
+            input_dict = dict(
+                infile=str(output_dpi),
+                outfile=str(output_detector_quality),
+                detmask=str(master_detmask),
+                clobber="YES",
+            )
+            hotpix_return = self._call_bathotpix(input_dict)
             if hotpix_return.returncode != 0:
-                raise RuntimeError(f'The call to Heasoft bathotpix failed with message: {hotpix_return.output}')
+                raise RuntimeError(
+                    f"The call to Heasoft bathotpix failed with message: {hotpix_return.output}"
+                )
 
-            self.detector_quality_file=output_detector_quality
+            self.detector_quality_file = output_detector_quality
         except Exception as e:
             print(e)
-            raise RuntimeError("There was a runtime error in either batbinevt or bathotpix while creating th detector quality mask.")
+            raise RuntimeError(
+                "There was a runtime error in either batbinevt or bathotpix while creating th detector quality mask."
+            )
 
         return None
 
@@ -429,30 +513,41 @@ class BatEvent(BatObservation):
         # see if we have a gain/offset map
         if len(self.gain_offset_file) < 1:
             if verbose:
-                print(f"There seem to be no gain/offset file for this trigger with observation ID \
+                print(
+                    f"There seem to be no gain/offset file for this trigger with observation ID \
             {self.obs_id} located at {self.obs_dir}. This file is necessary for the remaining processing if an"
-                      f"energy calibration needs to be applied.")
+                    f"energy calibration needs to be applied."
+                )
             # need to create this gain/offset file or get it somehow
 
-            raise AttributeError(f'The event file {self.event_files} has not had the energy calibration applied and there is no gain/offset '
-                                     f'file for this trigger with observation ID \
-                {self.obs_id} located at {self.obs_dir}. This file is necessary for the remaining processing since an' \
-                          f"energy calibration needs to be applied.")
+            raise AttributeError(
+                f"The event file {self.event_files} has not had the energy calibration applied and there is no gain/offset "
+                f"file for this trigger with observation ID \
+                {self.obs_id} located at {self.obs_dir}. This file is necessary for the remaining processing since an"
+                f"energy calibration needs to be applied."
+            )
         elif len(self.gain_offset_file) > 1:
             raise AttributeError(
-                f'The event file {self.event_files} has not had the energy calibration applied and there are too many gain/offset '
-                f'files for this trigger with observation ID \
-                            {self.obs_id} located at {self.obs_dir}. One of these files is necessary for the remaining processing since an' \
-                f"energy calibration needs to be applied.")
+                f"The event file {self.event_files} has not had the energy calibration applied and there are too many gain/offset "
+                f"files for this trigger with observation ID \
+                            {self.obs_id} located at {self.obs_dir}. One of these files is necessary for the remaining processing since an"
+                f"energy calibration needs to be applied."
+            )
         else:
-            #if we have the file, then we need to call bateconvert
-            input_dict=dict(infile=str(self.event_files), calfile=str(self.gain_offset_file),
-                            residfile="CALDB", pulserfile="CALDB", fltpulserfile="CALDB")
-            bateconvert_return=self._call_bateconvert(input_dict)
+            # if we have the file, then we need to call bateconvert
+            input_dict = dict(
+                infile=str(self.event_files),
+                calfile=str(self.gain_offset_file),
+                residfile="CALDB",
+                pulserfile="CALDB",
+                fltpulserfile="CALDB",
+            )
+            bateconvert_return = self._call_bateconvert(input_dict)
 
             if bateconvert_return.returncode != 0:
-                raise RuntimeError(f'The call to Heasoft bateconvert failed with message: {bateconvert_return.output}')
-
+                raise RuntimeError(
+                    f"The call to Heasoft bateconvert failed with message: {bateconvert_return.output}"
+                )
 
         return None
 
@@ -471,61 +566,81 @@ class BatEvent(BatObservation):
         # TODO: create a mask weight image which can also be used for each RA/DEC coordinate and be passed to batbinevt
         #   without a need for reading in the MASK WEIGHT column of the event file
 
-        #batmaskwtevt infile=bat/event/sw01116441000bevshsp_uf.evt attitude=auxil/sw01116441000sat.fits.gz detmask=grb.mask ra= dec=
+        # batmaskwtevt infile=bat/event/sw01116441000bevshsp_uf.evt attitude=auxil/sw01116441000sat.fits.gz detmask=grb.mask ra= dec=
         if ra is None and dec is None:
-            ra=self.ra
-            dec=self.dec
+            ra = self.ra
+            dec = self.dec
         else:
-            #set the new ra/dec values
-            self.ra=ra
-            self.dec=dec
+            # set the new ra/dec values
+            self.ra = ra
+            self.dec = dec
 
-        #if this attribute is None, we need to define it and create it using the standard naming convention
+        # if this attribute is None, we need to define it and create it using the standard naming convention
         if self.auxil_raytracing_file is None:
-            temp_auxil_raytracing_file=self.event_files.parent.join(f"sw{self.obs_id}bevtr.fits")
+            temp_auxil_raytracing_file = self.event_files.parent.join(
+                f"sw{self.obs_id}bevtr.fits"
+            )
         else:
-            temp_auxil_raytracing_file=self.auxil_raytracing_file
+            temp_auxil_raytracing_file = self.auxil_raytracing_file
 
-
-        input_dict=dict(infile=str(self.event_files), attitude=str(self.attitude_file), detmask=str(self.detector_quality_file),
-                        ra=ra, dec=dec, auxfile=str(temp_auxil_raytracing_file), clobber="YES")
-        batmaskwtevt_return=self._call_batmaskwtevt(input_dict)
+        input_dict = dict(
+            infile=str(self.event_files),
+            attitude=str(self.attitude_file),
+            detmask=str(self.detector_quality_file),
+            ra=ra,
+            dec=dec,
+            auxfile=str(temp_auxil_raytracing_file),
+            clobber="YES",
+        )
+        batmaskwtevt_return = self._call_batmaskwtevt(input_dict)
 
         if batmaskwtevt_return.returncode != 0:
-            raise RuntimeError(f'The call to Heasoft batmaskwtevt failed with message: {batmaskwtevt_return.output}')
+            raise RuntimeError(
+                f"The call to Heasoft batmaskwtevt failed with message: {batmaskwtevt_return.output}"
+            )
 
-        #modify the event file header with the RA/DEC of the weights that were applied, if they are different
-        with fits.open(self.event_files, mode='update') as file:
+        # modify the event file header with the RA/DEC of the weights that were applied, if they are different
+        with fits.open(self.event_files, mode="update") as file:
             event_ra = file[0].header["RA_OBJ"]
             event_dec = file[0].header["DEC_OBJ"]
             if event_ra != self.ra or event_dec != self.dec:
-                #update the event file RA/DEC_OBJ values everywhere
+                # update the event file RA/DEC_OBJ values everywhere
                 for i in file:
-                    i.header["RA_OBJ"]=self.ra
-                    i.header["DEC_OBJ"]=self.dec
+                    i.header["RA_OBJ"] = self.ra
+                    i.header["DEC_OBJ"] = self.dec
 
-                    #the BAT_RA/BAT_DEC keys have to updated too since this is something
-                    #that the software manual points out should be updated
-                    i.header["BAT_RA"]=self.ra
-                    i.header["BAT_DEC"]=self.dec
+                    # the BAT_RA/BAT_DEC keys have to updated too since this is something
+                    # that the software manual points out should be updated
+                    i.header["BAT_RA"] = self.ra
+                    i.header["BAT_DEC"] = self.dec
 
             file.flush()
 
-        #reread in the event file data
+        # reread in the event file data
         self._parse_event_file()
 
-        #save the file as the attribute if everything else is successful
+        # save the file as the attribute if everything else is successful
         self.auxil_raytracing_file = temp_auxil_raytracing_file
 
-        #TODO how to handle a different auxiliary ray tracing file bieng produced here?
+        # TODO how to handle a different auxiliary ray tracing file bieng produced here?
 
         return None
 
-    @u.quantity_input(timebins=['time'], tstart=['time'], tstop=['time'])
-    def create_lightcurve(self, lc_file=None, timebinalg="uniform", timedelta=np.timedelta64(64, 'ms'),
-                          tstart=None, tstop=None, timebins=None, T0=None, is_relative=False,
-                          energybins=["15-25", "25-50", "50-100", "100-350"], mask_weighting=True, recalc=False,
-                          ):
+    @u.quantity_input(timebins=["time"], tstart=["time"], tstop=["time"])
+    def create_lightcurve(
+            self,
+            lc_file=None,
+            timebinalg="uniform",
+            timedelta=np.timedelta64(64, "ms"),
+            tstart=None,
+            tstop=None,
+            timebins=None,
+            T0=None,
+            is_relative=False,
+            energybins=["15-25", "25-50", "50-100", "100-350"],
+            mask_weighting=True,
+            recalc=False,
+    ):
         """
         This method returns a lightcurve object which can be manipulated in different energies/timebins. The lightcurve
         path may be provided, which can be a lightcurve that should be loaded (if created already), or the name of the
@@ -588,40 +703,67 @@ class BatEvent(BatObservation):
             specified time/energy binning. See the Lightcurve class for a list of these defaults.
         :return: Lightcurve class instance
         """
-        #batbinevt infile=sw00145675000bevshsp_uf.evt.gz outfile=onesec.lc outtype=LC
+        # batbinevt infile=sw00145675000bevshsp_uf.evt.gz outfile=onesec.lc outtype=LC
         # timedel=1.0 timebinalg=u energybins=15-150
         # detmask=../hk/sw00145675000bcbdq.hk.gz clobber=YES
 
         if lc_file is None:
             if not recalc:
-                #make up a name for the light curve that hasnt been used already in the LC directory
-                lc_files=list(self.result_dir.joinpath("lc").glob("*.lc"))
-                lc_files=[str(i) for i in lc_files]
-                base="lightcurve_"
-                count=0
+                # make up a name for the light curve that hasnt been used already in the LC directory
+                lc_files = list(self.result_dir.joinpath("lc").glob("*.lc"))
+                lc_files = [str(i) for i in lc_files]
+                base = "lightcurve_"
+                count = 0
                 while np.any([f"{base}{count}.lc" in t for t in lc_files]):
-                    count+=1
-                lc_file=self.result_dir.joinpath("lc").joinpath(f"{base}{count}.lc")
+                    count += 1
+                lc_file = self.result_dir.joinpath("lc").joinpath(f"{base}{count}.lc")
             else:
                 lc_files = list(self.result_dir.joinpath("lc").glob("*.lc"))
-                if len(lc_files)==1:
-                    lc_file=lc_files[0]
+                if len(lc_files) == 1:
+                    lc_file = lc_files[0]
                 else:
-                    raise ValueError(f"There are too many files which meet the criteria to be loaded. Please specify one of {lc_files}.")
+                    raise ValueError(
+                        f"There are too many files which meet the criteria to be loaded. Please specify one of {lc_files}."
+                    )
         else:
-            lc_file=Path(lc_file).expanduser().resolve()
+            lc_file = Path(lc_file).expanduser().resolve()
 
-        lc = Lightcurve(lc_file, self.event_files, self.detector_quality_file, recalc=recalc, mask_weighting=mask_weighting)
-        lc.set_timebins(timebinalg=timebinalg, timedelta=timedelta, tmin=tstart, tmax=tstop, timebins=timebins, is_relative=is_relative, T0=T0)
+        lc = Lightcurve(
+            lc_file,
+            self.event_files,
+            self.detector_quality_file,
+            recalc=recalc,
+            mask_weighting=mask_weighting,
+        )
+        lc.set_timebins(
+            timebinalg=timebinalg,
+            timedelta=timedelta,
+            tmin=tstart,
+            tmax=tstop,
+            timebins=timebins,
+            is_relative=is_relative,
+            T0=T0,
+        )
         lc.set_energybins(energybins=energybins)
 
-        self.lightcurve=lc
+        self.lightcurve = lc
 
         return self.lightcurve
 
-    @u.quantity_input(timebins=['time'], tstart=['time'], tstop=['time'])
-    def create_pha(self, pha_file=None, tstart=None, tstop=None, timebins=None, T0=None, is_relative=False,
-                    energybins=None, recalc=False, mask_weighting=True, load_upperlims=False):
+    @u.quantity_input(timebins=["time"], tstart=["time"], tstop=["time"])
+    def create_pha(
+            self,
+            pha_file=None,
+            tstart=None,
+            tstop=None,
+            timebins=None,
+            T0=None,
+            is_relative=False,
+            energybins=None,
+            recalc=False,
+            mask_weighting=True,
+            load_upperlims=False,
+    ):
         """
         This function creates a pha file that spans a given time range. The pha filename can be specified for a file
         name that the user wants the created pha file to be saved as or this can be set as None to allow for existing
@@ -668,144 +810,197 @@ class BatEvent(BatObservation):
             from the pha directory within the results directory.
         :return: Spectrum object or list of Spectrum objects
         """
-        #batbinevt infile=sw00145675000bevshsp_uf.evt.gz outfile=onesec.lc outtype=PHA
+        # batbinevt infile=sw00145675000bevshsp_uf.evt.gz outfile=onesec.lc outtype=PHA
         # timedel=0.0 timebinalg=u energybins=CALDB
         # detmask=../hk/sw00145675000bcbdq.hk.gz clobber=YES
 
-        input_tstart=None
-        input_tstop=None
+        input_tstart = None
+        input_tstop = None
         # do error checking on tmin/tmax make sure both are defined and that they are the same length
-        if (tstart is None and tstop is not None) or (tstart is None and tstop is not None):
-            raise ValueError('Both tstart and tstop must be defined.')
+        if (tstart is None and tstop is not None) or (
+                tstart is None and tstop is not None
+        ):
+            raise ValueError("Both tstart and tstop must be defined.")
 
         if tstart is not None and tstop is not None:
             if tstart.size == tstop.size:
-                input_tstart=tstart.copy()
-                input_tstop=tstop.copy()
+                input_tstart = tstart.copy()
+                input_tstop = tstop.copy()
 
-            #make sure that we can iterate over the times even if the user passed in a single scalar quantity
+            # make sure that we can iterate over the times even if the user passed in a single scalar quantity
             if input_tstart.isscalar:
-                input_tstart=u.Quantity([input_tstart])
-                input_tstop=u.Quantity([input_tstop])
+                input_tstart = u.Quantity([input_tstart])
+                input_tstop = u.Quantity([input_tstop])
             else:
-                raise ValueError('Both tstart and tstop must have the same length.')
+                raise ValueError("Both tstart and tstop must have the same length.")
 
-        #if the timebins is defined, will need to break it up into the tstart and tstop arrays to iterate over
+        # if the timebins is defined, will need to break it up into the tstart and tstop arrays to iterate over
         if timebins is not None:
-            input_tstart=timebins[:-1]
-            input_tstop=timebins[1:]
+            input_tstart = timebins[:-1]
+            input_tstop = timebins[1:]
 
-        #if we are passing in a number of timebins, the user can pass in a number of pha files to load/create so make
-        #sure that we have the same number of pha_files passed in or that it is None
+        # if we are passing in a number of timebins, the user can pass in a number of pha files to load/create so make
+        # sure that we have the same number of pha_files passed in or that it is None
         if pha_file is not None and type(pha_file) is not list:
-            pha_file=[pha_file]
+            pha_file = [pha_file]
 
-        #The user has not specified a set or single pha file to load in or create then we need to determine which ones
+        # The user has not specified a set or single pha file to load in or create then we need to determine which ones
         # to load. By default, we load all of them and dont recalculate anything. If recalc=true, we load all of them
         # and then they get recalcualted with whatever paramters get passed to the Lightcurve object.
 
         if pha_file is None:
             # identify any pha files that may already exist. If there are make a list of them. If not then create a
             # new set based on the timebins that the user has provided
-            pha_files = [i.name for i in list(self.result_dir.joinpath("pha").glob("*.pha"))]
+            pha_files = [
+                i.name for i in list(self.result_dir.joinpath("pha").glob("*.pha"))
+            ]
 
             if not load_upperlims:
                 pha_files = [i for i in pha_files if "upperlim" not in i]
 
             if not recalc:
-
-                if len(pha_files)>0:
-                    final_pha_files = [self.result_dir.joinpath("pha").joinpath(f"{i}") for i in pha_files]
+                if len(pha_files) > 0:
+                    final_pha_files = [
+                        self.result_dir.joinpath("pha").joinpath(f"{i}")
+                        for i in pha_files
+                    ]
 
                     # can have some number of pha files that dont correspond to the number of timebins which we dont want to
                     # handle right now. In the future can create the necessary amount if input_tstart.size > len(pha_files),
                     # or choose a subset if input_tstart.size < len(pha_files)
-                    if input_tstart is not None and input_tstart.size != len(final_pha_files):
-                        raise ValueError("The number of pha files that exist in the pha directory do not match the "
-                                         "specified time binning for the creation of spectra when recalc=False. ")
+                    if input_tstart is not None and input_tstart.size != len(
+                            final_pha_files
+                    ):
+                        raise ValueError(
+                            "The number of pha files that exist in the pha directory do not match the "
+                            "specified time binning for the creation of spectra when recalc=False. "
+                        )
 
-                    #if the tstart/tstop is None, we need to fill these to iterate over them and load in the pha files
+                    # if the tstart/tstop is None, we need to fill these to iterate over them and load in the pha files
                     if input_tstart is None:
                         input_tstart = np.array([None] * len(final_pha_files))
                         input_tstop = input_tstart
 
-                elif len(pha_files)==0:
-                    #iterate through the pha files that need to be created
-                    final_pha_files=[]
+                elif len(pha_files) == 0:
+                    # iterate through the pha files that need to be created
+                    final_pha_files = []
                     base = "spectrum_"
                     count = 0
                     for i in range(input_tstart.size):
-                        final_pha_files.append(self.result_dir.joinpath("pha").joinpath(f"{base}{count}.pha"))
+                        final_pha_files.append(
+                            self.result_dir.joinpath("pha").joinpath(
+                                f"{base}{count}.pha"
+                            )
+                        )
                         count += 1
 
             else:
-                #list the currently existing pha files
-                final_pha_files = [self.result_dir.joinpath("pha").joinpath(f"{i}") for i in pha_files]
+                # list the currently existing pha files
+                final_pha_files = [
+                    self.result_dir.joinpath("pha").joinpath(f"{i}") for i in pha_files
+                ]
 
-                #can have that the input_tstart is None, in which case what are we doing? can have different number of
+                # can have that the input_tstart is None, in which case what are we doing? can have different number of
                 # input_tstart than final_pha_file, then just delete all files in pha
                 # directory for this case
                 if input_tstart is None:
-                    raise ValueError("The number of pha files that exist in the pha directory do not match the "
-                                     "specified time binning for the creation of spectra when recalc=True. ")
+                    raise ValueError(
+                        "The number of pha files that exist in the pha directory do not match the "
+                        "specified time binning for the creation of spectra when recalc=True. "
+                    )
 
-                if input_tstart is not None and input_tstart.size != len(final_pha_files):
-                    warnings.warn(f"Deleting all files in {self.result_dir.joinpath('pha')} and creating new"
-                                        f"pha files for the passed in timebins")
-                    dirtest(self.result_dir.joinpath('pha'))
-                    #iterate through the pha files that need to be created
-                    final_pha_files=[]
+                if input_tstart is not None and input_tstart.size != len(
+                        final_pha_files
+                ):
+                    warnings.warn(
+                        f"Deleting all files in {self.result_dir.joinpath('pha')} and creating new"
+                        f"pha files for the passed in timebins"
+                    )
+                    dirtest(self.result_dir.joinpath("pha"))
+                    # iterate through the pha files that need to be created
+                    final_pha_files = []
                     base = "spectrum_"
                     count = 0
                     for i in range(input_tstart.size):
-                        final_pha_files.append(self.result_dir.joinpath("pha").joinpath(f"{base}{count}.pha"))
+                        final_pha_files.append(
+                            self.result_dir.joinpath("pha").joinpath(
+                                f"{base}{count}.pha"
+                            )
+                        )
                         count += 1
 
         else:
-            #if a single file has been specified, assume that is should go in the event/pha directory unless
+            # if a single file has been specified, assume that is should go in the event/pha directory unless
             # the user has passed in an absolute file path
-            final_pha_files = [self.result_dir.joinpath("pha").joinpath(f"{i}")  if not Path(i).is_absolute() else Path(i).expanduser().resolve() for i in pha_file]
+            final_pha_files = [
+                self.result_dir.joinpath("pha").joinpath(f"{i}")
+                if not Path(i).is_absolute()
+                else Path(i).expanduser().resolve()
+                for i in pha_file
+            ]
 
-            #need to see if input_tstart/input_tstop is None. If not None, then need to check that the lengths are the
-            #same
+            # need to see if input_tstart/input_tstop is None. If not None, then need to check that the lengths are the
+            # same
             if input_tstop is not None and len(pha_file) != input_tstart.size:
                 raise ValueError(
                     "The number of pha files does not match the number of timebins. Please make sure these are "
-                    "the same length or that pha_files is set to None")
+                    "the same length or that pha_files is set to None"
+                )
 
-            #if input_stop/input_start is None, then we need to just set it to be the same length as the final_pha_files
+            # if input_stop/input_start is None, then we need to just set it to be the same length as the final_pha_files
             # list. this is to get the loop below going.
             if recalc and input_tstart is None and energybins is None:
-                raise ValueError("recalc has been set to True, but there is not sufficient information for rebinning "
-                                 f"the following lightcurves {','.join([i.name for i in final_pha_files])}. Please enter"
-                                 "information related to a change in timebins or energy bins")
+                raise ValueError(
+                    "recalc has been set to True, but there is not sufficient information for rebinning "
+                    f"the following lightcurves {','.join([i.name for i in final_pha_files])}. Please enter"
+                    "information related to a change in timebins or energy bins"
+                )
 
-        spectrum_list=[]
+        spectrum_list = []
         for i in range(input_tstart.size):
+            spectrum = Spectrum(
+                final_pha_files[i],
+                self.event_files,
+                self.detector_quality_file,
+                self.auxil_raytracing_file,
+                mask_weighting=mask_weighting,
+                recalc=recalc,
+            )
 
-
-            spectrum = Spectrum(final_pha_files[i], self.event_files, self.detector_quality_file, self.auxil_raytracing_file,
-                                mask_weighting=mask_weighting, recalc=recalc)
-
-            #need to check about recalculating this if recalc=False
+            # need to check about recalculating this if recalc=False
             if pha_file is None and recalc or pha_file is not None:
-                spectrum.set_timebins(tmin=input_tstart[i], tmax=input_tstop[i], T0=T0, is_relative=is_relative)
+                spectrum.set_timebins(
+                    tmin=input_tstart[i],
+                    tmax=input_tstop[i],
+                    T0=T0,
+                    is_relative=is_relative,
+                )
                 if energybins is not None:
-                    #if energybins is None, then the default energybinning of "CALDB" is used
+                    # if energybins is None, then the default energybinning of "CALDB" is used
                     spectrum.set_energybins(energybins=energybins)
 
             spectrum_list.append(spectrum)
 
-        #save the spectrum list as an attribute, if there is one spectrum then index it appropriately
-        if len(spectrum_list)==1:
-            self.spectrum=spectrum_list[0]
+        # save the spectrum list as an attribute, if there is one spectrum then index it appropriately
+        if len(spectrum_list) == 1:
+            self.spectrum = spectrum_list[0]
         else:
             self.spectrum = spectrum_list
 
         return self.spectrum
 
-    def create_dph(self, dph_file=None, tstart=None, tstop=None, timebins=None, T0=None, is_relative=False,
-                    energybins=None, recalc=False, mask_weighting=True):
+    def create_dph(
+            self,
+            dph_file=None,
+            tstart=None,
+            tstop=None,
+            timebins=None,
+            T0=None,
+            is_relative=False,
+            energybins=None,
+            recalc=False,
+            mask_weighting=True,
+    ):
         """
         This method creates a detector plane histogram.
 
@@ -815,7 +1010,6 @@ class BatEvent(BatObservation):
         raise NotImplementedError("Creating the DPH has not yet been implemented.")
 
         return None
-
 
     def create_dpi(self, **kwargs):
         """
@@ -837,8 +1031,8 @@ class BatEvent(BatObservation):
         :return:
         """
 
-        raise NotImplementedError("Creating the sky image has not yet been implemented.")
+        raise NotImplementedError(
+            "Creating the sky image has not yet been implemented."
+        )
 
         return None
-
-

@@ -4,27 +4,68 @@ This file holds the BAT Detector plane histogram class
 Tyler Parsotan Feb 21 2024
 """
 
+import gzip
 import shutil
-import numpy as np
+import warnings
+from pathlib import Path
 
-from .batobservation import BatObservation
+import astropy.units as u
 import matplotlib as mpl
 import matplotlib.pyplot as plt
-from mpl_toolkits.axes_grid1 import make_axes_locatable
-import gzip
+import numpy as np
 from astropy.io import fits
-from pathlib import Path
-from astropy.time import Time
-import astropy.units as u
-import warnings
+from histpy import Histogram
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 
-from histpy import Histogram, Axes, Axis, HealpixAxis
+from .batobservation import BatObservation
 
 try:
     import heasoftpy as hsp
 except ModuleNotFoundError as err:
     # Error handling
     print(err)
+
+
+class DetectorPlaneHistogram:
+    """
+    This class encapsulates data that is spread across the detector plane in an image like format. It allows for the
+    rebinning of data in space, time, and/or energy.
+    """
+
+    det_x_edges = np.arange(286 + 1) - 0.5
+    det_y_edges = np.arange(173 + 1) - 0.5
+
+    @u.quantity_input(timebins=["time"], energybins=["energy"])
+    def __init__(
+            self, event_data=None, histogram_data=None, timebins=None, energybins=None
+    ):
+        """
+        This class can be initiated from individual event data that gets histogrammed in space/time/energy. It can be
+        initalized from a default BAT DPH.
+
+        By default, the spatial binning is in the detector x and y bins specified with the class det_x_edges and
+        det_y_edges.
+        """
+
+        if event_data is None and histogram_data is None:
+            raise ValueError(
+                "Either event data or a histogram needs to be passed in to initalize a DetectorPlaneHistogram object"
+            )
+
+        # determine the type of data that we have
+        if event_data is not None:
+            parse_data = event_data.copy()
+        else:
+            parse_data = histogram_data.copy()
+
+        # determine the time binnings
+        if timebins is None:
+            if event_data is not None:
+                timebin_edges = event_data["TIME"].min()
+
+        # determine the energy binnings
+
+        # create our histogrammed data
 
 
 class BatDPH(BatObservation):
@@ -36,9 +77,25 @@ class BatDPH(BatObservation):
     """
 
     # this class variable states which columns form the DPH files should be excluded from being read in
-    _exclude_data_cols = ["GAIN_INDEX", "OFFSET_INDEX", "LDPNAME", "BLOCK_MAP", "NUM_DETS", "APID", "LDP"]
+    _exclude_data_cols = [
+        "GAIN_INDEX",
+        "OFFSET_INDEX",
+        "LDPNAME",
+        "BLOCK_MAP",
+        "NUM_DETS",
+        "APID",
+        "LDP",
+    ]
 
-    def __init__(self, dph_file, event_file, input_dict=None, recalc=False, verbose=False, load_dir=None):
+    def __init__(
+            self,
+            dph_file,
+            event_file,
+            input_dict=None,
+            recalc=False,
+            verbose=False,
+            load_dir=None,
+    ):
         """
 
         :param dph_file:
@@ -51,12 +108,17 @@ class BatDPH(BatObservation):
         if event_file is not None:
             self.event_file = Path(event_file).expanduser().resolve()
             if not self.event_file.exists():
-                raise ValueError(f"The specified event file {self.event_file} does not seem to exist. "
-                                 f"Please double check that it does.")
+                raise ValueError(
+                    f"The specified event file {self.event_file} does not seem to exist. "
+                    f"Please double check that it does."
+                )
         else:
             self.event_file = None
-            warnings.warn("No event file has been specified. The resulting DPH object will not be able "
-                          "to be arbitrarily modified either by rebinning in energy or time.", stacklevel=2)
+            warnings.warn(
+                "No event file has been specified. The resulting DPH object will not be able "
+                "to be arbitrarily modified either by rebinning in energy or time.",
+                stacklevel=2,
+            )
 
         # if ther is no event file we just have the instrument produced DPH or a previously calculated one
         # if self.event_file is None:
@@ -66,9 +128,18 @@ class BatDPH(BatObservation):
             # we need to create the file, default is no mask weighting if we want to include that then we need the
             # image mask weight
             if input_dict is None:
-                self.dph_input_dict = dict(infile=str(self.event_file), outfile=str(self.dph_file), outtype="DPH",
-                                          energybins="14-195", weighted="NO", timedel=0,
-                                          tstart="INDEF", tstop="INDEF", clobber="YES", timebinalg="uniform")
+                self.dph_input_dict = dict(
+                    infile=str(self.event_file),
+                    outfile=str(self.dph_file),
+                    outtype="DPH",
+                    energybins="14-195",
+                    weighted="NO",
+                    timedel=0,
+                    tstart="INDEF",
+                    tstop="INDEF",
+                    clobber="YES",
+                    timebinalg="uniform",
+                )
 
             else:
                 self.dph_input_dict = input_dict
@@ -78,13 +149,14 @@ class BatDPH(BatObservation):
 
             # make sure that this calculation ran successfully
             if self.bat_dph_result.returncode != 0:
-                raise RuntimeError(f'The creation of the DPH failed with message: {self.bat_dph_result.output}')
+                raise RuntimeError(
+                    f"The creation of the DPH failed with message: {self.bat_dph_result.output}"
+                )
 
         else:
             self.dph_input_dict = None
 
         self._parse_dph_file()
-
 
     @classmethod
     def from_file(cls, dph_file, event_file=None):
@@ -100,13 +172,15 @@ class BatDPH(BatObservation):
         dph_file = Path(dph_file).expanduser().resolve()
 
         if not dph_file.exists():
-            raise ValueError(f"The specified DPH file {dph_file} does not seem to exist. "
-                             f"Please double check that it does.")
+            raise ValueError(
+                f"The specified DPH file {dph_file} does not seem to exist. "
+                f"Please double check that it does."
+            )
 
         # also make sure that the file is gunzipped which is necessary the user wants to do spectral fitting
         if ".gz" in dph_file.suffix:
-            with gzip.open(dph_file, 'rb') as f_in:
-                with open(dph_file.parent.joinpath(dph_file.stem), 'wb') as f_out:
+            with gzip.open(dph_file, "rb") as f_in:
+                with open(dph_file.parent.joinpath(dph_file.stem), "wb") as f_out:
                     shutil.copyfileobj(f_in, f_out)
             dph_file = dph_file.parent.joinpath(dph_file.stem)
 
@@ -138,7 +212,9 @@ class BatDPH(BatObservation):
         # read in the data and save to data attribute which is a dictionary of the column names as keys and the numpy
         # arrays as values
         self.data = {}
-        data_columns = [i for i in data.columns if i.name not in self._exclude_data_cols]
+        data_columns = [
+            i for i in data.columns if i.name not in self._exclude_data_cols
+        ]
         for i in data_columns:
             try:
                 self.data[i.name] = u.Quantity(data[i.name], i.unit)
@@ -166,9 +242,11 @@ class BatDPH(BatObservation):
         # now do the time bins for the dphs
         self.tbins["TIME_START"] = self.data["TIME"]
         self.tbins["TIME_STOP"] = self.data["TIME"] + self.data["EXPOSURE"]
-        self.tbins["TIME_CENT"] = 0.5 * (self.tbins["TIME_START"] + self.tbins["TIME_STOP"])
+        self.tbins["TIME_CENT"] = 0.5 * (
+                self.tbins["TIME_START"] + self.tbins["TIME_STOP"]
+        )
 
-        #properly format the DPH
+        # properly format the DPH
         self._format_dph()
 
         # if self.dph_input_dict ==None, then we will need to try to read in the hisotry of parameters passed into
@@ -217,7 +295,7 @@ class BatDPH(BatObservation):
 
         if self.dph_input_dict is None:
             # get the default names of the parameters for batbinevt including its name 9which should never change)
-            test = hsp.HSPTask('batbinevt')
+            test = hsp.HSPTask("batbinevt")
             default_params_dict = test.default_params.copy()
             taskname = test.taskname
             start_processing = None
@@ -238,7 +316,9 @@ class BatDPH(BatObservation):
                     parameter = values[1]
                     if "=" not in values:
                         # this belongs with the previous parameter and is a line continuation
-                        default_params_dict[old_parameter] = default_params_dict[old_parameter] + values[-1]
+                        default_params_dict[old_parameter] = (
+                                default_params_dict[old_parameter] + values[-1]
+                        )
                         # assume that we need to keep appending to the previous parameter
                     else:
                         default_params_dict[parameter] = values[-1]
@@ -247,8 +327,10 @@ class BatDPH(BatObservation):
 
             self.dph_input_dict = default_params_dict.copy()
 
-    @u.quantity_input(tmin=['time'], tmax=['time'], emin=['energy'], emax=['energy'])
-    def _format_dph(self, tmin=None, tmax=None, emin=None, emax=None, input_histogram=None):
+    @u.quantity_input(tmin=["time"], tmax=["time"], emin=["energy"], emax=["energy"])
+    def _format_dph(
+            self, tmin=None, tmax=None, emin=None, emax=None, input_histogram=None
+    ):
         """
         This method properly formats the DPH into a Histpy histogram which allows for easy manipulation. By default, if
         the input histogram is specified and has no units, it is assumed that it has the same units as the original
@@ -259,59 +341,66 @@ class BatDPH(BatObservation):
         """
 
         # convert the actual DPH to a Histogram object for easy manipulation
-        #first do error checking
+        # first do error checking
         if tmin is None and tmax is None:
-            tmin=self.tbins["TIME_START"]
-            tmax=self.tbins["TIME_STOP"]
+            tmin = self.tbins["TIME_START"]
+            tmax = self.tbins["TIME_STOP"]
         elif tmin is not None and tmax is not None:
-            tmin=tmin
-            tmax=tmax
+            tmin = tmin
+            tmax = tmax
         else:
-            raise ValueError("tmin and tmax must either both be None or both be specified.")
+            raise ValueError(
+                "tmin and tmax must either both be None or both be specified."
+            )
 
         if emin is None and emax is None:
-            emin=self.ebins["E_MIN"]
-            emax=self.ebins["E_MAX"]
+            emin = self.ebins["E_MIN"]
+            emax = self.ebins["E_MAX"]
         elif emin is not None and emax is not None:
-            emin=emin
-            emax=emax
+            emin = emin
+            emax = emax
         else:
-            raise ValueError("emin and emax must either both be None or both be specified.")
+            raise ValueError(
+                "emin and emax must either both be None or both be specified."
+            )
 
         if input_histogram is None:
-            hist=self.data["DPH_COUNTS"]
+            hist = self.data["DPH_COUNTS"]
         else:
-            hist=input_histogram
+            hist = input_histogram
 
-        #save the old unit incase we need it
+        # save the old unit incase we need it
         old_hist_unit = self.data["DPH_COUNTS"].unit
 
-        #now calculate edges for histogram
-        time_edges=np.zeros(tmin.size+1)*tmin.unit
-        time_edges[:tmin.size]=tmin
-        time_edges[-1]=tmax[-1]
+        # now calculate edges for histogram
+        time_edges = np.zeros(tmin.size + 1) * tmin.unit
+        time_edges[: tmin.size] = tmin
+        time_edges[-1] = tmax[-1]
 
-        energy_edges=np.zeros(emin.size+1)*emin.unit
-        energy_edges[:emin.size]=emin
-        energy_edges[-1]=emax[-1]
+        energy_edges = np.zeros(emin.size + 1) * emin.unit
+        energy_edges[: emin.size] = emin
+        energy_edges[-1] = emax[-1]
 
-        det_x_edges=np.arange(hist.shape[2]+1)-0.5
-        det_y_edges=np.arange(hist.shape[1]+1)-0.5
+        det_x_edges = np.arange(hist.shape[2] + 1) - 0.5
+        det_y_edges = np.arange(hist.shape[1] + 1) - 0.5
 
-        #note that the histogram tiem binnings may not be continuous in time (due to good time intervals not being contiguous)
-        self.data["DPH_COUNTS"] = Histogram([time_edges,det_y_edges,det_x_edges,energy_edges], contents=hist, labels=["TIME", "DETY", "DETX", "ENERGY"])
+        # note that the histogram tiem binnings may not be continuous in time (due to good time intervals not being contiguous)
+        self.data["DPH_COUNTS"] = Histogram(
+            [time_edges, det_y_edges, det_x_edges, energy_edges],
+            contents=hist,
+            labels=["TIME", "DETY", "DETX", "ENERGY"],
+        )
 
-        #make sure that we have units
+        # make sure that we have units
         if self.data["DPH_COUNTS"].unit is None:
             self.data["DPH_COUNTS"] *= old_hist_unit
 
-        #can try this but it is weird to have DPH where it is a list of histograms for plotting and accessing data
-        #for i, tstart, tend in zip(np.arange(self.tbins["TIME_START"].size), self.tbins["TIME_START"], self.tbins["TIME_STOP"]):
+        # can try this but it is weird to have DPH where it is a list of histograms for plotting and accessing data
+        # for i, tstart, tend in zip(np.arange(self.tbins["TIME_START"].size), self.tbins["TIME_START"], self.tbins["TIME_STOP"]):
         #    h=Histogram([[tstart, tend],det_y_edges,det_x_edges,energy_edges], contents=self.data["DPH_COUNTS"][i,:,:,:], labels=["TIME", "DETY", "DETX", "ENERGY"])
         #    self.data["DPH_COUNTS"].append(h)
 
-
-    @u.quantity_input(emin=['energy'], emax=['energy'], tmin=['time'], tmax=['time'])
+    @u.quantity_input(emin=["energy"], emax=["energy"], tmin=["time"], tmax=["time"])
     def plot(self, emin=None, emax=None, tmin=None, tmax=None, plot_rate=False):
         """
         This method allows the user to conveniently plot the DPH for a single energy bin and time interval.
@@ -328,8 +417,12 @@ class BatDPH(BatObservation):
             plot_emin = emin
             plot_emax = emax
         else:
-            raise ValueError("emin and emax must either both be None or both be specified.")
-        plot_e_idx = np.where((self.ebins["E_MIN"] >= plot_emin) & (self.ebins["E_MAX"] <= plot_emax))[0]
+            raise ValueError(
+                "emin and emax must either both be None or both be specified."
+            )
+        plot_e_idx = np.where(
+            (self.ebins["E_MIN"] >= plot_emin) & (self.ebins["E_MAX"] <= plot_emax)
+        )[0]
 
         if tmin is None and tmax is None:
             plot_tmin = self.tbins["TIME_START"].min()
@@ -338,8 +431,13 @@ class BatDPH(BatObservation):
             plot_tmin = tmin
             plot_tmax = tmax
         else:
-            raise ValueError("tmin and tmax must either both be None or both be specified.")
-        plot_t_idx = np.where((self.tbins["TIME_START"] >= plot_tmin) & (self.tbins["TIME_STOP"] <= plot_tmax))[0]
+            raise ValueError(
+                "tmin and tmax must either both be None or both be specified."
+            )
+        plot_t_idx = np.where(
+            (self.tbins["TIME_START"] >= plot_tmin)
+            & (self.tbins["TIME_STOP"] <= plot_tmax)
+        )[0]
 
         # now start to accumulate the DPH counts based on the time and energy range that we care about
         plot_data = self.data["DPH_COUNTS"][plot_t_idx, :, :, :]
@@ -347,15 +445,18 @@ class BatDPH(BatObservation):
         if len(plot_t_idx) > 0:
             plot_data = plot_data.sum(axis=0)
         else:
-            raise ValueError(f"There are no DPH time bins that fall between {plot_tmin} and {plot_tmax}")
+            raise ValueError(
+                f"There are no DPH time bins that fall between {plot_tmin} and {plot_tmax}"
+            )
 
         plot_data = plot_data[:, :, plot_e_idx]
 
         if len(plot_e_idx) > 0:
             plot_data = plot_data.sum(axis=-1)
         else:
-            raise ValueError(f"There are no DPH energy bins that fall between {plot_emin} and {plot_emax}")
-
+            raise ValueError(
+                f"There are no DPH energy bins that fall between {plot_emin} and {plot_emax}"
+            )
 
         if plot_rate:
             # calcualte the totoal exposure
@@ -368,19 +469,27 @@ class BatDPH(BatObservation):
 
         fig, ax = plt.subplots()
         divider = make_axes_locatable(ax)
-        cax = divider.append_axes('right', size='5%', pad=0.05)
+        cax = divider.append_axes("right", size="5%", pad=0.05)
 
-        cmap = mpl.colormaps.get_cmap('viridis')
-        cmap.set_bad(color='k')
+        cmap = mpl.colormaps.get_cmap("viridis")
+        cmap.set_bad(color="k")
 
-        im = ax.imshow(plot_data.value, origin="lower", interpolation='none', cmap=cmap)
+        im = ax.imshow(plot_data.value, origin="lower", interpolation="none", cmap=cmap)
 
-        fig.colorbar(im, cax=cax, orientation='vertical', label=plot_data.unit)
+        fig.colorbar(im, cax=cax, orientation="vertical", label=plot_data.unit)
 
         return fig, ax
 
-    @u.quantity_input(timebins=['time'], tmin=['time'], tmax=['time'])
-    def set_timebins(self, timebins=None, tmin=None, tmax=None, T0=None, is_relative=False, savefile=False):
+    @u.quantity_input(timebins=["time"], tmin=["time"], tmax=["time"])
+    def set_timebins(
+            self,
+            timebins=None,
+            tmin=None,
+            tmax=None,
+            T0=None,
+            is_relative=False,
+            savefile=False,
+    ):
         """
         This method allows for the DPHs to be rebinned to different time binnings. The exposure time accounts for
         good time intervals that are added together. The timebins must exist in the original DPH that is being rebinned.
@@ -391,41 +500,47 @@ class BatDPH(BatObservation):
         (assuming that the to_fits() method, with overwrite=True, was not called after the set_timebins() method was called).
         """
 
-        #first make sure that we have a time binning axis of our histogram
-        if "TIME" not in self.data["DPH_COUNTS"].axes.labels or self.data["DPH_COUNTS"].axes["TIME"].nbins == 1:
-            raise ValueError("The DPH either has  not timing information or there is only one time bin which means that"
-                             "the DPH cannot be rebinned in time.")
+        # first make sure that we have a time binning axis of our histogram
+        if (
+                "TIME" not in self.data["DPH_COUNTS"].axes.labels
+                or self.data["DPH_COUNTS"].axes["TIME"].nbins == 1
+        ):
+            raise ValueError(
+                "The DPH either has  not timing information or there is only one time bin which means that"
+                "the DPH cannot be rebinned in time."
+            )
 
-        #create a copy of the timebins if it is not None to prevent modifying the original array
+        # create a copy of the timebins if it is not None to prevent modifying the original array
         if timebins is not None:
-            timebins=timebins.copy()
+            timebins = timebins.copy()
 
-            tmin=timebins[:-1]
-            tmax=timebins[1:]
+            tmin = timebins[:-1]
+            tmax = timebins[1:]
 
-        #check the inputs
+        # check the inputs
         # error checking for calc_energy_integrated
         if type(is_relative) is not bool:
             raise ValueError("The is_relative parameter should be a boolean value.")
 
         # test if is_relative is false and make sure that T0 is defined
         if is_relative and T0 is None:
-            raise ValueError('The is_relative value is set to True however there is no T0 that is defined ' +
-                             '(ie the time from which the time bins are defined relative to is not specified).')
+            raise ValueError(
+                "The is_relative value is set to True however there is no T0 that is defined "
+                + "(ie the time from which the time bins are defined relative to is not specified)."
+            )
 
         # do error checking on tmin/tmax
         if (tmin is None and tmax is not None) or (tmax is None and tmin is not None):
-            raise ValueError('Both tmin and tmax must be defined.')
-
+            raise ValueError("Both tmin and tmax must be defined.")
 
         if tmin is not None and tmax is not None:
             if tmin.size != tmax.size:
-                raise ValueError('Both tmin and tmax must have the same length.')
+                raise ValueError("Both tmin and tmax must have the same length.")
 
-        #make sure that tmin/tmax can be iterated over
+        # make sure that tmin/tmax can be iterated over
         if tmin.shape == ():
-            tmin=u.Quantity([tmin])
-            tmax=u.Quantity([tmax])
+            tmin = u.Quantity([tmin])
+            tmax = u.Quantity([tmax])
 
         # See if we need to add T0 to everything
         if is_relative:
@@ -437,49 +552,54 @@ class BatDPH(BatObservation):
                 tmin += T0 * u.s
                 tmax += T0 * u.s
 
-        #make sure that the times exist in the array of timebins that the DPH has been binned into
-        for s,e in zip(tmin, tmax):
-            if not np.all(np.in1d(s, self.tbins["TIME_START"])) or not np.all(np.in1d(e, self.tbins["TIME_STOP"])):
-                raise ValueError(f"The requested time binning from {s}-{e} is not encompassed by the current timebins "
-                                 f"of the loaded DPH. Please choose the closest TIME_START and TIME_STOP values from"
-                                 f" the tbin attribute")
+        # make sure that the times exist in the array of timebins that the DPH has been binned into
+        for s, e in zip(tmin, tmax):
+            if not np.all(np.in1d(s, self.tbins["TIME_START"])) or not np.all(
+                    np.in1d(e, self.tbins["TIME_STOP"])
+            ):
+                raise ValueError(
+                    f"The requested time binning from {s}-{e} is not encompassed by the current timebins "
+                    f"of the loaded DPH. Please choose the closest TIME_START and TIME_STOP values from"
+                    f" the tbin attribute"
+                )
 
-
-        #do the rebinning along those dimensions and modify the appropriate attibutes. We cannot use the normal
+        # do the rebinning along those dimensions and modify the appropriate attibutes. We cannot use the normal
         # Histogram methods since we dont have continuous time bins. If needed, can ensure that only the good DPHs are
-        #included in the rebinning
-        new_hist_size=(len(tmin), *self.data["DPH_COUNTS"].nbins[1:])
-        histograms=np.zeros(new_hist_size)
-        new_data=dict.fromkeys([i for i in self.data.keys() if "DPH_COUNTS" not in i])
+        # included in the rebinning
+        new_hist_size = (len(tmin), *self.data["DPH_COUNTS"].nbins[1:])
+        histograms = np.zeros(new_hist_size)
+        new_data = dict.fromkeys([i for i in self.data.keys() if "DPH_COUNTS" not in i])
         for key in new_data:
-            new_data[key]=np.zeros(len(tmin))
+            new_data[key] = np.zeros(len(tmin))
 
         for i, s, e in zip(np.arange(tmin.size), tmin, tmax):
-            idx = np.where((self.tbins["TIME_START"] >= s) & (self.tbins["TIME_STOP"] <= e))[0]
-            histograms[i,:]=self.data["DPH_COUNTS"][idx].sum(axis=0)
+            idx = np.where(
+                (self.tbins["TIME_START"] >= s) & (self.tbins["TIME_STOP"] <= e)
+            )[0]
+            histograms[i, :] = self.data["DPH_COUNTS"][idx].sum(axis=0)
 
-            #fill in the other key/value pairs where the values are astropy quantities
+            # fill in the other key/value pairs where the values are astropy quantities
             for key in new_data.keys():
-                new_data[key][i]=np.sum(self.data[key][idx].value)
+                new_data[key][i] = np.sum(self.data[key][idx].value)
 
-        #save the new time bins
-        self.tbins["TIME_START"]=tmin
-        self.tbins["TIME_STOP"]=tmax
-        self.tbins["TIME_CENT"]= 0.5 * (self.tbins[f"TIME_START"] + self.tbins[f"TIME_STOP"])
+        # save the new time bins
+        self.tbins["TIME_START"] = tmin
+        self.tbins["TIME_STOP"] = tmax
+        self.tbins["TIME_CENT"] = 0.5 * (
+                self.tbins[f"TIME_START"] + self.tbins[f"TIME_STOP"]
+        )
 
-
-        #save the final DPH as a Histogram object and the other modified data values
+        # save the final DPH as a Histogram object and the other modified data values
         for key in new_data.keys():
-             self.data[key]=new_data[key]*self.data[key].unit
+            self.data[key] = new_data[key] * self.data[key].unit
 
-        #the new self.tbins wil be used in this method by default when creating the histogram object
+        # the new self.tbins wil be used in this method by default when creating the histogram object
         self._format_dph(input_histogram=histograms)
 
         return None
 
-    @u.quantity_input(energybins=['energy'], emin=['energy'], emax=['energy'])
-    def set_energybins(self, energybins=None, emin=None, emax=None,
-                       savefile=False):
+    @u.quantity_input(energybins=["energy"], emin=["energy"], emax=["energy"])
+    def set_energybins(self, energybins=None, emin=None, emax=None, savefile=False):
         """
         This method allows for the DPH(s) to be rebinned to different energy binnings. Here we require the enerybins to
         be contiguous.
@@ -488,59 +608,65 @@ class BatDPH(BatObservation):
         has to be run first to correct for energy.
         """
 
-        #first make sure that we have a energy binning axis of our histogram
-        if "ENERGY" not in self.data["DPH_COUNTS"].axes.labels or self.data["DPH_COUNTS"].axes["ENERGY"].nbins == 1:
-            raise ValueError("The DPH either has  no energy information or there is only one energy bin which means that"
-                             "the DPH cannot be rebinned in energy.")
+        # first make sure that we have a energy binning axis of our histogram
+        if (
+                "ENERGY" not in self.data["DPH_COUNTS"].axes.labels
+                or self.data["DPH_COUNTS"].axes["ENERGY"].nbins == 1
+        ):
+            raise ValueError(
+                "The DPH either has  no energy information or there is only one energy bin which means that"
+                "the DPH cannot be rebinned in energy."
+            )
 
         # do error checking on tmin/tmax
         if (emin is None and emax is not None) or (emin is None and emax is not None):
-            raise ValueError('Both emin and emax must be defined.')
+            raise ValueError("Both emin and emax must be defined.")
 
         if emin is not None and emax is not None:
             if emin.size != emax.size:
-                raise ValueError('Both emin and emax must have the same length.')
+                raise ValueError("Both emin and emax must have the same length.")
         else:
             if energybins is not None:
                 # create a copy of the enerbins if it is not None to prevent modifying the original array
-                energybins=energybins.copy()
+                energybins = energybins.copy()
 
-                emin=energybins[:-1]
-                emax=energybins[1:]
+                emin = energybins[:-1]
+                emax = energybins[1:]
             else:
                 raise ValueError("No energy bins have been specified.")
 
-
-        #make sure that emin/emax can be iterated over
+        # make sure that emin/emax can be iterated over
         if emin.shape == ():
-            emin=u.Quantity([emin])
-            emax=u.Quantity([emax])
+            emin = u.Quantity([emin])
+            emax = u.Quantity([emax])
 
-        #make sure that the energies exist in the array of energybins that the DPH has been binned into
-        for s,e in zip(emin, emax):
-            if not np.all(np.in1d(s, self.ebins["E_MIN"])) or not np.all(np.in1d(e, self.ebins["E_MAX"])):
-                raise ValueError(f"The requested energy binning from {s}-{e} is not encompassed by the current energybins "
-                                 f"of the loaded DPH. Please choose the closest E_MIN and E_MAX values from"
-                                 f" the ebin attribute")
+        # make sure that the energies exist in the array of energybins that the DPH has been binned into
+        for s, e in zip(emin, emax):
+            if not np.all(np.in1d(s, self.ebins["E_MIN"])) or not np.all(
+                    np.in1d(e, self.ebins["E_MAX"])
+            ):
+                raise ValueError(
+                    f"The requested energy binning from {s}-{e} is not encompassed by the current energybins "
+                    f"of the loaded DPH. Please choose the closest E_MIN and E_MAX values from"
+                    f" the ebin attribute"
+                )
 
-
-        #do the rebinning along those dimensions, here dont need to modify the appropriate attibutes since they dont
+        # do the rebinning along those dimensions, here dont need to modify the appropriate attibutes since they dont
         # depend on energy. We cannot use the normal
         # Histogram methods since we may have non-uniform energy bins.
-        new_hist_size=(*self.data["DPH_COUNTS"].nbins[:-1], len(emin))
-        histograms=np.zeros(new_hist_size)
+        new_hist_size = (*self.data["DPH_COUNTS"].nbins[:-1], len(emin))
+        histograms = np.zeros(new_hist_size)
 
         for i, s, e in zip(np.arange(emin.size), emin, emax):
             idx = np.where((self.ebins["E_MIN"] >= s) & (self.ebins["E_MAX"] <= e))[0]
-            histograms[:,:,:,i]=self.data["DPH_COUNTS"][:,:,:,idx].sum(axis=-1)
+            histograms[:, :, :, i] = self.data["DPH_COUNTS"][:, :, :, idx].sum(axis=-1)
 
-        #set the new ebin attrubute
-        self.ebins["E_MIN"]=emin
-        self.ebins["E_MAX"]=emax
-        self.ebins["INDEX"]=np.arange(len(emin))+1
+        # set the new ebin attrubute
+        self.ebins["E_MIN"] = emin
+        self.ebins["E_MAX"] = emax
+        self.ebins["INDEX"] = np.arange(len(emin)) + 1
 
-
-        #the new self.ebins wil be used in this method by default when creating the histogram object
+        # the new self.ebins wil be used in this method by default when creating the histogram object
         self._format_dph(input_histogram=histograms)
 
         return None
@@ -551,37 +677,42 @@ class BatDPH(BatObservation):
         attribute is used.
         """
 
-        #get the defualt file name otherwise use what was passed in and expand to absolute path
+        # get the defualt file name otherwise use what was passed in and expand to absolute path
         if fits_filename is None and self.dph_file is not None:
-            fits_filename=self.dph_file
+            fits_filename = self.dph_file
         else:
             fits_filename = Path(fits_filename).expanduser().resolve()
 
         if fits_filename.exists():
             if overwrite:
                 with fits.open(test.dph_file, mode="update") as f:
-                    #code to modify the table here with times and DPHs
-                    #header = f[1].header
+                    # code to modify the table here with times and DPHs
+                    # header = f[1].header
                     data = f[1].data
-                    data_columns = [i for i in data.columns if i.name not in test._exclude_data_cols]
-                    temp_t_table = fits.FITS_rec.from_columns(data_columns, nrows=test.tbins["TIME_START"].size)
+                    data_columns = [
+                        i for i in data.columns if i.name not in test._exclude_data_cols
+                    ]
+                    temp_t_table = fits.FITS_rec.from_columns(
+                        data_columns, nrows=test.tbins["TIME_START"].size
+                    )
 
                     for i in data_columns:
                         if "DPH_COUNT" not in i.name:
-                            temp_t_table[i.name]=test.data[i.name]
+                            temp_t_table[i.name] = test.data[i.name]
                         else:
                             for time_idx in range(test.tbins["TIME_START"].size):
-                                temp_t_table[i.name][time_idx]=test.data[i.name][time_idx]
-
+                                temp_t_table[i.name][time_idx] = test.data[i.name][
+                                    time_idx
+                                ]
 
                     f[1].data = temp_t_table
 
-
-
-                    #code to modify the energy bins
+                    # code to modify the energy bins
                     energies = f["EBOUNDS"].data
-                    temp_energy = fits.FITS_rec.from_columns(energies.columns, nrows=test.ebins["E_MIN"].size)
-                    #energies_header = f["EBOUNDS"].header
+                    temp_energy = fits.FITS_rec.from_columns(
+                        energies.columns, nrows=test.ebins["E_MIN"].size
+                    )
+                    # energies_header = f["EBOUNDS"].header
                     for i in energies.columns:
                         if "CHANNEL" in i.name:
                             temp_energy[i.name] = test.ebins["INDEX"]
@@ -590,7 +721,7 @@ class BatDPH(BatObservation):
 
                     f["EBOUNDS"].data = temp_energy
 
-                    #code to modify the header info pertaining to the start/stop time
+                    # code to modify the header info pertaining to the start/stop time
                     for i in f:
                         i.header["TSTART"] = test.tbins["TIME_START"].min().value
                         i.header["TSTOP"] = test.tbins["TIME_STOP"].max().value
@@ -598,7 +729,8 @@ class BatDPH(BatObservation):
                     f.flush()
             else:
                 raise ValueError(
-                    f"The file {fits_filename} will not be overwritten if the overwrite parameter is not explicitly set to True.")
+                    f"The file {fits_filename} will not be overwritten if the overwrite parameter is not explicitly set to True."
+                )
         else:
             raise NotImplementedError("Saving to a new file is not yet implemented.")
 
@@ -626,8 +758,6 @@ class BatDPH(BatObservation):
             return hsp.batbinevt(**input_dict)
         except Exception as e:
             print(e)
-            raise RuntimeError(f"The call to Heasoft batbinevt failed with inputs {input_dict}.")
-
-
-
-
+            raise RuntimeError(
+                f"The call to Heasoft batbinevt failed with inputs {input_dict}."
+            )
