@@ -236,19 +236,23 @@ class DetectorPlaneHistogram(Histogram):
             self.ebins["E_MAX"] = energybin_edges[1:]
 
         if histogram_data is not None:
-            self._set_histogram(histogram_data=parse_data)
+            self._set_histogram(histogram_data=parse_data, weights=weights)
         else:
-            self._set_histogram(event_data=parse_data)
+            self._set_histogram(event_data=parse_data, weights=weights)
 
     def _set_histogram(self, histogram_data=None, event_data=None, weights=None):
         """
         This method properly initalizes the Histogram parent class. it uses the self.tbins and self.ebins information
         to define the time and energy binning for the histogram that is initalized.
 
-        :param histogram_data:
-        :param event_data:
-        :param weights:
-        :return:
+        :param histogram_data: None or histpy Histogram or a numpy array of N dimensions. Thsi should be formatted
+            such that it has the following dimensions: (T,Ny,Nx,E) where T is the number of timebins, Ny is the
+            number of detectors in the y direction see the det_x_edges class attribute, Nx represents an identical
+            quantity in the x direction, and E is the number of energy bins. These should be the appropriate sizes for
+            the tbins and ebins attributes
+        :param event_data: None or Event data dictionary or event data class (to be created)
+        :param weights: None or the weights of the same size as event_data or histogram_data
+        :return: None
         """
         # get the timebin edges
         timebin_edges = (
@@ -315,11 +319,16 @@ class DetectorPlaneHistogram(Histogram):
             tmax=None,
     ):
         """
+        This method rebins the histogram in time. Note: this doesnt properly take the weighting into account and will
+        need to be refined later on, ideally using the Histogram methods available.
 
-        :param timebins:
-        :param tmin:
-        :param tmax:
-        :return:
+        :param timebins: None or an astropy Quantity array of continuous timebin edges that the histogram will be
+            rebinned into
+        :param tmin: None or an astropy Quantity array of the starting time bin edges that the histogram will be
+            rebinned into
+        :param tmax: None or an astropy Quantity array of the end time bin edges that the histogram will be
+            rebinned into
+        :return: None
         """
 
         # first make sure that we have a time binning axis of our histogram
