@@ -320,7 +320,8 @@ class DetectorPlaneHistogram(Histogram):
     ):
         """
         This method rebins the histogram in time. Note: this doesnt properly take the weighting into account and will
-        need to be refined later on, ideally using the Histogram methods available.
+        need to be refined later on, ideally using the Histogram methods available. The tmin and tmax should be
+        specified if the timebinnings that are requested are not continuous.
 
         :param timebins: None or an astropy Quantity array of continuous timebin edges that the histogram will be
             rebinned into
@@ -407,11 +408,14 @@ class DetectorPlaneHistogram(Histogram):
     @u.quantity_input(energybins=["energy"], emin=["energy"], emax=["energy"])
     def set_energybins(self, energybins=None, emin=None, emax=None):
         """
-        This method allows for the DPH(s) to be rebinned to different energy binnings. Here we require the enerybins to
-        be contiguous.
+        This method allows for the histogram to be rebinned to different energy binnings.
+        If the specified energy ranges are not continuous, it is better to specify emin and emax.
 
-        Could have energybins=[14.0, 20.0, 24.0, 35.0, 50.0, 75.0, 100.0, 150.0, 195.0]*u.keV, but the erebin batsurvey
-        has to be run first to correct for energy.
+        :param energybins: None or an astropy Quantity array of the continuous energy bin edges, should be size E+1
+            in size
+        :param emin: None or an astropy Quantity array of the beginning of the energy bins
+        :param emax: None or an astropy Quantity array of the end of the energy bins
+        :return: None
         """
 
         # first make sure that we have a energy binning axis of our histogram
@@ -477,11 +481,22 @@ class DetectorPlaneHistogram(Histogram):
     @u.quantity_input(emin=["energy"], emax=["energy"], tmin=["time"], tmax=["time"])
     def plot(self, emin=None, emax=None, tmin=None, tmax=None, plot_rate=False):
         """
-        This method allows the user to conveniently plot the DPH for a single energy bin and time interval.
+        This method allows the user to conveniently plot the histogram for a single energy bin and time interval.
+        Any detectors with 0 counts (due to detectors being off or due to there being no detectors in the specified
+        DETX and DETY coordinates) are blacked out.
 
-        :param emin:
-        :param emax:
-        :return:
+        By default, the histogram is binned along the energy and time axes. This behavior can be changed by specifying
+        emin/emax and/or tmin/tmax. These values should all exist in the ebins and tbins attributes.
+
+        :param emin: None or an astropy Quantity array of the beginning of the energy bins
+        :param emax: None or an astropy Quantity array of the end of the energy bins
+        :param tmin: None or an astropy Quantity array of the starting time bin edges that the histogram will be
+            rebinned into
+        :param tmax: None or an astropy Quantity array of the end time bin edges that the histogram will be
+            rebinned into
+        :param plot_rate: Boolean to denote if the count rate should be plotted. The histogram gets divided by the
+            exposure time of the plotted histogram
+        :return: matplotlib figure and axis for the plotted histogram
         """
 
         if emin is None and emax is None:
