@@ -31,6 +31,7 @@ class DetectorPlaneHistogram(Histogram):
     rebinning of data in space, time, and/or energy.
     """
 
+    # these are the edges of detectors including the spaces between detector modules
     det_x_edges = np.arange(286 + 1) - 0.5
     det_y_edges = np.arange(173 + 1) - 0.5
 
@@ -56,23 +57,32 @@ class DetectorPlaneHistogram(Histogram):
     ):
         """
         This class can be initiated from individual event data that gets histogrammed in space/time/energy. It can be
-        initalized from a default BAT DPH.
+        initalized from a prebinned detector plane histogram as well. The class will save the timebins for the
+        histograms and any timebins that may be missing from a continuous set of timebins will be filled in with
+        histograms of all zeros for those points. These times will not show up in the gti attribute.
 
-        By default, the spatial binning is in the detector x and y bins specified with the class det_x_edges and
-        det_y_edges.
+        When event data is passed in, the default bining is a single time bin from the smallest time of the event data
+        to the largest time of the event data. The energy binning by default will be a single energy bin for the min/max
+        event energy. (Thus, care will need to be taken when event data is passed in to initalize this object and it
+        has not been filtered).
 
-        The times/energybins do not need to be continuous but the constructor will create timebins/energybins for the
-        unspecified times where the count across the detector plane is 0
+        By default, the spatial binning is in the detector x and y bins specified with the class attributes
+        det_x_edges and det_y_edges.
 
-        :param event_data:
-        :param histogram_data:
-        :param timebins:
-        :param tmin:
-        :param tmax:
-        :param energybins:
-        :param emin:
-        :param emax:
-        :param weights:
+
+        :param event_data: None or Event data dictionary or event data class (to be created)
+        :param histogram_data: None or histpy Histogram or a numpy array of N dimensions. Thsi should be formatted
+            such that it has the following dimensions: (T,Ny,Nx,E) where T is the number of timebins, Ny is the
+            number of detectors in the y direction see the det_x_edges class attribute, Nx represents an identical
+            quantity in the x direction, and E is the number of energy bins
+        :param timebins: None or a numpy array of continuous timebin edges, should be T+1 in size
+        :param tmin: None or an astropy Quantity array of the beginning timebin edges, should be length T in size
+        :param tmax: None or an astropy Quantity array of the end timebin edges, should be length T in size
+        :param energybins: None or an astropy Quantity array of the continuous energy bin edges, should be size E+1
+            in size
+        :param emin: None or an or an astropy Quantity array of the beginning of the energy bins
+        :param emax: None or an or an astropy Quantity array of the end of the energy bins
+        :param weights: None or the weights of the same size as event_data or histogram_data
         """
 
         # do some error checking
@@ -115,6 +125,11 @@ class DetectorPlaneHistogram(Histogram):
         elif timebins is not None:
             timebin_edges = timebins
         else:
+            # make sure that tmin/tmax can be iterated over
+            if tmin.isscalar:
+                tmin = u.Quantity([tmin])
+                tmax = u.Quantity([tmax])
+
             # need to determine if the timebins are contiguous
             if np.all(tmin[1:] == tmax[:-1]):
                 # if all the timebins are not continuous, then need to add buffer timebins to make them so
@@ -157,6 +172,11 @@ class DetectorPlaneHistogram(Histogram):
         elif energybins is not None:
             energybin_edges = energybins
         else:
+            # make sure that emin/emax can be iterated over
+            if emin.isscalar:
+                emin = u.Quantity([emin])
+                emax = u.Quantity([emax])
+
             # need to determine if the energybins are contiguous
             if np.all(emin[1:] == emax[:-1]):
                 # if all the energybins are not continuous combine them directly
@@ -577,11 +597,12 @@ class BatDPH(DetectorPlaneHistogram):
                 )
         else:
             self.event_file = None
-            warnings.warn(
-                "No event file has been specified. The resulting DPH object will not be able "
-                "to be arbitrarily modified either by rebinning in energy or time.",
-                stacklevel=2,
-            )
+            if event_data is None:
+                warnings.warn(
+                    "No event file has been specified. The resulting DPH object will not be able "
+                    "to be arbitrarily modified either by rebinning in energy or time.",
+                    stacklevel=2,
+                )
 
         # if ther is event data passed in then we can directly bin that otherwise need to see if we have to create a DPH
         # or load one in
