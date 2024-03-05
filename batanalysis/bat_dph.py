@@ -358,6 +358,14 @@ class DetectorPlaneHistogram(Histogram):
                 self.tbins[f"TIME_START"] + self.tbins[f"TIME_STOP"]
         )
 
+        # get the intersection with the good time intervals for us to keep track
+        idx = np.where(
+            (self.tbins["TIME_START"] <= self.gti["TIME_STOP"])
+            & (self.tbins["TIME_STOP"] >= self.gti["TIME_STOP"])
+        )
+        for i in self.gti.keys():
+            self.gti[i] = self.gti[i][idx]
+
         # now we can reinitalize the info
         self._set_histogram(histogram_data=histograms)
 
