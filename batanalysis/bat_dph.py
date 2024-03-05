@@ -242,6 +242,8 @@ class DetectorPlaneHistogram(Histogram):
 
     def _set_histogram(self, histogram_data=None, event_data=None, weights=None):
         """
+        This method properly initalizes the Histogram parent class. it uses the self.tbins and self.ebins information
+        to define the time and energy binning for the histogram that is initalized.
 
         :param histogram_data:
         :param event_data:
