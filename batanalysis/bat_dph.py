@@ -572,8 +572,9 @@ class DetectorPlaneHistogram(Histogram):
 
 class BatDPH(DetectorPlaneHistogram):
     """
-    This class encapsulates the BAT detector plane historgrams (DPH) that are collected onboard. It also allows for the
-    creation of a DPH from event data and rebinning in time/energy.
+    This class encapsulates the BAT detector plane histograms (DPH) that are collected onboard. It also allows for the
+    creation of a DPH from event data and rebinning in time/energy since it inherits properties from the
+    DetectorPlaneHistogram class.
 
     TODO: to get DPI need to apply batsurvey-erebin and baterebin and select good time intervals batsurvey-gti
     """
@@ -596,7 +597,6 @@ class BatDPH(DetectorPlaneHistogram):
             event_data=None,
             input_dict=None,
             recalc=False,
-            verbose=False,
             load_dir=None,
             tmin=None,
             tmax=None,
@@ -604,9 +604,38 @@ class BatDPH(DetectorPlaneHistogram):
             emax=None,
     ):
         """
+        This method initalizes the Detector Plane Histogram (DPH) data product. This can be initalized based on the
+        creation of a DPH using heasoftpy's batbinevt or the direct binning of event data.
 
-        :param dph_file:
-        :param event_file:
+        :param dph_file: None or Pathlib Path object for the full path to a DPH file that will be created with a call to heasoftpy's
+            babinevt
+        :param event_file: None or path object of the event file that will be rebinned in a call to heasoftpy batbinevt
+        :param event_data: None or Event data dictionary or event data class (to be created)
+        :param input_dict: None or a dict of values that will be passed to batbinevt in the creation of the DPH.
+            If a DPH is being read in from one that was previously created, the prior parameters that were used to
+            calculate the DPH will be read in.
+            If input_dict is None then it is set to
+                dict(
+                        infile=str(event_file),
+                        outfile=str(dph_file),
+                        outtype="DPH",
+                        energybins="14-195",
+                        weighted="NO",
+                        timedel=0,
+                        tstart="INDEF",
+                        tstop="INDEF",
+                        clobber="YES",
+                        timebinalg="uniform",
+                    )
+            by default which accumulates a histogram in an energy range of 14-195 keV and the start and end time of the
+            event data.
+        :param recalc: Boolean to denote if the DPH specified by dph_file should be recalculated with the
+            input_dict values (either those passed in or those that are defined by default)
+        :param load_dir: Path of the directory that holds the DPH file that will be loaded in
+        :param tmin: None or an astropy Quantity array of the beginning timebin edges
+        :param tmax: None or an astropy Quantity array of the end timebin edges
+        :param emin: None or an or an astropy Quantity array of the beginning of the energy bins
+        :param emax: None or an or an astropy Quantity array of the end of the energy bins
         """
 
         if dph_file is not None:
