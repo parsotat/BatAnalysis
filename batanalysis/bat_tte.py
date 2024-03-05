@@ -27,16 +27,57 @@ except ModuleNotFoundError as err:
     # Error handling
     print(err)
 
-    # class EventData:
+
+class TimeTaggedEvents(object):
     """
     This class encapsulates the event data that is obtained by the BAT instrument.
     """
 
+    def __init__(
+            self,
+            times,
+            detector_id,
+            detx,
+            dety,
+            quality_flag,
+            energy,
+            pulse_height_amplitude,
+            pulse_invariant,
+            mask_weight=None,
+    ):
+        """
+        This initalizes the TimeTaggedEvent class and allows for the data to be accessed easily.
 
-#    def __init__(self):
+        :param times:
+        :param detector_id:
+        :param detx:
+        :param dety:
+        :param quality_flag:
+        :param energy:
+        :param pulse_height_amplitude:
+        :param pulse_invariant:
+        :param mask_weight:
+        """
+
+        self.time = times
+        self.detector_id = detector_id
+        self.detx = detx
+        self.dety = dety
+        self.quality_flag = quality_flag
+        self.energy = energy
+        self.pha = pulse_height_amplitude
+        self.pi = pulse_invariant
+        self.mask_weight = mask_weight
+
+        # get the block/DM/sandwich/channel info
+        block, dm, side, channel = decompose_det_id(self.data["DET_ID"])
+        self.detector_block = block
+        self.detector_dm = dm
+        self.detector_sand = side
+        self.detector_chan = channel
 
 
-class BatEvent(BatObservation):
+class BatEvent(BatObservation, TimeTaggedEvents):
     def __init__(
             self,
             obs_id,
@@ -55,7 +96,7 @@ class BatEvent(BatObservation):
             obs_id = f"{int(obs_id)}"
 
         # initialize super class
-        super().__init__(obs_id, obs_dir)
+        super(BatEvent, self).__init__(obs_id, obs_dir)
 
         # See if a loadfile exists, if we dont want to recalcualte everything, otherwise remove any load file and
         # .batsurveycomplete file (this is produced only if the batsurvey calculation was completely finished, and thus
@@ -381,12 +422,18 @@ class BatEvent(BatObservation):
             for i in data.columns:
                 self.data[i.name] = u.Quantity(data[i.name], i.unit)
 
-        # get the block/DM/sandwich/channel info
-        block, dm, side, channel = decompose_det_id(self.data["DET_ID"])
-        self.data["DET_BLOCK"] = block
-        self.data["DET_DM"] = dm
-        self.data["DET_SAND"] = side
-        self.data["DET_CHAN"] = channel
+        TimeTaggedEvents.__init__(
+            self,
+            self.data["TIME"],
+            self.data["DET_ID"],
+            self.data["DETX"],
+            self.data["DETY"],
+            self.data["EVENT_FLAGS"],
+            self.data["ENERGY"],
+            self.data["PHA"],
+            self.data["PI"],
+            mask_weight=self.data["MASK_WEIGHT"],
+        )
 
     def load(self, f):
         """

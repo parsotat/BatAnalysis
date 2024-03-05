@@ -745,11 +745,11 @@ class BatDPH(DetectorPlaneHistogram):
 
     def _parse_dph_file(self):
         """
-        This method parses through a pha file that has been created by batbinevent. The information included in
-        the pha file is read into the RA/DEC attributes (and checked to make sure that this is the pha that
-        the user wants to load in), the data attribute (which holds the pha information itself including rates/counts,
+        This method parses through a dph file that has been created by batbinevent. The information included in
+        the dph file is read into the data attribute (which holds the dph information itself,
         errors,  etc), the ebins attribute which holds the energybins associated with
-        the pha file, the tbins attibute with the time bin edges and the time bin centers
+        the dph file, the tbins attibute with the time bin edges and the time bin centers of the dph, the gti attribute
+        which highlights the true times when the DPH data is good.
 
         NOTE: A special value of timepixr=-1 (the default used when constructing light curves) specifies that
               timepixr=0.0 for uniformly binned light curves and
@@ -886,6 +886,13 @@ class BatDPH(DetectorPlaneHistogram):
 
     @u.quantity_input(energybins=["energy"], emin=["energy"], emax=["energy"])
     def set_energybins(self, energybins=None, emin=None, emax=None):
+        """
+
+        :param energybins:
+        :param emin:
+        :param emax:
+        :return:
+        """
         super().set_energybins(energybins=energybins, emin=emin, emax=emax)
 
         # if we have event data that is binned directly we dont have the data attribute
@@ -896,6 +903,13 @@ class BatDPH(DetectorPlaneHistogram):
 
     @u.quantity_input(timebins=["time"], tmin=["time"], tmax=["time"])
     def set_timebins(self, timebins=None, tmin=None, tmax=None):
+        """
+
+        :param timebins:
+        :param tmin:
+        :param tmax:
+        :return:
+        """
         super().set_timebins(timebins=timebins, tmin=tmin, tmax=tmax)
 
         # if we have event data that is binned directly we dont have the data attribute
@@ -914,6 +928,10 @@ class BatDPH(DetectorPlaneHistogram):
         """
         This method allows the user to save the rebinned DPH to a file. If no file is specified, then the dph_file
         attribute is used.
+
+        :param fits_filename:
+        :param overwrite:
+        :return:
         """
 
         # get the defualt file name otherwise use what was passed in and expand to absolute path
