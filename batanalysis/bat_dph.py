@@ -18,8 +18,6 @@ from astropy.io import fits
 from histpy import Histogram
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
-from .batobservation import BatObservation
-
 try:
     import heasoftpy as hsp
 except ModuleNotFoundError as err:
@@ -351,7 +349,7 @@ class DetectorPlaneHistogram(Histogram):
             idx = np.where(
                 (self.tbins["TIME_START"] >= s) & (self.tbins["TIME_STOP"] <= e)
             )[0]
-            histograms[i, :] = self.data[idx].sum(axis=0)
+            histograms[i, :] = self.contents[idx].sum(axis=0)
 
         # save the new time bins
         self.tbins["TIME_START"] = tmin
@@ -366,7 +364,7 @@ class DetectorPlaneHistogram(Histogram):
         return None
 
     @u.quantity_input(energybins=["energy"], emin=["energy"], emax=["energy"])
-    def set_energybins(self, energybins=None, emin=None, emax=None, savefile=False):
+    def set_energybins(self, energybins=None, emin=None, emax=None):
         """
         This method allows for the DPH(s) to be rebinned to different energy binnings. Here we require the enerybins to
         be contiguous.
@@ -423,7 +421,7 @@ class DetectorPlaneHistogram(Histogram):
 
         for i, s, e in zip(np.arange(emin.size), emin, emax):
             idx = np.where((self.ebins["E_MIN"] >= s) & (self.ebins["E_MAX"] <= e))[0]
-            histograms[:, :, :, i] = self.data[:, :, :, idx].sum(axis=-1)
+            histograms[:, :, :, i] = self.contents[:, :, :, idx].sum(axis=-1)
 
         # set the new ebin attrubute
         self.ebins["E_MIN"] = emin
@@ -516,7 +514,7 @@ class DetectorPlaneHistogram(Histogram):
         return fig, ax
 
 
-class BatDPH(BatObservation):
+class BatDPH(DetectorPlaneHistogram):
     """
     This class encapsulates the BAT detector plane historgrams (DPH) that are collected onboard. It also allows for the
     creation of a DPH from event data and rebinning in time/energy.
@@ -606,6 +604,15 @@ class BatDPH(BatObservation):
 
         self._parse_dph_file()
 
+        # properly format the DPH here the tbins and ebins attributes get overwritten but we dont care
+        super().__init__(
+            tmin=self.tbins["TIME_START"],
+            tmax=self.tbins["TIME_STOP"],
+            histogram_data=self.data["DPH_COUNTS"],
+            emin=self.ebins["E_MIN"],
+            emax=self.ebins["E_MAX"],
+        )
+
     @classmethod
     def from_file(cls, dph_file, event_file=None):
         """
@@ -694,9 +701,6 @@ class BatDPH(BatObservation):
                 self.tbins["TIME_START"] + self.tbins["TIME_STOP"]
         )
 
-        # properly format the DPH
-        self._format_dph()
-
         # if self.dph_input_dict ==None, then we will need to try to read in the hisotry of parameters passed into
         # batbinevt to create the dph file. thsi usually is needed when we first parse a file so we know what things
         # are if we need to do some sort of rebinning.
@@ -775,349 +779,15 @@ class BatDPH(BatObservation):
 
             self.dph_input_dict = default_params_dict.copy()
 
-    @u.quantity_input(tmin=["time"], tmax=["time"], emin=["energy"], emax=["energy"])
-    def _format_dph(
-            self, tmin=None, tmax=None, emin=None, emax=None, input_histogram=None
-    ):
-        """
-        This method properly formats the DPH into a Histpy histogram which allows for easy manipulation. By default, if
-        the input histogram is specified and has no units, it is assumed that it has the same units as the original
-        histogram
-
-        Note: Can try to have additional DPHs between non-consecutive timebins with 0 counts, and have these be masked?
-        Will also need to set dataflags to bad
-        """
-
-        # convert the actual DPH to a Histogram object for easy manipulation
-        # first do error checking
-        if tmin is None and tmax is None:
-            tmin = self.tbins["TIME_START"]
-            tmax = self.tbins["TIME_STOP"]
-        elif tmin is not None and tmax is not None:
-            tmin = tmin
-            tmax = tmax
-        else:
-            raise ValueError(
-                "tmin and tmax must either both be None or both be specified."
-            )
-
-        if emin is None and emax is None:
-            emin = self.ebins["E_MIN"]
-            emax = self.ebins["E_MAX"]
-        elif emin is not None and emax is not None:
-            emin = emin
-            emax = emax
-        else:
-            raise ValueError(
-                "emin and emax must either both be None or both be specified."
-            )
-
-        if input_histogram is None:
-            hist = self.data["DPH_COUNTS"]
-        else:
-            hist = input_histogram
-
-        # save the old unit incase we need it
-        old_hist_unit = self.data["DPH_COUNTS"].unit
-
-        # now calculate edges for histogram
-        time_edges = np.zeros(tmin.size + 1) * tmin.unit
-        time_edges[: tmin.size] = tmin
-        time_edges[-1] = tmax[-1]
-
-        energy_edges = np.zeros(emin.size + 1) * emin.unit
-        energy_edges[: emin.size] = emin
-        energy_edges[-1] = emax[-1]
-
-        det_x_edges = np.arange(hist.shape[2] + 1) - 0.5
-        det_y_edges = np.arange(hist.shape[1] + 1) - 0.5
-
-        # note that the histogram tiem binnings may not be continuous in time (due to good time intervals not being contiguous)
-        self.data["DPH_COUNTS"] = Histogram(
-            [time_edges, det_y_edges, det_x_edges, energy_edges],
-            contents=hist,
-            labels=["TIME", "DETY", "DETX", "ENERGY"],
-        )
-
-        # make sure that we have units
-        if self.data["DPH_COUNTS"].unit is None:
-            self.data["DPH_COUNTS"] *= old_hist_unit
-
-        # can try this but it is weird to have DPH where it is a list of histograms for plotting and accessing data
-        # for i, tstart, tend in zip(np.arange(self.tbins["TIME_START"].size), self.tbins["TIME_START"], self.tbins["TIME_STOP"]):
-        #    h=Histogram([[tstart, tend],det_y_edges,det_x_edges,energy_edges], contents=self.data["DPH_COUNTS"][i,:,:,:], labels=["TIME", "DETY", "DETX", "ENERGY"])
-        #    self.data["DPH_COUNTS"].append(h)
-
-    @u.quantity_input(emin=["energy"], emax=["energy"], tmin=["time"], tmax=["time"])
-    def plot(self, emin=None, emax=None, tmin=None, tmax=None, plot_rate=False):
-        """
-        This method allows the user to conveniently plot the DPH for a single energy bin and time interval.
-
-        :param emin:
-        :param emax:
-        :return:
-        """
-
-        if emin is None and emax is None:
-            plot_emin = self.ebins["E_MIN"].min()
-            plot_emax = self.ebins["E_MAX"].max()
-        elif emin is not None and emax is not None:
-            plot_emin = emin
-            plot_emax = emax
-        else:
-            raise ValueError(
-                "emin and emax must either both be None or both be specified."
-            )
-        plot_e_idx = np.where(
-            (self.ebins["E_MIN"] >= plot_emin) & (self.ebins["E_MAX"] <= plot_emax)
-        )[0]
-
-        if tmin is None and tmax is None:
-            plot_tmin = self.tbins["TIME_START"].min()
-            plot_tmax = self.tbins["TIME_STOP"].max()
-        elif tmin is not None and tmax is not None:
-            plot_tmin = tmin
-            plot_tmax = tmax
-        else:
-            raise ValueError(
-                "tmin and tmax must either both be None or both be specified."
-            )
-        plot_t_idx = np.where(
-            (self.tbins["TIME_START"] >= plot_tmin)
-            & (self.tbins["TIME_STOP"] <= plot_tmax)
-        )[0]
-
-        # now start to accumulate the DPH counts based on the time and energy range that we care about
-        plot_data = self.data["DPH_COUNTS"][plot_t_idx, :, :, :]
-
-        if len(plot_t_idx) > 0:
-            plot_data = plot_data.sum(axis=0)
-        else:
-            raise ValueError(
-                f"There are no DPH time bins that fall between {plot_tmin} and {plot_tmax}"
-            )
-
-        plot_data = plot_data[:, :, plot_e_idx]
-
-        if len(plot_e_idx) > 0:
-            plot_data = plot_data.sum(axis=-1)
-        else:
-            raise ValueError(
-                f"There are no DPH energy bins that fall between {plot_emin} and {plot_emax}"
-            )
-
-        if plot_rate:
-            # calcualte the totoal exposure
-            exposure_tot = np.sum(self.data["EXPOSURE"][plot_t_idx])
-            plot_data /= exposure_tot
-
-        # set any 0 count detectors to nan so they get plotted in black
-        # this includes detectors that are off and "space holders" between detectors where the value is 0
-        plot_data[plot_data == 0] = np.nan
-
-        fig, ax = plt.subplots()
-        divider = make_axes_locatable(ax)
-        cax = divider.append_axes("right", size="5%", pad=0.05)
-
-        cmap = mpl.colormaps.get_cmap("viridis")
-        cmap.set_bad(color="k")
-
-        im = ax.imshow(plot_data.value, origin="lower", interpolation="none", cmap=cmap)
-
-        fig.colorbar(im, cax=cax, orientation="vertical", label=plot_data.unit)
-
-        return fig, ax
+    @u.quantity_input(energybins=["energy"], emin=["energy"], emax=["energy"])
+    def set_energybins(self, energybins=None, emin=None, emax=None):
+        super().set_energybins(energybins=energybins, emin=emin, emax=emax)
+        self.data["DPH_COUNTS"] = self.contents
 
     @u.quantity_input(timebins=["time"], tmin=["time"], tmax=["time"])
-    def set_timebins(
-            self,
-            timebins=None,
-            tmin=None,
-            tmax=None,
-            T0=None,
-            is_relative=False,
-            savefile=False,
-    ):
-        """
-        This method allows for the DPHs to be rebinned to different time binnings. The exposure time accounts for
-        good time intervals that are added together. The timebins must exist in the original DPH that is being rebinned.
-
-        For timebinning where the time intervals are not contiguous, it is recomended to specify tmin and tmax
-
-        This method, modifies the object and for the original data to be reloaded, the reset() method must be called
-        (assuming that the to_fits() method, with overwrite=True, was not called after the set_timebins() method was called).
-        """
-
-        # first make sure that we have a time binning axis of our histogram
-        if (
-                "TIME" not in self.data["DPH_COUNTS"].axes.labels
-                or self.data["DPH_COUNTS"].axes["TIME"].nbins == 1
-        ):
-            raise ValueError(
-                "The DPH either has  not timing information or there is only one time bin which means that"
-                "the DPH cannot be rebinned in time."
-            )
-
-        # create a copy of the timebins if it is not None to prevent modifying the original array
-        if timebins is not None:
-            timebins = timebins.copy()
-
-            tmin = timebins[:-1]
-            tmax = timebins[1:]
-
-        # check the inputs
-        # error checking for calc_energy_integrated
-        if type(is_relative) is not bool:
-            raise ValueError("The is_relative parameter should be a boolean value.")
-
-        # test if is_relative is false and make sure that T0 is defined
-        if is_relative and T0 is None:
-            raise ValueError(
-                "The is_relative value is set to True however there is no T0 that is defined "
-                + "(ie the time from which the time bins are defined relative to is not specified)."
-            )
-
-        # do error checking on tmin/tmax
-        if (tmin is None and tmax is not None) or (tmax is None and tmin is not None):
-            raise ValueError("Both tmin and tmax must be defined.")
-
-        if tmin is not None and tmax is not None:
-            if tmin.size != tmax.size:
-                raise ValueError("Both tmin and tmax must have the same length.")
-
-        # make sure that tmin/tmax can be iterated over
-        if tmin.shape == ():
-            tmin = u.Quantity([tmin])
-            tmax = u.Quantity([tmax])
-
-        # See if we need to add T0 to everything
-        if is_relative:
-            # see if T0 is Quantity class
-            if type(T0) is u.Quantity:
-                tmin += T0
-                tmax += T0
-            else:
-                tmin += T0 * u.s
-                tmax += T0 * u.s
-
-        # make sure that the times exist in the array of timebins that the DPH has been binned into
-        for s, e in zip(tmin, tmax):
-            if not np.all(np.in1d(s, self.tbins["TIME_START"])) or not np.all(
-                    np.in1d(e, self.tbins["TIME_STOP"])
-            ):
-                raise ValueError(
-                    f"The requested time binning from {s}-{e} is not encompassed by the current timebins "
-                    f"of the loaded DPH. Please choose the closest TIME_START and TIME_STOP values from"
-                    f" the tbin attribute"
-                )
-
-        # do the rebinning along those dimensions and modify the appropriate attibutes. We cannot use the normal
-        # Histogram methods since we dont have continuous time bins. If needed, can ensure that only the good DPHs are
-        # included in the rebinning
-        new_hist_size = (len(tmin), *self.data["DPH_COUNTS"].nbins[1:])
-        histograms = np.zeros(new_hist_size)
-        new_data = dict.fromkeys([i for i in self.data.keys() if "DPH_COUNTS" not in i])
-        for key in new_data:
-            new_data[key] = np.zeros(len(tmin))
-
-        for i, s, e in zip(np.arange(tmin.size), tmin, tmax):
-            idx = np.where(
-                (self.tbins["TIME_START"] >= s) & (self.tbins["TIME_STOP"] <= e)
-            )[0]
-            histograms[i, :] = self.data["DPH_COUNTS"][idx].sum(axis=0)
-
-            # fill in the other key/value pairs where the values are astropy quantities
-            for key in new_data.keys():
-                new_data[key][i] = np.sum(self.data[key][idx].value)
-
-        # save the new time bins
-        self.tbins["TIME_START"] = tmin
-        self.tbins["TIME_STOP"] = tmax
-        self.tbins["TIME_CENT"] = 0.5 * (
-                self.tbins[f"TIME_START"] + self.tbins[f"TIME_STOP"]
-        )
-
-        # save the final DPH as a Histogram object and the other modified data values
-        for key in new_data.keys():
-            self.data[key] = new_data[key] * self.data[key].unit
-
-        # the new self.tbins wil be used in this method by default when creating the histogram object
-        self._format_dph(input_histogram=histograms)
-
-        return None
-
-    @u.quantity_input(energybins=["energy"], emin=["energy"], emax=["energy"])
-    def set_energybins(self, energybins=None, emin=None, emax=None, savefile=False):
-        """
-        This method allows for the DPH(s) to be rebinned to different energy binnings. Here we require the enerybins to
-        be contiguous.
-
-        Could have energybins=[14.0, 20.0, 24.0, 35.0, 50.0, 75.0, 100.0, 150.0, 195.0]*u.keV, but the erebin batsurvey
-        has to be run first to correct for energy.
-        """
-
-        # first make sure that we have a energy binning axis of our histogram
-        if (
-                "ENERGY" not in self.data["DPH_COUNTS"].axes.labels
-                or self.data["DPH_COUNTS"].axes["ENERGY"].nbins == 1
-        ):
-            raise ValueError(
-                "The DPH either has  no energy information or there is only one energy bin which means that"
-                "the DPH cannot be rebinned in energy."
-            )
-
-        # do error checking on tmin/tmax
-        if (emin is None and emax is not None) or (emin is None and emax is not None):
-            raise ValueError("Both emin and emax must be defined.")
-
-        if emin is not None and emax is not None:
-            if emin.size != emax.size:
-                raise ValueError("Both emin and emax must have the same length.")
-        else:
-            if energybins is not None:
-                # create a copy of the enerbins if it is not None to prevent modifying the original array
-                energybins = energybins.copy()
-
-                emin = energybins[:-1]
-                emax = energybins[1:]
-            else:
-                raise ValueError("No energy bins have been specified.")
-
-        # make sure that emin/emax can be iterated over
-        if emin.shape == ():
-            emin = u.Quantity([emin])
-            emax = u.Quantity([emax])
-
-        # make sure that the energies exist in the array of energybins that the DPH has been binned into
-        for s, e in zip(emin, emax):
-            if not np.all(np.in1d(s, self.ebins["E_MIN"])) or not np.all(
-                    np.in1d(e, self.ebins["E_MAX"])
-            ):
-                raise ValueError(
-                    f"The requested energy binning from {s}-{e} is not encompassed by the current energybins "
-                    f"of the loaded DPH. Please choose the closest E_MIN and E_MAX values from"
-                    f" the ebin attribute"
-                )
-
-        # do the rebinning along those dimensions, here dont need to modify the appropriate attibutes since they dont
-        # depend on energy. We cannot use the normal
-        # Histogram methods since we may have non-uniform energy bins.
-        new_hist_size = (*self.data["DPH_COUNTS"].nbins[:-1], len(emin))
-        histograms = np.zeros(new_hist_size)
-
-        for i, s, e in zip(np.arange(emin.size), emin, emax):
-            idx = np.where((self.ebins["E_MIN"] >= s) & (self.ebins["E_MAX"] <= e))[0]
-            histograms[:, :, :, i] = self.data["DPH_COUNTS"][:, :, :, idx].sum(axis=-1)
-
-        # set the new ebin attrubute
-        self.ebins["E_MIN"] = emin
-        self.ebins["E_MAX"] = emax
-        self.ebins["INDEX"] = np.arange(len(emin)) + 1
-
-        # the new self.ebins wil be used in this method by default when creating the histogram object
-        self._format_dph(input_histogram=histograms)
-
-        return None
+    def set_timebins(self, timebins=None, tmin=None, tmax=None):
+        super().set_timebins(timebins=timebins, tmin=tmin, tmax=tmax)
+        self.data["DPH_COUNTS"] = self.contents
 
     def to_fits(self, fits_filename=None, overwrite=False):
         """
