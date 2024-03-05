@@ -608,7 +608,7 @@ class BatDPH(DetectorPlaneHistogram):
         creation of a DPH using heasoftpy's batbinevt or the direct binning of event data.
 
         :param dph_file: None or Pathlib Path object for the full path to a DPH file that will be created with a call to heasoftpy's
-            babinevt
+            batbinevt
         :param event_file: None or path object of the event file that will be rebinned in a call to heasoftpy batbinevt
         :param event_data: None or Event data dictionary or event data class (to be created)
         :param input_dict: None or a dict of values that will be passed to batbinevt in the creation of the DPH.
@@ -719,9 +719,11 @@ class BatDPH(DetectorPlaneHistogram):
         This method allows one to load in a DPH that was provided in an observation ID or one that was previously
         created.
 
-        :param dph_file:
-        :param event_file:
-        :return:
+        :param dph_file: Pathlib Path object for the full path to a DPH file that has been created with a call to
+            heasoftpy's batbinevt
+        :param event_file: None or an event file to also be loaded alongside the DPH. This will allow the DPH to be
+            rebinned at any time or energy binning.
+        :return: BatDPH object
         """
 
         dph_file = Path(dph_file).expanduser().resolve()
