@@ -358,13 +358,15 @@ class DetectorPlaneHistogram(Histogram):
                 self.tbins[f"TIME_START"] + self.tbins[f"TIME_STOP"]
         )
 
-        # get the intersection with the good time intervals for us to keep track
+        # get the intersection with the good time intervals for us to keep track of these and the exposures
         idx = np.where(
-            (self.tbins["TIME_START"] <= self.gti["TIME_STOP"])
+            (self.tbins["TIME_START"] < self.gti["TIME_STOP"])
             & (self.tbins["TIME_STOP"] >= self.gti["TIME_STOP"])
         )
         for i in self.gti.keys():
             self.gti[i] = self.gti[i][idx]
+
+        self.exposure = self.exposure[idx]
 
         # now we can reinitalize the info
         self._set_histogram(histogram_data=histograms)
@@ -543,19 +545,26 @@ class BatDPH(DetectorPlaneHistogram):
 
     def __init__(
             self,
-            dph_file,
-            event_file,
+            dph_file=None,
+            event_file=None,
+            event_data=None,
             input_dict=None,
             recalc=False,
             verbose=False,
             load_dir=None,
+            tmin=None,
+            tmax=None,
+            emin=None,
+            emax=None,
     ):
         """
 
         :param dph_file:
         :param event_file:
         """
-        self.dph_file = Path(dph_file).expanduser().resolve()
+
+        if dph_file is not None:
+            self.dph_file = Path(dph_file).expanduser().resolve()
 
         # if any of these below are None, produce a warning that we wont be able to modify the spectrum. Also do
         # error checking for the files existing, etc
@@ -574,52 +583,59 @@ class BatDPH(DetectorPlaneHistogram):
                 stacklevel=2,
             )
 
-        # if ther is no event file we just have the instrument produced DPH or a previously calculated one
-        # if self.event_file is None:
-        #    self.dph_input_dict = None
+        # if ther is event data passed in then we can directly bin that otherwise need to see if we have to create a DPH
+        # or load one in
+        if event_data is None:
+            if (not self.dph_file.exists() or recalc) and self.event_file is not None:
+                # we need to create the file, default is no mask weighting if we want to include that then we need the
+                # image mask weight
+                if input_dict is None:
+                    self.dph_input_dict = dict(
+                        infile=str(self.event_file),
+                        outfile=str(self.dph_file),
+                        outtype="DPH",
+                        energybins="14-195",
+                        weighted="NO",
+                        timedel=0,
+                        tstart="INDEF",
+                        tstop="INDEF",
+                        clobber="YES",
+                        timebinalg="uniform",
+                    )
 
-        if (not self.dph_file.exists() or recalc) and self.event_file is not None:
-            # we need to create the file, default is no mask weighting if we want to include that then we need the
-            # image mask weight
-            if input_dict is None:
-                self.dph_input_dict = dict(
-                    infile=str(self.event_file),
-                    outfile=str(self.dph_file),
-                    outtype="DPH",
-                    energybins="14-195",
-                    weighted="NO",
-                    timedel=0,
-                    tstart="INDEF",
-                    tstop="INDEF",
-                    clobber="YES",
-                    timebinalg="uniform",
-                )
+                else:
+                    self.dph_input_dict = input_dict
+
+                # create the DPH
+                self.bat_dph_result = self._call_batbinevt(self.dph_input_dict)
+
+                # make sure that this calculation ran successfully
+                if self.bat_dph_result.returncode != 0:
+                    raise RuntimeError(
+                        f"The creation of the DPH failed with message: {self.bat_dph_result.output}"
+                    )
 
             else:
-                self.dph_input_dict = input_dict
+                self.dph_input_dict = None
 
-            # create the DPH
-            self.bat_dph_result = self._call_batbinevt(self.dph_input_dict)
+            self._parse_dph_file()
 
-            # make sure that this calculation ran successfully
-            if self.bat_dph_result.returncode != 0:
-                raise RuntimeError(
-                    f"The creation of the DPH failed with message: {self.bat_dph_result.output}"
-                )
-
+            # properly format the DPH here the tbins and ebins attributes get overwritten but we dont care
+            super().__init__(
+                tmin=self.tbins["TIME_START"],
+                tmax=self.tbins["TIME_STOP"],
+                histogram_data=self.data["DPH_COUNTS"],
+                emin=self.ebins["E_MIN"],
+                emax=self.ebins["E_MAX"],
+            )
         else:
-            self.dph_input_dict = None
-
-        self._parse_dph_file()
-
-        # properly format the DPH here the tbins and ebins attributes get overwritten but we dont care
-        super().__init__(
-            tmin=self.tbins["TIME_START"],
-            tmax=self.tbins["TIME_STOP"],
-            histogram_data=self.data["DPH_COUNTS"],
-            emin=self.ebins["E_MIN"],
-            emax=self.ebins["E_MAX"],
-        )
+            super().__init__(
+                tmin=tmin,
+                tmax=tmax,
+                event_data=event_data,
+                emin=emin,
+                emax=emax,
+            )
 
     @classmethod
     def from_file(cls, dph_file, event_file=None):
@@ -670,7 +686,10 @@ class BatDPH(DetectorPlaneHistogram):
             data = f[1].data
             energies = f["EBOUNDS"].data
             energies_header = f["EBOUNDS"].header
-            times = f["GTI"].data
+            try:
+                times = f["GTI"].data
+            except KeyError as ke:
+                times = f["STDGTI"].data
 
         # read in the data and save to data attribute which is a dictionary of the column names as keys and the numpy
         # arrays as values
@@ -790,12 +809,28 @@ class BatDPH(DetectorPlaneHistogram):
     @u.quantity_input(energybins=["energy"], emin=["energy"], emax=["energy"])
     def set_energybins(self, energybins=None, emin=None, emax=None):
         super().set_energybins(energybins=energybins, emin=emin, emax=emax)
-        self.data["DPH_COUNTS"] = self.contents
+
+        # if we have event data that is binned directly we dont have the data attribute
+        try:
+            self.data["DPH_COUNTS"] = self.contents
+        except AttributeError as ae:
+            pass
 
     @u.quantity_input(timebins=["time"], tmin=["time"], tmax=["time"])
     def set_timebins(self, timebins=None, tmin=None, tmax=None):
         super().set_timebins(timebins=timebins, tmin=tmin, tmax=tmax)
-        self.data["DPH_COUNTS"] = self.contents
+
+        # if we have event data that is binned directly we dont have the data attribute
+        try:
+            self.data["DPH_COUNTS"] = self.contents
+
+            # set the time key again as well
+            self.data["TIME"] = self.tbins["TIME_START"]
+
+            # also set the exposure as well
+            self.data["EXPOSURE"] = self.exposure
+        except AttributeError as ae:
+            pass
 
     def to_fits(self, fits_filename=None, overwrite=False):
         """
