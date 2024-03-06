@@ -741,7 +741,7 @@ class BatDPH(DetectorPlaneHistogram):
                     shutil.copyfileobj(f_in, f_out)
             dph_file = dph_file.parent.joinpath(dph_file.stem)
 
-        return cls(dph_file, event_file)
+        return cls(dph_file=dph_file, event_file=event_file)
 
     def _parse_dph_file(self):
         """
