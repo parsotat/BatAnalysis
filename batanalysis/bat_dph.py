@@ -1217,3 +1217,26 @@ class BatDPH(DetectorPlaneHistogram):
             raise RuntimeError(
                 f"The call to Heasoft batbinevt failed with inputs {input_dict}."
             )
+
+    def _create_custom_timebins(self, timebins, output_file=None):
+        """
+        This method creates custom time bins from a user defined set of time bin edges. The created fits file with the
+        timebins of interest will by default have the same name as the lightcurve file, however it will have a "gti" suffix instead of
+        a "lc" suffix and it will be stored in the gti subdirectory of the event results directory.
+
+        Note: This method is here so the call to create a gti file with custom timebins can be phased out eventually.
+
+        :param timebins: a astropy.unit.Quantity object with the edges of the timebins that the user would like
+        :param output_file: None or a Path object to where the output *.gti file will be saved to. A value of None
+            defaults to the above description
+        :return: Path object of the created good time intervals file
+        """
+
+        if output_file is None:
+            # use the same filename as for the dph file but replace suffix with gti and put it in gti subdir instead of lc
+            new_path = self.dph_file.parts
+            new_name = self.dph_file.name.replace("dph", "gti")
+
+            output_file = Path(*new_path[:self.dph_file.parts.index('dph')]).joinpath("gti").joinpath(new_name)
+
+        return create_gti_file(timebins, output_file, T0=None, is_relative=False, overwrite=True)
