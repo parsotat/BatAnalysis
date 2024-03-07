@@ -4,6 +4,17 @@ This file holds the BAT Detector plane image class
 Tyler Parsotan Feb 21 2024
 """
 
+import gzip
+import shutil
+import warnings
+from pathlib import Path
+
+import astropy.units as u
+import numpy as np
+from astropy.io import fits
+
+from .bat_dph import DetectorPlaneHistogram
+
 try:
     import heasoftpy as hsp
 except ModuleNotFoundError as err:
@@ -130,7 +141,7 @@ class BatDPI(DetectorPlaneHistogram):
             super().__init__(
                 tmin=self.tbins["TIME_START"],
                 tmax=self.tbins["TIME_STOP"],
-                histogram_data=self.data["DPI_COUNTS"],
+                histogram_data=self.data["DPH_COUNTS"],
                 emin=self.ebins["E_MIN"],
                 emax=self.ebins["E_MAX"],
             )
@@ -192,8 +203,8 @@ class BatDPI(DetectorPlaneHistogram):
         dpi_data = []
         with fits.open(dpi_file) as f:
             # for DPI we can have:
-            # 1) DPI(s) as extensions
-            # 2) DPI in the form of a table (like DPHs)
+            # 1) DPI(s) as extensions. Will need to read in all time and all energy bins
+            # 2) DPI in the form of a table (like DPHs). In this case the times from the table will be replicated
             header = f[1].header
             data = f[1].data
             energies = f["EBOUNDS"].data
@@ -206,7 +217,7 @@ class BatDPI(DetectorPlaneHistogram):
         # read in the data and save to data attribute which is a dictionary of the column names as keys and the numpy
         # arrays as values. There can be a table iwth multiple DPIs or multiple extensions each with a DPI
         self.data = {}
-        for i in data_columns:
+        for i in data.columns:
             try:
                 self.data[i.name] = u.Quantity(data[i.name], i.unit)
             except TypeError:
@@ -231,11 +242,30 @@ class BatDPI(DetectorPlaneHistogram):
         self.gti["TIME_CENT"] = 0.5 * (self.gti[f"TIME_START"] + self.gti[f"TIME_STOP"])
 
         # now do the time bins for the dpis
-        self.tbins["TIME_START"] = self.data["TIME"]
-        self.tbins["TIME_STOP"] = self.data["TIME"] + self.data["EXPOSURE"]
+        self.tbins["TIME_START"] = np.unique(self.data["TIME"])
+        self.tbins["TIME_STOP"] = np.unique(self.data["TIME"] + self.data["EXPOSURE"])
         self.tbins["TIME_CENT"] = 0.5 * (
                 self.tbins["TIME_START"] + self.tbins["TIME_STOP"]
         )
+
+        # see if we need to reshape the DPIs for creation of the Histogram object
+        if np.shape(self.data["DPH_COUNTS"]) != (
+                self.tbins["TIME_START"].size,
+                *self.data["DPH_COUNTS"].shape[1:],
+                self.ebins["E_MIN"].size,
+        ):
+            new_array = np.zeros(
+                (
+                    self.tbins["TIME_START"].size,
+                    *self.data["DPH_COUNTS"].shape[1:],
+                    self.ebins["E_MIN"].size,
+                ),
+            ) * self.data["DPH_COUNTS"].unit
+
+            for j in range(self.ebins["E_MIN"].size):
+                new_array[:, :, :, j] = self.data["DPH_COUNTS"][j:: self.ebins["E_MIN"].size, :, :]
+
+            self.data["DPH_COUNTS"] = new_array
 
         # if self.dpi_input_dict ==None, then we will need to try to read in the hisotry of parameters passed into
         # batbinevt to create the dpi file. thsi usually is needed when we first parse a file so we know what things
