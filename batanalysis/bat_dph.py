@@ -919,6 +919,7 @@ class BatDPH(DetectorPlaneHistogram):
         :param emax:
         :return:
         """
+
         if self.event_file is None:
             super().set_energybins(energybins=energybins, emin=emin, emax=emax)
 
@@ -989,7 +990,8 @@ class BatDPH(DetectorPlaneHistogram):
                     )
 
     @u.quantity_input(timebins=["time"], tmin=["time"], tmax=["time"])
-    def set_timebins(self, timebins=None, tmin=None, tmax=None):
+    def set_timebins(self, timebins=None, tmin=None, tmax=None, timebinalg="uniform", T0=None, is_relative=False,
+                     timedelta=np.timedelta64(1, 's')):
         """
 
         :param timebins:
@@ -998,23 +1000,128 @@ class BatDPH(DetectorPlaneHistogram):
         :return:
         """
 
+        if type(is_relative) is not bool:
+            raise ValueError("The is_relative parameter should be a boolean value.")
+
+        if is_relative and T0 is None:
+            raise ValueError('The is_relative value is set to True however there is no T0 that is defined ' +
+                             '(ie the time from which the time bins are defined relative to is not specified).')
+
         # we can either rebin using the timebins that are already present in the histogram
         # OR we can rebin the event data
         # where the event data can be rebinned directly through the histogram object or through the batbinevt script)
+        if self.event_file is None:
+            if is_relative:
+                if timebins is not None:
+                    # see if T0 is Quantity class
+                    if type(T0) is u.Quantity:
+                        timebins += T0
+                    else:
+                        timebins += T0 * u.s
+                else:
+                    if type(T0) is u.Quantity:
+                        tmin += T0
+                        tmax += T0
+                    else:
+                        tmin += T0 * u.s
+                        tmax += T0 * u.s
 
-        super().set_timebins(timebins=timebins, tmin=tmin, tmax=tmax)
+            super().set_timebins(timebins=timebins, tmin=tmin, tmax=tmax)
 
-        # if we have event data that is binned directly we dont have the data attribute
-        try:
-            self.data["DPH_COUNTS"] = self.contents
+            # if we have event data that is binned directly we dont have the data attribute
+            try:
+                self.data["DPH_COUNTS"] = self.contents
 
-            # set the time key again as well
-            self.data["TIME"] = self.tbins["TIME_START"]
+                # set the time key again as well
+                self.data["TIME"] = self.tbins["TIME_START"]
 
-            # also set the exposure as well
-            self.data["EXPOSURE"] = self.exposure
-        except AttributeError as ae:
-            pass
+                # also set the exposure as well
+                self.data["EXPOSURE"] = self.exposure
+            except AttributeError as ae:
+                pass
+        else:
+            # do error checking on tmin/tmax
+            if (tmin is None and tmax is not None) or (tmax is None and tmin is not None):
+                raise ValueError('Both tmin and tmax must be defined.')
+
+            if tmin is not None and tmax is not None:
+                if tmin.size != tmax.size:
+                    raise ValueError('Both tmin and tmax must have the same length.')
+
+            tmp_dph_input_dict = self.dph_input_dict.copy()
+
+            # create a copy of the timebins if it is not None to prevent modifying the original array
+            if timebins is not None:
+                timebins = timebins.copy()
+
+            # now try to construct single array of all timebin edges in seconds
+            timebins = np.zeros(tmin.size + 1) * u.s
+            timebins[:-1] = tmin
+            if tmin.size > 1:
+                timebins[-1] = tmax[-1]
+            else:
+                timebins[-1] = tmax
+
+            # See if we need to add T0 to everything
+            if is_relative:
+                # see if T0 is Quantity class
+                if type(T0) is u.Quantity:
+                    timebins += T0
+                else:
+                    timebins += T0 * u.s
+
+            if (timebins is not None and timebins.size > 2):
+                # tmin is not None and tmax.size > 1 and
+                # already checked that tmin && tmax are not 1 and have the same size
+                # if they are defined and they are more than 1 element then we have a series of timebins otherwise we just have the
+
+                tmp_dph_input_dict['tstart'] = "INDEF"
+                tmp_dph_input_dict['tstop'] = "INDEF"
+
+                # start/stop times of the lightcurve
+                self.timebins_file = self._create_custom_timebins(timebins)
+                tmp_dph_input_dict['timebinalg'] = "gti"
+                tmp_dph_input_dict['gtifile'] = str(self.timebins_file)
+            else:
+                tmp_dph_input_dict['gtifile'] = "NONE"
+
+                # should have everything that we need to do the rebinning for a uniform/snr related rebinning
+                # first need to update the tmp_lc_input_dict
+                if "uniform" in timebinalg or "snr" in timebinalg:
+                    tmp_dph_input_dict['timebinalg'] = timebinalg
+
+                    # if we have snr we also need to modify the snrthreshold
+                    if "snr" in timebinalg:
+                        tmp_dph_input_dict['snrthresh'] = snrthresh
+
+                tmp_dph_input_dict['timedel'] = timedelta / np.timedelta64(1, 's')  # convert to seconds
+
+                # see if we have the min/max times defined
+                if (tmin is not None and tmax.size == 1):
+                    tmp_dph_input_dict['tstart'] = timebins[0].value
+                    tmp_dph_input_dict['tstop'] = timebins[1].value
+
+            # the DPH _call_batbinevt method ensures that  outtype = DPH and that clobber=YES
+            dph_return = self._call_batbinevt(tmp_dph_input_dict)
+
+            # make sure that the dph_return was successful
+            if dph_return.returncode != 0:
+                raise RuntimeError(f'The creation of the DPH failed with message: {dph_return.output}')
+            else:
+                self.bat_dph_result = dph_return
+                self.dph_input_dict = tmp_dph_input_dict
+
+                # reparse the DPH file to get the info
+                self._parse_dph_file()
+
+                # properly format the DPH here the tbins and ebins attributes get overwritten but we dont care
+                super().__init__(
+                    tmin=self.tbins["TIME_START"],
+                    tmax=self.tbins["TIME_STOP"],
+                    histogram_data=self.data["DPH_COUNTS"],
+                    emin=self.ebins["E_MIN"],
+                    emax=self.ebins["E_MAX"],
+                )
 
     def to_fits(self, fits_filename=None, overwrite=False):
         """
