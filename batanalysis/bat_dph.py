@@ -1056,13 +1056,14 @@ class BatDPH(DetectorPlaneHistogram):
             if timebins is not None:
                 timebins = timebins.copy()
 
-            # now try to construct single array of all timebin edges in seconds
-            timebins = np.zeros(tmin.size + 1) * u.s
-            timebins[:-1] = tmin
-            if tmin.size > 1:
-                timebins[-1] = tmax[-1]
-            else:
-                timebins[-1] = tmax
+            if tmin is not None and tmax is not None:
+                # now try to construct single array of all timebin edges in seconds
+                timebins = np.zeros(tmin.size + 1) * u.s
+                timebins[:-1] = tmin
+                if tmin.size > 1:
+                    timebins[-1] = tmax[-1]
+                else:
+                    timebins[-1] = tmax
 
             # See if we need to add T0 to everything
             if is_relative:
@@ -1093,6 +1094,9 @@ class BatDPH(DetectorPlaneHistogram):
                     tmp_dph_input_dict['timebinalg'] = timebinalg
 
                 tmp_dph_input_dict['timedel'] = timedelta / np.timedelta64(1, 's')  # convert to seconds
+
+                tmp_dph_input_dict['tstart'] = "INDEF"
+                tmp_dph_input_dict['tstop'] = "INDEF"
 
                 # see if we have the min/max times defined
                 if (tmin is not None and tmax.size == 1):
