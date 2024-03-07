@@ -189,7 +189,11 @@ class BatDPI(DetectorPlaneHistogram):
         :return: None
         """
         dpi_file = self.dpi_file
+        dpi_data = []
         with fits.open(dpi_file) as f:
+            # for DPI we can have:
+            # 1) DPI(s) as extensions
+            # 2) DPI in the form of a table (like DPHs)
             header = f[1].header
             data = f[1].data
             energies = f["EBOUNDS"].data
@@ -200,7 +204,7 @@ class BatDPI(DetectorPlaneHistogram):
                 times = f["STDGTI"].data
 
         # read in the data and save to data attribute which is a dictionary of the column names as keys and the numpy
-        # arrays as values
+        # arrays as values. There can be a table iwth multiple DPIs or multiple extensions each with a DPI
         self.data = {}
         for i in data_columns:
             try:
