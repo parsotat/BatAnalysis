@@ -201,12 +201,23 @@ class BatDPI(DetectorPlaneHistogram):
         """
         dpi_file = self.dpi_file
         dpi_data = []
+        dpi_headers = []
         with fits.open(dpi_file) as f:
             # for DPI we can have:
             # 1) DPI(s) as extensions. Will need to read in all time and all energy bins
             # 2) DPI in the form of a table (like DPHs). In this case the times from the table will be replicated
-            header = f[1].header
-            data = f[1].data
+            try:
+                header = f["BAT_DPH"].header
+                data = f["BAT_DPH"].data
+                is_dpi_table = True
+            except KeyError:
+                is_dpi_table = False
+                header = f[0].header
+                for i in f:
+                    if "BAT_DPI" in i.name:
+                        dpi_data.append(i.data)
+                        dpi_headers.append(i.header)
+
             energies = f["EBOUNDS"].data
             energies_header = f["EBOUNDS"].header
             try:
@@ -217,13 +228,34 @@ class BatDPI(DetectorPlaneHistogram):
         # read in the data and save to data attribute which is a dictionary of the column names as keys and the numpy
         # arrays as values. There can be a table iwth multiple DPIs or multiple extensions each with a DPI
         self.data = {}
-        for i in data.columns:
-            try:
-                self.data[i.name] = u.Quantity(data[i.name], i.unit)
-            except TypeError:
-                # if the user wants to read in any of the stuff in the class _exclude_data_cols variable this will take
-                # care of that.
-                self.data[i.name] = data[i.name]
+        if is_dpi_table:
+            for i in data.columns:
+                try:
+                    self.data[i.name] = u.Quantity(data[i.name], i.unit)
+                except TypeError:
+                    # if the user wants to read in any of the stuff in the class _exclude_data_cols variable this will take
+                    # care of that.
+                    self.data[i.name] = data[i.name]
+        else:
+            # get the unit (may not be the best way)
+            image_unit = u.Quantity(0, unit=dpi_headers[0]["BUNIT"]).unit
+            time_unit = u.Quantity(0, unit=dpi_headers[0]["TIMEUNIT"]).unit
+
+            # set up the arrays
+            self.data["DPH_COUNTS"] = np.zeros((len(dpi_data), *dpi_data[0].data.shape))
+            self.data["TIME"] = np.zeros(len(dpi_data))
+            self.data["EXPOSURE"] = np.zeros(len(dpi_data))
+
+            # fill in arrays
+            for i in range(len(dpi_data)):
+                self.data["DPH_COUNTS"][i, :, :] = dpi_data[i].data
+                self.data["TIME"][i] = dpi_headers[i]["TSTART"]
+                self.data["EXPOSURE"][i] = dpi_headers[i]["TSTOP"] - dpi_headers[i]["TSTART"]
+
+            # apply units
+            self.data["DPH_COUNTS"] *= image_unit
+            self.data["TIME"] *= time_unit
+            self.data["EXPOSURE"] *= time_unit
 
         # fill in the energy bin info
         self.ebins = {}
@@ -254,16 +286,21 @@ class BatDPI(DetectorPlaneHistogram):
                 *self.data["DPH_COUNTS"].shape[1:],
                 self.ebins["E_MIN"].size,
         ):
-            new_array = np.zeros(
-                (
-                    self.tbins["TIME_START"].size,
-                    *self.data["DPH_COUNTS"].shape[1:],
-                    self.ebins["E_MIN"].size,
-                ),
-            ) * self.data["DPH_COUNTS"].unit
+            new_array = (
+                    np.zeros(
+                        (
+                            self.tbins["TIME_START"].size,
+                            *self.data["DPH_COUNTS"].shape[1:],
+                            self.ebins["E_MIN"].size,
+                        ),
+                    )
+                    * self.data["DPH_COUNTS"].unit
+            )
 
             for j in range(self.ebins["E_MIN"].size):
-                new_array[:, :, :, j] = self.data["DPH_COUNTS"][j:: self.ebins["E_MIN"].size, :, :]
+                new_array[:, :, :, j] = self.data["DPH_COUNTS"][
+                                        j:: self.ebins["E_MIN"].size, :, :
+                                        ]
 
             self.data["DPH_COUNTS"] = new_array
 

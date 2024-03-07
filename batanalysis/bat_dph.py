@@ -910,6 +910,11 @@ class BatDPH(DetectorPlaneHistogram):
         :param tmax:
         :return:
         """
+
+        # we can either rebin using the timebins that are already present in the histogram
+        # OR we can rebin the event data
+        # where the event data can be rebinned directly through the histogram object or through the batbinevt script)
+
         super().set_timebins(timebins=timebins, tmin=tmin, tmax=tmax)
 
         # if we have event data that is binned directly we dont have the data attribute
