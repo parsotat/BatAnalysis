@@ -101,8 +101,11 @@ class DetectorPlaneHistogram(Histogram):
         # determine the type of data that we have
         if event_data is not None:
             parse_data = deepcopy(event_data)
+            self._passed_data = "event"
+            self._event_data = parse_data
         else:
             parse_data = deepcopy(histogram_data)
+            self._passed_data = "histogram"
 
         # determine the time binnings
         # can have dfault time binning be the start/end time of the event data or the times passed in by default
@@ -254,6 +257,7 @@ class DetectorPlaneHistogram(Histogram):
         :param weights: None or the weights of the same size as event_data or histogram_data
         :return: None
         """
+
         # get the timebin edges
         timebin_edges = (
                 np.zeros(self.tbins["TIME_START"].size + 1) * self.tbins["TIME_START"].unit
@@ -333,10 +337,10 @@ class DetectorPlaneHistogram(Histogram):
         """
 
         # first make sure that we have a time binning axis of our histogram
-        if "TIME" not in self.axes.labels or self.axes["TIME"].nbins == 1:
+        if "hist" in self._passed_data and ("TIME" not in self.axes.labels or self.axes["TIME"].nbins == 1):
             raise ValueError(
-                "The DPH either has  not timing information or there is only one time bin which means that"
-                "the DPH cannot be rebinned in time."
+                "The histogrammed data either has no timing information or there is only one time bin which means that"
+                "the data cannot be rebinned in time."
             )
 
         # create a copy of the timebins if it is not None to prevent modifying the original array
@@ -360,28 +364,30 @@ class DetectorPlaneHistogram(Histogram):
             tmin = u.Quantity([tmin])
             tmax = u.Quantity([tmax])
 
-        # make sure that the times exist in the array of timebins that the DPH has been binned into
-        for s, e in zip(tmin, tmax):
-            if not np.all(np.in1d(s, self.tbins["TIME_START"])) or not np.all(
-                    np.in1d(e, self.tbins["TIME_STOP"])
-            ):
-                raise ValueError(
-                    f"The requested time binning from {s}-{e} is not encompassed by the current timebins "
-                    f"of the histogrammed data. Please choose the closest TIME_START and TIME_STOP values from"
-                    f" the tbins or gti attributes"
-                )
+        # make sure that the times exist in the array of timebins that the DPH has been binned into if we are dealing
+        # with histogrammed data
+        if "hist" in self._passed_data:
+            for s, e in zip(tmin, tmax):
+                if not np.all(np.in1d(s, self.tbins["TIME_START"])) or not np.all(
+                        np.in1d(e, self.tbins["TIME_STOP"])
+                ):
+                    raise ValueError(
+                        f"The requested time binning from {s}-{e} is not encompassed by the current timebins "
+                        f"of the histogrammed data. Please choose the closest TIME_START and TIME_STOP values from"
+                        f" the tbins or gti attributes"
+                    )
 
-        # do the rebinning along those dimensions and modify the appropriate attibutes. We cannot use the normal
-        # Histogram methods since we dont have continuous time bins. If needed, can ensure that only the good DPHs are
-        # included in the rebinning
-        new_hist_size = (len(tmin), *self.nbins[1:])
-        histograms = np.zeros(new_hist_size)
+            # do the rebinning along those dimensions and modify the appropriate attibutes. We cannot use the normal
+            # Histogram methods since we dont have continuous time bins. If needed, can ensure that only the good DPHs are
+            # included in the rebinning
+            new_hist_size = (len(tmin), *self.nbins[1:])
+            histograms = np.zeros(new_hist_size)
 
-        for i, s, e in zip(np.arange(tmin.size), tmin, tmax):
-            idx = np.where(
-                (self.tbins["TIME_START"] >= s) & (self.tbins["TIME_STOP"] <= e)
-            )[0]
-            histograms[i, :] = self.contents[idx].sum(axis=0)
+            for i, s, e in zip(np.arange(tmin.size), tmin, tmax):
+                idx = np.where(
+                    (self.tbins["TIME_START"] >= s) & (self.tbins["TIME_STOP"] <= e)
+                )[0]
+                histograms[i, :] = self.contents[idx].sum(axis=0)
 
         # save the new time bins
         self.tbins["TIME_START"] = tmin
@@ -391,17 +397,32 @@ class DetectorPlaneHistogram(Histogram):
         )
 
         # get the intersection with the good time intervals for us to keep track of these and the exposures
-        idx = np.where(
-            (self.tbins["TIME_START"] < self.gti["TIME_STOP"])
-            & (self.tbins["TIME_STOP"] >= self.gti["TIME_STOP"])
-        )
-        for i in self.gti.keys():
-            self.gti[i] = self.gti[i][idx]
+        if "hist" in self._passed_data:
+            idx = np.where(
+                (self.tbins["TIME_START"] < self.gti["TIME_STOP"])
+                & (self.tbins["TIME_STOP"] >= self.gti["TIME_STOP"])
+            )
 
-        self.exposure = self.exposure[idx]
+            for i in self.gti.keys():
+                self.gti[i] = self.gti[i][idx]
+            self.exposure = self.exposure[idx]
+        else:
+            # for event data just make sure that the time intervals are within the event data times
+            idx = np.where(
+                (self.tbins["TIME_START"] > self._event_data["TIME"].min())
+                & (self.tbins["TIME_STOP"] <= self._event_data["TIME"].max())
+            )
+            self.gti["TIME_START"] = self.tbins["TIME_START"][idx]
+            self.gti["TIME_STOP"] = self.tbins["TIME_STOP"][idx]
+            self.gti["TIME_CENT"] = 0.5 * (self.gti["TIME_START"] + self.gti["TIME_STOP"])
+
+            self.exposure = self.gti["TIME_STOP"] - self.gti["TIME_START"]
 
         # now we can reinitalize the info
-        self._set_histogram(histogram_data=histograms)
+        if "hist" in self._passed_data:
+            self._set_histogram(histogram_data=histograms)
+        else:
+            self._set_histogram(event_data=self._event_data)
 
         return None
 
@@ -419,7 +440,7 @@ class DetectorPlaneHistogram(Histogram):
         """
 
         # first make sure that we have a energy binning axis of our histogram
-        if "ENERGY" not in self.axes.labels or self.axes["ENERGY"].nbins == 1:
+        if "hist" in self._passed_data and ("ENERGY" not in self.axes.labels or self.axes["ENERGY"].nbins == 1):
             raise ValueError(
                 "The DPH either has  no energy information or there is only one energy bin which means that"
                 "the DPH cannot be rebinned in energy."
@@ -447,26 +468,28 @@ class DetectorPlaneHistogram(Histogram):
             emin = u.Quantity([emin])
             emax = u.Quantity([emax])
 
-        # make sure that the energies exist in the array of energybins that the DPH has been binned into
-        for s, e in zip(emin, emax):
-            if not np.all(np.in1d(s, self.ebins["E_MIN"])) or not np.all(
-                    np.in1d(e, self.ebins["E_MAX"])
-            ):
-                raise ValueError(
-                    f"The requested energy binning from {s}-{e} is not encompassed by the current energybins "
-                    f"of the loaded DPH. Please choose the closest E_MIN and E_MAX values from"
-                    f" the ebin attribute"
-                )
+        # make sure that the energies exist in the array of energybins that the DPH has been binned into for histogrammed
+        # data that was passed in. otherwise for event data we can bin any which way
+        if "hist" in self._passed_data:
+            for s, e in zip(emin, emax):
+                if not np.all(np.in1d(s, self.ebins["E_MIN"])) or not np.all(
+                        np.in1d(e, self.ebins["E_MAX"])
+                ):
+                    raise ValueError(
+                        f"The requested energy binning from {s}-{e} is not encompassed by the current energybins "
+                        f"of the loaded DPH. Please choose the closest E_MIN and E_MAX values from"
+                        f" the ebin attribute"
+                    )
 
-        # do the rebinning along those dimensions, here dont need to modify the appropriate attibutes since they dont
-        # depend on energy. We cannot use the normal
-        # Histogram methods since we may have non-uniform energy bins.
-        new_hist_size = (*self.nbins[:-1], len(emin))
-        histograms = np.zeros(new_hist_size)
+            # do the rebinning along those dimensions, here dont need to modify the appropriate attibutes since they dont
+            # depend on energy. We cannot use the normal
+            # Histogram methods since we may have non-uniform energy bins.
+            new_hist_size = (*self.nbins[:-1], len(emin))
+            histograms = np.zeros(new_hist_size)
 
-        for i, s, e in zip(np.arange(emin.size), emin, emax):
-            idx = np.where((self.ebins["E_MIN"] >= s) & (self.ebins["E_MAX"] <= e))[0]
-            histograms[:, :, :, i] = self.contents[:, :, :, idx].sum(axis=-1)
+            for i, s, e in zip(np.arange(emin.size), emin, emax):
+                idx = np.where((self.ebins["E_MIN"] >= s) & (self.ebins["E_MAX"] <= e))[0]
+                histograms[:, :, :, i] = self.contents[:, :, :, idx].sum(axis=-1)
 
         # set the new ebin attrubute
         self.ebins["E_MIN"] = emin
@@ -474,7 +497,10 @@ class DetectorPlaneHistogram(Histogram):
         self.ebins["INDEX"] = np.arange(len(emin)) + 1
 
         # now we can reinitalize the info
-        self._set_histogram(histogram_data=histograms)
+        if "hist" in self._passed_data:
+            self._set_histogram(histogram_data=histograms)
+        else:
+            self._set_histogram(event_data=self._event_data)
 
         return None
 
@@ -893,13 +919,74 @@ class BatDPH(DetectorPlaneHistogram):
         :param emax:
         :return:
         """
-        super().set_energybins(energybins=energybins, emin=emin, emax=emax)
+        if self.event_file is None:
+            super().set_energybins(energybins=energybins, emin=emin, emax=emax)
 
-        # if we have event data that is binned directly we dont have the data attribute
-        try:
-            self.data["DPH_COUNTS"] = self.contents
-        except AttributeError as ae:
-            pass
+            # if we have event data that is binned directly we dont have the data attribute
+            try:
+                self.data["DPH_COUNTS"] = self.contents
+            except AttributeError as ae:
+                pass
+        else:
+            # if we have read in a file (and passed in a numpy array that is a histogram)
+            # then call batbinevt and parse newly created file
+            # NOTE: this is mostly copied from the Lightcurve object
+            # see if the user specified either the energy bins directly or emin/emax separately
+            if emin is None and emax is None:
+                # need to get emin and emax values, assume that these are in keV already when converting to astropy quantities
+                emin = energybins[:-1]
+                emax = energybins[1:]
+
+            else:
+                # make sure that both emin and emax are defined and have the same number of elements
+                if (emin is None and emax is not None) or (emax is None and emin is not None):
+                    raise ValueError('Both emin and emax must be defined.')
+
+                if emin.size != emax.size:
+                    raise ValueError('Both emin and emax must have the same length.')
+
+                if emin.shape == ():
+                    emin = u.Quantity([emin])
+                    emax = u.Quantity([emax])
+
+            # create our energybins input to batbinevt
+            energybins = []
+            for min, max in zip(emin.to(u.keV), emax.to(u.keV)):
+                energybins.append(f"{min.value}-{max.value}")
+
+            # create the full string
+            ebins = ','.join(energybins)
+
+            # create a temp dict to hold the energy rebinning parameters to pass to heasoftpy. If things dont run
+            # successfully then the updated parameter list will not be saved
+            tmp_dph_input_dict = self.dph_input_dict.copy()
+
+            # need to see if the energybins are different (and even need to be calculated), if so do the recalculation
+            if not np.array_equal(emin, self.ebins['E_MIN']) or not np.array_equal(emax, self.ebins['E_MAX']):
+                # the tmp_lc_input_dict wil need to be modified with new Energybins
+                tmp_dph_input_dict["energybins"] = ebins
+
+                # the DPH _call_batbinevt method ensures that  outtype = DPH and that clobber=YES
+                dph_return = self._call_batbinevt(tmp_dph_input_dict)
+
+                # make sure that the dph_return was successful
+                if dph_return.returncode != 0:
+                    raise RuntimeError(f'The creation of the DPH failed with message: {dph_return.output}')
+                else:
+                    self.bat_dph_result = dph_return
+                    self.dph_input_dict = tmp_dph_input_dict
+
+                    # reparse the DPH file to get the info
+                    self._parse_dph_file()
+
+                    # properly format the DPH here the tbins and ebins attributes get overwritten but we dont care
+                    super().__init__(
+                        tmin=self.tbins["TIME_START"],
+                        tmax=self.tbins["TIME_STOP"],
+                        histogram_data=self.data["DPH_COUNTS"],
+                        emin=self.ebins["E_MIN"],
+                        emax=self.ebins["E_MAX"],
+                    )
 
     @u.quantity_input(timebins=["time"], tmin=["time"], tmax=["time"])
     def set_timebins(self, timebins=None, tmin=None, tmax=None):
