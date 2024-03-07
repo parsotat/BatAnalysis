@@ -18,6 +18,8 @@ from astropy.io import fits
 from histpy import Histogram
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
+from .batlib import create_gti_file
+
 try:
     import heasoftpy as hsp
 except ModuleNotFoundError as err:
@@ -1090,10 +1092,6 @@ class BatDPH(DetectorPlaneHistogram):
                 if "uniform" in timebinalg or "snr" in timebinalg:
                     tmp_dph_input_dict['timebinalg'] = timebinalg
 
-                    # if we have snr we also need to modify the snrthreshold
-                    if "snr" in timebinalg:
-                        tmp_dph_input_dict['snrthresh'] = snrthresh
-
                 tmp_dph_input_dict['timedel'] = timedelta / np.timedelta64(1, 's')  # convert to seconds
 
                 # see if we have the min/max times defined
@@ -1233,10 +1231,13 @@ class BatDPH(DetectorPlaneHistogram):
         """
 
         if output_file is None:
-            # use the same filename as for the dph file but replace suffix with gti and put it in gti subdir instead of lc
+            # use the same filename as for the dph file but replace suffix with gti and put it in gti subdir instead of survey
             new_path = self.dph_file.parts
             new_name = self.dph_file.name.replace("dph", "gti")
-
-            output_file = Path(*new_path[:self.dph_file.parts.index('dph')]).joinpath("gti").joinpath(new_name)
-
+            try:
+                # tryto put it in the gti directory
+                output_file = Path(*new_path[:self.dph_file.parts.index('survey')]).joinpath(new_name)
+            except ValueError:
+                # otherwise just try to place it where the dph is with the gti suffix
+                output_file = self.dph_file.parent.joinpath(new_name)
         return create_gti_file(timebins, output_file, T0=None, is_relative=False, overwrite=True)
