@@ -18,6 +18,7 @@ from astropy.io import fits
 from histpy import Histogram
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
+from .bat_dpi import BatDPI
 from .batlib import create_gti_file
 
 try:
@@ -1245,3 +1246,13 @@ class BatDPH(DetectorPlaneHistogram):
                 # otherwise just try to place it where the dph is with the gti suffix
                 output_file = self.dph_file.parent.joinpath(new_name)
         return create_gti_file(timebins, output_file, T0=None, is_relative=False, overwrite=True)
+
+    def create_DPI(self):
+        """
+        This method applies the energy/time correction to the DPH which gives a DPI.
+        These corections/filters are applied using heasoftpy's batsurvey-erebin, baterebin, and batsurvey-gti
+
+        :return:
+        """
+
+        return BatDPI()
