@@ -680,4 +680,73 @@ class BatDPH(DetectorPlaneHistogram):
         :return:
         """
 
+        baterebin_return = self._call_baterebin()
+
+        # make sure that the dph_return was successful
+        if baterebin_return.returncode != 0:
+            raise RuntimeError(f'The energy rebinning of the DPH failed with message: {baterebin_return.output}')
+
         return BatDPI()
+
+    def _call_baterebin(self, infile=None, outfile=None, gain_offset_file=None, output_detmask=None, input_dict=None):
+        """
+        Calls heasoftpy's baterebin with an error wrapper, ensures that this bins the DPH in energy with non-linear
+        energy corrections applied. In the batsurvey code, batsurvey-erebins is called to process multiple DPHs
+        (whicih thn calls baterebin for each DPH) but here we directly call baterebin since this operates on a singe DPH
+
+        :param input_dict: Dictionary of inputs that will be passed to heasoftpy's baterebin
+        :return: heasoftpy Result object from baterebin
+        """
+
+        baterebin = hsp.HSPTask("baterebin")
+
+        if input_dict is None:
+            # get the default names of the parameters for batbinevt including its name 9which should never change)
+            input_dict = baterebin.default_params.copy()
+            if infile is None:
+                infile = self.dph_file
+
+            input_dict["infile"] = str(infile)
+
+            if outfile is None:
+                # assume that the user wants the same name with _erebin at the end
+                outfilename = f"{self.dph_file.stem}_erebin{self.dph_file.suffix}"
+                outfile = self.dph_file.parent.joinpath(outfilename)
+
+            input_dict["outfile"] = str(outfile)
+
+            if gain_offset_file is None:
+                gain_offset_files = sorted(test.dph_file.parents[1].joinpath("hk").glob("*go*"))
+                if len(gain_offset_files) != 1:
+                    raise ValueError("More than 1 gain/offset file was found: {gain_offset_files}. Please specify which"
+                                     "should be passed into baterebin.")
+                else:
+                    gain_offset_file = gain_offset_files[0]
+            input_dict["calfile"] = str(gain_offset_file)
+
+            if output_detmask is None:
+                # assume that the user wants the same name with _erebin at the end
+                output_detmask_filename = f"{self.dph_file.stem}.mask"
+                output_detmask = self.dph_file.parent.joinpath(output_detmask_filename)
+
+            input_dict["outmap"] = str(output_detmask)
+
+        else:
+            # make sure that the necessary parameters are in teh input dict
+            for i in ["infile", "outfile", "calfile"]:
+                if i not in input_dict.keys():
+                    raise ValueError(
+                        "There needs to be an {f} key with an associated value included in the input_dict.")
+
+        input_dict["clobber"] = "YES"
+
+        # apply the default survey energy bins
+        input_dict["ebins"] = "0-14,14-20,20-24,24-35,35-50,50-75,75-100,100-150,150-195,195-350"
+
+        try:
+            return baterebin(**input_dict)
+        except Exception as e:
+            print(e)
+            raise RuntimeError(
+                f"The call to Heasoft baterebin failed with inputs {input_dict}."
+            )
