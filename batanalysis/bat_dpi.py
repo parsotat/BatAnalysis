@@ -13,7 +13,7 @@ import astropy.units as u
 import numpy as np
 from astropy.io import fits
 
-from .bat_dph import DetectorPlaneHistogram
+from .detectorplanehist import DetectorPlaneHistogram
 
 try:
     import heasoftpy as hsp
