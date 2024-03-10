@@ -680,11 +680,21 @@ class BatDPH(DetectorPlaneHistogram):
         :return:
         """
 
+        raise NotImplementedError("Creating a DPI from a DPH has not yet been implemented.")
+
+        # call baterebin (batsurvey-erebin calls this for many DPHs)
         baterebin_return = self._call_baterebin()
 
         # make sure that the dph_return was successful
         if baterebin_return.returncode != 0:
             raise RuntimeError(f'The energy rebinning of the DPH failed with message: {baterebin_return.output}')
+
+        # now get the GTIs
+        batsurvey_gti_return = self._call_batsurvey_gti()
+
+        # make sure that the dph_return was successful
+        if batsurvey_gti_return.returncode != 0:
+            raise RuntimeError(f'The GTI filtering of the DPH failed with message: {baterebin_return.output}')
 
         return BatDPI()
 
@@ -692,10 +702,14 @@ class BatDPH(DetectorPlaneHistogram):
         """
         Calls heasoftpy's baterebin with an error wrapper, ensures that this bins the DPH in energy with non-linear
         energy corrections applied. In the batsurvey code, batsurvey-erebins is called to process multiple DPHs
-        (whicih thn calls baterebin for each DPH) but here we directly call baterebin since this operates on a singe DPH
+        (which thn calls baterebin for each DPH) but here we directly call baterebin since this operates on a singe DPH
 
-        :param input_dict: Dictionary of inputs that will be passed to heasoftpy's baterebin
-        :return: heasoftpy Result object from baterebin
+        :param infile:
+        :param outfile:
+        :param gain_offset_file:
+        :param output_detmask:
+        :param input_dict:
+        :return:
         """
 
         baterebin = hsp.HSPTask("baterebin")
@@ -733,10 +747,11 @@ class BatDPH(DetectorPlaneHistogram):
 
         else:
             # make sure that the necessary parameters are in teh input dict
-            for i in ["infile", "outfile", "calfile"]:
-                if i not in input_dict.keys():
+            for i, j, k in zip(["infile", "outfile", "calfile"], [infile, outfile, gain_offset_file],
+                               ["infile", "outfile", "gain_offset_file"]):
+                if i not in input_dict.keys() and j is None:
                     raise ValueError(
-                        "There needs to be an {f} key with an associated value included in the input_dict.")
+                        f"There needs to be an {i} key with an associated value included in the input_dict or {k} needs to be passed in.")
 
         input_dict["clobber"] = "YES"
 
@@ -749,4 +764,47 @@ class BatDPH(DetectorPlaneHistogram):
             print(e)
             raise RuntimeError(
                 f"The call to Heasoft baterebin failed with inputs {input_dict}."
+            )
+
+    def _call_batsurvey_gti(self, input_directory=None, output_directory=None, input_dict=None):
+        """
+        Call batsurvey-gti which includes many time filters such as times when the umber of enabled detectors were
+        greater than some amount.
+
+        TODO: Implement this for any of the input paramters that are used for filtering
+
+        :param input_directory:
+        :param output_directory:
+        :param input_dict:
+        :return:
+        """
+        batsurvey_gti = hsp.HSPTask("batsurvey-gti")
+
+        if input_dict is None:
+            input_dict = batsurvey_gti.default_params.copy()
+            if input_directory is None:
+                input_directory = self.dph_file.parents[2]
+            input_dict["indir"] = str(input_directory)
+
+            if output_directory is None:
+                output_directory = input_directory.joinpath("gti")
+            input_dict["outdir"] = str(output_directory)
+
+            input_dict["dphfiles"] = str(self.dph_file)
+
+        else:
+            passed_keys = input_dict.keys()
+
+            for i, j, k in zip(["indir", "outdir"], [input_directory, output_directory],
+                               ["input_directory", "output_directory"]):
+                if i not in input_dict.keys() and j is None:
+                    raise ValueError(
+                        f"There needs to be an {i} key with an associated value included in the input_dict or {k} needs to be passed in.")
+
+        try:
+            return batsurvey_gti(**input_dict)
+        except Exception as e:
+            print(e)
+            raise RuntimeError(
+                f"The call to Heasoft batsurvey-gti failed with inputs {input_dict}."
             )
