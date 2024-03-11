@@ -381,3 +381,267 @@ class BatDPI(DetectorPlaneHistogram):
                         old_parameter = parameter
 
             self.dpi_input_dict = default_params_dict.copy()
+
+    @u.quantity_input(energybins=["energy"], emin=["energy"], emax=["energy"])
+    def set_energybins(self, energybins=None, emin=None, emax=None):
+        """
+
+        NOTE: This is copied from the BatDPH class, this can be done better
+        :param energybins:
+        :param emin:
+        :param emax:
+        :return:
+        """
+
+        if self.event_file is None:
+            super().set_energybins(energybins=energybins, emin=emin, emax=emax)
+
+            # if we have event data that is binned directly we dont have the data attribute
+            try:
+                self.data["DPH_COUNTS"] = self.contents
+            except AttributeError as ae:
+                pass
+        else:
+            # if we have read in a file (and passed in a numpy array that is a histogram)
+            # then call batbinevt and parse newly created file
+            # NOTE: this is mostly copied from the Lightcurve object
+            # see if the user specified either the energy bins directly or emin/emax separately
+            if emin is None and emax is None:
+                # need to get emin and emax values, assume that these are in keV already when converting to astropy quantities
+                emin = energybins[:-1]
+                emax = energybins[1:]
+
+            else:
+                # make sure that both emin and emax are defined and have the same number of elements
+                if (emin is None and emax is not None) or (emax is None and emin is not None):
+                    raise ValueError('Both emin and emax must be defined.')
+
+                if emin.size != emax.size:
+                    raise ValueError('Both emin and emax must have the same length.')
+
+                if emin.shape == ():
+                    emin = u.Quantity([emin])
+                    emax = u.Quantity([emax])
+
+            # create our energybins input to batbinevt
+            energybins = []
+            for min, max in zip(emin.to(u.keV), emax.to(u.keV)):
+                energybins.append(f"{min.value}-{max.value}")
+
+            # create the full string
+            ebins = ','.join(energybins)
+
+            # create a temp dict to hold the energy rebinning parameters to pass to heasoftpy. If things dont run
+            # successfully then the updated parameter list will not be saved
+            tmp_dpi_input_dict = self.dpi_input_dict.copy()
+
+            # need to see if the energybins are different (and even need to be calculated), if so do the recalculation
+            if not np.array_equal(emin, self.ebins['E_MIN']) or not np.array_equal(emax, self.ebins['E_MAX']):
+                # the tmp_lc_input_dict wil need to be modified with new Energybins
+                tmp_dpi_input_dict["energybins"] = ebins
+
+                # the DPH _call_batbinevt method ensures that  outtype = DPH and that clobber=YES
+                dpi_return = self._call_batbinevt(tmp_dpi_input_dict)
+
+                # make sure that the dph_return was successful
+                if dpi_return.returncode != 0:
+                    raise RuntimeError(f'The creation of the DPI failed with message: {dph_return.output}')
+                else:
+                    self.bat_dpi_result = dpi_return
+                    self.dpi_input_dict = tmp_dpi_input_dict
+
+                    # reparse the DPH file to get the info
+                    self._parse_dpi_file()
+
+                    # properly format the DPH here the tbins and ebins attributes get overwritten but we dont care
+                    super().__init__(
+                        tmin=self.tbins["TIME_START"],
+                        tmax=self.tbins["TIME_STOP"],
+                        histogram_data=self.data["DPH_COUNTS"],
+                        emin=self.ebins["E_MIN"],
+                        emax=self.ebins["E_MAX"],
+                    )
+
+    @u.quantity_input(timebins=["time"], tmin=["time"], tmax=["time"])
+    def set_timebins(self, timebins=None, tmin=None, tmax=None, timebinalg="uniform", T0=None, is_relative=False,
+                     timedelta=np.timedelta64(1, 's')):
+        """
+        NOTE: This is copied from the BatDPH class, this can be done better
+
+        :param timebins:
+        :param tmin:
+        :param tmax:
+        :return:
+        """
+
+        if type(is_relative) is not bool:
+            raise ValueError("The is_relative parameter should be a boolean value.")
+
+        if is_relative and T0 is None:
+            raise ValueError('The is_relative value is set to True however there is no T0 that is defined ' +
+                             '(ie the time from which the time bins are defined relative to is not specified).')
+
+        # we can either rebin using the timebins that are already present in the histogram
+        # OR we can rebin the event data
+        # where the event data can be rebinned directly through the histogram object or through the batbinevt script)
+        if self.event_file is None:
+            if is_relative:
+                if timebins is not None:
+                    # see if T0 is Quantity class
+                    if type(T0) is u.Quantity:
+                        timebins += T0
+                    else:
+                        timebins += T0 * u.s
+                else:
+                    if type(T0) is u.Quantity:
+                        tmin += T0
+                        tmax += T0
+                    else:
+                        tmin += T0 * u.s
+                        tmax += T0 * u.s
+
+            super().set_timebins(timebins=timebins, tmin=tmin, tmax=tmax)
+
+            # if we have event data that is binned directly we dont have the data attribute
+            try:
+                self.data["DPH_COUNTS"] = self.contents
+
+                # set the time key again as well
+                self.data["TIME"] = self.tbins["TIME_START"]
+
+                # also set the exposure as well
+                self.data["EXPOSURE"] = self.exposure
+            except AttributeError as ae:
+                pass
+        else:
+            # do error checking on tmin/tmax
+            if (tmin is None and tmax is not None) or (tmax is None and tmin is not None):
+                raise ValueError('Both tmin and tmax must be defined.')
+
+            if tmin is not None and tmax is not None:
+                if tmin.size != tmax.size:
+                    raise ValueError('Both tmin and tmax must have the same length.')
+
+            tmp_dpi_input_dict = self.dpi_input_dict.copy()
+
+            # create a copy of the timebins if it is not None to prevent modifying the original array
+            if timebins is not None:
+                timebins = timebins.copy()
+
+            if tmin is not None and tmax is not None:
+                # now try to construct single array of all timebin edges in seconds
+                timebins = np.zeros(tmin.size + 1) * u.s
+                timebins[:-1] = tmin
+                if tmin.size > 1:
+                    timebins[-1] = tmax[-1]
+                else:
+                    timebins[-1] = tmax
+
+            # See if we need to add T0 to everything
+            if is_relative:
+                # see if T0 is Quantity class
+                if type(T0) is u.Quantity:
+                    timebins += T0
+                else:
+                    timebins += T0 * u.s
+
+            if (timebins is not None and timebins.size > 2):
+                # tmin is not None and tmax.size > 1 and
+                # already checked that tmin && tmax are not 1 and have the same size
+                # if they are defined and they are more than 1 element then we have a series of timebins otherwise we just have the
+
+                tmp_dpi_input_dict['tstart'] = "INDEF"
+                tmp_dpi_input_dict['tstop'] = "INDEF"
+
+                # start/stop times of the lightcurve
+                self.timebins_file = self._create_custom_timebins(timebins)
+                tmp_dpi_input_dict['timebinalg'] = "gti"
+                tmp_dpi_input_dict['gtifile'] = str(self.timebins_file)
+            else:
+                tmp_dpi_input_dict['gtifile'] = "NONE"
+
+                # should have everything that we need to do the rebinning for a uniform/snr related rebinning
+                # first need to update the tmp_lc_input_dict
+                if "uniform" in timebinalg or "snr" in timebinalg:
+                    tmp_dpi_input_dict['timebinalg'] = timebinalg
+
+                tmp_dpi_input_dict['timedel'] = timedelta / np.timedelta64(1, 's')  # convert to seconds
+
+                tmp_dpi_input_dict['tstart'] = "INDEF"
+                tmp_dpi_input_dict['tstop'] = "INDEF"
+
+                # see if we have the min/max times defined
+                if (tmin is not None and tmax.size == 1):
+                    tmp_dpi_input_dict['tstart'] = timebins[0].value
+                    tmp_dpi_input_dict['tstop'] = timebins[1].value
+
+            # the DPH _call_batbinevt method ensures that  outtype = DPH and that clobber=YES
+            dpi_return = self._call_batbinevt(tmp_dpi_input_dict)
+
+            # make sure that the dph_return was successful
+            if dpi_return.returncode != 0:
+                raise RuntimeError(f'The creation of the DPI failed with message: {dph_return.output}')
+            else:
+                self.bat_dpi_result = dpi_return
+                self.dpi_input_dict = tmp_dpi_input_dict
+
+                # reparse the DPH file to get the info
+                self._parse_dpi_file()
+
+                # properly format the DPH here the tbins and ebins attributes get overwritten but we dont care
+                super().__init__(
+                    tmin=self.tbins["TIME_START"],
+                    tmax=self.tbins["TIME_STOP"],
+                    histogram_data=self.data["DPH_COUNTS"],
+                    emin=self.ebins["E_MIN"],
+                    emax=self.ebins["E_MAX"],
+                )
+
+    def _call_batbinevt(self, input_dict):
+        """
+        Calls heasoftpy's batbinevt with an error wrapper, ensures that this bins the event data to produce a DPI
+        NOTE: This is copied from the BatDPH class, this can be done better
+
+        :param input_dict: Dictionary of inputs that will be passed to heasoftpy's batbinevt
+        :return: heasoftpy Result object from batbinevt
+        """
+
+        input_dict["clobber"] = "YES"
+        input_dict["outtype"] = "DPI"
+
+        try:
+            return hsp.batbinevt(**input_dict)
+        except Exception as e:
+            print(e)
+            raise RuntimeError(
+                f"The call to Heasoft batbinevt failed with inputs {input_dict}."
+            )
+
+    def _create_custom_timebins(self, timebins, output_file=None):
+        """
+        This method creates custom time bins from a user defined set of time bin edges. The created fits file with the
+        timebins of interest will by default have the same name as the dpi file, however it will have a "gti" suffix instead of
+        a "dpi" suffix and it will be stored in the gti subdirectory of the event results directory.
+
+        Note: This method is here so the call to create a gti file with custom timebins can be phased out eventually.
+        NOTE: This is copied from the BatDPH class, this can be done better
+
+        :param timebins: a astropy.unit.Quantity object with the edges of the timebins that the user would like
+        :param output_file: None or a Path object to where the output *.gti file will be saved to. A value of None
+            defaults to the above description
+        :return: Path object of the created good time intervals file
+        """
+
+        if output_file is None:
+            # use the same filename as for the dph file but replace suffix with gti and put it in gti subdir instead of survey
+            new_path = self.dpi_file.parts
+            new_name = self.dpi_file.name.replace("dpi", "gti")
+            try:
+                # tryto put it in the gti directory
+                output_file = Path(*new_path[:self.dpi_file.parts.index('dpi')]).joinpath("gti").joinpath(
+                    new_name)
+
+            except ValueError:
+                # otherwise just try to place it where the dph is with the gti suffix
+                output_file = self.dpi_file.parent.joinpath(new_name)
+        return create_gti_file(timebins, output_file, T0=None, is_relative=False, overwrite=True)

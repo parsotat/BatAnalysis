@@ -696,6 +696,8 @@ class BatDPH(DetectorPlaneHistogram):
         if batsurvey_gti_return.returncode != 0:
             raise RuntimeError(f'The GTI filtering of the DPH failed with message: {baterebin_return.output}')
 
+        # cala batbinevt to go from DPH to DPI
+
         return BatDPI()
 
     def _call_baterebin(self, infile=None, outfile=None, gain_offset_file=None, output_detmask=None, input_dict=None):
