@@ -35,6 +35,7 @@ class BatDPI(DetectorPlaneHistogram):
             self,
             dpi_file=None,
             event_file=None,
+            detector_quality_mask=None,
             event_data=None,
             input_dict=None,
             recalc=False,
@@ -51,6 +52,8 @@ class BatDPI(DetectorPlaneHistogram):
         :param dpi_file: None or a pathlib Path object for the full path to a DPI file that will be created with a call
             to heasoftpy batbinevt.
         :param event_file: None or path object of the event file that will be rebinned in a call to heasoftpy batbinevt
+        :param detector_quality_mask: Path object for the detector quality mask that was constructed for the associated
+            event file
         :param event_data: None or Event data dictionary or event data class (to be created)
         :param input_dict: None or a dict of values that will be passed to batbinevt in the creation of the DPI.
             If a DPI is being read in from one that was previously created, the prior parameters that were used to
@@ -100,6 +103,16 @@ class BatDPI(DetectorPlaneHistogram):
                     stacklevel=2,
                 )
 
+        if detector_quality_mask is not None:
+            self.detector_quality_mask = Path(detector_quality_mask).expanduser().resolve()
+            if not self.detector_quality_mask.exists():
+                raise ValueError(f"The specified detector quality mask file {self.detector_quality_mask} does not seem "
+                                 f"to exist. Please double check that it does.")
+        else:
+            self.detector_quality_mask = None
+            # warnings.warn("No detector quality mask file has been specified. The resulting DPI object "
+            #              "will not be able to be modified either by rebinning in energy or time.", stacklevel=2)
+
         # if ther is event data passed in then we can directly bin that otherwise need to see if we have to create a DPI
         # or load one in
         if event_data is None:
@@ -110,6 +123,7 @@ class BatDPI(DetectorPlaneHistogram):
                     self.dpi_input_dict = dict(
                         infile=str(self.event_file),
                         outfile=str(self.dpi_file),
+                        detmask=str(self.detector_quality_mask),
                         outtype="DPI",
                         energybins="14-195",
                         weighted="NO",
@@ -572,6 +586,7 @@ class BatDPI(DetectorPlaneHistogram):
 
                 # see if we have the min/max times defined
                 if (tmin is not None and tmax.size == 1):
+                    tmp_dpi_input_dict['timedel'] = 0
                     tmp_dpi_input_dict['tstart'] = timebins[0].value
                     tmp_dpi_input_dict['tstop'] = timebins[1].value
 

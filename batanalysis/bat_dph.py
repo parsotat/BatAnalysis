@@ -526,6 +526,7 @@ class BatDPH(DetectorPlaneHistogram):
 
                 # see if we have the min/max times defined
                 if (tmin is not None and tmax.size == 1):
+                    tmp_dph_input_dict['timedel'] = 0
                     tmp_dph_input_dict['tstart'] = timebins[0].value
                     tmp_dph_input_dict['tstop'] = timebins[1].value
 
