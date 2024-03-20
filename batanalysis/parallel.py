@@ -2,14 +2,17 @@
 This file holds convience functions for conveniently analyzing batches of observation IDs using the joblib module
 """
 import os
-from joblib import Parallel, delayed
-from pathlib import Path
+import shutil
 from multiprocessing.pool import ThreadPool
+from pathlib import Path
+
+import numpy as np
 from astropy.table import Table, vstack
 from astropy.time import Time
-import shutil
-import numpy as np
+from joblib import Parallel, delayed
 
+from .bat_survey import MosaicBatSurvey, BatSurvey
+from .batlib import combine_survey_lc as serial_combine_survey_lc
 from .batlib import (
     dirtest,
     datadir,
@@ -18,8 +21,6 @@ from .batlib import (
     fit_spectrum,
     download_swiftdata,
 )
-from .batlib import combine_survey_lc as serial_combine_survey_lc
-from .bat_survey import MosaicBatSurvey, BatSurvey
 from .batproducts import Spectrum
 from .mosaic import (
     _mosaic_loop,
@@ -43,13 +44,13 @@ def _remove_pfiles():
 
 
 def _create_BatSurvey(
-    obs_id,
-    obs_dir=None,
-    input_dict=None,
-    recalc=False,
-    load_dir=None,
-    patt_noise_dir=None,
-    verbose=False,
+        obs_id,
+        obs_dir=None,
+        input_dict=None,
+        recalc=False,
+        load_dir=None,
+        patt_noise_dir=None,
+        verbose=False,
 ):
     """
     The inner loop that attempts to run batsurvey on a survey observation ID. If ther eis a load file saved already, it
@@ -96,13 +97,13 @@ def _create_BatSurvey(
 
 
 def batsurvey_analysis(
-    obs_id_list,
-    input_dict=None,
-    recalc=False,
-    load_dir=None,
-    patt_noise_dir=None,
-    verbose=False,
-    nprocs=1,
+        obs_id_list,
+        input_dict=None,
+        recalc=False,
+        load_dir=None,
+        patt_noise_dir=None,
+        verbose=False,
+        nprocs=1,
 ):
     """
     Calls batsurvey for a set of observation IDs. Can process the observations in parallel if nprocs does not equal one.
@@ -144,16 +145,16 @@ def batsurvey_analysis(
 
 
 def _survey_spectrum_analysis(
-    obs,
-    source_name,
-    recalc=False,
-    generic_model=None,
-    setPars=None,
-    fit_iterations=1000,
-    use_cstat=True,
-    ul_pl_index=2,
-    nsigma=3,
-    bkg_nsigma=5,
+        obs,
+        source_name,
+        recalc=False,
+        generic_model=None,
+        setPars=None,
+        fit_iterations=1000,
+        use_cstat=True,
+        ul_pl_index=2,
+        nsigma=3,
+        bkg_nsigma=5,
 ):
     """
     Calculate and fit a spectrum for a source at a single pointing.
@@ -194,7 +195,7 @@ def _survey_spectrum_analysis(
                     i, source_name
                 )
             val = (len(obs.get_pha_filenames()) <= 0) or (
-                len(obs.get_pointing_ids()) != pointing_id_test
+                    len(obs.get_pointing_ids()) != pointing_id_test
             )
 
             # if this is true then we should set recalc=True to redo the calculations for this observation ID
@@ -275,17 +276,17 @@ def _survey_spectrum_analysis(
 
 
 def batspectrum_survey_analysis(
-    batsurvey_obs_list,
-    source_name,
-    recalc=False,
-    generic_model=None,
-    setPars=None,
-    fit_iterations=1000,
-    use_cstat=True,
-    ul_pl_index=2,
-    nsigma=3,
-    bkg_nsigma=5,
-    nprocs=1,
+        batsurvey_obs_list,
+        source_name,
+        recalc=False,
+        generic_model=None,
+        setPars=None,
+        fit_iterations=1000,
+        use_cstat=True,
+        ul_pl_index=2,
+        nsigma=3,
+        bkg_nsigma=5,
+        nprocs=1,
 ):
     """
     Calculates and fits the spectra for a single source across many BAT Survey observations in parallel.
@@ -324,7 +325,7 @@ def batspectrum_survey_analysis(
         batsurvey_obs_list = [batsurvey_obs_list]
 
     obs = Parallel(n_jobs=nprocs)(
-        delayed(_spectrum_analysis)(
+        delayed(_survey_spectrum_analysis)(
             i,
             source_name=source_name,
             recalc=recalc,
@@ -345,16 +346,17 @@ def batspectrum_survey_analysis(
     else:
         return obs
 
+
 def _TTE_spectrum_analysis(
-    spectrum,
-    recalc=False,
-    generic_model=None,
-    setPars=None,
-    fit_iterations=1000,
-    use_cstat=True,
-    ul_pl_index=2,
-    nsigma=3,
-    bkg_nsigma=5,
+        spectrum,
+        recalc=False,
+        generic_model=None,
+        setPars=None,
+        fit_iterations=1000,
+        use_cstat=True,
+        ul_pl_index=2,
+        nsigma=3,
+        bkg_nsigma=5,
 ):
     """
     Fit a single spectrum object and determine if a detection has been made. If a detection has been made, the Spectrum
@@ -387,19 +389,19 @@ def _TTE_spectrum_analysis(
         that is returned will be that correspondent to the upper limit spectrum that gets fit.
     """
 
-    #determine if we really need to do the fitting again. If recalc=True, do the refitting. If not then see which spectra
+    # determine if we really need to do the fitting again. If recalc=True, do the refitting. If not then see which spectra
     # have been fit already and thus be skipped in fitting.
     if recalc:
         val = True
     else:
         try:
             if spectrum.spectral_model is None:
-                val=True
+                val = True
             else:
-                val=False
+                val = False
         except AttributeError as e:
-            #if the attribute doesnt exist then it hasnt been set so need to do the fit
-            val=True
+            # if the attribute doesnt exist then it hasnt been set so need to do the fit
+            val = True
 
     if val:
         fit_spectrum(
@@ -412,7 +414,7 @@ def _TTE_spectrum_analysis(
             fit_iterations=fit_iterations,
         )
 
-        return_spect=calculate_detection(
+        return_spect = calculate_detection(
             spectrum,
             pl_index=ul_pl_index,
             nsigma=nsigma,
@@ -420,21 +422,22 @@ def _TTE_spectrum_analysis(
             verbose=False,
         )
     else:
-        return_spect=spectrum
+        return_spect = spectrum
 
     return return_spect
 
+
 def batspectrum_TTE_analysis(
-    spectrum,
-    recalc=False,
-    generic_model=None,
-    setPars=None,
-    fit_iterations=1000,
-    use_cstat=True,
-    ul_pl_index=2,
-    nsigma=3,
-    bkg_nsigma=5,
-    nprocs=1,
+        spectrum,
+        recalc=False,
+        generic_model=None,
+        setPars=None,
+        fit_iterations=1000,
+        use_cstat=True,
+        ul_pl_index=2,
+        nsigma=3,
+        bkg_nsigma=5,
+        nprocs=1,
 ):
     """
     Calculates and fits the spectra that are passed in parallel. These should be BatAnalysis.Spectrum objects in a list.
@@ -477,10 +480,9 @@ def batspectrum_TTE_analysis(
         spectrum = [spectrum]
     else:
         # verify that we have all elements be a Spectrum object
-        if np.any([not isinstance(i,Spectrum) for i in spectrum]):
+        if np.any([not isinstance(i, Spectrum) for i in spectrum]):
             raise ValueError("The input list must be made of all BatAnalysis Spectrum objects. "
-                         "Please ensure that this condition is met.")
-
+                             "Please ensure that this condition is met.")
 
     out_spect = Parallel(n_jobs=nprocs)(
         delayed(_TTE_spectrum_analysis)(
@@ -503,6 +505,7 @@ def batspectrum_TTE_analysis(
     else:
         return out_spect
 
+
 def batspectrum_analysis(*args, **kwargs):
     """
     This is a wrapper function that allows users to pass in arguments for fitting spectra produced from BAT survey data
@@ -513,20 +516,20 @@ def batspectrum_analysis(*args, **kwargs):
     :return: See the documentation for
     """
 
-    #input can be a list of/single Spectrum objects or a list of/single BatSurvey objects, or a list of/single MosaicBatSurvey
+    # input can be a list of/single Spectrum objects or a list of/single BatSurvey objects, or a list of/single MosaicBatSurvey
     # object.
 
     if type(args[0]) is list:
-        test_arg=args[0][0]
+        test_arg = args[0][0]
     else:
-        test_arg=args[0]
+        test_arg = args[0]
 
     if isinstance(test_arg, Spectrum):
         # we have a spectrum object
-        ret=batspectrum_TTE_analysis(*args, **kwargs)
+        ret = batspectrum_TTE_analysis(*args, **kwargs)
     elif isinstance(test_arg, BatSurvey) or isinstance(test_arg, MosaicBatSurvey):
         # we are passing in a phafilename for
-        ret=batspectrum_survey_analysis(*args, **kwargs)
+        ret = batspectrum_survey_analysis(*args, **kwargs)
     else:
         raise ValueError("The inputs cannot be parsed appropriately. Please consult the documentation for "
                          "batspectrum_TTE_analysis or batspectrum_survey_analysis for the values that should be passed in.")
@@ -534,16 +537,14 @@ def batspectrum_analysis(*args, **kwargs):
     return ret
 
 
-
-
 def batmosaic_analysis(
-    batsurvey_obs_list,
-    outventory_file,
-    time_bins,
-    catalog_file=None,
-    total_mosaic_savedir=None,
-    recalc=False,
-    nprocs=1,
+        batsurvey_obs_list,
+        outventory_file,
+        time_bins,
+        catalog_file=None,
+        total_mosaic_savedir=None,
+        recalc=False,
+        nprocs=1,
 ):
     """
     Calculates the mosaic images in parallel.
@@ -677,15 +678,15 @@ def download_swiftdata(table,  reload=False,
 
 
 def download_swiftdata(
-    table,
-    reload=False,
-    bat=True,
-    auxil=True,
-    log=False,
-    uvot=False,
-    xrt=False,
-    save_dir=None,
-    nprocs=1,
+        table,
+        reload=False,
+        bat=True,
+        auxil=True,
+        log=False,
+        uvot=False,
+        xrt=False,
+        save_dir=None,
+        nprocs=1,
 ):
     # create temporary functions that will be called separately to download the data
     dl = lambda x: download_swiftdata(
