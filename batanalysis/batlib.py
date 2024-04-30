@@ -1,24 +1,25 @@
 """
 This file holds various functions that users can call to interface with bat observation objects
 """
+import datetime
+import functools
+import os
+import shutil
+import warnings
+from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
+
 import astropy as ap
+import astropy.units as u
+import dpath
+import matplotlib.pyplot as plt
+import numpy as np
+import requests
+import swiftbat.swutil as sbu
+import swifttools.swift_too as swtoo
 from astropy.io import fits
 from astropy.time import Time
-import numpy as np
-import shutil
-import matplotlib.pyplot as plt
-import os
-import warnings
-from pathlib import Path
-import requests
 from astroquery.heasarc import Heasarc
-import swifttools.swift_too as swtoo
-import datetime
-import dpath
-from concurrent.futures import ThreadPoolExecutor
-import functools
-import astropy.units as u
-import swiftbat.swutil as sbu
 
 # from xspec import *
 
@@ -84,7 +85,7 @@ def datadir(new=None, mkdir=False, makepersistent=False, tdrss=False, trend=Fals
             newdir.joinpath('trend').mkdir(exist_ok=True)
         if makepersistent:
             persistfile = datadirnamefile
-            persistfile.parent.mkdir(exist_ok=True)     # make ~/.swift if necessary
+            persistfile.parent.mkdir(exist_ok=True)  # make ~/.swift if necessary
             persistfile.open("wt").write(str(newdir))
         _datadir = newdir
 
@@ -110,14 +111,14 @@ def datadir(new=None, mkdir=False, makepersistent=False, tdrss=False, trend=Fals
 
 
 def create_custom_catalog(
-    src_name_list,
-    src_ra_list,
-    src_dec_list,
-    src_glon_list,
-    src_glat_list,
-    catalog_name="custom_catalog.cat",
-    catalog_dir=None,
-    catnum_init=32767,
+        src_name_list,
+        src_ra_list,
+        src_dec_list,
+        src_glon_list,
+        src_glat_list,
+        catalog_name="custom_catalog.cat",
+        catalog_dir=None,
+        catnum_init=32767,
 ):
     """
     This creates a catalog file for a number of sources that the user is interested in. Merges the created catalog with
@@ -139,11 +140,11 @@ def create_custom_catalog(
 
     # Add check to make sure that input is not tuple
     if (
-        type(src_name_list) is tuple
-        or type(src_ra_list) is tuple
-        or type(src_dec_list) is tuple
-        or type(src_glon_list) is tuple
-        or type(src_glat_list) is tuple
+            type(src_name_list) is tuple
+            or type(src_ra_list) is tuple
+            or type(src_dec_list) is tuple
+            or type(src_glon_list) is tuple
+            or type(src_glat_list) is tuple
     ):
         raise ValueError(
             "The inputs cannot be tuples, either single values or lists are accepted."
@@ -224,13 +225,14 @@ def create_custom_catalog(
     dir = Path(__file__[::-1].partition("/")[-1][::-1])
     hsp.ftmerge(
         infile="%s %s"
-        % (str(dir.joinpath("data").joinpath("survey6b_2.cat")), str(cat)),
+               % (str(dir.joinpath("data").joinpath("survey6b_2.cat")), str(cat)),
         outfile=str(final_cat),
     )
 
     os.system("rm %s" % (str(cat)))
 
     return final_cat
+
 
 def combine_survey_lc(survey_obsid_list, output_dir=None, clean_dir=True):
     """
@@ -305,7 +307,7 @@ def read_lc_data(filename, energy_band_index=None, T0=0):
 
     time_array = lc_fits_data.field("TIME")
     timestop_array = lc_fits_data.field("TIME_STOP")
-    #exposure_array = lc_fits_data.field("EXPOSURE") this isn't needed
+    # exposure_array = lc_fits_data.field("EXPOSURE") this isn't needed
     rate_array = lc_fits_data.field("RATE")
     rate_err_array = lc_fits_data.field("RATE_ERR")
     bkg_var_array = lc_fits_data.field("BKG_VAR")
@@ -314,8 +316,8 @@ def read_lc_data(filename, energy_band_index=None, T0=0):
     for i in range(len(lc_fits_data)):
         time_start = time_array[i] - T0  # this is in MET
         time_stop = timestop_array[i] - T0
-        time_mid = (time_start + time_stop) / 2.0 # we want to leave units as MET
-        time_err_num = (time_stop - time_start) / 2.0 # we want to leave units as MET
+        time_mid = (time_start + time_stop) / 2.0  # we want to leave units as MET
+        time_err_num = (time_stop - time_start) / 2.0  # we want to leave units as MET
 
         time.append(time_mid)
         time_err.append(time_err_num)
@@ -406,7 +408,7 @@ def calc_response(phafilename):
         # Split the filename by extension, so as to remove the .pha and replace it with .rsp
         # this is necessary since sources can have '.' in name
         out = (
-            filename.stem + ".rsp"
+                filename.stem + ".rsp"
         )
 
         # create drm
@@ -444,6 +446,7 @@ def fit_spectrum(*args, **kwargs):
 
     return None
 
+
 def calculate_detection(*args, **kwargs):
     """
     This is a wrapper function that allows users to pass in arguments for determining if sources are detected
@@ -472,14 +475,14 @@ def calculate_detection(*args, **kwargs):
 
 
 def fit_survey_spectrum(
-    phafilename,
-    surveyobservation,
-    plotting=True,
-    generic_model=None,
-    setPars=None,
-    use_cstat=True,
-    fit_iterations=1000,
-    verbose=True,
+        phafilename,
+        surveyobservation,
+        plotting=True,
+        generic_model=None,
+        setPars=None,
+        use_cstat=True,
+        fit_iterations=1000,
+        verbose=True,
 ):
     """
     Fits a spectrum that is loaded in from a BAT pha file. The header of the PHA file must have the associated
@@ -569,7 +572,7 @@ def fit_survey_spectrum(
 
     # Define model
     if (
-        generic_model is not None
+            generic_model is not None
     ):  # User provides a string of model, and a Dictionary for the initial values
         if type(generic_model) is str:
             if "cflux" in generic_model:
@@ -709,13 +712,13 @@ def fit_survey_spectrum(
 
 
 def calculate_survey_detection(
-    surveyobservation,
-    source_id,
-    pl_index=2,
-    nsigma=3,
-    bkg_nsigma=5,
-    plot_fit=False,
-    verbose=True,
+        surveyobservation,
+        source_id,
+        pl_index=2,
+        nsigma=3,
+        bkg_nsigma=5,
+        plot_fit=False,
+        verbose=True,
 ):
     """
     This function uses the fitting function and statistically checks if there is any significant detection (at a specfied confidence).
@@ -801,16 +804,16 @@ def calculate_survey_detection(
             fluxerr_uplim = model["hilim"]  # .cflux.lg10Flux.error[1]
 
             avg_flux_err = 0.5 * (
-                ((10**fluxerr_uplim) - (10**flux))
-                + ((10**flux) - (10**fluxerr_lolim))
+                    ((10 ** fluxerr_uplim) - (10 ** flux))
+                    + ((10 ** flux) - (10 ** fluxerr_lolim))
             )
             print(
                 "The condition here is",
                 10 ** (flux),
-                [10**fluxerr_lolim, 10**fluxerr_uplim],
+                [10 ** fluxerr_lolim, 10 ** fluxerr_uplim],
                 nsigma,
                 avg_flux_err,
-                ((10**flux) - nsigma * avg_flux_err),
+                ((10 ** flux) - nsigma * avg_flux_err),
             )
 
             # check the errors for any issues:
@@ -826,10 +829,10 @@ def calculate_survey_detection(
             avg_flux_err = 1
 
         if (
-            fluxerr_lolim == 0
-            or (((10**flux) - nsigma * avg_flux_err) <= 0)
-            or np.isnan(flux)
-            or error_issues
+                fluxerr_lolim == 0
+                or (((10 ** flux) - nsigma * avg_flux_err) <= 0)
+                or np.isnan(flux)
+                or error_issues
         ):
             print("No detection, just upperlimits for the spectrum:", pha_file)
             # Here redo the PHA calculation with 5*BKG_VAR
@@ -925,15 +928,16 @@ def calculate_survey_detection(
 
     return flux_upperlim  # This is a list for all the Valid non-detection pointings
 
+
 def fit_TTE_spectrum(
-    spectrum,
-    plotting=True,
-    generic_model=None,
-    setPars=None,
-    use_cstat=True,
-    fit_iterations=1000,
-    verbose=True,
-    get_upperlim=False
+        spectrum,
+        plotting=True,
+        generic_model=None,
+        setPars=None,
+        use_cstat=True,
+        fit_iterations=1000,
+        verbose=True,
+        get_upperlim=False
 ):
     """
     This is an extension of the fit_spectrum function which allows for the use of the Spectrum object to
@@ -1011,7 +1015,7 @@ def fit_TTE_spectrum(
 
     # Define model
     if (
-        generic_model is not None
+            generic_model is not None
     ):  # User provides a string of model, and a Dictionary for the initial values
         if type(generic_model) is str:
             if "cflux" in generic_model or get_upperlim:
@@ -1060,13 +1064,12 @@ def fit_TTE_spectrum(
     # Stop fit at nIterations and do not query.
     xsp.Fit.query = "no"
 
-    #set the range to ignore, need to be floats
+    # set the range to ignore, need to be floats
     xsp.Plot.xAxis = "keV"
     s.ignore("**-15. 150.-**")
 
     xsp.Fit.nIterations = fit_iterations
     xsp.Fit.renorm()
-
 
     # try to do the fitting if it doesn't work fill in np.nan values for things
     try:
@@ -1078,40 +1081,38 @@ def fit_TTE_spectrum(
         # Get coordinates from XSPEC plot to use in matplotlib:
         xsp.Plot.device = "/null"
 
-        #this gives the energy of the fitted model. units of the model values should be
+        # this gives the energy of the fitted model. units of the model values should be
         # count/s/keV which is the default below but have checks to make sure we arent doing anything weird
         xsp.Plot.xAxis = "keV"
         xsp.Plot("data resid")
         energies = np.array(xsp.Plot.x())
         edeltas = np.array(xsp.Plot.xErr())
-        #rates = xsp.Plot.y(1, 1)
-        #errors = xsp.Plot.yErr(1, 1)
+        # rates = xsp.Plot.y(1, 1)
+        # errors = xsp.Plot.yErr(1, 1)
         foldedmodel = np.array(xsp.Plot.model())
         dataLabels = xsp.Plot.labels(1)
-        #residLabels = xsp.Plot.labels(2)
-
+        # residLabels = xsp.Plot.labels(2)
 
         xspec_energy_min = u.Quantity(energies - edeltas, unit=xsp.Plot.xAxis)
         xspec_energy_max = u.Quantity(energies + edeltas, unit=xsp.Plot.xAxis)
         energybin_delta = xspec_energy_max - xspec_energy_min
 
-        #get the proper units of the model spectrum from xspec
-        model_unit=u.dimensionless_unscaled
+        # get the proper units of the model spectrum from xspec
+        model_unit = u.dimensionless_unscaled
         if "count" in dataLabels[1]:
-            model_unit*=u.count
+            model_unit *= u.count
         if "s$^{-1}$" in dataLabels[1]:
-            model_unit/=u.s
+            model_unit /= u.s
         if "keV$^{-1}$" in dataLabels[1]:
-            model_unit/=u.keV
-
+            model_unit /= u.keV
 
         if model_unit is u.dimensionless_unscaled:
             raise ValueError(f"The unit of the xspec model {dataLabels[1]} cannot be parsed")
 
-        foldedmodel=u.Quantity(foldedmodel, unit=model_unit)
+        foldedmodel = u.Quantity(foldedmodel, unit=model_unit)
 
-        if foldedmodel.unit/spectrum.data["RATE"].unit == 1/u.keV:
-            #need to get rid of the 1/keV unit of the xspec folded model
+        if foldedmodel.unit / spectrum.data["RATE"].unit == 1 / u.keV:
+            # need to get rid of the 1/keV unit of the xspec folded model
             foldedmodel *= energybin_delta
         elif foldedmodel.unit != spectrum.data["RATE"].unit:
             raise NotImplementedError(f'The conversion between the xpsec units: {foldedmodel.unit} of the folded model '
@@ -1138,14 +1139,14 @@ def fit_TTE_spectrum(
         model_dict = dict()
         model_dict["parameters"] = model_params
 
-        #also save the folded model values/energybins, although they shoudl be the same
+        # also save the folded model values/energybins, although they shoudl be the same
         model_dict["data"] = {"model_spectrum": foldedmodel}
         model_dict["ebins"] = {'INDEX': np.arange(xspec_energy_min.size),
-                                    'E_MIN': xspec_energy_min,
-                                    'E_MAX': xspec_energy_max}
+                               'E_MIN': xspec_energy_min,
+                               'E_MAX': xspec_energy_max}
         if get_upperlim:
             xsp.AllModels.calcFlux("15.0 150.0")
-            model_dict["nsigma_lg10flux_upperlim"]=np.log10(s.flux[0])
+            model_dict["nsigma_lg10flux_upperlim"] = np.log10(s.flux[0])
 
         spectrum.spectral_model = model_dict
 
@@ -1163,7 +1164,7 @@ def fit_TTE_spectrum(
                 val=np.nan, lolim=np.nan, hilim=np.nan, errflag="TTTTTTTTT"
             )
 
-        #have an overarching dict that contains the model parameters/errors and the
+        # have an overarching dict that contains the model parameters/errors and the
         # spectral values/energybins of the model itself
         model_dict = dict()
         model_dict["parameters"] = model_params
@@ -1171,14 +1172,14 @@ def fit_TTE_spectrum(
         foldedmodel = u.Quantity([np.nan], unit=spectrum.data["RATE"].unit)
         model_dict["data"] = {"model_spectrum": foldedmodel}
         model_dict["ebins"] = {'INDEX': np.arange(foldedmodel.size),
-                                'E_MIN': u.Quantity([np.nan], unit=u.keV),
+                               'E_MIN': u.Quantity([np.nan], unit=u.keV),
                                'E_MAX': u.Quantity([np.nan], unit=u.keV)}
 
         spectrum.spectral_model = model_dict
 
     # Incorporating the model names, parameters, errors into the BatSurvey object.
-    #remove the .xcm if it already exists
-    xcm_file=Path(phafilename.stem + ".xcm")
+    # remove the .xcm if it already exists
+    xcm_file = Path(phafilename.stem + ".xcm")
     if xcm_file.exists():
         xcm_file.unlink()
 
@@ -1186,7 +1187,7 @@ def fit_TTE_spectrum(
     xspec_savefile = phafilename.parent.joinpath(
         phafilename.stem + ".xcm"
     )
-    spectrum.spectral_model["xspec_session"]=xspec_savefile
+    spectrum.spectral_model["xspec_session"] = xspec_savefile
 
     # cd back
     if str(pha_dir) != str(current_dir):
@@ -1199,12 +1200,12 @@ def fit_TTE_spectrum(
 
 
 def calculate_TTE_detection(
-    spectrum,
-    pl_index=2,
-    nsigma=3,
-    bkg_nsigma=5,
-    plotting=False,
-    verbose=True,
+        spectrum,
+        pl_index=2,
+        nsigma=3,
+        bkg_nsigma=5,
+        plotting=False,
+        verbose=True,
 ):
     """
     This function uses the fitting function and statistically checks if there is any significant detection (at a
@@ -1282,16 +1283,16 @@ def calculate_TTE_detection(
         fluxerr_uplim = model_parameter_flux["hilim"]
 
         avg_flux_err = 0.5 * (
-            ((10**fluxerr_uplim) - (10**flux))
-            + ((10**flux) - (10**fluxerr_lolim))
+                ((10 ** fluxerr_uplim) - (10 ** flux))
+                + ((10 ** flux) - (10 ** fluxerr_lolim))
         )
         print(
             "The condition here is",
             10 ** (flux),
-            [10**fluxerr_lolim, 10**fluxerr_uplim],
+            [10 ** fluxerr_lolim, 10 ** fluxerr_uplim],
             nsigma,
             avg_flux_err,
-            ((10**flux) - nsigma * avg_flux_err),
+            ((10 ** flux) - nsigma * avg_flux_err),
         )
 
         # check the errors for any issues:
@@ -1306,16 +1307,16 @@ def calculate_TTE_detection(
         avg_flux_err = 1
 
     if (
-        fluxerr_lolim == 0
-        or (((10**flux) - nsigma * avg_flux_err) <= 0)
-        or np.isnan(flux)
-        or error_issues
+            fluxerr_lolim == 0
+            or (((10 ** flux) - nsigma * avg_flux_err) <= 0)
+            or np.isnan(flux)
+            or error_issues
     ):
         print("No detection, just upperlimits for the spectrum:", pha_file)
         # Here redo the PHA calculation with 5*BKG_VAR and calc the associated drm file
-        upper_lim_spect=spectrum.calc_upper_limit(bkg_nsigma)
+        upper_lim_spect = spectrum.calc_upper_limit(bkg_nsigma)
 
-        #fit the spectrum
+        # fit the spectrum
         fit_TTE_spectrum(upper_lim_spect, generic_model="po", setPars={1: f"{pl_index},-1", 2: "0.001"},
                          get_upperlim=True, plotting=plotting)
 
@@ -1332,17 +1333,16 @@ def calculate_TTE_detection(
     return upper_lim_spect
 
 
-
 def print_parameters(
-    obs_list,
-    source_id,
-    values=["met_time", "utc_time", "exposure"],
-    energy_range=[14, 195],
-    latex_table=False,
-    savetable=False,
-    save_file="output.txt",
-    overwrite=True,
-    add_obs_id=True,
+        obs_list,
+        source_id,
+        values=["met_time", "utc_time", "exposure"],
+        energy_range=[14, 195],
+        latex_table=False,
+        savetable=False,
+        save_file="output.txt",
+        overwrite=True,
+        add_obs_id=True,
 ):
     """
     Convenience function to plot various survey data pieces of information in a formatted file/table
@@ -1449,7 +1449,7 @@ def print_parameters(
                             print_val += "$"
 
                         print_val += (
-                            f"{val[i]:-.3}" + f"^{{{hilim :+.2}}}_{{{-1 * lolim :+.2}}}"
+                                f"{val[i]:-.3}" + f"^{{{hilim :+.2}}}_{{{-1 * lolim :+.2}}}"
                         )
 
                         if latex_table:
@@ -1501,18 +1501,18 @@ def print_parameters(
 
 
 def download_swiftdata(
-    observations,
-    reload=False,
-    fetch=True,
-    jobs=10,
-    bat=True,
-    auxil=True,
-    log=False,
-    uvot=False,
-    xrt=False,
-    tdrss=True,
-    save_dir=None,
-    **kwargs,
+        observations,
+        reload=False,
+        fetch=True,
+        jobs=10,
+        bat=True,
+        auxil=True,
+        log=False,
+        uvot=False,
+        xrt=False,
+        tdrss=True,
+        save_dir=None,
+        **kwargs,
 ) -> dict:
     """
     Download Swift data from HEASARC or quicklook sites to a local mirror directory.
@@ -1611,7 +1611,7 @@ def download_swiftdata(
 
 
 def _download_single_observation(
-    obsid, *, reload, bat, auxil, log, uvot, xrt, tdrss, save_dir, nowts, **kwargs
+        obsid, *, reload, bat, auxil, log, uvot, xrt, tdrss, save_dir, nowts, **kwargs
 ):
     """Helper function--not for general use
 
@@ -1660,9 +1660,9 @@ def _download_single_observation(
             for stalefile in obsoutdir.glob("**/*"):
                 # Any file older than the time before the data was downloaded
                 if (
-                    stalefile.is_file()
-                    and stalefile.stat().st_mtime < nowts
-                    and not stalefile.name.startswith(".")
+                        stalefile.is_file()
+                        and stalefile.stat().st_mtime < nowts
+                        and not stalefile.name.startswith(".")
                 ):
                     stalefile.replace(oldqlookdir.joinpath(stalefile.name))
             quicklookfile.unlink()
@@ -1751,7 +1751,9 @@ The infixes and suffixes:
 
 """
 
-def download_swift_trigger_data(triggers=None, triggerrange=None, triggertime=None, timewindow=300, fetch=False, match=False, **query):
+
+def download_swift_trigger_data(triggers=None, triggerrange=None, triggertime=None, timewindow=300, fetch=False,
+                                match=False, **query):
     """Find data corresponding to trigger on remote server and local disk
 
     Looks up triggers in the 'swifttdrss' table, then downloads the selected triggers
@@ -1793,16 +1795,16 @@ def download_swift_trigger_data(triggers=None, triggerrange=None, triggertime=No
     if triggertime:
         if 'Time' in query:
             raise RuntimeError("Do not specify both 'Time' conditions and a triggertime")
-        tstart, tend = [triggertime + datetime.timedelta(seconds = minplus * timewindow)
-                        for minplus in (-1,1)]
+        tstart, tend = [triggertime + datetime.timedelta(seconds=minplus * timewindow)
+                        for minplus in (-1, 1)]
         query['Time'] = f"{tstart:%Y-%m-%dT%H:M:S}..{tend:%Y-%m-%dT%H:M:S}"
     query.setdefault('fields', 'all')
-    
+
     triggertable = from_heasarc(tablename='swifttdrss', **query)
     result = {}
     for trigger in triggertable['TARGET_ID']:
         result[trigger] = swtoo.Swift_Data(obsid=trigger, outdir="/tmp", tdrss=True)
-        
+
     raise NotImplementedError
 
 
@@ -1896,7 +1898,7 @@ def reset_pdir():
 
 
 def concatenate_data(
-    bat_observation, source_ids, keys, energy_range=[14, 195], chronological_order=True
+        bat_observation, source_ids, keys, energy_range=[14, 195], chronological_order=True
 ):
     """
     This convenience function collects the data that was requested by the user as passed into the keys variable. The
@@ -2005,19 +2007,19 @@ def concatenate_data(
                             obs.get_pointing_info(pointings, source_id=source),
                         ]:
                             if (
-                                continue_search
-                                and np.isnan(save_val)
-                                and len(
-                                    dpath.search(
-                                        obs.get_pointing_info(
-                                            pointings, source_id=source
-                                        )["model_params"],
-                                        user_key,
-                                    )
+                                    continue_search
+                                    and np.isnan(save_val)
+                                    and len(
+                                dpath.search(
+                                    obs.get_pointing_info(
+                                        pointings, source_id=source
+                                    )["model_params"],
+                                    user_key,
                                 )
-                                == 0
-                                and ("flux" not in user_key.lower())
-                                and ("index" not in user_key.lower())
+                            )
+                                    == 0
+                                    and ("flux" not in user_key.lower())
+                                    and ("index" not in user_key.lower())
                             ):
                                 try:
                                     # if this is a rate/rate_err/snr need to calcualate these quantities based on the
@@ -2050,10 +2052,10 @@ def concatenate_data(
 
                         # see if the values are for the model fit
                         if (
-                            continue_search
-                            and np.sum(np.isnan(save_val)) > 0
-                            and "model_params"
-                            in obs.get_pointing_info(pointings, source_id=source).keys()
+                                continue_search
+                                and np.sum(np.isnan(save_val)) > 0
+                                and "model_params"
+                                in obs.get_pointing_info(pointings, source_id=source).keys()
                         ):
                             # can have obs.get_pointing_info(pointings, source_id=source)["model_params"]
                             # but it can be None if the source isn't detected
@@ -2094,7 +2096,7 @@ def concatenate_data(
                             # need to calculate the error on the value
                             # first do the case of flux upper limit
                             if real_user_key == "nsigma_lg10flux_upperlim":
-                                save_value = 10**save_val
+                                save_value = 10 ** save_val
                                 # there is no upper/lower error since we have an upper limit
                                 error = np.ones(2) * np.nan
                                 is_upper_lim = True
@@ -2159,8 +2161,9 @@ def concatenate_data(
 
     return concat_data
 
+
 def concatenate_spectrum_data(
-    spectra, keys, chronological_order=True
+        spectra, keys, chronological_order=True
 ):
     """
     This convenience function collects the spectra data that was requested by the user as passed into the keys variable.
@@ -2186,9 +2189,9 @@ def concatenate_spectrum_data(
         keys = [keys]
 
     if type(spectra) is not list:
-        spect=[spectra]
+        spect = [spectra]
     else:
-        spect=spectra
+        spect = spectra
 
     if np.any([not isinstance(i, Spectrum) for i in spect]):
         raise ValueError("Not all the elements of the values passed in to the spectra variable are Spectrum objects.")
@@ -2197,8 +2200,6 @@ def concatenate_spectrum_data(
     concat_data = dict().fromkeys(keys)
     for i in concat_data.keys():
         concat_data[i] = []
-
-
 
     if chronological_order:
         # sort the info by central time bin of each spectrum
@@ -2209,7 +2210,7 @@ def concatenate_spectrum_data(
     else:
         sorted_obs_idx = np.arange(len(spect))
 
-    #get the start/stop time when the spectra were binned
+    # get the start/stop time when the spectra were binned
     all_start_met = u.Quantity([
         i.tbins["TIME_START"][0] for i in spect
     ])
@@ -2217,35 +2218,33 @@ def concatenate_spectrum_data(
         i.tbins["TIME_STOP"][0] for i in spect
     ])
 
-    #save the times to the data dictionary
-    concat_data["TIME_START"]=all_start_met[sorted_obs_idx]
+    # save the times to the data dictionary
+    concat_data["TIME_START"] = all_start_met[sorted_obs_idx]
     concat_data["TIME_STOP"] = all_stop_met[sorted_obs_idx]
 
-
     # iterate over observation IDs
-    check_model=None
+    check_model = None
     for idx in sorted_obs_idx:
         spectrum = spectra[idx]
 
-        #make sure that we can access the spectral model info
+        # make sure that we can access the spectral model info
         try:
-            spect_model=spectrum.spectral_model
+            spect_model = spectrum.spectral_model
         except AttributeError as e:
             raise AttributeError("Not all of the spectra that have been passed in have been fit with a spectral model")
 
         # check that all spectra have the same spectral model fit to them, except for models which were used for
         # getting flux upper limits
-        has_upperlimit=np.any(["upperlim" in i for i in spect_model.keys()])
+        has_upperlimit = np.any(["upperlim" in i for i in spect_model.keys()])
         if check_model is None and not has_upperlimit:
             if check_model is None:
-                #save the list of parameters when we first get to a non-flux upper limit spectrum
-                check_model=[i for i in spect_model["parameters"].keys()]
+                # save the list of parameters when we first get to a non-flux upper limit spectrum
+                check_model = [i for i in spect_model["parameters"].keys()]
             else:
-                #check to see if the spectrum model parameters matches those that were saved
+                # check to see if the spectrum model parameters matches those that were saved
                 if set(check_model) != set(spect_model["parameters"].keys()):
                     raise ValueError("The input Spectrum objects do not have the same model parameters. Please ensure"
                                      "that the same model was used to fit the non flux upper limit spectra.")
-
 
         # iterate over the keys of interest
         for user_key in keys:
@@ -2255,8 +2254,8 @@ def concatenate_spectrum_data(
             continue_search = True
             # see if the values are for the model fit
             if (
-                continue_search
-                and np.sum(np.isnan(save_val)) > 0
+                    continue_search
+                    and np.sum(np.isnan(save_val)) > 0
             ):
                 # can have obs.get_pointing_info(pointings, source_id=source)["model_params"]
                 # but it can be None if the source isn't detected
@@ -2297,7 +2296,7 @@ def concatenate_spectrum_data(
                 # need to calculate the error on the value
                 # first do the case of flux upper limit
                 if real_user_key == "nsigma_lg10flux_upperlim":
-                    save_value = 10**save_val
+                    save_value = 10 ** save_val
                     # there is no upper/lower error since we have an upper limit
                     error = np.ones(2) * np.nan
                     is_upper_lim = True
@@ -2364,7 +2363,7 @@ def concatenate_spectrum_data(
 
 
 def make_fake_tdrss_message(
-    obs_id, trig_time, trig_stop, ra_obj, dec_obj, obs_dir=None
+        obs_id, trig_time, trig_stop, ra_obj, dec_obj, obs_dir=None
 ):
     """
     This function creates a fake TDRSS message file that specifies a few important pieces of information which can be
@@ -2414,6 +2413,7 @@ def make_fake_tdrss_message(
 
     return tdrss_file
 
+
 def create_gti_file(timebin_edges, output_filename, T0=None, is_relative=False, overwrite=True):
     """
     This convenience function creates a gti file from a set of timebin edges.
@@ -2432,17 +2432,17 @@ def create_gti_file(timebin_edges, output_filename, T0=None, is_relative=False, 
     """
 
     if type(output_filename) is not Path:
-        filename=Path(output_filename).expanduser().resolve()
+        filename = Path(output_filename).expanduser().resolve()
 
     if type(timebin_edges) is not np.array and type(timebin_edges) is not u.Quantity:
-        timebin_edges=np.array(timebin_edges)
+        timebin_edges = np.array(timebin_edges)
 
     if type(timebin_edges) is not u.Quantity:
-        timebin_edges=u.Quantity(timebin_edges, u.s)
+        timebin_edges = u.Quantity(timebin_edges, u.s)
 
-    #test if is_relative is false and make sure that T0 is defined
+    # test if is_relative is false and make sure that T0 is defined
     if is_relative and T0 is None:
-        raise ValueError('The is_relative value is set to True however there is no T0 that is defined '+
+        raise ValueError('The is_relative value is set to True however there is no T0 that is defined ' +
                          '(ie the time from which the time bins are defined relative to is not specified).')
 
     # See if we need to add T0 to everything
@@ -2453,18 +2453,18 @@ def create_gti_file(timebin_edges, output_filename, T0=None, is_relative=False, 
         else:
             timebin_edges += T0 * u.s
 
-    tmin=np.zeros(timebin_edges.size-1)
-    tmax=np.zeros_like(tmin)
+    tmin = np.zeros(timebin_edges.size - 1)
+    tmax = np.zeros_like(tmin)
 
-    tmin=timebin_edges[:-1].value
-    tmax=timebin_edges[1:].value
+    tmin = timebin_edges[:-1].value
+    tmax = timebin_edges[1:].value
 
-    #now create the file
+    # now create the file
 
-    #create fake primary header
+    # create fake primary header
     pha_primary = fits.PrimaryHDU()
 
-    #create real gti info
+    # create real gti info
     gti_tmin = fits.Column(name='START', format='1D', unit='s', array=tmin)
     gti_tmax = fits.Column(name='STOP', format='1D', unit='s', array=tmax)
 
@@ -2478,10 +2478,10 @@ def create_gti_file(timebin_edges, output_filename, T0=None, is_relative=False, 
 
     gti_thdulist.writeto(str(output_filename), overwrite=overwrite)
 
-    #open it in update mode to add header info
+    # open it in update mode to add header info
     with fits.open(str(output_filename), mode='update') as gti_hdulist:
         for i in gti_hdulist:
-            hdr=i.header
+            hdr = i.header
             hdr["MJDREFI"] = (51910, "Swift reference epoch: days")
             hdr["MJDREFF"] = (0.00074287037, "Swift reference epoch: fractional days")
             hdr["TIMEZERO"] = (0.0, "Time offset value")
@@ -2490,6 +2490,7 @@ def create_gti_file(timebin_edges, output_filename, T0=None, is_relative=False, 
         gti_hdulist.flush()
 
     return output_filename
+
 
 def decompose_det_id(detector_id):
     """
@@ -2500,9 +2501,9 @@ def decompose_det_id(detector_id):
 
     """
 
-    #get the value and make sure that we have an int16 number
+    # get the value and make sure that we have an int16 number
     if isinstance(detector_id, u.Quantity):
-        detector_id=np.int16(detector_id.value)
+        detector_id = np.int16(detector_id.value)
     else:
         detector_id = np.int16(detector_id)
 
@@ -2514,22 +2515,3 @@ def decompose_det_id(detector_id):
     _, side = np.divmod(det_in_dm, np.int16(2))
 
     return block, dm, side, channel
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
