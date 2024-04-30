@@ -3,7 +3,11 @@ This file holds the BatSkyImage class which contains binned data from a skymap g
 
 Tyler Parsotan March 11 2024
 """
+from copy import deepcopy
+from pathlib import Path
 
+import astropy.units as u
+import numpy as np
 from histpy import Histogram
 
 try:
@@ -175,7 +179,7 @@ class BatSkyImage(Histogram):
             self.ebins["E_MIN"] = energybin_edges[:-1]
             self.ebins["E_MAX"] = energybin_edges[1:]
 
-    self._set_histogram(histogram_data=parse_data, weights=weights)
+        self._set_histogram(histogram_data=parse_data, weights=weights)
 
     def _set_histogram(self, histogram_data=None, event_data=None, weights=None):
         """
@@ -186,7 +190,7 @@ class BatSkyImage(Histogram):
 
         :param histogram_data: None or histpy Histogram or a numpy array of N dimensions. Thsi should be formatted
             such that it has the following dimensions: (T,Ny,Nx,E) where T is the number of timebins, Ny is the
-            number of detectors in the y direction see the det_x_edges class attribute, Nx represents an identical
+            number of image pixels in the y direction, Nx represents an identical
             quantity in the x direction, and E is the number of energy bins. These should be the appropriate sizes for
             the tbins and ebins attributes
         :param event_data: None or Event data dictionary or event data class (to be created)
@@ -218,12 +222,12 @@ class BatSkyImage(Histogram):
             super().__init__(
                 [
                     timebin_edges,
-                    self.det_y_edges,
-                    self.det_x_edges,
+                    np.arange(histogram_data.shape[1] + 1) - 0.5,
+                    np.arange(histogram_data.shape[2] + 1) - 0.5,
                     energybin_edges,
                 ],
                 contents=histogram_data,
-                labels=["TIME", "DETY", "DETX", "ENERGY"],
+                labels=["TIME", "IMY", "IMX", "ENERGY"],
                 sumw2=weights,
                 unit=hist_unit,
             )
@@ -244,7 +248,6 @@ class BatSkyView(object):
     energy or time bins. We can also handle the projection of the image onto a healpix map.
 
     TODO: create a python FFT deconvolution. This primarily relies on the batfftimage to create the data.
-    TODO: make the class more flexible to handle holding any sky image info (flux [E dependent] vs pcoding vs bkgvar [E dependent] vs SNR [E dependent] map)
     """
 
     def __init__(
