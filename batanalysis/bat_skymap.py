@@ -35,3 +35,33 @@ class BatSkyImage(Histogram):
             load_dir=None,
             bkg_dpi_file=None
     ):
+        """
+
+        :param skyimg_file:
+        :param dpi_file:
+        :param detector_quality_file:
+        :param attitude_file:
+        :param dpi_data:
+        :param input_dict:
+        :param recalc:
+        :param load_dir:
+        :param bkg_dpi_file:
+        """
+
+        if dpi_data is not None:
+            raise NotImplementedError(
+                "Dealing with the DPI data directly to calculate the sky image is not yet supported.")
+
+        if skyimg_file is not None:
+            self.skyimg_file = Path(skyimg_file).expanduser().resolve()
+
+        # do some error checking
+        if detector_quality_file is not None:
+            self.detector_quality_file = Path(detector_quality_file).expanduser().resolve()
+            if not self.detector_quality_file.exists():
+                raise ValueError(f"The specified detector quality mask file {self.detector_quality_file} does not seem "
+                                 f"to exist. Please double check that it does.")
+        else:
+            self.detector_quality_file = None
+            # warnings.warn("No detector quality mask file has been specified. The resulting DPI object "
+            #              "will not be able to be modified either by rebinning in energy or time.", stacklevel=2)

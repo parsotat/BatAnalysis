@@ -13,6 +13,7 @@ import astropy.units as u
 import numpy as np
 from astropy.io import fits
 
+from .batlib import create_gti_file
 from .detectorplanehist import DetectorPlaneHistogram
 
 try:
