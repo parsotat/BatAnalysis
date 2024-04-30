@@ -3,28 +3,19 @@ This file contains the various product-related classes associated with Bat obser
 
 Tyler Parsotan Jan 28 2024
 """
+import gzip
 import os
 import shutil
-import sys
-from .batlib import datadir, dirtest, met2mjd, met2utc, create_gti_file, calc_response
-from .batobservation import BatObservation
-import glob
-from astropy.io import fits
-import numpy as np
-import subprocess
-import pickle
-import sys
-import re
-from pathlib import Path
-from astropy.time import Time
-import astropy.units as u
-from datetime import datetime, timedelta
-import re
 import warnings
-import matplotlib.pyplot as plt
-from mpl_toolkits.axes_grid1 import make_axes_locatable
-import gzip
+from pathlib import Path
 
+import astropy.units as u
+import matplotlib.pyplot as plt
+import numpy as np
+from astropy.io import fits
+
+from .batlib import met2mjd, met2utc, create_gti_file, calc_response
+from .batobservation import BatObservation
 
 # for python>3.6
 try:
@@ -32,7 +23,6 @@ try:
 except ModuleNotFoundError as err:
     # Error handling
     print(err)
-
 
 # try:
 # import xspec as xsp
@@ -50,7 +40,7 @@ class Lightcurve(BatObservation):
 
     """
 
-    def __init__(self, lightcurve_file, event_file, detector_quality_mask, ra=None, dec=None, lc_input_dict=None,
+    def __init__(self, lightcurve_file, event_file, detector_quality_file, ra=None, dec=None, lc_input_dict=None,
                  recalc=False, mask_weighting=True):
         """
         This constructor either creates a lightcurve fits file based off of a passed in event file where mask weighting
@@ -60,7 +50,7 @@ class Lightcurve(BatObservation):
 
         dict(infile=str(event_file), outfile=str(lightcurve_file), outtype="LC",
                               energybins="15-350", weighted="YES", timedel=0.064,
-                              detmask=str(detector_quality_mask),
+                              detmask=str(detector_quality_file),
                               tstart="INDEF", tstop="INDEF", clobber="YES", timebinalg="uniform")
 
         The ra/dec of the source that this lightcurve was constructed for (and for which the weighting was applied to
@@ -70,7 +60,7 @@ class Lightcurve(BatObservation):
             or the location/name of the new lightcurve file that will contain the newly calculated lightcurve.
         :param event_file: Path object for the event file with mask weighting already applied, from which we will construct
             the lightcurve or read the previously ocnstructed lightcurve file
-        :param detector_quality_mask: Path object for the detector quality mask that was constructed for the associated
+        :param detector_quality_file: Path object for the detector quality mask that was constructed for the associated
             event file
         :param ra: None or float representing the decimal degree RA value of the source for which the mask weighting was
             applied to the passed in event file. A value of None indicates that the RA of the source will be obtained
@@ -84,7 +74,7 @@ class Lightcurve(BatObservation):
             If lc_input_dict is None, this will be set to:
                 dict(infile=str(event_file), outfile=str(lightcurve_file), outtype="LC",
                                   energybins="15-350", weighted="YES", timedel=0.064,
-                                  detmask=str(detector_quality_mask),
+                                  detmask=str(detector_quality_file),
                                   tstart="INDEF", tstop="INDEF", clobber="YES", timebinalg="uniform")
             See HEASoft docmentation on batbinevt to see what these parameters mean. Alternatively, these defaults can
             be used in the inital call and time/energy rebinning can be done using the set_timebins and set_energybins
@@ -115,16 +105,15 @@ class Lightcurve(BatObservation):
             warnings.warn("No event file has been specified. The resulting lightcurve object will not be able "
                           "to be modified either by rebinning in energy or time.", stacklevel=2)
 
-        if detector_quality_mask is not None:
-            self.detector_quality_mask = Path(detector_quality_mask).expanduser().resolve()
-            if not self.detector_quality_mask.exists():
-                raise ValueError(f"The specified detector quality mask file {self.detector_quality_mask} does not seem "
+        if detector_quality_file is not None:
+            self.detector_quality_file = Path(detector_quality_file).expanduser().resolve()
+            if not self.detector_quality_file.exists():
+                raise ValueError(f"The specified detector quality mask file {self.detector_quality_file} does not seem "
                                  f"to exist. Please double check that it does.")
         else:
-            self.detector_quality_mask = None
+            self.detector_quality_file = None
             warnings.warn("No detector quality mask file has been specified. The resulting lightcurve object "
                           "will not be able to be modified either by rebinning in energy or time.", stacklevel=2)
-
 
         # error checking for weighting
         if type(mask_weighting) is not bool:
@@ -136,7 +125,7 @@ class Lightcurve(BatObservation):
             if lc_input_dict is None:
                 self.lc_input_dict = dict(infile=str(self.event_file), outfile=str(self.lightcurve_file), outtype="LC",
                                           energybins="15-350", weighted="YES", timedel=0.064,
-                                          detmask=str(self.detector_quality_mask),
+                                          detmask=str(self.detector_quality_file),
                                           tstart="INDEF", tstop="INDEF", clobber="YES", timebinalg="uniform")
 
                 # specify if we want mask weighting
@@ -167,7 +156,7 @@ class Lightcurve(BatObservation):
 
         # read info from the lightcurve file assume that the lightcurve file is not a rate file. The parsing will
         # determine if it is or not
-        self._is_rate_lc=False
+        self._is_rate_lc = False
         self._parse_lightcurve_file()
 
         # read in the information about the weights
@@ -237,12 +226,12 @@ class Lightcurve(BatObservation):
         :return: None
         """
 
-        #make sure the user isnt trying to rebin a rate file
+        # make sure the user isnt trying to rebin a rate file
         if self._is_rate_lc:
             raise RuntimeError("The rate light curves cannot be rebinned in energy")
 
         # make sure we have all the info to do the rebinning
-        if self.event_file is None or self.detector_quality_mask is None:
+        if self.event_file is None or self.detector_quality_file is None:
             raise RuntimeError("The lightcurve cannot be rebinned in time since one of the following files was not "
                                "initalized with this Lightcurve object: the event file "
                                "or the detector quality mask file.")
@@ -250,9 +239,9 @@ class Lightcurve(BatObservation):
         # create a temp copy incase the time rebinning doesnt complete successfully
         tmp_lc_input_dict = self.lc_input_dict.copy()
 
-        #create a copy of the timebins if it is not None to prevent modifying the original array
+        # create a copy of the timebins if it is not None to prevent modifying the original array
         if timebins is not None:
-            timebins=timebins.copy()
+            timebins = timebins.copy()
 
         # return an error if there is no event file set
         if self.event_file is None:
@@ -401,16 +390,15 @@ class Lightcurve(BatObservation):
             then this argument does nothing.
         :return: None.
         """
-        #make sure the user isnt trying to rebin a rate file
+        # make sure the user isnt trying to rebin a rate file
         if self._is_rate_lc:
             raise RuntimeError("The rate light curves cannot be rebinned in energy")
 
         # make sure we have all the info to do the rebinning
-        if self.event_file is None or self.detector_quality_mask is None:
+        if self.event_file is None or self.detector_quality_file is None:
             raise RuntimeError("The lightcurve cannot be rebinned in energy since one of the following files was not "
                                "initalized with this Lightcurve object: the event file "
                                "or the detector quality mask file.")
-
 
         # error checking for calc_energy_integrated
         if type(calc_energy_integrated) is not bool:
@@ -506,9 +494,8 @@ class Lightcurve(BatObservation):
         :return: None
         """
 
-
-        #determine if we have a rate lightcurve file, produced by the SDC, or a normally produced one calcualted with
-        #batbinevt
+        # determine if we have a rate lightcurve file, produced by the SDC, or a normally produced one calcualted with
+        # batbinevt
 
         # error checking for calc_energy_integrated
         if type(calc_energy_integrated) is not bool:
@@ -523,10 +510,9 @@ class Lightcurve(BatObservation):
             if "event" in header["DATAMODE"].lower():
                 energies = f["EBOUNDS"].data
                 energies_header = f["EBOUNDS"].header
-                self._is_rate_lc=False
+                self._is_rate_lc = False
             else:
-                self._is_rate_lc=True
-
+                self._is_rate_lc = True
 
         if self.ra is None and self.dec is None:
             self.ra = header["RA_OBJ"]
@@ -552,14 +538,14 @@ class Lightcurve(BatObservation):
                     self.ebins[i.name] = u.Quantity(energies[i.name], i.unit)
         else:
             if "1s" in header["DATAMODE"].lower():
-                idx=np.array([0], dtype=np.int16)
-                emin=[0]*u.keV
-                emax=[np.inf]*u.keV
+                idx = np.array([0], dtype=np.int16)
+                emin = [0] * u.keV
+                emax = [np.inf] * u.keV
             else:
-                idx=np.array([0,1,2,3], dtype=np.int16)
-                emin=[15,  25,  50, 100]*u.keV
-                emax=[25,  50,  100, 350]*u.keV
-            self.ebins={"INDEX": idx, "E_MIN": emin, "E_MAX": emax}
+                idx = np.array([0, 1, 2, 3], dtype=np.int16)
+                emin = [15, 25, 50, 100] * u.keV
+                emax = [25, 50, 100, 350] * u.keV
+            self.ebins = {"INDEX": idx, "E_MIN": emin, "E_MAX": emax}
 
         # fill in the time info separately
         timepixr = header["TIMEPIXR"]
@@ -663,7 +649,7 @@ class Lightcurve(BatObservation):
 
         :return: list of keys
         """
-        exclude_keys=["TIME", "ERROR", 'TOTCOUNTS', 'FRACEXP', 'TIMEDEL']
+        exclude_keys = ["TIME", "ERROR", 'TOTCOUNTS', 'FRACEXP', 'TIMEDEL']
 
         return [i for i in self.data.keys() if i not in exclude_keys]
 
@@ -704,15 +690,15 @@ class Lightcurve(BatObservation):
                 file[1].data["MASK_WEIGHT"] = self._event_weights
                 # also make sure to modify the RA/DEC in header so we know what points in the sky the weights are
                 # calculated for
-                #update the event file RA/DEC_OBJ values everywhere
+                # update the event file RA/DEC_OBJ values everywhere
                 for i in file:
-                    i.header["RA_OBJ"]=self.ra
-                    i.header["DEC_OBJ"]=self.dec
+                    i.header["RA_OBJ"] = self.ra
+                    i.header["DEC_OBJ"] = self.dec
 
-                    #the BAT_RA/BAT_DEC keys have to updated too since this is something
-                    #that the software manual points out should be updated
-                    i.header["BAT_RA"]=self.ra
-                    i.header["BAT_DEC"]=self.dec
+                    # the BAT_RA/BAT_DEC keys have to updated too since this is something
+                    # that the software manual points out should be updated
+                    i.header["BAT_RA"] = self.ra
+                    i.header["BAT_DEC"] = self.dec
 
                 file.flush()
 
@@ -745,7 +731,7 @@ class Lightcurve(BatObservation):
         :return: None
         """
 
-        data_keys=self._get_count_related_keys()
+        data_keys = self._get_count_related_keys()
 
         # if we have more than 1 energy bin then we can calculate an energy integrated count rate, etc
         # otherwise we dont have to do anything since theres only one energy bin.
@@ -780,7 +766,6 @@ class Lightcurve(BatObservation):
                 new_rate = np.zeros((self.data[data_key].shape[0], new_energy_bin_size)) * self.data[data_key].unit
                 new_rate[:, :-1] = self.data[data_key]
                 new_rate[:, -1] = integrated_count_rate
-
 
                 # save the updated arrays
                 self.ebins["INDEX"] = new_e_index
@@ -863,21 +848,20 @@ class Lightcurve(BatObservation):
             num_plots += (plot_counts + plot_exposure_fraction)
             fig, ax = plt.subplots(num_plots, sharex=True)
         else:
-            #if len(plot_data_key) >= 1:
+            # if len(plot_data_key) >= 1:
             #    plot_data_key = plot_data_key[0]
 
-            #want to have separate plots for the potential quad rate plots for the rtqd/rtmc rate lightcurves or just
+            # want to have separate plots for the potential quad rate plots for the rtqd/rtmc rate lightcurves or just
             # the 1 plot for the 1s or ms rate lightcurves
             num_plots = len(plot_data_key)
             fig, ax = plt.subplots(num_plots, sharex=True)
-
 
         # assign the axes for each type of plot we may want
         axes_queue = [i for i in range(num_plots)]
 
         if num_plots > 1:
             if not self._is_rate_lc:
-                rate_axes=[ax[axes_queue[0]]]
+                rate_axes = [ax[axes_queue[0]]]
                 axes_queue.pop(0)
 
                 if plot_counts:
@@ -888,15 +872,15 @@ class Lightcurve(BatObservation):
                     ax_exposure = ax[axes_queue[0]]
                     axes_queue.pop(0)
             else:
-                rate_axes=ax[:len(plot_data_key)]
+                rate_axes = ax[:len(plot_data_key)]
         else:
             rate_axes = [ax]
 
-        all_lines=[]
-        all_labels=[]
+        all_lines = []
+        all_labels = []
         # plot everything for the rates by default
         for ax_idx, data_key in enumerate(plot_data_key):
-            ax_rate=rate_axes[ax_idx]
+            ax_rate = rate_axes[ax_idx]
             for e_idx, emin, emax in zip(self.ebins["INDEX"], self.ebins["E_MIN"], self.ebins["E_MAX"]):
                 plotting = True
                 if energybins is not None:
@@ -912,58 +896,58 @@ class Lightcurve(BatObservation):
                         rate = self.data[data_key][:, e_idx]
                         if not self._is_rate_lc:
                             rate_error = self.data["ERROR"][:, e_idx]
-                        l=f'{self.ebins["E_MIN"][e_idx].value}-{self.ebins["E_MAX"][e_idx].value} '+ f'{self.ebins["E_MAX"][e_idx].unit}'
+                        l = f'{self.ebins["E_MIN"][e_idx].value}-{self.ebins["E_MAX"][e_idx].value} ' + f'{self.ebins["E_MAX"][e_idx].unit}'
                     else:
                         rate = self.data[data_key]
                         if not self._is_rate_lc:
                             rate_error = self.data["ERROR"]
-                        l=f'{self.ebins["E_MIN"][0].value}-{self.ebins["E_MAX"][0].value} '+ f'{self.ebins["E_MAX"].unit}'
+                        l = f'{self.ebins["E_MIN"][0].value}-{self.ebins["E_MAX"][0].value} ' + f'{self.ebins["E_MAX"].unit}'
 
-                        #for the 1 second rate lightcurve, we have that the energy goes from 0 to +infinity. this is the
+                        # for the 1 second rate lightcurve, we have that the energy goes from 0 to +infinity. this is the
                         # only rate lightcurve that has a single energy bin
                         if self._is_rate_lc:
-                            l=r"$0 - \infty$ "+ f'{self.ebins["E_MAX"].unit}'
+                            l = r"$0 - \infty$ " + f'{self.ebins["E_MAX"].unit}'
 
                     if self._is_rate_lc:
                         # if we are looking at a rate lightcurve, there may be gaps in the data. so filter these out for
                         # plotting. Min dt can be 1 sec, 1.6 sec, or up to 64 ms. To remove these gaps for all these
                         #  different time binnings just ID gaps that are larger than the mean dt
-                        idx=np.where(np.diff(self.data["TIME"]) > np.diff(self.data["TIME"]).mean())[0]
-                        rate[idx]=np.nan
-                        start_times[idx]=np.nan
-                        end_times[idx]=np.nan
+                        idx = np.where(np.diff(self.data["TIME"]) > np.diff(self.data["TIME"]).mean())[0]
+                        rate[idx] = np.nan
+                        start_times[idx] = np.nan
+                        end_times[idx] = np.nan
 
                     line = ax_rate.plot(start_times, rate, ds='steps-post')
-                    line_handle, =ax_rate.plot(end_times, rate, ds='steps-pre', color=line[-1].get_color(), label=l)
+                    line_handle, = ax_rate.plot(end_times, rate, ds='steps-pre', color=line[-1].get_color(), label=l)
                     all_lines.append(line_handle)
                     all_labels.append(l)
                     if not self._is_rate_lc:
                         ax_rate.errorbar(mid_times, rate, yerr=rate_error, ls='None', color=line[-1].get_color())
 
-                    #add the axis labels
-                    data_label=data_key.replace('_', " ")
+                    # add the axis labels
+                    data_label = data_key.replace('_', " ")
 
-                    #for the quad counts just have Q0 for example
+                    # for the quad counts just have Q0 for example
                     if "QUAD" in data_label:
-                        data_label=data_label.replace("UAD", '')
+                        data_label = data_label.replace("UAD", '')
 
-                    #for the combined quad counts, to have Q_0_1 -> Q0+1
+                    # for the combined quad counts, to have Q_0_1 -> Q0+1
                     if len(data_label.split()) > 2:
-                        str_list=["".join(data_label.split(" ", 2)[:2]), data_label.split(" ", 2)[-1]]
-                        data_label="+".join(str_list)
+                        str_list = ["".join(data_label.split(" ", 2)[:2]), data_label.split(" ", 2)[-1]]
+                        data_label = "+".join(str_list)
 
                     ax_rate.set_ylabel(data_label + f" ({rate.unit})")
 
-        #if we have multiple count related plots put legend at the top
+        # if we have multiple count related plots put legend at the top
         if len(plot_data_key) > 1 or not self._is_rate_lc:
-            #calc the number of energy bins that we need to have labels for
-            num_e=int(len(all_lines)/len(plot_data_key))
-            if num_plots==1:
-                legend_ax=ax
+            # calc the number of energy bins that we need to have labels for
+            num_e = int(len(all_lines) / len(plot_data_key))
+            if num_plots == 1:
+                legend_ax = ax
             else:
-                legend_ax=ax[0]
+                legend_ax = ax[0]
             legend_ax.legend(handles=all_lines[:num_e], labels=all_labels[:num_e],
-                         bbox_to_anchor=(0, 1.02, 1, 0.2), loc="lower left", mode="expand", ncol=3)
+                             bbox_to_anchor=(0, 1.02, 1, 0.2), loc="lower left", mode="expand", ncol=3)
 
         if plot_counts:
             line = ax_count.plot(start_times, self.data["TOTCOUNTS"], ds='steps-post', c='k')
@@ -979,9 +963,9 @@ class Lightcurve(BatObservation):
             # plot the trigger time for all panels if we dont want the plotted times to be relative
             if num_plots > 1:
                 for axis in ax:
-                    line_handle=axis.axvline(T0, 0, 1, ls='--', label=f"T0={T0:.2f}", color='k')
+                    line_handle = axis.axvline(T0, 0, 1, ls='--', label=f"T0={T0:.2f}", color='k')
             else:
-                line_handle=ax_rate.axvline(T0, 0, 1, ls='--', label=f"T0={T0:.2f}", color='k')
+                line_handle = ax_rate.axvline(T0, 0, 1, ls='--', label=f"T0={T0:.2f}", color='k')
 
         if num_plots > 1:
             if T0 is not None and not plot_relative:
@@ -1190,7 +1174,7 @@ class Lightcurve(BatObservation):
         self.tdurs[duration_str]["TSTOP"] = tstop
 
     @classmethod
-    def from_file(cls, lightcurve_file, event_file=None, detector_quality_mask=None):
+    def from_file(cls, lightcurve_file, event_file=None, detector_quality_file=None):
         """
         This class method takes an existing lightcurve file and returns a Lightcurve class object with the data
         contained in the lightcurve file. The user will be able to plot the lightcurve. If the event file, or the
@@ -1201,22 +1185,21 @@ class Lightcurve(BatObservation):
             or the location/name of the new lightcurve file that will contain the newly calculated lightcurve.
         :param event_file: None or Path object for the event file with mask weighting already applied, from which we
             will construct the lightcurve or read the previously constructed lightcurve file
-        :param detector_quality_mask: None or Path object for the detector quality mask that was constructed for
+        :param detector_quality_file: None or Path object for the detector quality mask that was constructed for
             the associated event file
         :return: Lightcurve class object with the loaded light curve file data
         """
-        lightcurve_file=Path(lightcurve_file).expanduser().resolve()
+        lightcurve_file = Path(lightcurve_file).expanduser().resolve()
 
         if not lightcurve_file.exists():
             raise ValueError(f"The specified lightcurve file {lightcurve_file} does not seem to exist. "
-                            f"Please double check that it does.")
+                             f"Please double check that it does.")
 
-        return cls(lightcurve_file, event_file, detector_quality_mask)
-
+        return cls(lightcurve_file, event_file, detector_quality_file)
 
 
 class Spectrum(BatObservation):
-    def __init__(self, pha_file, event_file, detector_quality_mask, auxil_raytracing_file, ra=None, dec=None,
+    def __init__(self, pha_file, event_file, detector_quality_file, auxil_raytracing_file, ra=None, dec=None,
                  pha_input_dict=None, mask_weighting=True, recalc=False):
         """
         This initalizes a pha fits file based off of a passed in event file where mask weighting
@@ -1226,7 +1209,7 @@ class Spectrum(BatObservation):
 
         dict(infile=str(event_file), outfile=str(pha_file), outtype="PHA",
                             energybins="CALDB", weighted="YES", timedel=0.0,
-                            detmask=str(detector_quality_mask),
+                            detmask=str(detector_quality_file),
                             tstart="INDEF", tstop="INDEF", clobber="YES", timebinalg="uniform")
 
         The ra/dec of the source that this lightcurve was constructed for (and for which the weighting was applied to
@@ -1236,7 +1219,7 @@ class Spectrum(BatObservation):
             or the full path and name of the new lightcurve file that will contain the newly calculated pha file.
         :param event_file: Path object for the event file with mask weighting already applied, from which we will construct
             the pha file or read the previously constructed pha file
-        :param detector_quality_mask: Path object for the detector quality mask that was constructed for the associated
+        :param detector_quality_file: Path object for the detector quality mask that was constructed for the associated
             event file
         :param auxil_raytracing_file: Path object pointing to the auxiliary ray tracing file that is created by applying
             the mask weighting to the event file that is passed in.
@@ -1252,7 +1235,7 @@ class Spectrum(BatObservation):
             If pha_input_dict is None, this will be set to:
                 dict(infile=str(event_file), outfile=str(pha_file), outtype="PHA",
                             energybins="CALDB", weighted="YES", timedel=0.0,
-                            detmask=str(detector_quality_mask),
+                            detmask=str(detector_quality_file),
                             tstart="INDEF", tstop="INDEF", clobber="YES", timebinalg="uniform")
             See HEASoft documentation on batbinevt to see what these parameters mean. Alternatively, these defaults can
             be used in the initial call and time/energy rebinning can be done using the set_timebins and set_energybins
@@ -1284,14 +1267,14 @@ class Spectrum(BatObservation):
             warnings.warn("No event file has been specified. The resulting spectrum object will not be able to be"
                           "modified either by rebinning in energy or time.", stacklevel=2)
 
-        if detector_quality_mask is not None:
-            self.detector_quality_mask = Path(detector_quality_mask).expanduser().resolve()
-            if not self.detector_quality_mask.exists():
-                raise ValueError(f"The specified detector quality mask file {self.detector_quality_mask} does not seem "
+        if detector_quality_file is not None:
+            self.detector_quality_file = Path(detector_quality_file).expanduser().resolve()
+            if not self.detector_quality_file.exists():
+                raise ValueError(f"The specified detector quality mask file {self.detector_quality_file} does not seem "
                                  f"to exist. Please double check that it does.")
 
         else:
-            self.detector_quality_mask = None
+            self.detector_quality_file = None
             warnings.warn("No detector quality mask file has been specified. The resulting spectrum object will not "
                           "be able to be modified either by rebinning in energy or time.", stacklevel=2)
 
@@ -1317,7 +1300,7 @@ class Spectrum(BatObservation):
                 # energybins = "CALDB" gives us the 80 channel spectrum
                 self.pha_input_dict = dict(infile=str(self.event_file), outfile=str(self.pha_file), outtype="PHA",
                                            energybins="CALDB", weighted="YES", timedel=0.0,
-                                           detmask=str(self.detector_quality_mask),
+                                           detmask=str(self.detector_quality_file),
                                            tstart="INDEF", tstop="INDEF", clobber="YES", timebinalg="uniform")
 
                 # specify if we want mask weighting
@@ -1430,13 +1413,12 @@ class Spectrum(BatObservation):
         # create a temp copy incase the time rebinning doesnt complete successfully
         tmp_pha_input_dict = self.pha_input_dict.copy()
 
-        #create a copy of the timebins if it is not None to prevent modifying the original array
+        # create a copy of the timebins if it is not None to prevent modifying the original array
         if timebins is not None:
-            timebins=timebins.copy()
-
+            timebins = timebins.copy()
 
         # make sure we have all the info to do the rebinning
-        if self.event_file is None or self.auxil_raytracing_file is None or self.detector_quality_mask is None:
+        if self.event_file is None or self.auxil_raytracing_file is None or self.detector_quality_file is None:
             raise RuntimeError("The spectrum cannot be rebinned in time since one of the following files was not "
                                "initalized with this Spectrum object: the event file, the auxiliary raytracing file, "
                                "or the detector quality mask file.")
@@ -1540,7 +1522,7 @@ class Spectrum(BatObservation):
         # recalculate the drm file
         self._call_batdrmgen()
 
-        #reset any spectral fits
+        # reset any spectral fits
         self.spectral_model = None
 
     @u.quantity_input(emin=['energy'], emax=['energy'])
@@ -1563,7 +1545,7 @@ class Spectrum(BatObservation):
         """
 
         # make sure we have all the info to do the rebinning
-        if self.event_file is None or self.auxil_raytracing_file is None or self.detector_quality_mask is None:
+        if self.event_file is None or self.auxil_raytracing_file is None or self.detector_quality_file is None:
             raise RuntimeError("The spectrum cannot be rebinned in energy since at least one of the following files was"
                                " not initalized with this Spectrum object: the event file, the auxiliary raytracing "
                                "file, or the detector quality mask file.")
@@ -1649,7 +1631,7 @@ class Spectrum(BatObservation):
 
             self._call_batdrmgen()
 
-            #reset any spectral fit
+            # reset any spectral fit
             self.spectral_model = None
 
     def _call_batbinevt(self, input_dict):
@@ -1757,15 +1739,15 @@ class Spectrum(BatObservation):
                 file[1].data["MASK_WEIGHT"] = self._event_weights
                 # also make sure to modify the RA/DEC in header so we know what points in the sky the weights are
                 # calculated for
-                #update the event file RA/DEC_OBJ values everywhere
+                # update the event file RA/DEC_OBJ values everywhere
                 for i in file:
-                    i.header["RA_OBJ"]=self.ra
-                    i.header["DEC_OBJ"]=self.dec
+                    i.header["RA_OBJ"] = self.ra
+                    i.header["DEC_OBJ"] = self.dec
 
-                    #the BAT_RA/BAT_DEC keys have to updated too since this is something
-                    #that the software manual points out should be updated
-                    i.header["BAT_RA"]=self.ra
-                    i.header["BAT_DEC"]=self.dec
+                    # the BAT_RA/BAT_DEC keys have to updated too since this is something
+                    # that the software manual points out should be updated
+                    i.header["BAT_RA"] = self.ra
+                    i.header["BAT_DEC"] = self.dec
 
                 file.flush()
 
@@ -1940,7 +1922,7 @@ class Spectrum(BatObservation):
                     if "=" not in values:
                         # this belongs with the previous parameter and is a line continuation
                         default_params_dict[old_parameter] = default_params_dict[old_parameter] + values[-1]
-                        #assume that we need to keep appending to the previous parameter
+                        # assume that we need to keep appending to the previous parameter
                     else:
                         default_params_dict[parameter] = values[-1]
 
@@ -2116,7 +2098,7 @@ class Spectrum(BatObservation):
 
         # calculate error including both systematic error and statistical error, note that systematic error has
         # been multiplied by the rates/counts in the _parse_pha method
-        tot_error = np.sqrt(self.data["STAT_ERR"].value ** 2) #+ self.data["SYS_ERR"].value ** 2)
+        tot_error = np.sqrt(self.data["STAT_ERR"].value ** 2)  # + self.data["SYS_ERR"].value ** 2)
 
         # modify the filename
         upperlimit_pha_file = pha_file.parent.joinpath(
@@ -2137,11 +2119,11 @@ class Spectrum(BatObservation):
 
             pha_hdulist.flush()
 
-        return self.from_file(upperlimit_pha_file, self.event_file, self.detector_quality_mask,
+        return self.from_file(upperlimit_pha_file, self.event_file, self.detector_quality_file,
                               self.auxil_raytracing_file)
 
     @classmethod
-    def from_file(cls, pha_file, event_file=None, detector_quality_mask=None, auxil_raytracing_file=None):
+    def from_file(cls, pha_file, event_file=None, detector_quality_file=None, auxil_raytracing_file=None):
         """
         This class method takes an existing PHA file and returns a Spectrum class object with the data contained in the
         PHA file. The user will be able to plot the spectrum, calculate the detector response matrix for the file (if it
@@ -2152,7 +2134,7 @@ class Spectrum(BatObservation):
         :param pha_file: Path object of the pha file that will be read in.
         :param event_file: Path object for the event file with mask weighting already applied so we can load the
             appropriate mask weights
-        :param detector_quality_mask: Path object for the detector quality mask that was constructed for the associated
+        :param detector_quality_file: Path object for the detector quality mask that was constructed for the associated
             event file
         :param auxil_raytracing_file: Path object pointing to the auxiliary ray tracing file that is created by applying
             the mask weighting to the event file that is passed in.
@@ -2169,8 +2151,6 @@ class Spectrum(BatObservation):
             with gzip.open(pha_file, 'rb') as f_in:
                 with open(pha_file.parent.joinpath(pha_file.stem), 'wb') as f_out:
                     shutil.copyfileobj(f_in, f_out)
-            pha_file=pha_file.parent.joinpath(pha_file.stem)
+            pha_file = pha_file.parent.joinpath(pha_file.stem)
 
-        return cls(pha_file, event_file, detector_quality_mask, auxil_raytracing_file)
-
-
+        return cls(pha_file, event_file, detector_quality_file, auxil_raytracing_file)
