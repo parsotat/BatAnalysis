@@ -22,3 +22,16 @@ class BatSkyImage(Histogram):
 
     TODO: create a python FFT deconvolution. This primarily relies on the batfftimage to create the data.
     """
+
+    def __init__(
+            self,
+            skyimg_file=None,
+            dpi_file=None,
+            detector_quality_file=None,
+            attitude_file=None,
+            dpi_data=None,
+            input_dict=None,
+            recalc=False,
+            load_dir=None,
+            bkg_dpi_file=None
+    ):
