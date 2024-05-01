@@ -8,7 +8,8 @@ from pathlib import Path
 
 import astropy.units as u
 import numpy as np
-from histpy import Histogram
+from histpy import Histogram, HealpixAxis
+from reproject import reproject_to_healpix
 
 try:
     import heasoftpy as hsp
@@ -219,6 +220,21 @@ class BatSkyImage(Histogram):
             hist_unit = u.count
 
         if not isinstance(histogram_data, Histogram):
+            # need to make sure that the histogram_data has the correct shape ie be 4 dimensional arranged as (T,Ny,Nx,E)
+            if np.ndim(histogram_data) != 4:
+                raise ValueError(f'The size of the input sky image is a {np.ndim(histogram_data)} dimensional array'
+                                 f'which needs to be a 4D array arranged as (T,Ny,Nx,E) where T is the number of '
+                                 f'timebins, Ny is the number of image y pixels, Nx is the number of image x pixels,'
+                                 f' and E is the number of energy bins.')
+
+            # see if the shape of the image data is what it should be
+            if np.shape(histogram_data) != (
+                    self.tbins["TIME_START"].size,
+                    histogram_data.shape[1], histogram_data.shape[2],
+                    self.ebins["E_MIN"].size,
+            ):
+                raise ValueError(f'The shape of the input sky image is {np.shape(histogram_data)} while it should be'
+                                 f'{(self.tbins["TIME_START"].size, histogram_data.shape[1], histogram_data.shape[2], self.ebins["E_MIN"].size)}')
             super().__init__(
                 [
                     timebin_edges,
@@ -238,6 +254,41 @@ class BatSkyImage(Histogram):
                 labels=histogram_data.axes.labels,
                 unit=hist_unit,
             )
+
+    def healpix_projection(self, img_header, coordsys="galactic", nside=128):
+        """
+        This creates a healpix projection of the image. The dimension of the array is
+
+        :param img_header:
+        :param coordsys:
+        :param nside:
+        :return:
+        """
+
+        # create our new healpix axis
+        hp_ax = HealpixAxis(nside=nside, coordsys=coordsys, label="HPX")
+
+        # create a new array to hold the projection of the sky image in detector tangent plane coordinates to healpix
+        # coordinates
+        new_array = np.zeros((self.axes['TIME'].nbins, hp_ax.nbins, self.axes["ENERGY"].nbins))
+
+        # for each time/energybin do the projection (ie linear interpolation)
+        for t in range(self.axes['TIME'].nbins):
+            for e in range(self.axes["ENERGY"].nbins):
+                array, footprint = reproject_to_healpix((self.project("IMY", "IMX").contents, img_header), coordsys,
+                                                        nside=nside)
+                new_array[t, :, e] = array
+
+        # create the new histogram
+        h = Histogram(
+            [self.axes['TIME'], hp_ax, self.axes["ENERGY"]],
+            contents=new_array)
+
+        # can return the histogram or choose to modify the class histogram. If the latter, need to get way to convert back
+        # to detector plane coordinates
+        return new_array, footprint, h
+
+    # def radec_projection(self, img_header):
 
 
 class BatSkyView(object):
