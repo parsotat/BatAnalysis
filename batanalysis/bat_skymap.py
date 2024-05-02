@@ -3,11 +3,15 @@ This file holds the BatSkyImage class which contains binned data from a skymap g
 
 Tyler Parsotan March 11 2024
 """
+import warnings
 from copy import deepcopy
 from pathlib import Path
 
 import astropy.units as u
+import matplotlib.pyplot as plt
 import numpy as np
+from astropy.coordinates import SkyCoord
+from astropy.wcs import WCS
 from histpy import Histogram, HealpixAxis
 from reproject import reproject_to_healpix
 
@@ -48,6 +52,7 @@ class BatSkyImage(Histogram):
             emin=None,
             emax=None,
             weights=None,
+            wcs=None
     ):
         """
         This class is meant to hold images of the sky that have been created from a deconvolution of the BAT DPI with
@@ -71,6 +76,16 @@ class BatSkyImage(Histogram):
             raise ValueError(
                 "A  needs to be passed in to initalize a BatSkyImage object"
             )
+
+        if wcs is None:
+            warnings.warn(
+                "No astropy World Coordinate System has been specified the sky image is assumed to be in the detector "
+                "tangent plane. No conversion to Healpix will be possible",
+                stacklevel=2,
+            )
+
+        if not isinstance(wcs, WCS):
+            raise ValueError("The wcs is not an astropy WCS object.")
 
         parse_data = deepcopy(image_data)
 
@@ -181,6 +196,7 @@ class BatSkyImage(Histogram):
             self.ebins["E_MAX"] = energybin_edges[1:]
 
         self._set_histogram(histogram_data=parse_data, weights=weights)
+        self.wcs = wcs
 
     def _set_histogram(self, histogram_data=None, event_data=None, weights=None):
         """
@@ -255,7 +271,7 @@ class BatSkyImage(Histogram):
                 unit=hist_unit,
             )
 
-    def healpix_projection(self, img_header, coordsys="galactic", nside=128):
+    def healpix_projection(self, coordsys="galactic", nside=128):
         """
         This creates a healpix projection of the image. The dimension of the array is
 
@@ -275,7 +291,7 @@ class BatSkyImage(Histogram):
         # for each time/energybin do the projection (ie linear interpolation)
         for t in range(self.axes['TIME'].nbins):
             for e in range(self.axes["ENERGY"].nbins):
-                array, footprint = reproject_to_healpix((self.project("IMY", "IMX").contents, img_header), coordsys,
+                array, footprint = reproject_to_healpix((self.project("IMY", "IMX").contents, self.wcs), coordsys,
                                                         nside=nside)
                 new_array[t, :, e] = array
 
@@ -288,7 +304,47 @@ class BatSkyImage(Histogram):
         # to detector plane coordinates
         return new_array, footprint, h
 
-    # def radec_projection(self, img_header):
+    def calc_radec(self):
+        """
+
+        :param img_header:
+        :return:
+        """
+        from .mosaic import convert_xy2radec
+
+        x = np.arange(self.axes["IMX"].nbins)
+        y = np.arange(self.axes["IMY"].nbins)
+        xx, yy = np.meshgrid(x, y)
+
+        ra, dec = convert_xy2radec(xx, yy, self.wcs)
+
+        c = SkyCoord(ra=ra, dec=dec, frame="icrs", unit="deg")
+
+        return c.ra, c.dec
+
+    def calc_glatlon(self):
+        """
+
+        :param img_header:
+        :return:
+        """
+
+        ra, dec = self.calc_radec()
+
+        c = SkyCoord(ra=ra, dec=dec, frame="icrs", unit="deg")
+
+        return c.galactic.l, c.galactic.b
+
+    def plot(self):
+        """
+
+        :return:
+        """
+
+        fig = plt.figure()
+        ax = fig.add_subplot(1, 1, 1, projection=self.wcs)
+        ax.grid(color='k', ls='solid')
+        ax.imshow(self.project("IMY", "IMX").contents.value, origin="lower")
 
 
 class BatSkyView(object):
