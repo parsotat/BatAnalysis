@@ -336,17 +336,48 @@ class BatSkyImage(Histogram):
 
         return c.galactic.l, c.galactic.b
 
-    def plot(self, emin=None, emax=None, tmin=None, tmax=None, projection=None, coordsys="galactic"):
+    @u.quantity_input(emin=["energy"], emax=["energy"], tmin=["time"], tmax=["time"])
+    def plot(self, emin=None, emax=None, tmin=None, tmax=None, projection=None, coordsys="galactic", nside=128):
         """
 
         :return:
         """
 
+        # do some error checking
+        if emin is None and emax is None:
+            emin = self.axes["ENERGY"].lo_lim
+            emax = self.axes["ENERGY"].hi_lim
+        elif emin is not None and emax is not None:
+            if emin not in self.axes["ENERGY"].edges or emax not in self.axes["ENERGY"].edges:
+                raise ValueError(
+                    f'The passed in emin or emax value is not a valid ENERGY bin edge: {self.axes["ENERGY"].edges}')
+        else:
+            raise ValueError("emin and emax must either both be None or both be specified.")
+
+        if tmin is None and tmax is None:
+            tmin = self.axes["TIME"].lo_lim
+            tmax = self.axes["TIME"].hi_lim
+        elif tmin is not None and tmax is not None:
+            if tmin not in self.axes["TIME"].edges or tmax not in self.axes["TIME"].edges:
+                raise ValueError(
+                    f'The passed in tmin or tmax value is not a valid TIME bin edge: {self.axes["TIME"].edges}')
+        else:
+            raise ValueError("tmin and tmax must either both be None or both be specified.")
+
+        # get the bin index to then do slicing and projecting for plotting. Need to make sure that the inputs are
+        # single numbers (not single element array) which is why we do __.item()
+        tmin_idx = self.axes["TIME"].find_bin(tmin.item())
+        tmax_idx = self.axes["TIME"].find_bin(tmax.item())
+
+        emin_idx = self.axes["ENERGY"].find_bin(emin.item())
+        emax_idx = self.axes["ENERGY"].find_bin(emax.item())
+
+        # now do the plotting
         if projection is None:
             # use the default spatial axes of the histogram
             # need to determine what this is
             if "IMX" in self.axes.labels:
-                ax, mesh = self.project("IMX", "IMY").plot()
+                ax, mesh = self.slice[tmin_idx:tmax_idx + 1, :, :, emin_idx:emax_idx + 1].project("IMX", "IMY").plot()
                 ret = (ax, mesh)
             elif "HPX" in self.axes.labels:
                 if "galactic" in coordsys.lower():
@@ -356,7 +387,8 @@ class BatSkyImage(Histogram):
                 else:
                     raise ValueError('This plotting function can only plot the healpix map in galactic or icrs '
                                      'coordinates.')
-                mesh = projview(self.project("HPX").contents, coord=coord, graticule=True, graticule_labels=True,
+                mesh = projview(self.slice[tmin_idx:tmax_idx + 1, :, emin_idx:emax_idx + 1].project("HPX").contents,
+                                coord=coord, graticule=True, graticule_labels=True,
                                 projection_type="mollweide", reuse_axes=False)
                 ret = (mesh)
             else:
@@ -369,10 +401,12 @@ class BatSkyImage(Histogram):
                 fig = plt.figure()
                 ax = fig.add_subplot(1, 1, 1, projection=self.wcs)
                 ax.grid(color='k', ls='solid')
-                ax.imshow(self.project("IMY", "IMX").contents.value, origin="lower")
+                ax.imshow(
+                    self.slice[tmin_idx:tmax_idx + 1, :, :, emin_idx:emax_idx + 1].project("IMY", "IMX").contents.value,
+                    origin="lower")
                 ret = (fig, ax)
             elif "healpix" in projection.lower():
-                new_array, footprint, hist = self.healpix_projection()
+                new_array, footprint, hist = self.healpix_projection(coordsys=coordsys, nside=nside)
                 if "galactic" in coordsys.lower():
                     coord = ["G"]
                 elif "icrs" in coordsys.lower():
@@ -380,7 +414,8 @@ class BatSkyImage(Histogram):
                 else:
                     raise ValueError('This plotting function can only plot the healpix map in galactic or icrs '
                                      'coordinates.')
-                mesh = projview(hist.project("HPX").contents, coord=coord, graticule=True, graticule_labels=True,
+                mesh = projview(hist.slice[tmin_idx:tmax_idx + 1, :, emin_idx:emax_idx + 1].project("HPX").contents,
+                                coord=coord, graticule=True, graticule_labels=True,
                                 projection_type="mollweide", reuse_axes=False)
                 ret = (mesh)
             else:
