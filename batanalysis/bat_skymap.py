@@ -406,7 +406,7 @@ class BatSkyImage(Histogram):
                     origin="lower")
                 ret = (fig, ax)
             elif "healpix" in projection.lower():
-                new_array, footprint, hist = self.healpix_projection(coordsys=coordsys, nside=nside)
+                new_array, footprint, hist = self.healpix_projection(coordsys="galactic", nside=nside)
                 if "galactic" in coordsys.lower():
                     coord = ["G"]
                 elif "icrs" in coordsys.lower():
