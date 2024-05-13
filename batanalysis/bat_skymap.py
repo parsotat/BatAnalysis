@@ -12,6 +12,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from astropy.coordinates import SkyCoord
 from astropy.wcs import WCS
+from healpy.newvisufunc import projview
 from histpy import Histogram, HealpixAxis
 from reproject import reproject_to_healpix
 
@@ -335,16 +336,57 @@ class BatSkyImage(Histogram):
 
         return c.galactic.l, c.galactic.b
 
-    def plot(self):
+    def plot(self, emin=None, emax=None, tmin=None, tmax=None, projection=None, coordsys="galactic"):
         """
 
         :return:
         """
 
-        fig = plt.figure()
-        ax = fig.add_subplot(1, 1, 1, projection=self.wcs)
-        ax.grid(color='k', ls='solid')
-        ax.imshow(self.project("IMY", "IMX").contents.value, origin="lower")
+        if projection is None:
+            # use the default spatial axes of the histogram
+            # need to determine what this is
+            if "IMX" in self.axes.labels:
+                ax, mesh = self.project("IMX", "IMY").plot()
+                ret = (ax, mesh)
+            elif "HPX" in self.axes.labels:
+                if "galactic" in coordsys.lower():
+                    coord = ["G"]
+                elif "icrs" in coordsys.lower():
+                    coord = ["G", "C"]
+                else:
+                    raise ValueError('This plotting function can only plot the healpix map in galactic or icrs '
+                                     'coordinates.')
+                mesh = projview(self.project("HPX").contents, coord=coord, graticule=True, graticule_labels=True,
+                                projection_type="mollweide", reuse_axes=False)
+                ret = (mesh)
+            else:
+                raise ValueError("The spatial projection of the sky image is currently not accepted as a plotting "
+                                 "option. Please convert to IMX/IMY or a HEALPix map.")
+        else:
+            # the user has specified different options, can be ra/dec or healpix (with coordsys of galactic or icrs)
+            # if we want Ra/Dec
+            if "ra/dec" in projection.lower():
+                fig = plt.figure()
+                ax = fig.add_subplot(1, 1, 1, projection=self.wcs)
+                ax.grid(color='k', ls='solid')
+                ax.imshow(self.project("IMY", "IMX").contents.value, origin="lower")
+                ret = (fig, ax)
+            elif "healpix" in projection.lower():
+                new_array, footprint, hist = self.healpix_projection()
+                if "galactic" in coordsys.lower():
+                    coord = ["G"]
+                elif "icrs" in coordsys.lower():
+                    coord = ["G", "C"]
+                else:
+                    raise ValueError('This plotting function can only plot the healpix map in galactic or icrs '
+                                     'coordinates.')
+                mesh = projview(hist.project("HPX").contents, coord=coord, graticule=True, graticule_labels=True,
+                                projection_type="mollweide", reuse_axes=False)
+                ret = (mesh)
+            else:
+                raise ValueError("The projection value only accepts ra/dec or healpix as inputs.")
+
+        return ret
 
 
 class BatSkyView(object):
