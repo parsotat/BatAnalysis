@@ -8,12 +8,15 @@ from copy import deepcopy
 from pathlib import Path
 
 import astropy.units as u
+import matplotlib as mpl
+import matplotlib.axes as maxes
 import matplotlib.pyplot as plt
 import numpy as np
 from astropy.coordinates import SkyCoord
 from astropy.wcs import WCS
 from healpy.newvisufunc import projview
 from histpy import Histogram, HealpixAxis
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 from reproject import reproject_to_healpix
 
 try:
@@ -400,10 +403,18 @@ class BatSkyImage(Histogram):
             if "ra/dec" in projection.lower():
                 fig = plt.figure()
                 ax = fig.add_subplot(1, 1, 1, projection=self.wcs)
+                divider = make_axes_locatable(ax)
+                cax = divider.append_axes("right", size="5%", pad=0.05, axes_class=maxes.Axes)
+                cmap = mpl.colormaps.get_cmap("viridis")
+                cmap.set_bad(color="w")
+
                 ax.grid(color='k', ls='solid')
-                ax.imshow(
+                im = ax.imshow(
                     self.slice[tmin_idx:tmax_idx + 1, :, :, emin_idx:emax_idx + 1].project("IMY", "IMX").contents.value,
                     origin="lower")
+                cbar = fig.colorbar(im, cax=cax, orientation="vertical", label=self.unit, ticklocation="right",
+                                    location="right")
+
                 ret = (fig, ax)
             elif "healpix" in projection.lower():
                 new_array, footprint, hist = self.healpix_projection(coordsys="galactic", nside=nside)
