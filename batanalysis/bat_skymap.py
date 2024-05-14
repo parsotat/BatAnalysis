@@ -342,7 +342,16 @@ class BatSkyImage(Histogram):
     @u.quantity_input(emin=["energy"], emax=["energy"], tmin=["time"], tmax=["time"])
     def plot(self, emin=None, emax=None, tmin=None, tmax=None, projection=None, coordsys="galactic", nside=128):
         """
+        This is a convenience plotting function that allows for quick and easy plotting of a sky image. It allows for
+        energy and time (where applicable) slices and different representations of the sky image.
 
+        :param emin:
+        :param emax:
+        :param tmin:
+        :param tmax:
+        :param projection:
+        :param coordsys:
+        :param nside:
         :return:
         """
 
@@ -414,6 +423,12 @@ class BatSkyImage(Histogram):
                     origin="lower")
                 cbar = fig.colorbar(im, cax=cax, orientation="vertical", label=self.unit, ticklocation="right",
                                     location="right")
+                ax.coords["ra"].set_axislabel("RA")
+                ax.coords["dec"].set_axislabel("Dec")
+                ax.coords["ra"].set_major_formatter("d.ddd")
+                ax.coords["dec"].set_major_formatter("d.ddd")
+
+                # to overplot here need to do eg. ax.plot(244.979,-15.6400,'bs', transform=ax.get_transform('world'))
 
                 ret = (fig, ax)
             elif "healpix" in projection.lower():
