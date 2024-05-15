@@ -13,6 +13,7 @@ import matplotlib.axes as maxes
 import matplotlib.pyplot as plt
 import numpy as np
 from astropy.coordinates import SkyCoord
+from astropy.io import fits
 from astropy.wcs import WCS
 from healpy.newvisufunc import projview
 from histpy import Histogram, HealpixAxis
@@ -34,7 +35,7 @@ class BatSkyImage(Histogram):
     energy or time bins. We can also handle the projection of the image onto a healpix map.
 
     This hold data correspondent to BAT's view of the sky. This can be a flux map (sky image) created from a FFT
-    decolvolution, a partial coding map, a significance map, or a background variance map. These can all be energy
+    deconvolution, a partial coding map, a significance map, or a background variance map. These can all be energy
     dependent except for the partial coding map.
     """
 
@@ -78,7 +79,7 @@ class BatSkyImage(Histogram):
         # do some error checking
         if image_data is None:
             raise ValueError(
-                "A  needs to be passed in to initalize a BatSkyImage object"
+                "A numpy array of a Histpy.Histogram needs to be passed in to initalize a BatSkyImage object"
             )
 
         if wcs is None:
@@ -279,7 +280,6 @@ class BatSkyImage(Histogram):
         """
         This creates a healpix projection of the image. The dimension of the array is
 
-        :param img_header:
         :param coordsys:
         :param nside:
         :return:
@@ -311,7 +311,6 @@ class BatSkyImage(Histogram):
     def calc_radec(self):
         """
 
-        :param img_header:
         :return:
         """
         from .mosaic import convert_xy2radec
@@ -329,7 +328,6 @@ class BatSkyImage(Histogram):
     def calc_glatlon(self):
         """
 
-        :param img_header:
         :return:
         """
 
@@ -448,6 +446,85 @@ class BatSkyImage(Histogram):
                 raise ValueError("The projection value only accepts ra/dec or healpix as inputs.")
 
         return ret
+
+    @classmethod
+    def from_file(cls, file):
+        """
+        TODO: be able to parse files with images, background variance, SNR map, and partial coding file all in the same file
+        :param file:
+        :return:
+        """
+
+        input_file = Path(file).expanduser().resolve()
+        if not input_file.exists():
+            raise ValueError(f"The specified sky image file {input_file} does not seem to exist. "
+                             f"Please double check that it does.")
+
+        # read the file header
+        img_headers = []
+        energy_header = None
+        time_header = None
+        with fits.open(input_file) as f:
+            for i in range(len(f)):
+                header = f[i].header
+                # if we have an image, save it to our list of image headers
+                if "image" in header["EXTNAME"].lower():
+                    img_headers.append(header)
+                elif "ebounds" in header["EXTNAME"].lower():
+                    energy_header = header
+                elif "stdgti" in header["EXTNAME"].lower():
+                    time_header = header
+                else:
+                    raise ValueError(
+                        f'An unexpected header extension name {header["EXTNAME"]} was encountered. This class can '
+                        f'only parse sky image files that have IMAGE, EBOUNDS, and STDGTI header extensions. ')
+
+        # now we can construct the data for the time bins, the energy bins, the total sky image array, and the WCS
+        w = WCS(img_headers[0])
+        img_unit = u.Quantity(f'1{img_headers[0]["BUNIT"]}')
+        time_unit = u.Quantity(f'1{time_header["TUNIT1"]}')  # expect seconds
+        energy_unit = u.Quantity(f'1{energy_header["TUNIT2"]}')  # expect keV
+
+        # make sure that we only have 1 time bin (want to enforce this for mosaicing)
+        if time_header["NAXIS2"] > 1:
+            raise NotImplementedError("The number of timebins for the sky images is greater than 1, which is "
+                                      "currently not supported.")
+
+        # maek sure that the number of energy bins is equal to the number of images to read in
+        if len(img_headers) != energy_header["NAXIS2"]:
+            raise ValueError(
+                f'The number of energy bins, {energy_header["NAXIS2"]}, is not equal to the number of images to read in {len(img_headers)}.')
+
+        img_data = np.zeros((time_header["NAXIS2"], img_headers[0]["NAXIS2"], img_headers[0]["NAXIS1"],
+                             energy_header["NAXIS2"]))
+
+        # here we assume that the images are ordered in energy and only have 1 timebin
+        with fits.open(input_file) as f:
+            for i in range(len(f)):
+                data = f[i].data
+                header = f[i].header
+                # if we have an image, save it to our list of image headers
+                if "image" in header["EXTNAME"].lower():
+                    img_data[:, :, :, i] = data
+                elif "ebounds" in header["EXTNAME"].lower():
+                    energy_data = data
+                elif "stdgti" in header["EXTNAME"].lower():
+                    time_data = data
+                else:
+                    raise ValueError(
+                        f'An unexpected header extension name {header["EXTNAME"]} was encountered. This class can '
+                        f'only parse sky image files that have IMAGE, EBOUNDS, and STDGTI header extensions. ')
+
+        # set the unit for the sky image
+        img_data *= img_unit.unit
+
+        # parse the time/energy to initalize our BatSkyImage
+        min_t = time_data["START"] * time_unit.unit
+        max_t = time_data["STOP"] * time_unit.unit
+        min_e = energy_data["E_MIN"] * energy_unit.unit
+        max_e = energy_data["E_MAX"] * energy_unit.unit
+
+        return cls(image_data=img_data, tmin=min_t, tmax=max_t, emin=min_e, emax=max_e, wcs=w)
 
 
 class BatSkyView(object):
