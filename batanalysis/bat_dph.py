@@ -570,23 +570,23 @@ class BatDPH(DetectorPlaneHistogram):
 
         if fits_filename.exists():
             if overwrite:
-                with fits.open(test.dph_file, mode="update") as f:
+                with fits.open(fits_filename.dph_file, mode="update") as f:
                     # code to modify the table here with times and DPHs
                     # header = f[1].header
                     data = f[1].data
                     data_columns = [
-                        i for i in data.columns if i.name not in test._exclude_data_cols
+                        i for i in data.columns if i.name not in fits_filename._exclude_data_cols
                     ]
                     temp_t_table = fits.FITS_rec.from_columns(
-                        data_columns, nrows=test.tbins["TIME_START"].size
+                        data_columns, nrows=fits_filename.tbins["TIME_START"].size
                     )
 
                     for i in data_columns:
                         if "DPH_COUNT" not in i.name:
-                            temp_t_table[i.name] = test.data[i.name]
+                            temp_t_table[i.name] = fits_filename.data[i.name]
                         else:
-                            for time_idx in range(test.tbins["TIME_START"].size):
-                                temp_t_table[i.name][time_idx] = test.data[i.name][
+                            for time_idx in range(fits_filename.tbins["TIME_START"].size):
+                                temp_t_table[i.name][time_idx] = fits_filename.data[i.name][
                                     time_idx
                                 ]
 
@@ -595,21 +595,21 @@ class BatDPH(DetectorPlaneHistogram):
                     # code to modify the energy bins
                     energies = f["EBOUNDS"].data
                     temp_energy = fits.FITS_rec.from_columns(
-                        energies.columns, nrows=test.ebins["E_MIN"].size
+                        energies.columns, nrows=fits_filename.ebins["E_MIN"].size
                     )
                     # energies_header = f["EBOUNDS"].header
                     for i in energies.columns:
                         if "CHANNEL" in i.name:
-                            temp_energy[i.name] = test.ebins["INDEX"]
+                            temp_energy[i.name] = fits_filename.ebins["INDEX"]
                         elif "E" in i.name:
-                            temp_energy[i.name] = test.ebins[i.name].value
+                            temp_energy[i.name] = fits_filename.ebins[i.name].value
 
                     f["EBOUNDS"].data = temp_energy
 
                     # code to modify the header info pertaining to the start/stop time
                     for i in f:
-                        i.header["TSTART"] = test.tbins["TIME_START"].min().value
-                        i.header["TSTOP"] = test.tbins["TIME_STOP"].max().value
+                        i.header["TSTART"] = fits_filename.tbins["TIME_START"].min().value
+                        i.header["TSTOP"] = fits_filename.tbins["TIME_STOP"].max().value
 
                     f.flush()
             else:
@@ -733,7 +733,7 @@ class BatDPH(DetectorPlaneHistogram):
             input_dict["outfile"] = str(outfile)
 
             if gain_offset_file is None:
-                gain_offset_files = sorted(test.dph_file.parents[1].joinpath("hk").glob("*go*"))
+                gain_offset_files = sorted(self.dph_file.parents[1].joinpath("hk").glob("*go*"))
                 if len(gain_offset_files) != 1:
                     raise ValueError("More than 1 gain/offset file was found: {gain_offset_files}. Please specify which"
                                      "should be passed into baterebin.")
