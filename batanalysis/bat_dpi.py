@@ -460,7 +460,7 @@ class BatDPI(DetectorPlaneHistogram):
 
                 # make sure that the dph_return was successful
                 if dpi_return.returncode != 0:
-                    raise RuntimeError(f'The creation of the DPI failed with message: {dph_return.output}')
+                    raise RuntimeError(f'The creation of the DPI failed with message: {dpi_return.output}')
                 else:
                     self.bat_dpi_result = dpi_return
                     self.dpi_input_dict = tmp_dpi_input_dict
@@ -596,7 +596,7 @@ class BatDPI(DetectorPlaneHistogram):
 
             # make sure that the dph_return was successful
             if dpi_return.returncode != 0:
-                raise RuntimeError(f'The creation of the DPI failed with message: {dph_return.output}')
+                raise RuntimeError(f'The creation of the DPI failed with message: {dpi_return.output}')
             else:
                 self.bat_dpi_result = dpi_return
                 self.dpi_input_dict = tmp_dpi_input_dict

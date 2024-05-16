@@ -4,7 +4,7 @@ batfftimage (flux sky image, background variation map, partial coding map).
 
 Tyler Parsotan May 15 2024
 """
-
+import warnings
 from pathlib import Path
 
 try:
@@ -55,10 +55,23 @@ class BatSkyView(object):
             raise NotImplementedError(
                 "Dealing with the DPI data directly to calculate the sky image is not yet supported.")
 
+        # do some error checking
+        if dpi_file is not None:
+            self.dpi_file = Path(dpi_file).expanduser().resolve()
+            if not self.dpi_file.exists():
+                raise ValueError(
+                    f"The specified DPI file {self.dpi_file} does not seem "
+                    f"to exist. Please double check that it does.")
+        else:
+            raise ValueError("Please specify a DPI file.")
+
+        # if the user specified a sky image then use it, otherwise set the sky image to be the same name as the dpi
+        # and same location
         if skyimg_file is not None:
             self.skyimg_file = Path(skyimg_file).expanduser().resolve()
+        else:
+            self.skyimg_file = dpi_file.parent.joinpath(f"{dpi_file.stem}.img")
 
-        # do some error checking
         if detector_quality_file is not None:
             self.detector_quality_file = Path(detector_quality_file).expanduser().resolve()
             if not self.detector_quality_file.exists():
@@ -66,9 +79,20 @@ class BatSkyView(object):
                     f"The specified detector quality mask file {self.detector_quality_file} does not seem "
                     f"to exist. Please double check that it does.")
         else:
-            self.detector_quality_file = None
-            # warnings.warn("No detector quality mask file has been specified. The resulting DPI object "
-            #              "will not be able to be modified either by rebinning in energy or time.", stacklevel=2)
+            self.detector_quality_file = "NONE"
+            warnings.warn("No detector quality mask file has been specified. Sky images will be constructed assuming "
+                          "that all detectors are on.", stacklevel=2)
+
+        # make sure that we have an attitude file (technically we dont need it for batfft, but for BatSkyImage object
+        # we do)
+        if attitude_file is not None:
+            self.attitude_file = Path(attitude_file).expanduser().resolve()
+            if not self.attitude_file.exists():
+                raise ValueError(
+                    f"The specified attitude file {self.attitude_file} does not seem "
+                    f"to exist. Please double check that it does.")
+        else:
+            raise ValueError("Please specify an attitude file associated with the DPI.")
 
     def _call_batfftimage(self, input_dict):
         """
