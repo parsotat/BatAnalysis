@@ -34,7 +34,6 @@ class BatSkyView(object):
             input_dict=None,
             recalc=False,
             load_dir=None,
-            create_bkgstddev_map=True,
             create_pcode_map=True
     ):
         """
@@ -102,6 +101,14 @@ class BatSkyView(object):
             self.skyimg_input_dict["infile"] = str(self.dpi_file)
             self.skyimg_input_dict["outfile"] = str(self.skyimg_file)
             self.skyimg_input_dict["attitude"] = str(self.attitude_file)
+            self.skyimg_input_dict["detmask"] = str(self.detector_quality_file)
+            if create_pcode_map:
+                self.skyimg_input_dict["pcodemap"] = "APPEND_LAST"
+
+            if input_dict is not None:
+                for key in input_dict.keys():
+                    if key in self.skyimg_input_dict.keys():
+                        self.skyimg_input_dict[key] = input_dict[key]
 
     def _call_batfftimage(self, input_dict):
         """
