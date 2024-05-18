@@ -34,8 +34,7 @@ class BatSkyView(object):
             input_dict=None,
             recalc=False,
             load_dir=None,
-            bkg_dpi_file=None,
-            create_bkgvar_map=True,
+            create_bkgstddev_map=True,
             create_pcode_map=True
     ):
         """
@@ -48,7 +47,6 @@ class BatSkyView(object):
         :param input_dict:
         :param recalc:
         :param load_dir:
-        :param bkg_dpi_file:
         """
 
         if dpi_data is not None:
@@ -93,6 +91,17 @@ class BatSkyView(object):
                     f"to exist. Please double check that it does.")
         else:
             raise ValueError("Please specify an attitude file associated with the DPI.")
+
+        # get the default names of the parameters for batfftimage including its name (which should never change)
+        test = hsp.HSPTask("batfftimage")
+        default_params_dict = test.default_params.copy()
+
+        if not self.skyimg_file.exists() or recalc:
+            # fill in defaults, which can be overwritten if values are passed into the input_dict parameter
+            self.skyimg_input_dict = default_params_dict
+            self.skyimg_input_dict["infile"] = str(self.dpi_file)
+            self.skyimg_input_dict["outfile"] = str(self.skyimg_file)
+            self.skyimg_input_dict["attitude"] = str(self.attitude_file)
 
     def _call_batfftimage(self, input_dict):
         """

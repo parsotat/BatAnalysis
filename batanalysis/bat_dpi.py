@@ -79,8 +79,8 @@ class BatDPI(DetectorPlaneHistogram):
         :param load_dir: Path of the directory that holds the DPI file that will be loaded in
         :param tmin: None or an astropy Quantity array of the beginning timebin edges
         :param tmax: None or an astropy Quantity array of the end timebin edges
-        :param emin: None or an or an astropy Quantity array of the beginning of the energy bins
-        :param emax: None or an or an astropy Quantity array of the end of the energy bins
+        :param emin: None or an astropy Quantity array of the beginning of the energy bins
+        :param emax: None or an astropy Quantity array of the end of the energy bins
         """
 
         if dpi_file is not None:
