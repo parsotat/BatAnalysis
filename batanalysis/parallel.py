@@ -350,6 +350,7 @@ def batmosaic_analysis(
     outventory_file,
     time_bins,
     catalog_file=None,
+    compute_total_mosaic=True,
     total_mosaic_savedir=None,
     recalc=False,
     nprocs=1,
@@ -365,6 +366,8 @@ def batmosaic_analysis(
         group_outventory function
     :param catalog_file: A Path object of the catalog file that should be used to identify sources in the mosaic images.
         This will default to using the catalog file that is included with the BatAnalysis package.
+    :param compute_total_mosaic: Default True, set to False to skip the computation of the total mosaic and return
+        a single object.
     :param total_mosaic_savedir: Default None or a Path object that denotes the directory that the total
         "time-integrated" images will be saved to. The default is to place the total mosaic image in a directory
         called "total_mosaic" located in the same directory as the outventory file.
@@ -443,33 +446,35 @@ def batmosaic_analysis(
 
     intermediate_mosaic_dir_list = [i.result_dir for i in final_mosaics]
 
-    # see if the total mosaic has been created and saved (ie there is a .batsurvey file in that directory) if there
-    # isnt, then do the full calculation or if we set recalc=True then also do the full calculation
-    if total_mosaic_savedir is None:
-        total_mosaic_savedir = intermediate_mosaic_dir_list[0].parent.joinpath(
-            "total_mosaic"
-        )
+    if compute_total_mosaic:
+        # see if the total mosaic has been created and saved (ie there is a .batsurvey file in that directory) if there
+        # isnt, then do the full calculation or if we set recalc=True then also do the full calculation
+        if total_mosaic_savedir is None:
+            total_mosaic_savedir = intermediate_mosaic_dir_list[0].parent.joinpath(
+                "total_mosaic"
+            )
+        else:
+            total_mosaic_savedir = Path(total_mosaic_savedir)
+
+        if not total_mosaic_savedir.joinpath("batsurvey.pickle").exists() or recalc:
+            # merge all the mosaics together to get the full 'time integrated' images and convert to final files with
+            # proper units
+            total_dir = merge_mosaics(
+                intermediate_mosaic_dir_list, savedir=total_mosaic_savedir
+            )
+            finalize_mosaic(total_dir)
+            total_mosaic = MosaicBatSurvey(total_dir)
+        else:
+            total_mosaic = MosaicBatSurvey(total_mosaic_savedir)
+
+        # if batcelldetect hasnt been run yet do so
+        if not total_mosaic.result_dir.joinpath("sources_tot.cat").exists():
+            total_mosaic.detect_sources(catalog_file=catalog_file)
+            total_mosaic.save()
+
+        return final_mosaics, total_mosaic
     else:
-        total_mosaic_savedir = Path(total_mosaic_savedir)
-
-    if not total_mosaic_savedir.joinpath("batsurvey.pickle").exists() or recalc:
-        # merge all the mosaics together to get the full 'time integrated' images and convert to final files with
-        # proper units
-        total_dir = merge_mosaics(
-            intermediate_mosaic_dir_list, savedir=total_mosaic_savedir
-        )
-        finalize_mosaic(total_dir)
-        total_mosaic = MosaicBatSurvey(total_dir)
-    else:
-        total_mosaic = MosaicBatSurvey(total_mosaic_savedir)
-
-    # if batcelldetect hasnt been run yet do so
-    if not total_mosaic.result_dir.joinpath("sources_tot.cat").exists():
-        total_mosaic.detect_sources(catalog_file=catalog_file)
-        total_mosaic.save()
-
-    return final_mosaics, total_mosaic
-
+        return final_mosaics
 
 """
 def download_swiftdata(table,  reload=False,
