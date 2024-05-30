@@ -376,6 +376,7 @@ def batmosaic_analysis(
         a save file to save on computational time.
     :param nprocs: The number of processes that will be run simulaneously. This number should not be larger than the
         number of CPUs that a user has available to them.
+                    Note: runs the _mosaic_loop function without parallelisation if nprocs is set to 1
     :return:
     """
 
@@ -421,20 +422,36 @@ def batmosaic_analysis(
 
             dirtest(binned_savedir)
 
-    all_mosaic_survey = Parallel(n_jobs=nprocs)(
-        delayed(_mosaic_loop)(
-            outventory_file,
-            start,
-            end,
-            corrections_map,
-            ra_skygrid,
-            dec_skygrid,
-            batsurvey_obs_list,
-            recalc=recalc,
-            verbose=True,
-        )
-        for start, end in zip(start_t, end_t)
-    )  # i in range(len(start_t)))
+    if nprocs==1:
+        all_mosaic_survey=[]
+
+        for start,end in zip(start_t,end_t):
+            all_mosaic_survey+=[_mosaic_loop(
+                outventory_file,
+                start,
+                end,
+                corrections_map,
+                ra_skygrid,
+                dec_skygrid,
+                batsurvey_obs_list,
+                recalc=recalc,
+                verbose=True,
+            )]
+    else:
+        all_mosaic_survey = Parallel(n_jobs=nprocs)(
+            delayed(_mosaic_loop)(
+                outventory_file,
+                start,
+                end,
+                corrections_map,
+                ra_skygrid,
+                dec_skygrid,
+                batsurvey_obs_list,
+                recalc=recalc,
+                verbose=True,
+            )
+            for start, end in zip(start_t, end_t)
+        )  # i in range(len(start_t)))
 
     final_mosaics = [i for i in all_mosaic_survey if i is not None]
 
