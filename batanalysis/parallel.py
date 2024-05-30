@@ -312,6 +312,8 @@ def batspectrum_analysis(
         a non detection.
     :param nprocs: The number of processes that will be run simulaneously. This number should not be larger than the
         number of CPUs that a user has available to them.
+            Note: runs the _mosaic_loop function without parallelisation if nprocs is set to 1
+
     :return: a list of BATSurvey objects for all the observation IDs with updated spectral information
     """
 
@@ -322,9 +324,10 @@ def batspectrum_analysis(
         not_list = True
         batsurvey_obs_list = [batsurvey_obs_list]
 
-    obs = Parallel(n_jobs=nprocs)(
-        delayed(_spectrum_analysis)(
-            i,
+    if nprocs==1:
+        obs=[]
+        for i in batsurvey_obs_list:
+            obs+=[_spectrum_analysis(i,
             source_name=source_name,
             recalc=recalc,
             use_cstat=use_cstat,
@@ -334,9 +337,23 @@ def batspectrum_analysis(
             ul_pl_index=ul_pl_index,
             nsigma=nsigma,
             bkg_nsigma=bkg_nsigma,
+        )]
+    else:
+        obs = Parallel(n_jobs=nprocs)(
+            delayed(_spectrum_analysis)(
+                i,
+                source_name=source_name,
+                recalc=recalc,
+                use_cstat=use_cstat,
+                generic_model=generic_model,
+                setPars=setPars,
+                fit_iterations=fit_iterations,
+                ul_pl_index=ul_pl_index,
+                nsigma=nsigma,
+                bkg_nsigma=bkg_nsigma,
+            )
+            for i in batsurvey_obs_list
         )
-        for i in batsurvey_obs_list
-    )
 
     # if this wasnt a list, just return the single object otherwise return the list
     if not_list:
