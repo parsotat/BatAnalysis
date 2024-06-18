@@ -966,6 +966,12 @@ class BatSurvey(BatObservation):
                         pha_prime_hdr["TIMESYS"] = ("TT", " Time system")
                         pha_prime_hdr["MJDREFI"] = (51910.0, " Reference MJD Integer part")
                         pha_prime_hdr["MJDREFF"] = (0.00074287037, " Reference MJD fractional")
+                        pha_prime_hdr["TIMEREF"] = ("LOCAL", " Time reference (barycenter/local)")
+                        pha_prime_hdr["TASSIGN"] = ("SATELLITE", " Time assigned by clock")
+                        pha_prime_hdr["TIMEUNIT"] = ("s", " Time unit")
+                        pha_prime_hdr["TIERRELA"] = (1.0e-8, " [s/s] relative errors expressed as rate")
+                        pha_prime_hdr["TIERABSO"] = (1.0, " [s] timing precision in seconds")
+                        pha_prime_hdr["CLOCKAPP"] = ("F", "Is mission time corrected for clock drift?")
 
                         pha_prime_hdr["OBS_ID"] = (self.obs_id, "Observation ID")
                         pha_prime_hdr["OBJECT"] = (name_array[i], "Object name")
