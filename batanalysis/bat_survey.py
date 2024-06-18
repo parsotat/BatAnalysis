@@ -5,17 +5,18 @@ information about a given survey. it also reads in survey data and processes it
 Tyler Parsotan April 5 2023
 """
 import os
+import pickle
+import re
 import shutil
+import warnings
+from datetime import datetime, timedelta
+from pathlib import Path
+
+import numpy as np
+from astropy.io import fits
+
 from .batlib import datadir, dirtest, met2mjd, met2utc
 from .batobservation import BatObservation
-from astropy.io import fits
-import numpy as np
-import pickle
-from pathlib import Path
-from astropy.time import Time
-from datetime import datetime, timedelta
-import re
-import warnings
 
 # for python>3.6
 try:
@@ -92,14 +93,14 @@ class BatSurvey(BatObservation):
     """
 
     def __init__(
-        self,
-        obs_id,
-        obs_dir=None,
-        input_dict=None,
-        recalc=False,
-        verbose=False,
-        load_dir=None,
-        patt_noise_dir=None,
+            self,
+            obs_id,
+            obs_dir=None,
+            input_dict=None,
+            recalc=False,
+            verbose=False,
+            load_dir=None,
+            patt_noise_dir=None,
     ):
         """
         Constructs the BatSurvey object.
@@ -186,8 +187,8 @@ class BatSurvey(BatObservation):
             # batsurvey relies on "bat" and "auxil" folders in the observation ID folder, therefore we need to check
             # for these https://heasarc.gsfc.nasa.gov/ftools/caldb/help/batsurvey.html
             if (
-                not self.obs_dir.joinpath("bat").joinpath("survey").is_dir()
-                or not self.obs_dir.joinpath("auxil").is_dir()
+                    not self.obs_dir.joinpath("bat").joinpath("survey").is_dir()
+                    or not self.obs_dir.joinpath("auxil").is_dir()
             ):
                 raise ValueError(
                     "The observation ID folder needs to contain the bat/survey/ and auxil/ subdirectories in order to "
@@ -324,46 +325,46 @@ class BatSurvey(BatObservation):
                 # if detthresh/detthresh2 isnt defined need to set default detthresh to prevent gti identification
                 # errors
                 if (
-                    "detthresh" not in input_dict_copy
-                    or input_dict_copy["detthresh"] is None
+                        "detthresh" not in input_dict_copy
+                        or input_dict_copy["detthresh"] is None
                 ):
                     input_dict_copy["detthresh"] = "10000"
 
                 if (
-                    "detthresh2" not in input_dict_copy
-                    or input_dict_copy["detthresh2"] is None
+                        "detthresh2" not in input_dict_copy
+                        or input_dict_copy["detthresh2"] is None
                 ):
                     input_dict_copy["detthresh2"] = "10000"
 
                 if (
-                    "incatalog" not in input_dict_copy
-                    or input_dict_copy["incatalog"] is None
+                        "incatalog" not in input_dict_copy
+                        or input_dict_copy["incatalog"] is None
                 ):
                     input_dict_copy["incatalog"] = str(
                         Path(__file__).parent.joinpath("data/survey6b_2.cat")
                     )
 
                 if (
-                    "global_pattern_map" not in input_dict_copy
-                    or input_dict_copy["global_pattern_map"] is None
+                        "global_pattern_map" not in input_dict_copy
+                        or input_dict_copy["global_pattern_map"] is None
                 ):
                     input_dict_copy["global_pattern_map"] = str(patt_map_name)
 
                 if (
-                    "global_pattern_mask" not in input_dict_copy
-                    or input_dict_copy["global_pattern_mask"] is None
+                        "global_pattern_mask" not in input_dict_copy
+                        or input_dict_copy["global_pattern_mask"] is None
                 ):
                     input_dict_copy["global_pattern_mask"] = str(patt_mask_name)
 
                 if (
-                    "cleansnr" not in input_dict_copy
-                    or input_dict_copy["cleansnr"] is None
+                        "cleansnr" not in input_dict_copy
+                        or input_dict_copy["cleansnr"] is None
                 ):
                     input_dict_copy["cleansnr"] = 6
 
                 if (
-                    "cleanexpr" not in input_dict_copy
-                    or input_dict_copy["cleanexpr"] is None
+                        "cleanexpr" not in input_dict_copy
+                        or input_dict_copy["cleanexpr"] is None
                 ):
                     input_dict_copy["cleanexpr"] = "ALWAYS_CLEAN==T"
 
@@ -650,14 +651,14 @@ class BatSurvey(BatObservation):
             self.merge_input = dictionary
 
     def calculate_pha(
-        self,
-        id_list,
-        output_dir=None,
-        calc_upper_lim=False,
-        bkg_nsigma=None,
-        verbose=True,
-        clean_dir=False,
-        single_pointing=None,
+            self,
+            id_list,
+            output_dir=None,
+            calc_upper_lim=False,
+            bkg_nsigma=None,
+            verbose=True,
+            clean_dir=False,
+            single_pointing=None,
     ):
         """
         This function calculates the pha files for each object in the input catalog file by default. Can specify
@@ -746,7 +747,7 @@ class BatSurvey(BatObservation):
                 decobj_array = tbdata.field("DEC_OBJ")
                 time_array = tbdata.field("TIME")
                 tstart_sinceT0 = np.zeros_like(time_array)  # need to understand this
-                #timestop_array = tbdata.field("TIME_STOP") #this isnt used
+                # timestop_array = tbdata.field("TIME_STOP") #this isnt used
                 exposure_array = tbdata.field("EXPOSURE")
                 ffapp_array = tbdata.field("FFAPP")
                 pcodeapp_array = tbdata.field("PCODEAPP")
@@ -786,7 +787,7 @@ class BatSurvey(BatObservation):
                     decobj_array = decobj_array[idx]
                     time_array = time_array[idx]
                     tstart_sinceT0 = tstart_sinceT0[idx]  # need to understand this
-                    #timestop_array = timestop_array[idx] #this isnt used
+                    # timestop_array = timestop_array[idx] #this isnt used
                     exposure_array = exposure_array[idx]
                     ffapp_array = ffapp_array[idx]
                     pcodeapp_array = pcodeapp_array[idx]
@@ -815,9 +816,9 @@ class BatSurvey(BatObservation):
                     check = 0
                     # find the time in the light curve cat file
                     if (
-                        (time_array[i] + tstart_sinceT0[i])
-                        <= time_array[i]
-                        < (time_array[i] + tstart_sinceT0[i] + exposure_array[i])
+                            (time_array[i] + tstart_sinceT0[i])
+                            <= time_array[i]
+                            < (time_array[i] + tstart_sinceT0[i] + exposure_array[i])
                     ):
                         check += 1
                         gti_starttime.append(time_array[i])
@@ -955,15 +956,29 @@ class BatSurvey(BatObservation):
                         pha_prime_hdr = pha_hdulist[0].header
                         pha_spec_hdr = pha_hdulist[1].header
                         pha_ebound_hdr = pha_hdulist[2].header
-                        #pha_gti_hdr = pha_hdulist[3].header this header is not currenlty used
+                        # pha_gti_hdr = pha_hdulist[3].header this header is not currenlty used
 
                         pha_prime_hdr["TELESCOP"] = (
                             "SWIFT",
                             "Telescope (mission) name",
                         )
                         pha_prime_hdr["INSTRUME"] = ("BAT", "Instrument name")
+                        pha_prime_hdr["TIMESYS"] = ("TT", " Time system")
+                        pha_prime_hdr["MJDREFI"] = (51910.0, " Reference MJD Integer part")
+                        pha_prime_hdr["MJDREFF"] = (0.00074287037, " Reference MJD fractional")
+                        pha_prime_hdr["TIMEREF"] = ("LOCAL", " Time reference (barycenter/local)")
+                        pha_prime_hdr["TASSIGN"] = ("SATELLITE", " Time assigned by clock")
+                        pha_prime_hdr["TIMEUNIT"] = ("s", " Time unit")
+                        pha_prime_hdr["TIERRELA"] = (1.0e-8, " [s/s] relative errors expressed as rate")
+                        pha_prime_hdr["TIERABSO"] = (1.0, " [s] timing precision in seconds")
+                        pha_prime_hdr["CLOCKAPP"] = ("F", "Is mission time corrected for clock drift?")
+
                         pha_prime_hdr["OBS_ID"] = (self.obs_id, "Observation ID")
                         pha_prime_hdr["OBJECT"] = (name_array[i], "Object name")
+
+                        pha_prime_hdr["EQUINOX"] = (2000.0, " Equinox")
+                        pha_prime_hdr["RADECSYS"] = ("FK5", " Coordinate system")
+
                         pha_prime_hdr["RA_OBJ"] = (raobj_array[i], "[deg] R.A. Object")
                         pha_prime_hdr["DEC_OBJ"] = (decobj_array[i], "[deg] Dec Object")
                         pha_prime_hdr["RA_PNT"] = (ra_pnt, "[deg] RA pointing")
@@ -975,8 +990,39 @@ class BatSurvey(BatObservation):
                         pha_prime_hdr["TSTART"] = (gti_starttime[0], "Start time")
                         pha_prime_hdr["TSTOP"] = (gti_stoptime[0], "Stop time")
 
+                        utc_starttime = met2utc(gti_starttime[0]).astype('datetime64[s]')
+                        utc_stoptime = met2utc(gti_stoptime[0]).astype('datetime64[s]')
+                        pha_prime_hdr["DATE-OBS"] = (
+                            f"{utc_starttime}",
+                            "TSTART, expressed in UTC",
+                        )
+                        pha_prime_hdr["DATE-END"] = (
+                            f"{utc_stoptime}",
+                            "TSTOP, expressed in UTC",
+                        )
+
                         pha_spec_hdr["TELESCOP"] = ("SWIFT", "Telescope (mission) name")
                         pha_spec_hdr["INSTRUME"] = ("BAT", "Instrument name")
+                        pha_spec_hdr["TIMESYS"] = ("TT", " Time system")
+                        pha_spec_hdr["MJDREFI"] = (51910.0, " Reference MJD Integer part")
+                        pha_spec_hdr["MJDREFF"] = (0.00074287037, " Reference MJD fractional")
+                        pha_spec_hdr["TIMEREF"] = ("LOCAL", " Time reference (barycenter/local)")
+                        pha_spec_hdr["TASSIGN"] = ("SATELLITE", " Time assigned by clock")
+                        pha_spec_hdr["TIMEUNIT"] = ("s", " Time unit")
+                        pha_spec_hdr["TIERRELA"] = (1.0e-8, " [s/s] relative errors expressed as rate")
+                        pha_spec_hdr["TIERABSO"] = (1.0, " [s] timing precision in seconds")
+                        pha_spec_hdr["CLOCKAPP"] = ("F", "Is mission time corrected for clock drift?")
+                        pha_spec_hdr["EQUINOX"] = (2000.0, " Equinox")
+                        pha_spec_hdr["RADECSYS"] = ("FK5", " Coordinate system")
+                        pha_spec_hdr["RA_OBJ"] = (raobj_array[i], "[deg] R.A. Object")
+                        pha_spec_hdr["DEC_OBJ"] = (decobj_array[i], "[deg] Dec Object")
+                        pha_spec_hdr["RA_PNT"] = (ra_pnt, "[deg] RA pointing")
+                        pha_spec_hdr["DEC_PNT"] = (dec_pnt, "[deg] Dec pointing")
+                        pha_spec_hdr["PA_PNT"] = (
+                            pa_pnt,
+                            "[deg] Position angle (roll)",
+                        )
+
                         pha_spec_hdr["HDUCLASS"] = (
                             "OGIP",
                             "Conforms to OGIP/GSFC standards",
@@ -1100,8 +1146,12 @@ class BatSurvey(BatObservation):
                             "Number of enabled detectors",
                         )
                         pha_spec_hdr["DATE-OBS"] = (
-                            "2022-01-26T12:16:00",
-                            "fake date-obs on UTC",
+                            f"{utc_starttime}",
+                            "TSTART, expressed in UTC",
+                        )
+                        pha_spec_hdr["DATE-END"] = (
+                            f"{utc_stoptime}",
+                            "TSTOP, expressed in UTC",
                         )
 
                         pha_ebound_hdr["HDUCLASS"] = (
@@ -1811,14 +1861,14 @@ class MosaicBatSurvey(BatSurvey):
         self.pointing_flux_files = [all_src_file]
 
     def calculate_pha(
-        self,
-        id_list,
-        output_dir=None,
-        calc_upper_lim=False,
-        bkg_nsigma=None,
-        verbose=True,
-        clean_dir=False,
-        single_pointing=None,
+            self,
+            id_list,
+            output_dir=None,
+            calc_upper_lim=False,
+            bkg_nsigma=None,
+            verbose=True,
+            clean_dir=False,
+            single_pointing=None,
     ):
         """
         This function calculates the pha files for each object in the input catalog file by default. Can specify
