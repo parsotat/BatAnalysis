@@ -975,6 +975,10 @@ class BatSurvey(BatObservation):
 
                         pha_prime_hdr["OBS_ID"] = (self.obs_id, "Observation ID")
                         pha_prime_hdr["OBJECT"] = (name_array[i], "Object name")
+
+                        pha_prime_hdr["EQUINOX"] = (2000.0, " Equinox")
+                        pha_prime_hdr["RADECSYS"] = ("FK5", " Coordinate system")
+
                         pha_prime_hdr["RA_OBJ"] = (raobj_array[i], "[deg] R.A. Object")
                         pha_prime_hdr["DEC_OBJ"] = (decobj_array[i], "[deg] Dec Object")
                         pha_prime_hdr["RA_PNT"] = (ra_pnt, "[deg] RA pointing")
