@@ -990,6 +990,17 @@ class BatSurvey(BatObservation):
                         pha_prime_hdr["TSTART"] = (gti_starttime[0], "Start time")
                         pha_prime_hdr["TSTOP"] = (gti_stoptime[0], "Stop time")
 
+                        utc_starttime = met2utc(gti_starttime[0]).astype('datetime64[s]')
+                        utc_stoptime = met2utc(gti_stoptime[0]).astype('datetime64[s]')
+                        pha_prime_hdr["DATE-OBS"] = (
+                            f"{utc_starttime}",
+                            "TSTART, expressed in UTC",
+                        )
+                        pha_prime_hdr["DATE-END"] = (
+                            f"{utc_stoptime}",
+                            "TSTOP, expressed in UTC",
+                        )
+
                         pha_spec_hdr["TELESCOP"] = ("SWIFT", "Telescope (mission) name")
                         pha_spec_hdr["INSTRUME"] = ("BAT", "Instrument name")
                         pha_spec_hdr["TIMESYS"] = ("TT", " Time system")
@@ -1135,8 +1146,12 @@ class BatSurvey(BatObservation):
                             "Number of enabled detectors",
                         )
                         pha_spec_hdr["DATE-OBS"] = (
-                            "2022-01-26T12:16:00",
-                            "fake date-obs on UTC",
+                            f"{utc_starttime}",
+                            "TSTART, expressed in UTC",
+                        )
+                        pha_spec_hdr["DATE-END"] = (
+                            f"{utc_stoptime}",
+                            "TSTOP, expressed in UTC",
                         )
 
                         pha_ebound_hdr["HDUCLASS"] = (
