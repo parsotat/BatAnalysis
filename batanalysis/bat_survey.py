@@ -992,6 +992,26 @@ class BatSurvey(BatObservation):
 
                         pha_spec_hdr["TELESCOP"] = ("SWIFT", "Telescope (mission) name")
                         pha_spec_hdr["INSTRUME"] = ("BAT", "Instrument name")
+                        pha_spec_hdr["TIMESYS"] = ("TT", " Time system")
+                        pha_spec_hdr["MJDREFI"] = (51910.0, " Reference MJD Integer part")
+                        pha_spec_hdr["MJDREFF"] = (0.00074287037, " Reference MJD fractional")
+                        pha_spec_hdr["TIMEREF"] = ("LOCAL", " Time reference (barycenter/local)")
+                        pha_spec_hdr["TASSIGN"] = ("SATELLITE", " Time assigned by clock")
+                        pha_spec_hdr["TIMEUNIT"] = ("s", " Time unit")
+                        pha_spec_hdr["TIERRELA"] = (1.0e-8, " [s/s] relative errors expressed as rate")
+                        pha_spec_hdr["TIERABSO"] = (1.0, " [s] timing precision in seconds")
+                        pha_spec_hdr["CLOCKAPP"] = ("F", "Is mission time corrected for clock drift?")
+                        pha_spec_hdr["EQUINOX"] = (2000.0, " Equinox")
+                        pha_spec_hdr["RADECSYS"] = ("FK5", " Coordinate system")
+                        pha_spec_hdr["RA_OBJ"] = (raobj_array[i], "[deg] R.A. Object")
+                        pha_spec_hdr["DEC_OBJ"] = (decobj_array[i], "[deg] Dec Object")
+                        pha_spec_hdr["RA_PNT"] = (ra_pnt, "[deg] RA pointing")
+                        pha_spec_hdr["DEC_PNT"] = (dec_pnt, "[deg] Dec pointing")
+                        pha_spec_hdr["PA_PNT"] = (
+                            pa_pnt,
+                            "[deg] Position angle (roll)",
+                        )
+
                         pha_spec_hdr["HDUCLASS"] = (
                             "OGIP",
                             "Conforms to OGIP/GSFC standards",
