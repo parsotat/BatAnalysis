@@ -444,7 +444,8 @@ def group_outventory(
             with fits.open(outventory_file) as f:
                 end_datetime = Time(met2utc(f[1].data["TSTART"].max()))
 
-        if binning_timedelta == np.timedelta64(1, "M"):
+        if np.dtype(binning_timedelta) == np.dtype(np.timedelta64(1, 'M')) and binning_timedelta == np.timedelta64(1,
+                                                                                                                   'M'):
             # if the user wants months, need to specify each year, month and the number of days
             years = [
                 i
