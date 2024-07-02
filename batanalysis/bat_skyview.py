@@ -7,6 +7,8 @@ Tyler Parsotan May 15 2024
 import warnings
 from pathlib import Path
 
+from .bat_skyimage import BatSkyImage
+
 try:
     import heasoftpy as hsp
 except ModuleNotFoundError as err:
@@ -121,7 +123,15 @@ class BatSkyView(object):
                         self.skyimg_input_dict[key] = input_dict[key]
 
             # create all the images that were requested
-            self._call_batfftimage(self.skyimg_input_dict)
+            self.batfftimage_result = self._call_batfftimage(self.skyimg_input_dict)
+
+            # make sure that this calculation ran successfully
+            if self.batfftimage_result.returncode != 0:
+                raise RuntimeError(
+                    f"The creation of the skyimage failed with message: {self.batfftimage_result.output}"
+                )
+        else:
+            self.skyimg_input_dict = None
 
         # parse through all the images and get the previous input to batfftimage
         self._parse_skyimages()
@@ -149,6 +159,23 @@ class BatSkyView(object):
 
     def _parse_skyimages(self):
         """
-        This method goes thorugh the sky image file that was produced by batfftimage and reads in all the sky images'
+        This method goes through the sky image file that was produced by batfftimage and reads in all the sky images'
         fits files and saves them as BatSkyImage objects to the appropriate attributes
+
+        TODO: batgrbproducts doesnt append the partial coding map to the output, how can users load this file in separately
+            if it doesnt show up in the history of the main skymap
         """
+
+        # make sure that the skyimage exists
+        if not self.skyimg_file.exists():
+            raise ValueError(
+                f'The sky image file {self.skyimg_file} does not seem to exist. An error must have occured '
+                f'in the creation of this file.')
+
+        # read in the skyimage file and create a SkyImage object. Note that the BatSkyImage.from_file() method
+        # read in the first N hdus in the file where N is the number of energy bins that sky images were created for
+        # by default, the partial coding map which is set to append_last is not read in
+        self.skyimg = BatSkyImage.from_file(self.skyimg_file)
+
+        # read in the history of the sky image that was created
+        
