@@ -34,7 +34,9 @@ class BatSkyView(object):
             input_dict=None,
             recalc=False,
             load_dir=None,
-            create_pcode_map=True
+            create_pcode_map=True,
+            create_snr_map=False,
+            create_bkg_stddev_map=False
     ):
         """
 
@@ -67,7 +69,7 @@ class BatSkyView(object):
         if skyimg_file is not None:
             self.skyimg_file = Path(skyimg_file).expanduser().resolve()
         else:
-            self.skyimg_file = dpi_file.parent.joinpath(f"{dpi_file.stem}.img")
+            self.skyimg_file = dpi_file.parent.joinpath(f"test_{dpi_file.stem}.img")
 
         if detector_quality_file is not None:
             self.detector_quality_file = Path(detector_quality_file).expanduser().resolve()
@@ -105,10 +107,24 @@ class BatSkyView(object):
             if create_pcode_map:
                 self.skyimg_input_dict["pcodemap"] = "APPEND_LAST"
 
+            if create_bkg_stddev_map:
+                self.skyimg_input_dict["bkgvarmap"] = self.skyimg_file.parent.joinpath(
+                    f"{dpi_file.stem}_bkg_stddev.img")
+
+            if create_snr_map:
+                self.skyimg_input_dict["signifmap"] = self.skyimg_file.parent.joinpath(
+                    f"{dpi_file.stem}_snr.img")
+
             if input_dict is not None:
                 for key in input_dict.keys():
                     if key in self.skyimg_input_dict.keys():
                         self.skyimg_input_dict[key] = input_dict[key]
+
+            # create all the images that were requested
+            self._call_batfftimage(self.skyimg_input_dict)
+
+        # parse through all the images and get the previous input to batfftimage
+        self._parse_skyimages()
 
     def _call_batfftimage(self, input_dict):
         """
@@ -122,7 +138,6 @@ class BatSkyView(object):
         """
 
         input_dict["clobber"] = "YES"
-        input_dict["outtype"] = "DPI"
 
         try:
             return hsp.batfftimage(**input_dict)
@@ -131,3 +146,9 @@ class BatSkyView(object):
             raise RuntimeError(
                 f"The call to Heasoft batfftimage failed with inputs {input_dict}."
             )
+
+    def _parse_skyimages(self):
+        """
+        This method goes thorugh the sky image file that was produced by batfftimage and reads in all the sky images'
+        fits files and saves them as BatSkyImage objects to the appropriate attributes
+        """
