@@ -258,14 +258,14 @@ class BatSkyView(object):
         # see if there are background/snr images for us to read in
         # this can be defined in the history of the batfftimage call or in the constructor method
         # we prioritize anything that was set in the constructor
-        if self.snr_img_file is None and self.skyimg_input_dict["signifmap"] is not "NONE":
+        if self.snr_img_file is None and self.skyimg_input_dict["signifmap"] != "NONE":
             self.snr_img_file = Path(self.skyimg_input_dict["signifmap"])
 
         # now read in the file
         if self.snr_img_file is not None:
             self.snr_img = BatSkyImage.from_file(self.snr_img_file)
 
-        if self.bkg_stddev_img_file is None and self.skyimg_input_dict["bkgvarmap"] is not "NONE":
+        if self.bkg_stddev_img_file is None and self.skyimg_input_dict["bkgvarmap"] != "NONE":
             self.bkg_stddev_img_file = Path(self.skyimg_input_dict["bkgvarmap"])
 
         # now read in the file
