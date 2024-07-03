@@ -292,3 +292,17 @@ class BatSkyView(object):
                 raise ValueError("The file {temp_value} does not exist")
         else:
             self._pcodeimg_file = value
+
+    @classmethod
+    def from_file(cls, skyimg_file, pcodeimg_file=None):
+        """
+
+        :param skyimg_file:
+        :param pcodeimg_file:
+        :return:
+        """
+
+        skyview = cls(skyimg_file=skyimg_file)
+        skyview.pcodeimg_file = pcodeimg_file
+
+        return skyview
