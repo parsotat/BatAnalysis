@@ -30,6 +30,9 @@ class BatDPI(DetectorPlaneHistogram):
 
     This can also be constructed by batbinevt which this class handles. There can be multiple DPIs extensions in a file
     or there can be a table with multiple DPIs
+
+    TODO: for images with exposures>100 seconds, should also create a background DPI see section 5.8.5 of
+        https://swift.gsfc.nasa.gov/analysis/bat_swguide_v6_3.pdf
     """
 
     def __init__(

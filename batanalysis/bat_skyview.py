@@ -7,6 +7,8 @@ Tyler Parsotan May 15 2024
 import warnings
 from pathlib import Path
 
+from astropy.io import fits
+
 from .bat_skyimage import BatSkyImage
 
 try:
@@ -64,7 +66,11 @@ class BatSkyView(object):
                     f"The specified DPI file {self.dpi_file} does not seem "
                     f"to exist. Please double check that it does.")
         else:
-            raise ValueError("Please specify a DPI file.")
+            # the user could have passed in just a sky image that was previously created and then the dpi file doesnt
+            # need to be passed in
+            self.dpi_file = dpi_file
+            if skyimg_file is None:
+                raise ValueError("Please specify a DPI file to create the sky image from.")
 
         # if the user specified a sky image then use it, otherwise set the sky image to be the same name as the dpi
         # and same location
@@ -163,7 +169,7 @@ class BatSkyView(object):
         fits files and saves them as BatSkyImage objects to the appropriate attributes
 
         TODO: batgrbproducts doesnt append the partial coding map to the output, how can users load this file in separately
-            if it doesnt show up in the history of the main skymap
+            if it doesnt show up in the history of the main skymap?
         """
 
         # make sure that the skyimage exists
@@ -175,7 +181,42 @@ class BatSkyView(object):
         # read in the skyimage file and create a SkyImage object. Note that the BatSkyImage.from_file() method
         # read in the first N hdus in the file where N is the number of energy bins that sky images were created for
         # by default, the partial coding map which is set to append_last is not read in
-        self.skyimg = BatSkyImage.from_file(self.skyimg_file)
+        self.sky_img = BatSkyImage.from_file(self.skyimg_file)
 
         # read in the history of the sky image that was created
-        
+        with fits.open(self.sky_img) as f:
+            header = f[0].header
+
+        if self.skyimg_input_dict is None:
+            # get the default names of the parameters for batbinevt including its name 9which should never change)
+            test = hsp.HSPTask("batfftimage")
+            default_params_dict = test.default_params.copy()
+            taskname = test.taskname
+            start_processing = None
+
+            for i in header["HISTORY"]:
+                if taskname in i and start_processing is None:
+                    # then set a switch for us to start looking at things
+                    start_processing = True
+                elif taskname in i and start_processing is True:
+                    # we want to stop processing things
+                    start_processing = False
+
+                if start_processing and "START" not in i and len(i) > 0:
+                    values = i.split(" ")
+                    # print(i, values, "=" in values)
+
+                    parameter_num = values[0]
+                    parameter = values[1]
+                    if "=" not in values:
+                        # this belongs with the previous parameter and is a line continuation
+                        default_params_dict[old_parameter] = (
+                                default_params_dict[old_parameter] + values[-1]
+                        )
+                        # assume that we need to keep appending to the previous parameter
+                    else:
+                        default_params_dict[parameter] = values[-1]
+
+                        old_parameter = parameter
+
+            self.skyimg_input_dict = default_params_dict.copy()
