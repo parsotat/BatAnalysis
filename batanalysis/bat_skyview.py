@@ -251,6 +251,7 @@ class BatSkyView(object):
             self.skyimg_input_dict = default_params_dict.copy()
 
         # see if there is an associated pcode image and that it exists for us to read in
+        # TODO: since the pcode file can be specified separately, need to verify that it is for the same time range
         if self.pcodeimg_file is not None and self.pcodeimg_file.exists():
             self.pcode_img = BatSkyImage.from_file(self.pcodeimg_file)
         else:

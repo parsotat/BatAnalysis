@@ -462,7 +462,8 @@ class BatSkyImage(Histogram):
             for i in range(len(f)):
                 header = f[i].header
                 # if we have an image, save it to our list of image headers
-                if "image" in header["EXTNAME"].lower():
+                # if "image" in header["EXTNAME"].lower():
+                if np.any([name in header["EXTNAME"].lower() for name in ["image", "pcode"]]):
                     img_headers.append(header)
                 elif "ebounds" in header["EXTNAME"].lower():
                     energy_header = header
@@ -475,7 +476,14 @@ class BatSkyImage(Histogram):
 
         # now we can construct the data for the time bins, the energy bins, the total sky image array, and the WCS
         w = WCS(img_headers[0])
-        img_unit = u.Quantity(f'1{img_headers[0]["BUNIT"]}')
+
+        # the partial coding image has no units so make sure that only when we are reading in a pcoding file we
+        # have this set
+        if np.all(["pcode" in i["EXTNAME"].lower() for i in img_headers]):
+            img_unit = 1 * u.dimensionless_unscaled
+        else:
+            img_unit = u.Quantity(f'1{img_headers[0]["BUNIT"]}')
+
         time_unit = u.Quantity(f'1{time_header["TUNIT1"]}')  # expect seconds
         energy_unit = u.Quantity(f'1{energy_header["TUNIT2"]}')  # expect keV
 
@@ -498,7 +506,8 @@ class BatSkyImage(Histogram):
                 data = f[i].data
                 header = f[i].header
                 # if we have an image, save it to our list of image headers
-                if "image" in header["EXTNAME"].lower():
+                # if "image" in header["EXTNAME"].lower():
+                if np.any([name in header["EXTNAME"].lower() for name in ["image", "pcode"]]):
                     img_data[:, :, :, i] = data
                 elif "ebounds" in header["EXTNAME"].lower():
                     energy_data = data
