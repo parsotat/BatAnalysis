@@ -265,6 +265,8 @@ class BatSkyView(object):
         # now read in the file
         if self.snr_img_file is not None:
             self.snr_img = BatSkyImage.from_file(self.snr_img_file)
+        else:
+            self.snr_img = None
 
         if self.bkg_stddev_img_file is None and self.skyimg_input_dict["bkgvarmap"] != "NONE":
             self.bkg_stddev_img_file = Path(self.skyimg_input_dict["bkgvarmap"])
@@ -272,3 +274,21 @@ class BatSkyView(object):
         # now read in the file
         if self.bkg_stddev_img_file is not None:
             self.bkg_stddev_img = BatSkyImage.from_file(self.bkg_stddev_img_file)
+        else:
+            self.bkg_stddev_img = None
+
+    @property
+    def pcodeimg_file(self):
+        return self._pcodeimg_file
+
+    @pcodeimg_file.setter
+    def pcodeimg_file(self, value):
+        if value is not None:
+            temp_value = Path(value).expanduser().resolve()
+            if temp_value.exists():
+                self._pcodeimg_file = temp_value
+                self._parse_skyimages()
+            else:
+                raise ValueError("The file {temp_value} does not exist")
+        else:
+            self._pcodeimg_file = value
