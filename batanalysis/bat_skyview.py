@@ -213,7 +213,7 @@ class BatSkyView(object):
         self.sky_img = BatSkyImage.from_file(self.skyimg_file)
 
         # read in the history of the sky image that was created
-        with fits.open(self.sky_img) as f:
+        with fits.open(self.skyimg_file) as f:
             header = f[0].header
 
         if self.skyimg_input_dict is None:
