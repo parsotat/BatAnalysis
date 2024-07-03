@@ -38,9 +38,9 @@ class BatSkyView(object):
             input_dict=None,
             recalc=False,
             load_dir=None,
-            create_pcode_map=True,
-            create_snr_map=False,
-            create_bkg_stddev_map=False
+            create_pcode_img=True,
+            create_snr_img=False,
+            create_bkg_stddev_img=False
     ):
         """
 
@@ -69,7 +69,7 @@ class BatSkyView(object):
             # the user could have passed in just a sky image that was previously created and then the dpi file doesnt
             # need to be passed in
             self.dpi_file = dpi_file
-            if skyimg_file is None:
+            if skyimg_file is None or recalc:
                 raise ValueError("Please specify a DPI file to create the sky image from.")
 
         # if the user specified a sky image then use it, otherwise set the sky image to be the same name as the dpi
@@ -113,13 +113,19 @@ class BatSkyView(object):
             self.skyimg_input_dict["attitude"] = str(self.attitude_file)
             self.skyimg_input_dict["detmask"] = str(self.detector_quality_file)
 
-            if create_bkg_stddev_map:
-                self.skyimg_input_dict["bkgvarmap"] = self.skyimg_file.parent.joinpath(
+            if create_bkg_stddev_img:
+                self.bkg_stddev_img_file = self.skyimg_file.parent.joinpath(
                     f"{dpi_file.stem}_bkg_stddev.img")
+                self.skyimg_input_dict["bkgvarmap"] = str(self.bkg_stddev_img_file)
+            else:
+                self.bkg_stddev_img_file = None
 
-            if create_snr_map:
-                self.skyimg_input_dict["signifmap"] = self.skyimg_file.parent.joinpath(
+            if create_snr_img:
+                self.snr_img_file = self.skyimg_file.parent.joinpath(
                     f"{dpi_file.stem}_snr.img")
+                self.skyimg_input_dict["signifmap"] = str(self.snr_img_file)
+            else:
+                self.snr_img_file = None
 
             if input_dict is not None:
                 for key in input_dict.keys():
@@ -137,11 +143,12 @@ class BatSkyView(object):
 
             # if we want to create the partial coding map then we need to rerun the batfftimage calculation to produce a
             # pcode map that will be able to be passed into batcelldetect
-            if create_pcode_map:
+            if create_pcode_img:
+                self.pcodeimg_file = self.skyimg_file.parent.joinpath(
+                    f"{dpi_file.stem}.pcodeimg")
                 pcodeimg_input_dict = self.skyimg_input_dict.copy()
                 pcodeimg_input_dict["pcodemap"] = "YES"
-                pcodeimg_input_dict["outfile"] = str(self.skyimg_file.parent.joinpath(
-                    f"{dpi_file.stem}.pcodeimg"))
+                pcodeimg_input_dict["outfile"] = str(self.pcodeimg_file)
 
                 batfftimage_pcode_result = self._call_batfftimage(pcodeimg_input_dict)
 
@@ -150,13 +157,15 @@ class BatSkyView(object):
                     raise RuntimeError(
                         f"The creation of the associated partial coding map failed with message: {batfftimage_pcode_result.output}"
                     )
-
-
-
-
+            else:
+                self.pcodeimg_file = None
 
         else:
+            # set defaults for different attributes
             self.skyimg_input_dict = None
+            self.pcodeimg_file = None
+            self.snr_img_file = None
+            self.bkg_stddev_img_file = None
 
         # parse through all the images and get the previous input to batfftimage
         self._parse_skyimages()
@@ -239,3 +248,26 @@ class BatSkyView(object):
                         old_parameter = parameter
 
             self.skyimg_input_dict = default_params_dict.copy()
+
+        # see if there is an associated pcode image and that it exists for us to read in
+        if self.pcodeimg_file is not None and self.pcodeimg_file.exists():
+            self.pcode_img = BatSkyImage.from_file(self.pcodeimg_file)
+        else:
+            self.pcode_img = None
+
+        # see if there are background/snr images for us to read in
+        # this can be defined in the history of the batfftimage call or in the constructor method
+        # we prioritize anything that was set in the constructor
+        if self.snr_img_file is None and self.skyimg_input_dict["signifmap"] is not "NONE":
+            self.snr_img_file = Path(self.skyimg_input_dict["signifmap"])
+
+        # now read in the file
+        if self.snr_img_file is not None:
+            self.snr_img = BatSkyImage.from_file(self.snr_img_file)
+
+        if self.bkg_stddev_img_file is None and self.skyimg_input_dict["bkgvarmap"] is not "NONE":
+            self.bkg_stddev_img_file = Path(self.skyimg_input_dict["bkgvarmap"])
+
+        # now read in the file
+        if self.bkg_stddev_img_file is not None:
+            self.bkg_stddev_img = BatSkyImage.from_file(self.bkg_stddev_img_file)
