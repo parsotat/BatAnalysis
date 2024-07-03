@@ -59,6 +59,13 @@ class BatSkyView(object):
                 "Dealing with the DPI data directly to calculate the sky image is not yet supported.")
 
         # do some error checking
+        # if the user specified a sky image then use it, otherwise set the sky image to be the same name as the dpi
+        # and same location
+        if skyimg_file is not None:
+            self.skyimg_file = Path(skyimg_file).expanduser().resolve()
+        else:
+            self.skyimg_file = dpi_file.parent.joinpath(f"test_{dpi_file.stem}.img")
+
         if dpi_file is not None:
             self.dpi_file = Path(dpi_file).expanduser().resolve()
             if not self.dpi_file.exists():
@@ -69,15 +76,8 @@ class BatSkyView(object):
             # the user could have passed in just a sky image that was previously created and then the dpi file doesnt
             # need to be passed in
             self.dpi_file = dpi_file
-            if skyimg_file is None or recalc:
+            if not self.skyimg_file.exists() or recalc:
                 raise ValueError("Please specify a DPI file to create the sky image from.")
-
-        # if the user specified a sky image then use it, otherwise set the sky image to be the same name as the dpi
-        # and same location
-        if skyimg_file is not None:
-            self.skyimg_file = Path(skyimg_file).expanduser().resolve()
-        else:
-            self.skyimg_file = dpi_file.parent.joinpath(f"test_{dpi_file.stem}.img")
 
         if detector_quality_file is not None:
             self.detector_quality_file = Path(detector_quality_file).expanduser().resolve()
@@ -99,7 +99,8 @@ class BatSkyView(object):
                     f"The specified attitude file {self.attitude_file} does not seem "
                     f"to exist. Please double check that it does.")
         else:
-            raise ValueError("Please specify an attitude file associated with the DPI.")
+            if not self.skyimg_file.exists() or recalc:
+                raise ValueError("Please specify an attitude file associated with the DPI.")
 
         # get the default names of the parameters for batfftimage including its name (which should never change)
         test = hsp.HSPTask("batfftimage")
