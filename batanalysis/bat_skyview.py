@@ -251,9 +251,15 @@ class BatSkyView(object):
             self.skyimg_input_dict = default_params_dict.copy()
 
         # see if there is an associated pcode image and that it exists for us to read in
-        # TODO: since the pcode file can be specified separately, need to verify that it is for the same time range
+        # since the pcode file can be specified separately, need to verify that it is for the same time range
         if self.pcodeimg_file is not None and self.pcodeimg_file.exists():
             self.pcode_img = BatSkyImage.from_file(self.pcodeimg_file)
+
+            # do the check
+            for i in self.pcode_img.tbins.keys():
+                if self.pcode_img.tbins[i] != self.sky_img.tbins[i]:
+                    raise ValueError("The timebin of the partial coding image does not align with the sky image."
+                                     f"for {i} {self.pcode_img.tbins[i]} != {self.sky_img.tbins[i]}.")
         else:
             self.pcode_img = None
 

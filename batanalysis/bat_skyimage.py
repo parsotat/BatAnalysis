@@ -444,7 +444,7 @@ class BatSkyImage(Histogram):
     @classmethod
     def from_file(cls, file):
         """
-        TODO: be able to parse files with images, background variance, SNR map, and partial coding file all in the same file
+        TODO: be able to parse files with background variance, SNR map file 
         :param file:
         :return:
         """
