@@ -197,8 +197,8 @@ class BatSkyView(object):
         This method goes through the sky image file that was produced by batfftimage and reads in all the sky images'
         fits files and saves them as BatSkyImage objects to the appropriate attributes
 
-        TODO: batgrbproducts doesnt append the partial coding map to the output, how can users load this file in separately
-            if it doesnt show up in the history of the main skymap?
+        batgrbproducts doesnt append the partial coding map to the output, so users can load this file in separately
+            by specifying the value of the pcodeimg_file attribute.
         """
 
         # make sure that the skyimage exists
@@ -267,7 +267,7 @@ class BatSkyView(object):
         # this can be defined in the history of the batfftimage call or in the constructor method
         # we prioritize anything that was set in the constructor
         if self.snr_img_file is None and self.skyimg_input_dict["signifmap"] != "NONE":
-            self.snr_img_file = Path(self.skyimg_input_dict["signifmap"])
+            self.snr_img_file = Path(self.skyimg_input_dict["signifmap"]).expanduser().resolve()
 
         # now read in the file
         if self.snr_img_file is not None:
@@ -276,7 +276,7 @@ class BatSkyView(object):
             self.snr_img = None
 
         if self.bkg_stddev_img_file is None and self.skyimg_input_dict["bkgvarmap"] != "NONE":
-            self.bkg_stddev_img_file = Path(self.skyimg_input_dict["bkgvarmap"])
+            self.bkg_stddev_img_file = Path(self.skyimg_input_dict["bkgvarmap"]).expanduser().resolve()
 
         # now read in the file
         if self.bkg_stddev_img_file is not None:

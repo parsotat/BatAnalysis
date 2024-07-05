@@ -444,10 +444,15 @@ class BatSkyImage(Histogram):
     @classmethod
     def from_file(cls, file):
         """
-        TODO: be able to parse files with background variance, SNR map file 
+        TODO: be able to parse files with background variance, SNR map file
         :param file:
         :return:
         """
+
+        # list out the image extensions that we can read in. These should be lowercase.
+        # note that the snr and background stddev images dont have gti or energy extensions. These are gotten from the
+        # headers of the images themselves
+        extension_names = ["image", "pcode", "signif", "varmap"]
 
         input_file = Path(file).expanduser().resolve()
         if not input_file.exists():
@@ -463,7 +468,7 @@ class BatSkyImage(Histogram):
                 header = f[i].header
                 # if we have an image, save it to our list of image headers
                 # if "image" in header["EXTNAME"].lower():
-                if np.any([name in header["EXTNAME"].lower() for name in ["image", "pcode"]]):
+                if np.any([name in header["EXTNAME"].lower() for name in extension_names]):
                     img_headers.append(header)
                 elif "ebounds" in header["EXTNAME"].lower():
                     energy_header = header
@@ -484,30 +489,43 @@ class BatSkyImage(Histogram):
         else:
             img_unit = u.Quantity(f'1{img_headers[0]["BUNIT"]}')
 
-        time_unit = u.Quantity(f'1{time_header["TUNIT1"]}')  # expect seconds
-        energy_unit = u.Quantity(f'1{energy_header["TUNIT2"]}')  # expect keV
+        if time_header is not None:
+            time_unit = u.Quantity(f'1{time_header["TUNIT1"]}')  # expect seconds
+            n_times = time_header["NAXIS2"]
+        else:
+            time_unit = 1 * u.s
+            n_times = 1
+
+        if energy_header is not None:
+            energy_unit = u.Quantity(f'1{energy_header["TUNIT2"]}')  # expect keV
+            n_energies = energy_header["NAXIS2"]
+        else:
+            energy_unit = 1 * u.keV
+            n_energies = len(img_headers)
 
         # make sure that we only have 1 time bin (want to enforce this for mosaicing)
-        if time_header["NAXIS2"] > 1:
+        if n_times > 1:
             raise NotImplementedError("The number of timebins for the sky images is greater than 1, which is "
                                       "currently not supported.")
 
         # maek sure that the number of energy bins is equal to the number of images to read in
-        if len(img_headers) != energy_header["NAXIS2"]:
+        if len(img_headers) != n_energies:
             raise ValueError(
-                f'The number of energy bins, {energy_header["NAXIS2"]}, is not equal to the number of images to read in {len(img_headers)}.')
+                f'The number of energy bins, {n_energies}, is not equal to the number of images to read in {len(img_headers)}.')
 
-        img_data = np.zeros((time_header["NAXIS2"], img_headers[0]["NAXIS2"], img_headers[0]["NAXIS1"],
-                             energy_header["NAXIS2"]))
+        img_data = np.zeros((n_times, img_headers[0]["NAXIS2"], img_headers[0]["NAXIS1"],
+                             n_energies))
 
         # here we assume that the images are ordered in energy and only have 1 timebin
+        energy_data = None
+        time_data = None
         with fits.open(input_file) as f:
             for i in range(len(f)):
                 data = f[i].data
                 header = f[i].header
                 # if we have an image, save it to our list of image headers
                 # if "image" in header["EXTNAME"].lower():
-                if np.any([name in header["EXTNAME"].lower() for name in ["image", "pcode"]]):
+                if np.any([name in header["EXTNAME"].lower() for name in extension_names]):
                     img_data[:, :, :, i] = data
                 elif "ebounds" in header["EXTNAME"].lower():
                     energy_data = data
@@ -522,9 +540,18 @@ class BatSkyImage(Histogram):
         img_data *= img_unit.unit
 
         # parse the time/energy to initalize our BatSkyImage
-        min_t = time_data["START"] * time_unit.unit
-        max_t = time_data["STOP"] * time_unit.unit
-        min_e = energy_data["E_MIN"] * energy_unit.unit
-        max_e = energy_data["E_MAX"] * energy_unit.unit
+        if time_data is not None:
+            min_t = time_data["START"] * time_unit.unit
+            max_t = time_data["STOP"] * time_unit.unit
+        else:
+            min_t = img_headers[0]["TSTART"] * time_unit.unit
+            max_t = img_headers[0]["TSTOP"] * time_unit.unit
+
+        if energy_data is not None:
+            min_e = energy_data["E_MIN"] * energy_unit.unit
+            max_e = energy_data["E_MAX"] * energy_unit.unit
+        else:
+            min_e = [i["E_MIN"] for i in img_headers] * energy_unit.unit
+            max_e = [i["E_MAX"] for i in img_headers] * energy_unit.unit
 
         return cls(image_data=img_data, tmin=min_t, tmax=max_t, emin=min_e, emax=max_e, wcs=w)
