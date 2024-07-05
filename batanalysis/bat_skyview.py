@@ -145,11 +145,14 @@ class BatSkyView(object):
             # if we want to create the partial coding map then we need to rerun the batfftimage calculation to produce a
             # pcode map that will be able to be passed into batcelldetect
             if create_pcode_img:
-                self.pcodeimg_file = self.skyimg_file.parent.joinpath(
+                temp_pcodeimg_file = self.skyimg_file.parent.joinpath(
                     f"{dpi_file.stem}.pcodeimg")
                 pcodeimg_input_dict = self.skyimg_input_dict.copy()
                 pcodeimg_input_dict["pcodemap"] = "YES"
-                pcodeimg_input_dict["outfile"] = str(self.pcodeimg_file)
+                pcodeimg_input_dict["outfile"] = str(temp_pcodeimg_file)
+                # needto make sure that the snr and bkgvar maps are None
+                pcodeimg_input_dict["bkgvarmap"] = "NONE"
+                pcodeimg_input_dict["signifmap"] = "NONE"
 
                 batfftimage_pcode_result = self._call_batfftimage(pcodeimg_input_dict)
 
@@ -158,6 +161,8 @@ class BatSkyView(object):
                     raise RuntimeError(
                         f"The creation of the associated partial coding map failed with message: {batfftimage_pcode_result.output}"
                     )
+
+                self.pcodeimg_file = temp_pcodeimg_file
             else:
                 self.pcodeimg_file = None
 
@@ -296,7 +301,7 @@ class BatSkyView(object):
                 self._pcodeimg_file = temp_value
                 self._parse_skyimages()
             else:
-                raise ValueError("The file {temp_value} does not exist")
+                raise ValueError(f"The file {temp_value} does not exist")
         else:
             self._pcodeimg_file = value
 
