@@ -197,6 +197,24 @@ class BatSkyView(object):
                 f"The call to Heasoft batfftimage failed with inputs {input_dict}."
             )
 
+    def _call_batcelldetect(self, input_dict):
+        """
+        Call heasoftpy batcelldetect.
+
+        :param input_dict: dictionary of inputs to pass to batcelldetet.
+        :return: heasoft output object
+        """
+
+        input_dict["clobber"] = "YES"
+
+        try:
+            return hsp.batcelldetect(**input_dict)
+        except Exception as e:
+            print(e)
+            raise RuntimeError(
+                f"The call to Heasoft batcelldetect failed with inputs {input_dict}."
+            )
+
     def _parse_skyimages(self):
         """
         This method goes through the sky image file that was produced by batfftimage and reads in all the sky images'
@@ -318,3 +336,54 @@ class BatSkyView(object):
         skyview.pcodeimg_file = pcodeimg_file
 
         return skyview
+
+    def detect_sources(self, catalog_file=None, input_dict=None):
+        """
+
+        :param catalog_file:
+        :param input_dict:
+        :return:
+        """
+
+        # need the pcode file
+        if self.pcodeimg_file is None:
+            raise ValueError("Please specify a partial coding file associated with the sky image in order to conduct "
+                             "source detection.")
+
+        # use the default catalog is none is specified
+        if catalog_file is None:
+            catalog_file = (
+                Path(__file__).parent.joinpath("data").joinpath("survey6b_2.cat")
+            )
+        else:
+            catalog_file = Path(catalog_file).expanduser().resolve()
+
+        # get the default names of the parameters for batcelldetect including its name (which should never change)
+        test = hsp.HSPTask("batcelldetect")
+        default_params_dict = test.default_params.copy()
+
+        # fill in defaults, which can be overwritten if values are passed into the input_dict parameter
+        self.src_detect_input_dict = default_params_dict
+        self.src_detect_input_dict["outfile"] = self.skyimg_file.parent.joinpath(f"{self.skyimg_file.stem}.cat")
+        self.src_detect_input_dict["regionfile"] = self.skyimg_file.parent.joinpath(f"{self.skyimg_file.stem}.reg")
+
+        self.src_detect_input_dict["infile"] = str(self.skyimg_file)
+        self.src_detect_input_dict["incatalog"] = str(catalog_file)
+        self.src_detect_input_dict["pcodefile"] = str(self.pcodeimg_file)
+        self.src_detect_input_dict["snrthresh"] = 6
+        self.src_detect_input_dict["pcodethresh"] = 0.05
+        self.src_detect_input_dict["posfit"] = "YES"
+
+        if input_dict is not None:
+            for key in input_dict.keys():
+                if key in self.skyimg_input_dict.keys():
+                    self.skyimg_input_dict[key] = input_dict[key]
+
+        # create all the images that were requested
+        self.batcelldetect_result = self._call_batcelldetect(self.src_detect_input_dict)
+
+        # make sure that this calculation ran successfully
+        if self.batcelldetect_result.returncode != 0:
+            raise RuntimeError(
+                f"The detection of sources in the skyimage failed with message: {self.batcelldetect_result.output}"
+            )
