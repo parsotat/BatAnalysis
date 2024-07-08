@@ -82,9 +82,9 @@ class BatSkyImage(Histogram):
                 "tangent plane. No conversion to Healpix will be possible",
                 stacklevel=2,
             )
-
-        if not isinstance(wcs, WCS):
-            raise ValueError("The wcs is not an astropy WCS object.")
+        else:
+            if not isinstance(wcs, WCS):
+                raise ValueError("The wcs is not an astropy WCS object.")
 
         parse_data = deepcopy(image_data)
 
