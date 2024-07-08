@@ -7,6 +7,7 @@ Tyler Parsotan May 15 2024
 import warnings
 from pathlib import Path
 
+import numpy as np
 from astropy.io import fits
 
 from .bat_skyimage import BatSkyImage
@@ -176,6 +177,10 @@ class BatSkyView(object):
         # parse through all the images and get the previous input to batfftimage
         self._parse_skyimages()
 
+        # set the default attribute for projection where we can add the skyviews to be the healpix
+        self.projection = "healpix"
+        self.healpix_nside = 128
+
     def _call_batfftimage(self, input_dict):
         """
         Calls heasoftpy's batfftimage with an error wrapper, ensures that no runtime errors were encountered
@@ -323,6 +328,28 @@ class BatSkyView(object):
         else:
             self._pcodeimg_file = value
 
+    @property
+    def projection(self):
+        return self._projection
+
+    @projection.setter
+    def projection(self, value):
+        if value is not None and "healpix" not in value:
+            raise ValueError("The projection attribute can only be set to None or healpix.")
+
+        self._projection = value
+
+    @property
+    def healpix_nside(self):
+        return self._healpix_nside
+
+    @healpix_nside.setter
+    def healpix_nside(self, value):
+        if self.projection is not None and "healpix" not in self.projection:
+            raise ValueError("The projection attribute needs to be set to healpix before healpix_nside can be set.")
+
+        self._healpix_nside = value
+
     @classmethod
     def from_file(cls, skyimg_file, pcodeimg_file=None):
         """
@@ -387,3 +414,40 @@ class BatSkyView(object):
             raise RuntimeError(
                 f"The detection of sources in the skyimage failed with message: {self.batcelldetect_result.output}"
             )
+
+    def __add__(self, other):
+        """
+        If we are adding 2 skyviews we can either do
+            1) a "simple" add if we want the healpix projection. Here we take the
+        partial coding, and variance weighting into account.
+            2) a reprojection onto the skyfacets taking the partial coding, the variance weighting, the off-axis
+                corrections into account
+
+        :param other:
+        :return:
+        """
+        # make sure that we are adding 2 skyviews
+        if not isinstance(other, type(self)):
+            raise TypeError(
+                "unsupported operand for +: "
+                f"'{type(self).__name__}' and '{type(other).__name__}'"
+            )
+
+        # make sure we also have the same energy bins
+        if not np.array_equal(self.sky_img.ebins["E_MIN"], other.sky_img.ebins["E_MIN"]) or not np.array_equal(
+                self.sky_img.ebins["E_MAX"], other.sky_img.ebins["E_MAX"]):
+            raise ValueError('Ensure that the two BatSkyView objects have the same energy ranges. ')
+
+        if self.projection is not None:
+            # we are using the healpix projection to add images, need to get the greater value of healpix_nside and verify that both objects arent None
+            nsides = [self.healpix_nside, other.healpix_nside]
+            if np.all(None in nsides):
+                nsides = 128
+            else:
+                # need to id the max when we can have None as one of the values in the array
+                nsides = np.nanmax(np.array(nsides, dtype=np.float64))
+
+            # now create the histograms that we need to do the calculations
+            exposure = []
+            for i in [self, other]:
+                exposure.append(i.sky_img.tbins)

@@ -278,29 +278,43 @@ class BatSkyImage(Histogram):
         :param nside:
         :return:
         """
+        if "HPX" not in self.axes.labels:
 
-        # create our new healpix axis
-        hp_ax = HealpixAxis(nside=nside, coordsys=coordsys, label="HPX")
+            # create our new healpix axis
+            hp_ax = HealpixAxis(nside=nside, coordsys=coordsys, label="HPX")
 
-        # create a new array to hold the projection of the sky image in detector tangent plane coordinates to healpix
-        # coordinates
-        new_array = np.zeros((self.axes['TIME'].nbins, hp_ax.nbins, self.axes["ENERGY"].nbins))
+            # create a new array to hold the projection of the sky image in detector tangent plane coordinates to healpix
+            # coordinates
+            new_array = np.zeros((self.axes['TIME'].nbins, hp_ax.nbins, self.axes["ENERGY"].nbins))
 
-        # for each time/energybin do the projection (ie linear interpolation)
-        for t in range(self.axes['TIME'].nbins):
-            for e in range(self.axes["ENERGY"].nbins):
-                array, footprint = reproject_to_healpix((self.project("IMY", "IMX").contents, self.wcs), coordsys,
-                                                        nside=nside)
-                new_array[t, :, e] = array
+            # for each time/energybin do the projection (ie linear interpolation)
+            for t in range(self.axes['TIME'].nbins):
+                for e in range(self.axes["ENERGY"].nbins):
+                    array, footprint = reproject_to_healpix((self.project("IMY", "IMX").contents, self.wcs), coordsys,
+                                                            nside=nside)
+                    new_array[t, :, e] = array
 
-        # create the new histogram
-        h = Histogram(
-            [self.axes['TIME'], hp_ax, self.axes["ENERGY"]],
-            contents=new_array)
+            # create the new histogram
+            h = Histogram(
+                [self.axes['TIME'], hp_ax, self.axes["ENERGY"]],
+                contents=new_array)
 
-        # can return the histogram or choose to modify the class histogram. If the latter, need to get way to convert back
-        # to detector plane coordinates
-        return new_array, footprint, h
+            # can return the histogram or choose to modify the class histogram. If the latter, need to get way to convert back
+            # to detector plane coordinates
+            # return new_array, footprint, h
+        else:
+            # need to verify that we have the healpix axis in the correct coordinate system and with correct nsides
+            if self.axes["HPX"].nside != nside:
+                raise ValueError(
+                    "The requested healpix nsides for the BatSkyImage is different from what is contained in the object.")
+
+            if self.axes["HPX"].coordsys.name != coordsys:
+                raise ValueError(
+                    "The requested healpix coordinate system of the BatSkyImage object is different from what is contained in the object.")
+
+            h = Histogram(self.axes, contents=self.contents)
+
+        return h
 
     def calc_radec(self):
         """
@@ -424,7 +438,7 @@ class BatSkyImage(Histogram):
 
                 ret = (fig, ax)
             elif "healpix" in projection.lower():
-                new_array, footprint, hist = self.healpix_projection(coordsys="galactic", nside=nside)
+                hist = self.healpix_projection(coordsys="galactic", nside=nside)
                 if "galactic" in coordsys.lower():
                     coord = ["G"]
                 elif "icrs" in coordsys.lower():
@@ -444,7 +458,7 @@ class BatSkyImage(Histogram):
     @classmethod
     def from_file(cls, file):
         """
-        TODO: be able to parse files with background variance, SNR map file
+        TODO: be able to parse the skyfacet files for mosaicing images
         :param file:
         :return:
         """
