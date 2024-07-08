@@ -180,6 +180,7 @@ class BatSkyView(object):
         # set the default attribute for projection where we can add the skyviews to be the healpix
         self.projection = "healpix"
         self.healpix_nside = 128
+        self.healpix_coordsys = "galactic"
 
     def _call_batfftimage(self, input_dict):
         """
@@ -283,13 +284,22 @@ class BatSkyView(object):
         if self.pcodeimg_file is not None and self.pcodeimg_file.exists():
             self.pcode_img = BatSkyImage.from_file(self.pcodeimg_file)
 
-            # do the check
+        else:
+            # see if we can guess the partial coding file's name and see if it exists
+            temp_pcodeimg_file = self.skyimg_file.parent.joinpath(
+                f"{self.skyimg_file.stem}.pcodeimg")
+            if temp_pcodeimg_file.exists():
+                self.pcodeimg_file = temp_pcodeimg_file
+                self.pcode_img = BatSkyImage.from_file(self.pcodeimg_file)
+            else:
+                self.pcode_img = None
+
+        if self.pcode_img is not None:
+            # do the time check
             for i in self.pcode_img.tbins.keys():
                 if self.pcode_img.tbins[i] != self.sky_img.tbins[i]:
                     raise ValueError("The timebin of the partial coding image does not align with the sky image."
                                      f"for {i} {self.pcode_img.tbins[i]} != {self.sky_img.tbins[i]}.")
-        else:
-            self.pcode_img = None
 
         # see if there are background/snr images for us to read in
         # this can be defined in the history of the batfftimage call or in the constructor method
@@ -349,6 +359,17 @@ class BatSkyView(object):
             raise ValueError("The projection attribute needs to be set to healpix before healpix_nside can be set.")
 
         self._healpix_nside = value
+
+    @property
+    def healpix_coordsys(self):
+        return self._healpix_coordsys
+
+    @healpix_coordsys.setter
+    def healpix_coordsys(self, value):
+        if self.projection is not None and "healpix" not in self.projection:
+            raise ValueError("The projection attribute needs to be set to healpix before healpix_coordsys can be set.")
+
+        self._healpix_coordsys = value
 
     @classmethod
     def from_file(cls, skyimg_file, pcodeimg_file=None):
@@ -438,6 +459,14 @@ class BatSkyView(object):
                 self.sky_img.ebins["E_MAX"], other.sky_img.ebins["E_MAX"]):
             raise ValueError('Ensure that the two BatSkyView objects have the same energy ranges. ')
 
+        # make sure that both have background stddev and pcode images
+        if np.any(None in [self.pcode_img, other.pcode_img]):
+            raise ValueError('All BatSkyView objects need to have an associated partial coding image to be added')
+
+        if np.any(None in [self.bkg_stddev_img, other.bkg_stddev_img]):
+            raise ValueError(
+                'All BatSkyView objects need to have an associated background standard deviation image to be added')
+
         if self.projection is not None:
             # we are using the healpix projection to add images, need to get the greater value of healpix_nside and verify that both objects arent None
             nsides = [self.healpix_nside, other.healpix_nside]
@@ -449,5 +478,13 @@ class BatSkyView(object):
 
             # now create the histograms that we need to do the calculations
             exposure = []
-            for i in [self, other]:
-                exposure.append(i.sky_img.tbins)
+            tstart = []
+            tstop = []
+            for i, count in zip([self, other], range(2)):
+                exposure.append(i.sky_img.exposure)
+                tstart.append(i.sky_img.tbins["TIME_START"])
+                tstop.append(i.sky_img.tbins["TIME_STOP"])
+
+                if i == 0:
+                    flux_hist = i.sky_img.healpix_projection(coordsys=self.healpix_coordsys, nside=self.healpix_nside)
+                    pcode_hist = i.pco
