@@ -229,7 +229,7 @@ class BatSkyImage(Histogram):
         energybin_edges[-1] = self.ebins["E_MAX"][-1]
 
         # create our histogrammed data
-        if isinstance(histogram_data, u.Quantity):
+        if isinstance(histogram_data, u.Quantity) or isinstance(histogram_data, Histogram):
             hist_unit = histogram_data.unit
         else:
             hist_unit = u.count
@@ -263,12 +263,22 @@ class BatSkyImage(Histogram):
                 unit=hist_unit,
             )
         else:
-            super().__init__(
-                [i.edges for i in histogram_data.axes],
-                contents=histogram_data.contents,
-                labels=histogram_data.axes.labels,
-                unit=hist_unit,
-            )
+            # we need to explicitly set the units, so if we have a Quantity object need to do
+            # histogram_data.contents.value
+            if isinstance(histogram_data.contents, u.Quantity):
+                super().__init__(
+                    [i.edges for i in histogram_data.axes],
+                    contents=histogram_data.contents.value,
+                    labels=histogram_data.axes.labels,
+                    unit=hist_unit,
+                )
+            else:
+                super().__init__(
+                    [i.edges for i in histogram_data.axes],
+                    contents=histogram_data.contents,
+                    labels=histogram_data.axes.labels,
+                    unit=hist_unit,
+                )
 
     def healpix_projection(self, coordsys="galactic", nside=128):
         """
@@ -406,7 +416,11 @@ class BatSkyImage(Histogram):
                 else:
                     raise ValueError('This plotting function can only plot the healpix map in galactic or icrs '
                                      'coordinates.')
-                mesh = projview(self.slice[tmin_idx:tmax_idx, :, emin_idx:emax_idx].project("HPX").contents,
+                plot_quantity = self.slice[tmin_idx:tmax_idx, :, emin_idx:emax_idx].project("HPX").contents
+                if isinstance(plot_quantity, u.Quantity):
+                    plot_quantity = plot_quantity.value
+
+                mesh = projview(plot_quantity,
                                 coord=coord, graticule=True, graticule_labels=True,
                                 projection_type="mollweide", reuse_axes=False)
                 ret = (mesh)

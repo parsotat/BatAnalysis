@@ -8,9 +8,10 @@ import warnings
 from copy import deepcopy
 from pathlib import Path
 
+import astropy.units as u
 import numpy as np
 from astropy.io import fits
-from histpy import Histogram
+from histpy import Histogram, HealpixAxis, Axis
 
 from .bat_skyimage import BatSkyImage
 from .mosaic import _pcodethresh
@@ -479,7 +480,7 @@ class BatSkyView(object):
                 # need to id the max when we can have None as one of the values in the array
                 nsides = np.nanmax(np.array(nsides, dtype=np.float64))
 
-            # now create the histograms that we need to do the calculations
+            # now create the histograms that we need to do the calculations, need flux and std dev to be in units of cts/s
             exposure = []
             tstart = []
             tstop = []
@@ -490,15 +491,21 @@ class BatSkyView(object):
 
                 # do the healpix projection calculation and get rid of time axis since it is irrelevant now
                 flux_hist = i.sky_img.healpix_projection(coordsys=self.healpix_coordsys,
-                                                         nside=self.healpix_nside).project("HPX", "ENERGY")
+                                                         nside=self.healpix_nside)  # .project("HPX", "ENERGY")
                 pcode_hist = i.pcode_img.healpix_projection(coordsys=self.healpix_coordsys,
-                                                            nside=self.healpix_nside).project("HPX", "ENERGY")
+                                                            nside=self.healpix_nside)  # .project("HPX", "ENERGY")
                 bkg_stddev_hist = i.bkg_stddev_img.healpix_projection(coordsys=self.healpix_coordsys,
-                                                                      nside=self.healpix_nside).project("HPX", "ENERGY")
+                                                                      nside=self.healpix_nside)  # .project("HPX", "ENERGY")
 
                 exposure_hist = Histogram(flux_hist.axes,
                                           contents=flux_hist.contents.value * 0 + i.sky_img.exposure.value,
                                           unit=i.sky_img.exposure.unit)
+
+                # correct the units
+                if flux_hist.unit != u.count / u.s:
+                    flux_hist /= u.s
+                if bkg_stddev_hist.unit != u.count / u.s:
+                    bkg_stddev_hist /= u.s
 
                 # construct the quality map for each energy and for the total energy images
                 energy_quality_mask = np.zeros_like(
@@ -511,8 +518,34 @@ class BatSkyView(object):
                     & np.isfinite(bkg_stddev_hist.contents)
                 )
                 energy_quality_mask[good_idx] = 1
-                stop
                 # make the intermediate images to do operations with
                 if count == 0:
-                    exposure_image = deepcopy(exposure_hist) * energy_quality_mask
-                    interim_pimg = deepcopy(pcode_hist) * energy_quality_mask * exposure_image.contents.value
+                    tot_exposure_hist = deepcopy(exposure_hist) * energy_quality_mask
+                    interim_pcode_hist = deepcopy(pcode_hist) * tot_exposure_hist.contents.value
+                    interm_inv_var_hist = (1 / (bkg_stddev_hist * bkg_stddev_hist)) * energy_quality_mask
+                    interm_flux_hist = flux_hist * interm_inv_var_hist
+                else:
+                    tot_exposure_hist += deepcopy(exposure_hist) * energy_quality_mask
+                    interim_pcode_hist += deepcopy(pcode_hist) * tot_exposure_hist.contents.value
+                    interm_inv_var_hist += (1 / (bkg_stddev_hist * bkg_stddev_hist)) * energy_quality_mask
+                    interm_flux_hist += flux_hist * interm_inv_var_hist
+
+            # convert to the normal values for flux and bkg std dev
+            flux = interm_flux_hist / interm_inv_var_hist
+            bkg_stddev = 1 / np.sqrt(interm_inv_var_hist)
+            snr = flux_hist / bkg_stddev_hist
+
+            tmin = u.Quantity(tstart).min()
+            tmax = u.Quantity(tstop).max()
+            energybin_ax = self.sky_img.axes["ENERGY"]
+            hp_ax = HealpixAxis(nside=self.healpix_nside, coordsys=self.healpix_coordsys, label="HPX")
+            t_ax = Axis(u.Quantity([tmin, tmax]), label="TIME")
+
+            flux_hist = Histogram([t_ax, hp_ax, energybin_ax], contents=flux.contents, unit=flux.unit)
+
+            # create the SkyImages for each quantity
+            test = BatSkyImage(image_data=flux_hist)
+
+            return flux_hist, bkg_stddev, snr, tot_exposure_hist, interim_pcode_hist, test
+        else:
+            raise NotImplementedError("Adding Sky Images with the template sky facets is not yet implemented.")
