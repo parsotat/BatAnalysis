@@ -65,7 +65,7 @@ class BatSkyView(object):
         if skyimg_file is not None:
             self.skyimg_file = Path(skyimg_file).expanduser().resolve()
         else:
-            self.skyimg_file = dpi_file.parent.joinpath(f"test_{dpi_file.stem}.img")
+            self.skyimg_file = dpi_file.parent.joinpath(f"{dpi_file.stem}.img")
 
         if dpi_file is not None:
             self.dpi_file = Path(dpi_file).expanduser().resolve()
@@ -460,10 +460,10 @@ class BatSkyView(object):
             raise ValueError('Ensure that the two BatSkyView objects have the same energy ranges. ')
 
         # make sure that both have background stddev and pcode images
-        if np.any(None in [self.pcode_img, other.pcode_img]):
+        if None in self.pcode_img or None in other.pcode_img:
             raise ValueError('All BatSkyView objects need to have an associated partial coding image to be added')
 
-        if np.any(None in [self.bkg_stddev_img, other.bkg_stddev_img]):
+        if None in self.bkg_stddev_img or None in other.bkg_stddev_img:
             raise ValueError(
                 'All BatSkyView objects need to have an associated background standard deviation image to be added')
 
@@ -485,6 +485,13 @@ class BatSkyView(object):
                 tstart.append(i.sky_img.tbins["TIME_START"])
                 tstop.append(i.sky_img.tbins["TIME_STOP"])
 
-                if i == 0:
-                    flux_hist = i.sky_img.healpix_projection(coordsys=self.healpix_coordsys, nside=self.healpix_nside)
-                    pcode_hist = i.pco
+                flux_hist = i.sky_img.healpix_projection(coordsys=self.healpix_coordsys, nside=self.healpix_nside)
+                pcode_hist = i.pcode_img.healpix_projection(coordsys=self.healpix_coordsys,
+                                                            nside=self.healpix_nside)
+                bkg_stddev_hist = i.bkg_stddev_img.healpix_projection(coordsys=self.healpix_coordsys,
+                                                                      nside=self.healpix_nside)
+
+                exposure_hist = bkg_stddev_hist.project("HPX") * 0 + i.sky_img.exposure
+
+                # make the intermediate images to do operations with
+                exp_image = BatSkyImage()
