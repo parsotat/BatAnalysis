@@ -396,7 +396,7 @@ class BatSkyImage(Histogram):
             # use the default spatial axes of the histogram
             # need to determine what this is
             if "IMX" in self.axes.labels:
-                ax, mesh = self.slice[tmin_idx:tmax_idx + 1, :, :, emin_idx:emax_idx + 1].project("IMX", "IMY").plot()
+                ax, mesh = self.slice[tmin_idx:tmax_idx, :, :, emin_idx:emax_idx].project("IMX", "IMY").plot()
                 ret = (ax, mesh)
             elif "HPX" in self.axes.labels:
                 if "galactic" in coordsys.lower():
@@ -406,7 +406,7 @@ class BatSkyImage(Histogram):
                 else:
                     raise ValueError('This plotting function can only plot the healpix map in galactic or icrs '
                                      'coordinates.')
-                mesh = projview(self.slice[tmin_idx:tmax_idx + 1, :, emin_idx:emax_idx + 1].project("HPX").contents,
+                mesh = projview(self.slice[tmin_idx:tmax_idx, :, emin_idx:emax_idx].project("HPX").contents,
                                 coord=coord, graticule=True, graticule_labels=True,
                                 projection_type="mollweide", reuse_axes=False)
                 ret = (mesh)
@@ -426,7 +426,7 @@ class BatSkyImage(Histogram):
 
                 ax.grid(color='k', ls='solid')
                 im = ax.imshow(
-                    self.slice[tmin_idx:tmax_idx + 1, :, :, emin_idx:emax_idx + 1].project("IMY", "IMX").contents.value,
+                    self.slice[tmin_idx:tmax_idx, :, :, emin_idx:emax_idx].project("IMY", "IMX").contents.value,
                     origin="lower")
                 cbar = fig.colorbar(im, cax=cax, orientation="vertical", label=self.unit, ticklocation="right",
                                     location="right")
@@ -447,7 +447,7 @@ class BatSkyImage(Histogram):
                 else:
                     raise ValueError('This plotting function can only plot the healpix map in galactic or icrs '
                                      'coordinates.')
-                mesh = projview(hist.slice[tmin_idx:tmax_idx + 1, :, emin_idx:emax_idx + 1].project("HPX").contents,
+                mesh = projview(hist.slice[tmin_idx:tmax_idx, :, emin_idx:emax_idx].project("HPX").contents,
                                 coord=coord, graticule=True, graticule_labels=True,
                                 projection_type="mollweide", reuse_axes=False)
                 ret = (mesh)
