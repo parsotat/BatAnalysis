@@ -290,8 +290,9 @@ class BatSkyImage(Histogram):
             # for each time/energybin do the projection (ie linear interpolation)
             for t in range(self.axes['TIME'].nbins):
                 for e in range(self.axes["ENERGY"].nbins):
-                    array, footprint = reproject_to_healpix((self.project("IMY", "IMX").contents, self.wcs), coordsys,
-                                                            nside=nside)
+                    array, footprint = reproject_to_healpix(
+                        (self.slice[t, :, :, e].project("IMY", "IMX").contents, self.wcs), coordsys,
+                        nside=nside)
                     new_array[t, :, e] = array
 
             # create the new histogram
