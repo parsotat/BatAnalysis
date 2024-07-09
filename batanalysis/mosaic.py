@@ -1,21 +1,19 @@
 """
 This file is meant to hold the functions that allow users to create mosaic-ed images for survey data
 """
-from .batlib import dirtest, met2utc
-from .bat_survey import MosaicBatSurvey
+import shutil
+from pathlib import Path
+
 import numpy as np
-from astropy.time import Time
-from astropy.io import fits
-from astropy.coordinates import SkyCoord
-from astropy import units as u
-from astropy.wcs import WCS
-from scipy.interpolate import griddata
 import pkg_resources
 import scipy.spatial.qhull as qhull
-from scipy.spatial import Delaunay
-from scipy.interpolate import LinearNDInterpolator
-from pathlib import Path
-import shutil
+from astropy.coordinates import SkyCoord
+from astropy.io import fits
+from astropy.time import Time
+from astropy.wcs import WCS
+
+from .bat_survey import MosaicBatSurvey
+from .batlib import dirtest, met2utc
 
 # for python>3.6
 try:
@@ -94,7 +92,7 @@ def interpolate(values, vtx, wts, fill_value=np.nan):
 
 
 def make_skygrids(
-    center_resolution=2.8, galactic_boundaries=[48, 48], savedirectory=None
+        center_resolution=2.8, galactic_boundaries=[48, 48], savedirectory=None
 ):
     """
     Creates a skygrid based on galactic coordinates being split up into 6 facets. The skygrids are created using the
@@ -220,51 +218,51 @@ def merge_outventory(survey_list, savedir=None):
 
     # Below IS HEASOFT STUFF
     # need to find all the statfiles.lis and merge them and sort by time
-    #input_files = ""
-    #for obs in survey_list:
+    # input_files = ""
+    # for obs in survey_list:
     #    input_files += f'{obs.result_dir.joinpath("stats_point.fits")},'
-    #input_files = input_files[:-1]  # get rid of last comma
+    # input_files = input_files[:-1]  # get rid of last comma
 
     # create the pfile directory
-    #local_pfile_dir = savedir.joinpath(".local_pfile")
-    #local_pfile_dir.mkdir(parents=True, exist_ok=True)
-    #try:
+    # local_pfile_dir = savedir.joinpath(".local_pfile")
+    # local_pfile_dir.mkdir(parents=True, exist_ok=True)
+    # try:
     #    hsp.local_pfiles(pfiles_dir=str(local_pfile_dir))
-    #except AttributeError:
+    # except AttributeError:
     #    hsp.utils.local_pfiles(par_dir=str(local_pfile_dir))
 
-    #output_file = savedir.joinpath(
+    # output_file = savedir.joinpath(
     #    "outventory_all_unsrt.fits"
-    #)  # os.path.join(savedir, "outventory_all_unsrt.fits")
+    # )  # os.path.join(savedir, "outventory_all_unsrt.fits")
 
-    #input_filename = savedir.joinpath(
+    # input_filename = savedir.joinpath(
     #    "input_files.txt"
-    #)  # os.path.join(savedir, "input_files.txt")
+    # )  # os.path.join(savedir, "input_files.txt")
     # write input files to a text file for convience
-    #with open(str(input_filename), "w") as text_file:
+    # with open(str(input_filename), "w") as text_file:
     #    text_file.write(input_files.replace(",", "\n"))
 
-    #input_dict = dict(
+    # input_dict = dict(
     #    infile="@" + str(input_filename), outfile=str(output_file), clobber="YES"
-    #)
+    # )
 
     # merge files
-    #hsp.ftmerge(**input_dict)
+    # hsp.ftmerge(**input_dict)
 
-    #outventory_file = str(output_file).replace("_unsrt", "")
-    #input_dict = dict(
+    # outventory_file = str(output_file).replace("_unsrt", "")
+    # input_dict = dict(
     #    infile=str(output_file),
     #    outfile=outventory_file,
     #    columns="TSTART",
     #    clobber="YES",
-    #)
+    # )
 
     # sort file by time
-    #hsp.ftmergesort(**input_dict)
+    # hsp.ftmergesort(**input_dict)
 
     # get rid of the unsorted file
-    #output_file.unlink()
-    #input_filename.unlink()
+    # output_file.unlink()
+    # input_filename.unlink()
     # Above IS HEASOFT STUFF
 
     output_file = savedir.joinpath(
@@ -321,14 +319,14 @@ def select_outventory(outventory_file, start_met, end_met):
 
 
 def group_outventory(
-    outventory_file,
-    binning_timedelta=None,
-    start_datetime=None,
-    end_datetime=None,
-    recalc=False,
-    mjd_savedir=False,
-    custom_timebins=None,
-    save_group_outventory=True
+        outventory_file,
+        binning_timedelta=None,
+        start_datetime=None,
+        end_datetime=None,
+        recalc=False,
+        mjd_savedir=False,
+        custom_timebins=None,
+        save_group_outventory=True
 ):
     """
     This function groups the observations listed in an outventory file together based on time bins that each observation
@@ -400,9 +398,9 @@ def group_outventory(
 
     else:
         if type(custom_timebins) is not Time and type(custom_timebins) is not list:
-                raise ValueError(
-                    "The custom_timebins variable needs to be an astropy Time object or a list of astropy Time objects."
-                )
+            raise ValueError(
+                "The custom_timebins variable needs to be an astropy Time object or a list of astropy Time objects."
+            )
         # make sure that all elements of list are astropy time objects and set a switch for later processing
         if type(custom_timebins) is list:
             for i in custom_timebins:
@@ -411,7 +409,7 @@ def group_outventory(
                         "All the list elements of the  custom_timebins variable needs to be an astropy Time object of \
                         dimension 2 x T, where T is the number of timebins of interest."
                     )
-            time_bins_is_list=True
+            time_bins_is_list = True
 
     # initalize the reference time for the Swift MET time (starts from 2001), used to calculate MET
     reference_time = Time("2001-01-01")
@@ -459,25 +457,25 @@ def group_outventory(
                 for m in months:
                     if start_datetime.ymdhms["year"] == end_datetime.ymdhms["year"]:
                         if (
-                            m >= start_datetime.ymdhms["month"]
-                            and m <= end_datetime.ymdhms["month"] + 1
-                            and y == start_datetime.ymdhms["year"]
+                                m >= start_datetime.ymdhms["month"]
+                                and m <= end_datetime.ymdhms["month"] + 1
+                                and y == start_datetime.ymdhms["year"]
                         ):
                             months_list.append("%d-%02d" % (y, m))
                     else:
                         if (
-                            m >= start_datetime.ymdhms["month"]
-                            and y == start_datetime.ymdhms["year"]
+                                m >= start_datetime.ymdhms["month"]
+                                and y == start_datetime.ymdhms["year"]
                         ):
                             months_list.append("%d-%02d" % (y, m))
                         elif (
-                            m <= end_datetime.ymdhms["month"] + 1
-                            and y == end_datetime.ymdhms["year"]
+                                m <= end_datetime.ymdhms["month"] + 1
+                                and y == end_datetime.ymdhms["year"]
                         ):
                             months_list.append("%d-%02d" % (y, m))  # for the edge case
                         elif (
-                            y > start_datetime.ymdhms["year"]
-                            and y < end_datetime.ymdhms["year"]
+                                y > start_datetime.ymdhms["year"]
+                                and y < end_datetime.ymdhms["year"]
                         ):
                             months_list.append("%d-%02d" % (y, m))
 
@@ -537,14 +535,14 @@ def group_outventory(
 
                     end_met = sbu.datetime2met(end.datetime, correct=True)
                 else:
-                    start = time_bins[i][0,0]
-                    end = time_bins[i][1,0]
+                    start = time_bins[i][0, 0]
+                    end = time_bins[i][1, 0]
 
                     # convert the start time bins edges to met times
-                    start_met = [sbu.datetime2met(j.datetime, correct=True) for j in time_bins[i][0,:]]
+                    start_met = [sbu.datetime2met(j.datetime, correct=True) for j in time_bins[i][0, :]]
 
                     # convert the end time bins edges to met times
-                    end_met = [sbu.datetime2met(j.datetime, correct=True) for j in time_bins[i][1,:]]
+                    end_met = [sbu.datetime2met(j.datetime, correct=True) for j in time_bins[i][1, :]]
 
                 select_outventory(outventory_file, start_met, end_met)
 
@@ -657,13 +655,17 @@ def convert_radec2xy(ra, dec, header):
 
     :param ra: numpy array of ra coordinates in degrees
     :param dec: numpy array of dec coordinates in degrees
-    :param header: The header that will be used to extract astrometric keywords to convert RA/DEC to detector pixel coordinates
+    :param header: The header that will be used to extract astrometric keywords to convert RA/DEC to detector pixel
+        coordinates or a WCS header object
     :return: numpy arrays of x and y in detector pixel coordinates
     """
     # use the astropy WCS object to convert from ra and dec to x,y
 
     # make the WCS object
-    w = WCS(header)
+    if not isinstance(header, WCS):
+        w = WCS(header)
+    else:
+        w = header
 
     # calculate the xy values, think I need to use origin=0 because in fits header says that initial pixel is 0? not
     # sure need to double-check against idl code. When comparing wcs_world2pix to heasarc sky2xy, the results of
@@ -708,6 +710,7 @@ def convert_xy2radec(x, y, header):
         dec = c.fk5.dec.value
 
     return ra, dec
+
 
 def read_correctionsmap():
     """
@@ -791,11 +794,11 @@ def compute_statistics_map(chi_sq, nbatdet, ra_pnt, dec_pnt, pa_pnt, tstart):
     for i in range(_nebands):
         if i == 0:
             mask = (red_chi2[:, i] < fudge * sco_xtra_chi2) & (
-                red_chi2[:, i] > _chilothresh
+                    red_chi2[:, i] > _chilothresh
             )
         else:
             mask = (
-                mask & (red_chi2[:, i] > _chilothresh) & (red_chi2[:, i] < _chihithresh)
+                    mask & (red_chi2[:, i] > _chilothresh) & (red_chi2[:, i] < _chihithresh)
             )
 
     # include whether Sco is the object corresponding to the pointing. If it is, we want to exclude this pointing ID,
@@ -815,11 +818,11 @@ def compute_statistics_map(chi_sq, nbatdet, ra_pnt, dec_pnt, pa_pnt, tstart):
 
 
 def write_mosaic(
-    img,
-    header,
-    filename_base,
-    emin=[14.0, 20.0, 24.0, 35.0, 50.0, 75.0, 100.0, 150.0, 14.0],
-    emax=[20.0, 24.0, 35.0, 50.0, 75.0, 100.0, 150.0, 195.0, 195.0],
+        img,
+        header,
+        filename_base,
+        emin=[14.0, 20.0, 24.0, 35.0, 50.0, 75.0, 100.0, 150.0, 14.0],
+        emax=[20.0, 24.0, 35.0, 50.0, 75.0, 100.0, 150.0, 195.0, 195.0],
 ):
     """
     Write out the intermediate mosaic images to fits files.
@@ -1061,13 +1064,13 @@ def finalize_mosaic(intermediate_mosaic_directory):
 
 
 def create_mosaics(
-    outventory_file,
-    time_bins,
-    survey_list,
-    catalog_file=None,
-    total_mosaic_savedir=None,
-    recalc=False,
-    verbose=True,
+        outventory_file,
+        time_bins,
+        survey_list,
+        catalog_file=None,
+        total_mosaic_savedir=None,
+        recalc=False,
+        verbose=True,
 ):
     """
     Creates the mosaiced images for specified time bins and a total mosaic image that is "time-integrated" across all
@@ -1175,15 +1178,15 @@ def create_mosaics(
 
 
 def _mosaic_loop(
-    outventory_file,
-    start,
-    end,
-    corrections_map,
-    ra_skygrid,
-    dec_skygrid,
-    survey_list,
-    recalc=False,
-    verbose=True,
+        outventory_file,
+        start,
+        end,
+        corrections_map,
+        ra_skygrid,
+        dec_skygrid,
+        survey_list,
+        recalc=False,
+        verbose=True,
 ):
     """
     The loop that computes the mosaiced images for a time bin of interest. It sums up all the BAT survey observations
@@ -1224,7 +1227,7 @@ def _mosaic_loop(
     output_file = savedir.joinpath(
         outventory_file.name.replace(".fits", f"_{start.datetime64.astype('datetime64[D]')}.fits")
     )
-    #see if we need to use the mjd time format
+    # see if we need to use the mjd time format
     if not output_file.exists():
         output_file = savedir.joinpath(
             outventory_file.name.replace(".fits", f"_{start.mjd}.fits")
@@ -1290,10 +1293,10 @@ def _mosaic_loop(
 
             # test that we have good image statistics
             if (
-                (chi_mask[j] == 0)
-                or (grouped_outventory_data["NBATDETS"][j] <= 0)
-                or (grouped_outventory_data["IMAGE_STATUS"][j] == False)
-                or (grouped_outventory_data["EXPOSURE"][j] <= 0)
+                    (chi_mask[j] == 0)
+                    or (grouped_outventory_data["NBATDETS"][j] <= 0)
+                    or (grouped_outventory_data["IMAGE_STATUS"][j] == False)
+                    or (grouped_outventory_data["EXPOSURE"][j] <= 0)
             ):
                 if verbose:
                     print(
@@ -1367,16 +1370,16 @@ def _mosaic_loop(
                         pointing_vimg_corr = np.zeros_like(pointing_vimg)
                         pointing_simg_corr = np.zeros_like(pointing_vimg)
                         pointing_vimg_corr[:, :, :-1] = (
-                            pointing_vimg[:, :, :-1] / corrections_map
+                                pointing_vimg[:, :, :-1] / corrections_map
                         )
                         pointing_simg_corr[:, :, :-1] = (
-                            pointing_simg[:, :, :-1] / corrections_map
+                                pointing_simg[:, :, :-1] / corrections_map
                         )
 
                         # construct the total energy images for variance and flux, the zeros in last array dont affect
                         # calculations of the total values
                         pointing_vimg_corr[:, :, -1] = np.sqrt(
-                            np.sum(pointing_vimg_corr**2, axis=2)
+                            np.sum(pointing_vimg_corr ** 2, axis=2)
                         )
                         pointing_simg_corr[:, :, -1] = pointing_simg_corr.sum(axis=2)
 
@@ -1384,12 +1387,12 @@ def _mosaic_loop(
                         energy_quality_mask = np.zeros_like(pointing_vimg_corr)
                         good_idx = np.where(
                             (
-                                np.repeat(
-                                    pointing_pimg[:, :, np.newaxis],
-                                    pointing_vimg_corr.shape[-1],
-                                    axis=2,
-                                )
-                                > _pcodethresh
+                                    np.repeat(
+                                        pointing_pimg[:, :, np.newaxis],
+                                        pointing_vimg_corr.shape[-1],
+                                        axis=2,
+                                    )
+                                    > _pcodethresh
                             )
                             & (pointing_vimg_corr > 0)
                             & np.isfinite(pointing_simg_corr)
@@ -1399,20 +1402,20 @@ def _mosaic_loop(
 
                         # make the intermediate maps for each energy and for the total energy
                         interm_pointing_eimg = (
-                            energy_quality_mask * pointing_exposure
+                                energy_quality_mask * pointing_exposure
                         )  # Exposure map
                         interm_pointing_pimg = (
-                            pointing_pimg[:, :, np.newaxis]
-                            * energy_quality_mask
-                            * pointing_exposure
+                                pointing_pimg[:, :, np.newaxis]
+                                * energy_quality_mask
+                                * pointing_exposure
                         )  # partial coding map
                         interm_pointing_vimg = (
-                            energy_quality_mask / (pointing_vimg_corr + 1e-10) ** 2
+                                energy_quality_mask / (pointing_vimg_corr + 1e-10) ** 2
                         )  # Convert to 1 / variance
                         interm_pointing_simg = (
-                            pointing_simg_corr
-                            * energy_quality_mask
-                            * interm_pointing_vimg
+                                pointing_simg_corr
+                                * energy_quality_mask
+                                * interm_pointing_vimg
                         )  # variance weighted sky flux
 
                         # need to compute the x/y position for each RA/DEC point in the sky map using the new
@@ -1438,8 +1441,8 @@ def _mosaic_loop(
                         # need to verify that the eimg and pimg maps are energy independent, in idl code only does this
                         # for te first energy iteration
                         grid_x, grid_y = np.mgrid[
-                            0 : pointing_pimg.shape[0], 0 : pointing_pimg.shape[1]
-                        ]
+                                         0: pointing_pimg.shape[0], 0: pointing_pimg.shape[1]
+                                         ]
                         points = np.array([grid_x.flatten(), grid_y.flatten()])
                         values = interm_pointing_eimg[:, :, 0]
                         values[np.isnan(values)] = 0
@@ -1468,7 +1471,6 @@ def _mosaic_loop(
                         test = interpolate(values.flatten(), vtx, wts, fill_value=0)
                         pimg[pixel_idx] += test
 
-
                         for k in range(_nebands + 1):
                             values = interm_pointing_simg[:, :, k]
                             values[np.isnan(values)] = 0
@@ -1481,7 +1483,6 @@ def _mosaic_loop(
 
                             test = interpolate(values.flatten(), vtx, wts, fill_value=0)
                             vimg[:, :, :, k][pixel_idx] += test  # new interpolate dir
-
 
                         # keep track of exposure and times
                         total_binned_exposure += pointing_exposure

@@ -5,12 +5,15 @@ batfftimage (flux sky image, background variation map, partial coding map).
 Tyler Parsotan May 15 2024
 """
 import warnings
+from copy import deepcopy
 from pathlib import Path
 
 import numpy as np
 from astropy.io import fits
+from histpy import Histogram
 
 from .bat_skyimage import BatSkyImage
+from .mosaic import _pcodethresh
 
 try:
     import heasoftpy as hsp
@@ -485,13 +488,31 @@ class BatSkyView(object):
                 tstart.append(i.sky_img.tbins["TIME_START"])
                 tstop.append(i.sky_img.tbins["TIME_STOP"])
 
-                flux_hist = i.sky_img.healpix_projection(coordsys=self.healpix_coordsys, nside=self.healpix_nside)
+                # do the healpix projection calculation and get rid of time axis since it is irrelevant now
+                flux_hist = i.sky_img.healpix_projection(coordsys=self.healpix_coordsys,
+                                                         nside=self.healpix_nside).project("HPX", "ENERGY")
                 pcode_hist = i.pcode_img.healpix_projection(coordsys=self.healpix_coordsys,
-                                                            nside=self.healpix_nside)
+                                                            nside=self.healpix_nside).project("HPX", "ENERGY")
                 bkg_stddev_hist = i.bkg_stddev_img.healpix_projection(coordsys=self.healpix_coordsys,
-                                                                      nside=self.healpix_nside)
+                                                                      nside=self.healpix_nside).project("HPX", "ENERGY")
 
-                exposure_hist = bkg_stddev_hist.project("HPX") * 0 + i.sky_img.exposure
+                exposure_hist = Histogram(flux_hist.axes,
+                                          contents=flux_hist.contents.value * 0 + i.sky_img.exposure.value,
+                                          unit=i.sky_img.exposure.unit)
 
+                # construct the quality map for each energy and for the total energy images
+                energy_quality_mask = np.zeros_like(
+                    flux_hist.contents.value)
+                good_idx = np.where(
+                    (pcode_hist.contents > _pcodethresh
+                     )
+                    & (bkg_stddev_hist.contents > 0)
+                    & np.isfinite(flux_hist.contents)
+                    & np.isfinite(bkg_stddev_hist.contents)
+                )
+                energy_quality_mask[good_idx] = 1
+                stop
                 # make the intermediate images to do operations with
-                exp_image = BatSkyImage()
+                if count == 0:
+                    exposure_image = deepcopy(exposure_hist) * energy_quality_mask
+                    interim_pimg = deepcopy(pcode_hist) * energy_quality_mask * exposure_image.contents.value
