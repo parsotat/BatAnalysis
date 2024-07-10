@@ -532,7 +532,7 @@ class BatSkyView(object):
 
             # convert to the normal values for flux and bkg std dev
             flux = interm_flux_hist / interm_inv_var_hist
-            bkg_stddev = 1 / np.sqrt(interm_inv_var_hist)
+            bkg_stddev = 1 / np.sqrt(interm_inv_var_hist)  # because of the np.sqrt this turns into a u.Quantity array
             snr = flux_hist / bkg_stddev_hist
 
             tmin = u.Quantity(tstart).min()
@@ -541,11 +541,19 @@ class BatSkyView(object):
             hp_ax = HealpixAxis(nside=self.healpix_nside, coordsys=self.healpix_coordsys, label="HPX")
             t_ax = Axis(u.Quantity([tmin, tmax]), label="TIME")
 
-            flux_hist = Histogram([t_ax, hp_ax, energybin_ax], contents=flux.contents, unit=flux.unit)
-
             # create the SkyImages for each quantity
-            test = BatSkyImage(image_data=flux_hist)
+            flux = BatSkyImage(
+                image_data=Histogram([t_ax, hp_ax, energybin_ax], contents=flux.contents, unit=flux.unit))
+            bkg_stddev = BatSkyImage(
+                image_data=Histogram([t_ax, hp_ax, energybin_ax], contents=bkg_stddev.value, unit=bkg_stddev.unit))
+            snr = BatSkyImage(image_data=Histogram([t_ax, hp_ax, energybin_ax], contents=snr.contents, unit=snr.unit))
 
-            return flux_hist, bkg_stddev, snr, tot_exposure_hist, interim_pcode_hist, test
+            tot_exposure = BatSkyImage(
+                image_data=Histogram([t_ax, hp_ax, energybin_ax], contents=tot_exposure_hist.contents,
+                                     unit=tot_exposure_hist.unit))
+            pcode = BatSkyImage(image_data=Histogram([t_ax, hp_ax, energybin_ax], contents=interim_pcode_hist.contents,
+                                                     unit=interim_pcode_hist.unit))
+
+            return flux, bkg_stddev, snr, tot_exposure, pcode
         else:
             raise NotImplementedError("Adding Sky Images with the template sky facets is not yet implemented.")

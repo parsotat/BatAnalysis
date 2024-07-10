@@ -267,18 +267,23 @@ class BatSkyImage(Histogram):
             # histogram_data.contents.value
             if isinstance(histogram_data.contents, u.Quantity):
                 super().__init__(
-                    [i.edges for i in histogram_data.axes],
+                    histogram_data.axes,
                     contents=histogram_data.contents.value,
                     labels=histogram_data.axes.labels,
                     unit=hist_unit,
                 )
             else:
                 super().__init__(
-                    [i.edges for i in histogram_data.axes],
+                    histogram_data.axes,
                     contents=histogram_data.contents,
                     labels=histogram_data.axes.labels,
                     unit=hist_unit,
                 )
+            # for some reason if we try to initialize the parent class when there is a healpix axis in the Histogram that
+            # we are using for the intialization, then the self.axes wont have the "HPX" axis as a healpixaxis and we
+            # wont be able to access any of the relevant methods for that axis. Therefore try to set the axes explicitly
+            if "HPX" in histogram_data.axes.labels:
+                self._axes = histogram_data.axes
 
     def healpix_projection(self, coordsys="galactic", nside=128):
         """
