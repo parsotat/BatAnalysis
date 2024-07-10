@@ -31,6 +31,7 @@ class BatSkyView(object):
     energy or time bins. We can also handle the projection of the image onto a healpix map.
 
     TODO: create a python FFT deconvolution. This primarily relies on the batfftimage to create the data.
+    TODO: make class compatible with mosaiced skyview
     """
 
     def __init__(
@@ -45,7 +46,10 @@ class BatSkyView(object):
             load_dir=None,
             create_pcode_img=True,
             create_snr_img=False,
-            create_bkg_stddev_img=False
+            create_bkg_stddev_img=False,
+            sky_img=None,
+            bkg_stddev_img=None,
+            snr_img=None,
     ):
         """
 
@@ -69,7 +73,11 @@ class BatSkyView(object):
         if skyimg_file is not None:
             self.skyimg_file = Path(skyimg_file).expanduser().resolve()
         else:
-            self.skyimg_file = dpi_file.parent.joinpath(f"{dpi_file.stem}.img")
+            if sky_img is None:
+                self.skyimg_file = dpi_file.parent.joinpath(f"{dpi_file.stem}.img")
+
+        # by defautl set the sky_img attribute to None
+        self.sky_img = None
 
         if dpi_file is not None:
             self.dpi_file = Path(dpi_file).expanduser().resolve()
@@ -81,7 +89,7 @@ class BatSkyView(object):
             # the user could have passed in just a sky image that was previously created and then the dpi file doesnt
             # need to be passed in
             self.dpi_file = dpi_file
-            if not self.skyimg_file.exists() or recalc:
+            if sky_img is None and (not self.skyimg_file.exists() or recalc):
                 raise ValueError("Please specify a DPI file to create the sky image from.")
 
         if detector_quality_file is not None:
@@ -91,7 +99,7 @@ class BatSkyView(object):
                     f"The specified detector quality mask file {self.detector_quality_file} does not seem "
                     f"to exist. Please double check that it does.")
         else:
-            self.detector_quality_file = "NONE"
+            self.detector_quality_file = "NONE"  # should be replaced with None
             warnings.warn("No detector quality mask file has been specified. Sky images will be constructed assuming "
                           "that all detectors are on.", stacklevel=2)
 
@@ -104,14 +112,14 @@ class BatSkyView(object):
                     f"The specified attitude file {self.attitude_file} does not seem "
                     f"to exist. Please double check that it does.")
         else:
-            if not self.skyimg_file.exists() or recalc:
+            if sky_img is None and (not self.skyimg_file.exists() or recalc):
                 raise ValueError("Please specify an attitude file associated with the DPI.")
 
         # get the default names of the parameters for batfftimage including its name (which should never change)
         test = hsp.HSPTask("batfftimage")
         default_params_dict = test.default_params.copy()
 
-        if not self.skyimg_file.exists() or recalc:
+        if sky_img is None and (not self.skyimg_file.exists() or recalc):
             # fill in defaults, which can be overwritten if values are passed into the input_dict parameter
             self.skyimg_input_dict = default_params_dict
             self.skyimg_input_dict["infile"] = str(self.dpi_file)
@@ -177,9 +185,17 @@ class BatSkyView(object):
             self.pcodeimg_file = None
             self.snr_img_file = None
             self.bkg_stddev_img_file = None
+            self.sky_img = sky_img
 
         # parse through all the images and get the previous input to batfftimage
         self._parse_skyimages()
+
+        # if the parsing of sky images didnt produce any skymaps b/c we only passed in the images directly
+        if self.bkg_stddev_img is None:
+            self.bkg_stddev_img = bkg_stddev_img
+
+        if self.snr_img is None:
+            self.snr_img = snr_img
 
         # set the default attribute for projection where we can add the skyviews to be the healpix
         self.projection = "healpix"
@@ -235,7 +251,7 @@ class BatSkyView(object):
         """
 
         # make sure that the skyimage exists
-        if not self.skyimg_file.exists():
+        if self.sky_img is None and not self.skyimg_file.exists():
             raise ValueError(
                 f'The sky image file {self.skyimg_file} does not seem to exist. An error must have occured '
                 f'in the creation of this file.')
@@ -243,88 +259,89 @@ class BatSkyView(object):
         # read in the skyimage file and create a SkyImage object. Note that the BatSkyImage.from_file() method
         # read in the first N hdus in the file where N is the number of energy bins that sky images were created for
         # by default, the partial coding map which is set to append_last is not read in
-        self.sky_img = BatSkyImage.from_file(self.skyimg_file)
+        if self.sky_img is None:
+            self.sky_img = BatSkyImage.from_file(self.skyimg_file)
 
-        # read in the history of the sky image that was created
-        with fits.open(self.skyimg_file) as f:
-            header = f[0].header
+            # read in the history of the sky image that was created
+            with fits.open(self.skyimg_file) as f:
+                header = f[0].header
 
-        if self.skyimg_input_dict is None:
-            # get the default names of the parameters for batbinevt including its name 9which should never change)
-            test = hsp.HSPTask("batfftimage")
-            default_params_dict = test.default_params.copy()
-            taskname = test.taskname
-            start_processing = None
+            if self.skyimg_input_dict is None:
+                # get the default names of the parameters for batbinevt including its name 9which should never change)
+                test = hsp.HSPTask("batfftimage")
+                default_params_dict = test.default_params.copy()
+                taskname = test.taskname
+                start_processing = None
 
-            for i in header["HISTORY"]:
-                if taskname in i and start_processing is None:
-                    # then set a switch for us to start looking at things
-                    start_processing = True
-                elif taskname in i and start_processing is True:
-                    # we want to stop processing things
-                    start_processing = False
+                for i in header["HISTORY"]:
+                    if taskname in i and start_processing is None:
+                        # then set a switch for us to start looking at things
+                        start_processing = True
+                    elif taskname in i and start_processing is True:
+                        # we want to stop processing things
+                        start_processing = False
 
-                if start_processing and "START" not in i and len(i) > 0:
-                    values = i.split(" ")
-                    # print(i, values, "=" in values)
+                    if start_processing and "START" not in i and len(i) > 0:
+                        values = i.split(" ")
+                        # print(i, values, "=" in values)
 
-                    parameter_num = values[0]
-                    parameter = values[1]
-                    if "=" not in values:
-                        # this belongs with the previous parameter and is a line continuation
-                        default_params_dict[old_parameter] = (
-                                default_params_dict[old_parameter] + values[-1]
-                        )
-                        # assume that we need to keep appending to the previous parameter
-                    else:
-                        default_params_dict[parameter] = values[-1]
+                        parameter_num = values[0]
+                        parameter = values[1]
+                        if "=" not in values:
+                            # this belongs with the previous parameter and is a line continuation
+                            default_params_dict[old_parameter] = (
+                                    default_params_dict[old_parameter] + values[-1]
+                            )
+                            # assume that we need to keep appending to the previous parameter
+                        else:
+                            default_params_dict[parameter] = values[-1]
 
-                        old_parameter = parameter
+                            old_parameter = parameter
 
-            self.skyimg_input_dict = default_params_dict.copy()
+                self.skyimg_input_dict = default_params_dict.copy()
 
-        # see if there is an associated pcode image and that it exists for us to read in
-        # since the pcode file can be specified separately, need to verify that it is for the same time range
-        if self.pcodeimg_file is not None and self.pcodeimg_file.exists():
-            self.pcode_img = BatSkyImage.from_file(self.pcodeimg_file)
-
-        else:
-            # see if we can guess the partial coding file's name and see if it exists
-            temp_pcodeimg_file = self.skyimg_file.parent.joinpath(
-                f"{self.skyimg_file.stem}.pcodeimg")
-            if temp_pcodeimg_file.exists():
-                self.pcodeimg_file = temp_pcodeimg_file
+            # see if there is an associated pcode image and that it exists for us to read in
+            # since the pcode file can be specified separately, need to verify that it is for the same time range
+            if self.pcodeimg_file is not None and self.pcodeimg_file.exists():
                 self.pcode_img = BatSkyImage.from_file(self.pcodeimg_file)
+
             else:
-                self.pcode_img = None
+                # see if we can guess the partial coding file's name and see if it exists
+                temp_pcodeimg_file = self.skyimg_file.parent.joinpath(
+                    f"{self.skyimg_file.stem}.pcodeimg")
+                if temp_pcodeimg_file.exists():
+                    self.pcodeimg_file = temp_pcodeimg_file
+                    self.pcode_img = BatSkyImage.from_file(self.pcodeimg_file)
+                else:
+                    self.pcode_img = None
 
-        if self.pcode_img is not None:
-            # do the time check
-            for i in self.pcode_img.tbins.keys():
-                if self.pcode_img.tbins[i] != self.sky_img.tbins[i]:
-                    raise ValueError("The timebin of the partial coding image does not align with the sky image."
-                                     f"for {i} {self.pcode_img.tbins[i]} != {self.sky_img.tbins[i]}.")
+            if self.pcode_img is not None:
+                # do the time check
+                for i in self.pcode_img.tbins.keys():
+                    if self.pcode_img.tbins[i] != self.sky_img.tbins[i]:
+                        raise ValueError("The timebin of the partial coding image does not align with the sky image."
+                                         f"for {i} {self.pcode_img.tbins[i]} != {self.sky_img.tbins[i]}.")
 
-        # see if there are background/snr images for us to read in
-        # this can be defined in the history of the batfftimage call or in the constructor method
-        # we prioritize anything that was set in the constructor
-        if self.snr_img_file is None and self.skyimg_input_dict["signifmap"] != "NONE":
-            self.snr_img_file = Path(self.skyimg_input_dict["signifmap"]).expanduser().resolve()
+            # see if there are background/snr images for us to read in
+            # this can be defined in the history of the batfftimage call or in the constructor method
+            # we prioritize anything that was set in the constructor
+            if self.snr_img_file is None and self.skyimg_input_dict["signifmap"] != "NONE":
+                self.snr_img_file = Path(self.skyimg_input_dict["signifmap"]).expanduser().resolve()
 
-        # now read in the file
-        if self.snr_img_file is not None:
-            self.snr_img = BatSkyImage.from_file(self.snr_img_file)
-        else:
-            self.snr_img = None
+            # now read in the file
+            if self.snr_img_file is not None:
+                self.snr_img = BatSkyImage.from_file(self.snr_img_file)
+            else:
+                self.snr_img = None
 
-        if self.bkg_stddev_img_file is None and self.skyimg_input_dict["bkgvarmap"] != "NONE":
-            self.bkg_stddev_img_file = Path(self.skyimg_input_dict["bkgvarmap"]).expanduser().resolve()
+            if self.bkg_stddev_img_file is None and self.skyimg_input_dict["bkgvarmap"] != "NONE":
+                self.bkg_stddev_img_file = Path(self.skyimg_input_dict["bkgvarmap"]).expanduser().resolve()
 
-        # now read in the file
-        if self.bkg_stddev_img_file is not None:
-            self.bkg_stddev_img = BatSkyImage.from_file(self.bkg_stddev_img_file)
-        else:
-            self.bkg_stddev_img = None
+            # now read in the file
+            if self.bkg_stddev_img_file is not None:
+                self.bkg_stddev_img = BatSkyImage.from_file(self.bkg_stddev_img_file)
+            else:
+                self.bkg_stddev_img = None
 
     @property
     def pcodeimg_file(self):
@@ -424,7 +441,7 @@ class BatSkyView(object):
         self.src_detect_input_dict["pcodefile"] = str(self.pcodeimg_file)
         self.src_detect_input_dict["snrthresh"] = 6
         self.src_detect_input_dict["pcodethresh"] = 0.05
-        self.src_detect_input_dict["posfit"] = "YES"
+        self.src_detect_input_dict["vectorflux"] = "YES"
 
         if input_dict is not None:
             for key in input_dict.keys():
@@ -554,6 +571,53 @@ class BatSkyView(object):
             pcode = BatSkyImage(image_data=Histogram([t_ax, hp_ax, energybin_ax], contents=interim_pcode_hist.contents,
                                                      unit=interim_pcode_hist.unit))
 
-            return flux, bkg_stddev, snr, tot_exposure, pcode
+            interm_flux = BatSkyImage(
+                image_data=Histogram([t_ax, hp_ax, energybin_ax], contents=interm_flux_hist.contents,
+                                     unit=interm_flux_hist.unit), is_mosaic=True)
+            interm_inv_var = BatSkyImage(
+                image_data=Histogram([t_ax, hp_ax, energybin_ax], contents=interm_inv_var_hist.contents,
+                                     unit=interm_inv_var_hist.unit), is_mosaic=True)
+
+            test_mosaic = BatMosaicSkyView(interm_flux, interm_inv_var, pcode, tot_exposure)
+
+            return flux, bkg_stddev, snr, tot_exposure, pcode, test_mosaic
         else:
             raise NotImplementedError("Adding Sky Images with the template sky facets is not yet implemented.")
+
+
+class BatMosaicSkyView(BatSkyView):
+    """
+    This is a special case of a skyview where the data that is held is the intermediate maps that can be easily added
+    """
+
+    def __init__(self, interim_sky_img, interim_var_img, pcode_img, exposure_img):
+        self.interim_sky_img = interim_sky_img
+        self.interim_var_img = interim_var_img
+        self.pcode_img = pcode_img
+        self.exposure_img = exposure_img
+
+        super().__init__(sky_img=self.sky_img, bkg_stddev_img=self.bkg_stddev_img, snr_img=self.snr_img)
+
+    @property
+    def sky_img(self):
+        return self.interim_sky_img / self.interim_var_img
+
+    @sky_img.setter
+    def sky_img(self, value):
+        self._sky_img = value
+
+    @property
+    def bkg_stddev_img(self):
+        return 1 / np.sqrt(self.interim_var_img)
+
+    @bkg_stddev_img.setter
+    def bkg_stddev_img(self, value):
+        self._bkg_stddev_img = value
+
+    @property
+    def snr_img(self):
+        return self.sky_img / self.bkg_stddev_img
+
+    @snr_img.setter
+    def snr_img(self, value):
+        self._snr_img = value

@@ -31,6 +31,10 @@ class BatSkyImage(Histogram):
     This hold data correspondent to BAT's view of the sky. This can be a flux map (sky image) created from a FFT
     deconvolution, a partial coding map, a significance map, or a background variance map. These can all be energy
     dependent except for the partial coding map.
+
+    TODO: make this class compatible with mosaic-ed data, have it hold the fluxes, etc but also the intermediate
+        calculated fluxes etc that allow for quick/easy calculations of mosaic images. Also need to add projection
+        to see if when doing projections in energy that we add up the intermediate mosaic images appropriately.
     """
 
     @u.quantity_input(
@@ -51,7 +55,8 @@ class BatSkyImage(Histogram):
             emin=None,
             emax=None,
             weights=None,
-            wcs=None
+            wcs=None,
+            is_mosaic=False
     ):
         """
         This class is meant to hold images of the sky that have been created from a deconvolution of the BAT DPI with
@@ -196,6 +201,9 @@ class BatSkyImage(Histogram):
 
         self._set_histogram(histogram_data=parse_data, weights=weights)
         self.wcs = wcs
+
+        # set whether we have a mosaic image
+        self.is_mosaic = is_mosaic
 
     def _set_histogram(self, histogram_data=None, event_data=None, weights=None):
         """
@@ -411,7 +419,8 @@ class BatSkyImage(Histogram):
             # use the default spatial axes of the histogram
             # need to determine what this is
             if "IMX" in self.axes.labels:
-                ax, mesh = self.slice[tmin_idx:tmax_idx, :, :, emin_idx:emax_idx].project("IMX", "IMY").plot()
+                ax, mesh = self.project("IMX", "IMY",
+                                        input_hist=self.slice[tmin_idx:tmax_idx, :, :, emin_idx:emax_idx]).plot()
                 ret = (ax, mesh)
             elif "HPX" in self.axes.labels:
                 if "galactic" in coordsys.lower():
@@ -589,3 +598,18 @@ class BatSkyImage(Histogram):
             max_e = [i["E_MAX"] for i in img_headers] * energy_unit.unit
 
         return cls(image_data=img_data, tmin=min_t, tmax=max_t, emin=min_e, emax=max_e, wcs=w)
+
+    def project(self, *axis):
+        """
+        This overwrites the parent class project method. If we have a mosaic image, we need to do other calculations to 
+        properly project quantities instead of just adding the energy bins.
+        Otherwise, this allows users to run the Histogram project method as normal on the object itself.
+        
+        :param axis: 
+        :return: 
+        """
+
+        if self.is_mosaic and "ENERGY" not in [i for i in axis] and self.axes["ENERGY"].nbins > 1:
+            raise ValueError("Cannot do normal projection of a mosaiced image.")
+        else:
+            super().project(*axis)
