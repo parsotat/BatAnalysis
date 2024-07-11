@@ -594,8 +594,8 @@ class BatSkyImage(Histogram):
 
         # parse the time/energy to initalize our BatSkyImage
         if time_data is not None:
-            min_t = time_data["START"] * time_unit.unit
-            max_t = time_data["STOP"] * time_unit.unit
+            min_t = np.squeeze(time_data["START"] * time_unit.unit)
+            max_t = np.squeeze(time_data["STOP"] * time_unit.unit)
         else:
             min_t = img_headers[0]["TSTART"] * time_unit.unit
             max_t = img_headers[0]["TSTOP"] * time_unit.unit
