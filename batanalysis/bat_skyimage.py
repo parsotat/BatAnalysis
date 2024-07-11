@@ -622,4 +622,4 @@ class BatSkyImage(Histogram):
         if self.is_mosaic and "ENERGY" not in [i for i in axis] and self.axes["ENERGY"].nbins > 1:
             raise ValueError("Cannot do normal projection of a mosaiced image.")
         else:
-            super().project(*axis)
+            return super().project(*axis)

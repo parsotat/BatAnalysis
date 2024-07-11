@@ -609,11 +609,17 @@ class BatSkyView(object):
                     interim_pcode_hist = deepcopy(pcode_hist) * tot_exposure_hist.contents.value
                     interm_inv_var_hist = (1 / (bkg_stddev_hist * bkg_stddev_hist)) * energy_quality_mask
                     interm_flux_hist = flux_hist * interm_inv_var_hist
+
+                    # testing for the energy integrated mosaicing
+
+
                 else:
                     tot_exposure_hist += deepcopy(exposure_hist) * energy_quality_mask
                     interim_pcode_hist += deepcopy(pcode_hist) * tot_exposure_hist.contents.value
                     interm_inv_var_hist += (1 / (bkg_stddev_hist * bkg_stddev_hist)) * energy_quality_mask
                     interm_flux_hist += flux_hist * interm_inv_var_hist
+
+                    # testing for the energy integrated mosaicing
 
             tmin = u.Quantity(tstart).min()
             tmax = u.Quantity(tstop).max()
