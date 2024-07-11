@@ -576,11 +576,11 @@ class BatSkyView(object):
 
                 # do the healpix projection calculation and get rid of time axis since it is irrelevant now
                 flux_hist = i.sky_img.healpix_projection(coordsys=self.healpix_coordsys,
-                                                         nside=self.healpix_nside)  # .project("HPX", "ENERGY")
+                                                         nside=self.healpix_nside)
                 pcode_hist = i.pcode_img.healpix_projection(coordsys=self.healpix_coordsys,
-                                                            nside=self.healpix_nside)  # .project("HPX", "ENERGY")
+                                                            nside=self.healpix_nside)
                 bkg_stddev_hist = i.bkg_stddev_img.healpix_projection(coordsys=self.healpix_coordsys,
-                                                                      nside=self.healpix_nside)  # .project("HPX", "ENERGY")
+                                                                      nside=self.healpix_nside)
 
                 exposure_hist = Histogram(flux_hist.axes,
                                           contents=flux_hist.contents.value * 0 + i.sky_img.exposure.value,
@@ -615,11 +615,6 @@ class BatSkyView(object):
                     interm_inv_var_hist += (1 / (bkg_stddev_hist * bkg_stddev_hist)) * energy_quality_mask
                     interm_flux_hist += flux_hist * interm_inv_var_hist
 
-            # convert to the normal values for flux and bkg std dev
-            flux = interm_flux_hist / interm_inv_var_hist
-            bkg_stddev = 1 / np.sqrt(interm_inv_var_hist)  # because of the np.sqrt this turns into a u.Quantity array
-            snr = flux_hist / bkg_stddev_hist
-
             tmin = u.Quantity(tstart).min()
             tmax = u.Quantity(tstop).max()
             energybin_ax = self.sky_img.axes["ENERGY"]
@@ -627,12 +622,6 @@ class BatSkyView(object):
             t_ax = Axis(u.Quantity([tmin, tmax]), label="TIME")
 
             # create the SkyImages for each quantity
-            flux = BatSkyImage(
-                image_data=Histogram([t_ax, hp_ax, energybin_ax], contents=flux.contents, unit=flux.unit))
-            bkg_stddev = BatSkyImage(
-                image_data=Histogram([t_ax, hp_ax, energybin_ax], contents=bkg_stddev.value, unit=bkg_stddev.unit))
-            snr = BatSkyImage(image_data=Histogram([t_ax, hp_ax, energybin_ax], contents=snr.contents, unit=snr.unit))
-
             tot_exposure = BatSkyImage(
                 image_data=Histogram([t_ax, hp_ax, energybin_ax], contents=tot_exposure_hist.contents,
                                      unit=tot_exposure_hist.unit))
