@@ -419,8 +419,7 @@ class BatSkyImage(Histogram):
             # use the default spatial axes of the histogram
             # need to determine what this is
             if "IMX" in self.axes.labels:
-                ax, mesh = self.project("IMX", "IMY",
-                                        input_hist=self.slice[tmin_idx:tmax_idx, :, :, emin_idx:emax_idx]).plot()
+                ax, mesh = self.slice[tmin_idx:tmax_idx, :, :, emin_idx:emax_idx].project("IMX", "IMY").plot()
                 ret = (ax, mesh)
             elif "HPX" in self.axes.labels:
                 if "galactic" in coordsys.lower():
@@ -475,7 +474,12 @@ class BatSkyImage(Histogram):
                 else:
                     raise ValueError('This plotting function can only plot the healpix map in galactic or icrs '
                                      'coordinates.')
-                mesh = projview(hist.slice[tmin_idx:tmax_idx, :, emin_idx:emax_idx].project("HPX").contents,
+
+                plot_quantity = hist.slice[tmin_idx:tmax_idx, :, emin_idx:emax_idx].project("HPX").contents
+                if isinstance(plot_quantity, u.Quantity):
+                    plot_quantity = plot_quantity.value
+
+                mesh = projview(plot_quantity,
                                 coord=coord, graticule=True, graticule_labels=True,
                                 projection_type="mollweide", reuse_axes=False)
                 ret = (mesh)
