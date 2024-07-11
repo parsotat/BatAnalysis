@@ -319,9 +319,9 @@ class BatSkyImage(Histogram):
                     new_array[t, :, e] = array
 
             # create the new histogram
-            h = Histogram(
+            h = BatSkyImage(Histogram(
                 [self.axes['TIME'], hp_ax, self.axes["ENERGY"]],
-                contents=new_array, unit=self.unit)
+                contents=new_array, unit=self.unit))
 
             # can return the histogram or choose to modify the class histogram. If the latter, need to get way to convert back
             # to detector plane coordinates
@@ -336,7 +336,7 @@ class BatSkyImage(Histogram):
                 raise ValueError(
                     "The requested healpix coordinate system of the BatSkyImage object is different from what is contained in the object.")
 
-            h = Histogram(self.axes, contents=self.contents, unit=self.unit)
+            h = BatSkyImage(image_data=Histogram(self.axes, contents=self.contents, unit=self.unit))
 
         return h
 

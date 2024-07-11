@@ -588,9 +588,9 @@ class BatSkyView(object):
 
                 # correct the units
                 if flux_hist.unit != u.count / u.s:
-                    flux_hist /= u.s
+                    flux_hist /= i.sky_img.exposure
                 if bkg_stddev_hist.unit != u.count / u.s:
-                    bkg_stddev_hist /= u.s
+                    bkg_stddev_hist /= i.sky_img.exposure
 
                 # construct the quality map for each energy and for the total energy images
                 energy_quality_mask = np.zeros_like(
