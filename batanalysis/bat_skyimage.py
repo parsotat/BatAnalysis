@@ -414,6 +414,12 @@ class BatSkyImage(Histogram):
         emin_idx = self.axes["ENERGY"].find_bin(emin.item())
         emax_idx = self.axes["ENERGY"].find_bin(emax.item())
 
+        # for mosaic images, cannot do normal projection with summing up
+        if self.is_mosaic:
+            if tmax_idx - tmin_idx > 1 or emax_idx - emin_idx > 1:
+                raise ValueError(
+                    f"Cannot do normal addition of a mosaiced image. Please choose a single time/energy bin to plot.")
+
         # now do the plotting
         if projection is None:
             # use the default spatial axes of the histogram
