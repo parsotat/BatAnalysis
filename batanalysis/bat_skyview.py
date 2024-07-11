@@ -222,15 +222,16 @@ class BatSkyView(object):
                 self.pcodeimg_file = None
                 self.snr_img_file = None
                 self.bkg_stddev_img_file = None
+
+            # parse through all the images and get the previous input to batfftimage
+            self._parse_skyimages()
+
         else:
             # just set the mosaic intermediate images
             self.interim_sky_img = interim_sky_img
             self.interim_var_img = interim_var_img
             self.pcode_img = pcode_img
             self.exposure_img = exposure_img
-
-        # parse through all the images and get the previous input to batfftimage
-        self._parse_skyimages()
 
         # set the default attribute for projection where we can add the skyviews to be the healpix
         self.projection = "healpix"
