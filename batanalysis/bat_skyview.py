@@ -50,6 +50,10 @@ class BatSkyView(object):
             sky_img=None,
             bkg_stddev_img=None,
             snr_img=None,
+            interim_sky_img=None,
+            interim_var_img=None,
+            pcode_img=None,
+            exposure_img=None
     ):
         """
 
@@ -70,10 +74,11 @@ class BatSkyView(object):
         # do some error checking
         # if the user specified a sky image then use it, otherwise set the sky image to be the same name as the dpi
         # and same location
+        self.skyimg_file = None
         if skyimg_file is not None:
             self.skyimg_file = Path(skyimg_file).expanduser().resolve()
         else:
-            if sky_img is None:
+            if sky_img is None and interim_sky_img is None and interim_var_img is None:
                 self.skyimg_file = dpi_file.parent.joinpath(f"{dpi_file.stem}.img")
 
         # by defautl set the sky_img attribute to None
@@ -99,7 +104,7 @@ class BatSkyView(object):
                     f"The specified detector quality mask file {self.detector_quality_file} does not seem "
                     f"to exist. Please double check that it does.")
         else:
-            self.detector_quality_file = "NONE"  # should be replaced with None
+            self.detector_quality_file = "NONE"  # TODO: should be replaced with None
             warnings.warn("No detector quality mask file has been specified. Sky images will be constructed assuming "
                           "that all detectors are on.", stacklevel=2)
 
@@ -186,6 +191,15 @@ class BatSkyView(object):
             self.snr_img_file = None
             self.bkg_stddev_img_file = None
             self.sky_img = sky_img
+
+        if interim_sky_img is not None and interim_var_img is not None:
+            self.is_mosaic = True
+            self.interim_sky_img = interim_sky_img
+            self.interim_var_img = interim_var_img
+            self.pcode_img = pcode_img
+            self.exposure_img = exposure_img
+        else:
+            self.is_mosaic = False
 
         # parse through all the images and get the previous input to batfftimage
         self._parse_skyimages()
@@ -414,6 +428,9 @@ class BatSkyView(object):
         :return:
         """
 
+        if self.is_mosaic and "HPX" in self.sky_img.axes.labels:
+            raise ValueError("Cannot run batcelldetect on healpix sky images.")
+
         # need the pcode file
         if self.pcodeimg_file is None:
             raise ValueError("Please specify a partial coding file associated with the sky image in order to conduct "
@@ -457,6 +474,39 @@ class BatSkyView(object):
                 f"The detection of sources in the skyimage failed with message: {self.batcelldetect_result.output}"
             )
 
+    @property
+    def sky_img(self):
+        if self.is_mosaic:
+            return self.interim_sky_img / self.interim_var_img
+        else:
+            return self._sky_img
+
+    @sky_img.setter
+    def sky_img(self, value):
+        self._sky_img = value
+
+    @property
+    def bkg_stddev_img(self):
+        if self.is_mosaic:
+            return 1 / np.sqrt(self.interim_var_img)
+        else:
+            return self._bkg_stddev_img
+
+    @bkg_stddev_img.setter
+    def bkg_stddev_img(self, value):
+        self._bkg_stddev_img = value
+
+    @property
+    def snr_img(self):
+        if self.is_mosaic:
+            return self.sky_img / self.bkg_stddev_img
+        else:
+            return self._snr_img
+
+    @snr_img.setter
+    def snr_img(self, value):
+        self._snr_img = value
+
     def __add__(self, other):
         """
         If we are adding 2 skyviews we can either do
@@ -470,12 +520,9 @@ class BatSkyView(object):
         """
         # make sure that we are adding 2 skyviews
         if not isinstance(other, type(self)):
-            return NotImplemented  # Error(
-            # "unsupported operand for +: "
-            # f"'{type(self).__name__}' and '{type(other).__name__}'"
-            # )
+            return NotImplemented
 
-        # make sure we also have the same energy bins
+            # make sure we also have the same energy bins
         if not np.array_equal(self.sky_img.ebins["E_MIN"], other.sky_img.ebins["E_MIN"]) or not np.array_equal(
                 self.sky_img.ebins["E_MAX"], other.sky_img.ebins["E_MAX"]):
             raise ValueError('Ensure that the two BatSkyView objects have the same energy ranges. ')
@@ -578,9 +625,10 @@ class BatSkyView(object):
                 image_data=Histogram([t_ax, hp_ax, energybin_ax], contents=interm_inv_var_hist.contents,
                                      unit=interm_inv_var_hist.unit), is_mosaic=True)
 
-            test_mosaic = BatMosaicSkyView(interm_flux, interm_inv_var, pcode, tot_exposure)
+            test_mosaic = BatSkyView(interim_sky_img=interm_flux, interim_var_img=interm_inv_var, pcode_img=pcode,
+                                     exposure_img=tot_exposure)
 
-            return flux, bkg_stddev, snr, tot_exposure, pcode, test_mosaic
+            return test_mosaic
         else:
             raise NotImplementedError("Adding Sky Images with the template sky facets is not yet implemented.")
 
