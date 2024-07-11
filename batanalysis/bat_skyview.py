@@ -470,10 +470,10 @@ class BatSkyView(object):
         """
         # make sure that we are adding 2 skyviews
         if not isinstance(other, type(self)):
-            raise TypeError(
-                "unsupported operand for +: "
-                f"'{type(self).__name__}' and '{type(other).__name__}'"
-            )
+            return NotImplemented  # Error(
+            # "unsupported operand for +: "
+            # f"'{type(self).__name__}' and '{type(other).__name__}'"
+            # )
 
         # make sure we also have the same energy bins
         if not np.array_equal(self.sky_img.ebins["E_MIN"], other.sky_img.ebins["E_MIN"]) or not np.array_equal(
@@ -583,6 +583,9 @@ class BatSkyView(object):
             return flux, bkg_stddev, snr, tot_exposure, pcode, test_mosaic
         else:
             raise NotImplementedError("Adding Sky Images with the template sky facets is not yet implemented.")
+
+    def __radd__(self, other):
+        return self.__add__(other)
 
 
 class BatMosaicSkyView(BatSkyView):
