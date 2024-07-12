@@ -56,7 +56,7 @@ class BatSkyImage(Histogram):
             emax=None,
             weights=None,
             wcs=None,
-            is_mosaic=False
+            is_projectable=False
     ):
         """
         This class is meant to hold images of the sky that have been created from a deconvolution of the BAT DPI with
@@ -203,7 +203,7 @@ class BatSkyImage(Histogram):
         self.wcs = wcs
 
         # set whether we have a mosaic image
-        self.is_mosaic = is_mosaic
+        self.is_projectable = is_projectable
 
     def _set_histogram(self, histogram_data=None, event_data=None, weights=None):
         """
@@ -415,7 +415,7 @@ class BatSkyImage(Histogram):
         emax_idx = self.axes["ENERGY"].find_bin(emax.item())
 
         # for mosaic images, cannot do normal projection with summing up
-        if self.is_mosaic:
+        if self.is_projectable:
             if tmax_idx - tmin_idx > 1 or emax_idx - emin_idx > 1:
                 raise ValueError(
                     f"Cannot do normal addition of a mosaiced image. Please choose a single time/energy bin to plot.")
@@ -535,9 +535,10 @@ class BatSkyImage(Histogram):
         # now we can construct the data for the time bins, the energy bins, the total sky image array, and the WCS
         w = WCS(img_headers[0])
 
-        # the partial coding image has no units so make sure that only when we are reading in a pcoding file we
+        # the partial coding image has no units so make sure that only when we are reading in a pcoding or snr file we
         # have this set
-        if np.all(["pcode" in i["EXTNAME"].lower() for i in img_headers]):
+        if np.all(["pcode" in i["EXTNAME"].lower() for i in img_headers]) or np.all(
+                ["signif" in i["EXTNAME"].lower() for i in img_headers]):
             img_unit = 1 * u.dimensionless_unscaled
         else:
             img_unit = u.Quantity(f'1{img_headers[0]["BUNIT"]}')
@@ -619,7 +620,7 @@ class BatSkyImage(Histogram):
         :return: 
         """
 
-        if self.is_mosaic and "ENERGY" not in [i for i in axis] and self.axes["ENERGY"].nbins > 1:
-            raise ValueError("Cannot do normal projection of a mosaiced image.")
+        if self.is_projectable and "ENERGY" not in [i for i in axis] and self.axes["ENERGY"].nbins > 1:
+            raise ValueError("Cannot do normal sum over energy bins for this type of image.")
         else:
             return super().project(*axis)
