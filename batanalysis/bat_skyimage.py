@@ -665,4 +665,4 @@ class BatSkyImage(Histogram):
 
             hist = super().project(*axis)
 
-        return BatSkyImage(image_data=hist)
+        return hist
