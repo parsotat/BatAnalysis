@@ -539,7 +539,7 @@ class BatSkyImage(Histogram):
                 else:
                     raise ValueError(
                         f'An unexpected header extension name {header["EXTNAME"]} was encountered. This class can '
-                        f'only parse sky image files that have IMAGE, EBOUNDS, and STDGTI header extensions. ')
+                        f'only parse sky image files that have {_file_extension_names}, EBOUNDS, and STDGTI header extensions. ')
 
         # now we can construct the data for the time bins, the energy bins, the total sky image array, and the WCS
         w = WCS(img_headers[0])
@@ -617,7 +617,21 @@ class BatSkyImage(Histogram):
             min_e = [i["E_MIN"] for i in img_headers] * energy_unit.unit
             max_e = [i["E_MAX"] for i in img_headers] * energy_unit.unit
 
-        return cls(image_data=img_data, tmin=min_t, tmax=max_t, emin=min_e, emax=max_e, wcs=w)
+        # define the image type, we have confirmed that is is one of the accepted types, just need to ID which
+        # then have to convert the weird file extension to a string that is accepted by the constructor.
+        # Note exposure doesnt have an equivalent
+        # _file_extension_names = ["image", "pcode", "signif", "varmap"]
+        # _accepted_image_types = ["flux", "pcode", "snr", "stddev", "exposure"]
+
+        imtype = [name for name in _file_extension_names if name in img_headers[0]["EXTNAME"].lower()][0]
+        if "image" in imtype:
+            imtype = "flux"
+        elif "signif" in imtype:
+            imtype = "snr"
+        elif "varmap" in imtype:
+            imtype = "stddev"
+
+        return cls(image_data=img_data, tmin=min_t, tmax=max_t, emin=min_e, emax=max_e, wcs=w, image_type=imtype)
 
     def project(self, *axis):
         """
