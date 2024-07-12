@@ -24,7 +24,7 @@ from reproject import reproject_to_healpix
 # note that the snr and background stddev images dont have gti or energy extensions. These are gotten from the
 # headers of the images themselves
 _file_extension_names = ["image", "pcode", "signif", "varmap"]
-_accepted_image_types = ["flux", "pcode", "snr", "stddev"]
+_accepted_image_types = ["flux", "pcode", "snr", "stddev", "exp"]
 
 
 class BatSkyImage(Histogram):
@@ -62,7 +62,7 @@ class BatSkyImage(Histogram):
             emax=None,
             weights=None,
             wcs=None,
-            is_mosaic=False,
+            is_mosaic_intermediate=False,
             image_type=None
     ):
         """
@@ -216,7 +216,7 @@ class BatSkyImage(Histogram):
         self.wcs = wcs
 
         # set whether we have a mosaic image
-        self.is_mosaic = is_mosaic
+        self.is_mosaic_intermediate = is_mosaic_intermediate
 
     def _set_histogram(self, histogram_data=None, event_data=None, weights=None):
         """
@@ -428,7 +428,7 @@ class BatSkyImage(Histogram):
         emax_idx = self.axes["ENERGY"].find_bin(emax.item())
 
         # for mosaic images, cannot do normal projection with summing up
-        if self.is_mosaic:
+        if self.is_mosaic_intermediate:
             if tmax_idx - tmin_idx > 1 or emax_idx - emin_idx > 1:
                 raise ValueError(
                     f"Cannot do normal addition of a mosaiced image. Please choose a single time/energy bin to plot.")
@@ -620,15 +620,20 @@ class BatSkyImage(Histogram):
 
     def project(self, *axis):
         """
-        This overwrites the parent class project method. If we have a mosaic image, we need to do other calculations to 
-        properly project quantities instead of just adding the energy bins.
-        Otherwise, this allows users to run the Histogram project method as normal on the object itself.
+        This overwrites the parent class project method.
+            1) If we have a non-intermediate-mosaic background stddev/snr image, we need to add quantities in quadrature
+                instead of just adding the energy bins.
+            2) If we have a mosaic intermediate image or a flux image, we can just add directly and calls the Histogram
+                project method as normal on the object itself.
+            3) If we have an exposure image or a pcode image, then a projection over energy is irrelevant and we just
+                want to return a slice of the Histogram (if there is more than 1 energy)
+            4) If "ENERGY" is a value specified in axes, then we dont need to worry about any of this
         
         :param axis: 
         :return: 
         """
 
-        if self.is_mosaic and "ENERGY" not in [i for i in axis] and self.axes["ENERGY"].nbins > 1:
+        if not self.is_mosaic_intermediate and "ENERGY" not in [i for i in axis] and self.axes["ENERGY"].nbins > 1:
             raise ValueError("Cannot do normal sum over energy bins for this type of image.")
         else:
             return super().project(*axis)
