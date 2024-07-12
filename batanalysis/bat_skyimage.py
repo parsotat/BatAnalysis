@@ -588,7 +588,7 @@ class BatSkyImage(Histogram):
                 header = f[i].header
                 # if we have an image, save it to our list of image headers
                 # if "image" in header["EXTNAME"].lower():
-                if np.any([name in header["EXTNAME"].lower() for name in extension_names]):
+                if np.any([name in header["EXTNAME"].lower() for name in _file_extension_names]):
                     img_data[:, :, :, i] = data
                 elif "ebounds" in header["EXTNAME"].lower():
                     energy_data = data
