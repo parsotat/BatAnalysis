@@ -335,7 +335,8 @@ class BatSkyImage(Histogram):
             # create the new histogram
             h = BatSkyImage(Histogram(
                 [self.axes['TIME'], hp_ax, self.axes["ENERGY"]],
-                contents=new_array, unit=self.unit))
+                contents=new_array, unit=self.unit), image_type=self.image_type,
+                is_mosaic_intermediate=self.is_mosaic_intermediate)
 
             # can return the histogram or choose to modify the class histogram. If the latter, need to get way to convert back
             # to detector plane coordinates
@@ -350,7 +351,8 @@ class BatSkyImage(Histogram):
                 raise ValueError(
                     "The requested healpix coordinate system of the BatSkyImage object is different from what is contained in the object.")
 
-            h = BatSkyImage(image_data=Histogram(self.axes, contents=self.contents, unit=self.unit))
+            h = BatSkyImage(image_data=Histogram(self.axes, contents=self.contents, unit=self.unit),
+                            image_type=self.image_type, is_mosaic_intermediate=self.is_mosaic_intermediate)
 
         return h
 
@@ -439,7 +441,10 @@ class BatSkyImage(Histogram):
             # use the default spatial axes of the histogram
             # need to determine what this is
             if "IMX" in self.axes.labels:
-                ax, mesh = self.slice[tmin_idx:tmax_idx, :, :, emin_idx:emax_idx].project("IMX", "IMY").plot()
+                ax, mesh = BatSkyImage(image_data=self.slice[tmin_idx:tmax_idx, :, :, emin_idx:emax_idx],
+                                       image_type=self.image_type,
+                                       is_mosaic_intermediate=self.is_mosaic_intermediate).project("IMX",
+                                                                                                   "IMY").plot()
                 ret = (ax, mesh)
             elif "HPX" in self.axes.labels:
                 if "galactic" in coordsys.lower():
@@ -449,7 +454,10 @@ class BatSkyImage(Histogram):
                 else:
                     raise ValueError('This plotting function can only plot the healpix map in galactic or icrs '
                                      'coordinates.')
-                plot_quantity = self.slice[tmin_idx:tmax_idx, :, emin_idx:emax_idx].project("HPX").contents
+                plot_quantity = BatSkyImage(image_data=self.slice[tmin_idx:tmax_idx, :, emin_idx:emax_idx],
+                                            image_type=self.image_type,
+                                            is_mosaic_intermediate=self.is_mosaic_intermediate).project(
+                    "HPX").contents
                 if isinstance(plot_quantity, u.Quantity):
                     plot_quantity = plot_quantity.value
 
@@ -473,7 +481,10 @@ class BatSkyImage(Histogram):
 
                 ax.grid(color='k', ls='solid')
                 im = ax.imshow(
-                    self.slice[tmin_idx:tmax_idx, :, :, emin_idx:emax_idx].project("IMY", "IMX").contents.value,
+                    BatSkyImage(image_data=self.slice[tmin_idx:tmax_idx, :, :, emin_idx:emax_idx],
+                                image_type=self.image_type,
+                                is_mosaic_intermediate=self.is_mosaic_intermediate).project("IMY",
+                                                                                            "IMX").contents.value,
                     origin="lower")
                 cbar = fig.colorbar(im, cax=cax, orientation="vertical", label=self.unit, ticklocation="right",
                                     location="right")
@@ -495,7 +506,9 @@ class BatSkyImage(Histogram):
                     raise ValueError('This plotting function can only plot the healpix map in galactic or icrs '
                                      'coordinates.')
 
-                plot_quantity = hist.slice[tmin_idx:tmax_idx, :, emin_idx:emax_idx].project("HPX").contents
+                plot_quantity = BatSkyImage(image_data=hist.slice[tmin_idx:tmax_idx, :, emin_idx:emax_idx],
+                                            image_type=self.image_type,
+                                            is_mosaic_intermediate=self.is_mosaic_intermediate).project("HPX").contents
                 if isinstance(plot_quantity, u.Quantity):
                     plot_quantity = plot_quantity.value
 
