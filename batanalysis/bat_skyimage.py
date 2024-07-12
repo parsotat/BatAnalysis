@@ -20,6 +20,12 @@ from histpy import Histogram, HealpixAxis
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from reproject import reproject_to_healpix
 
+# list out the image extensions that we can read in. These should be lowercase.
+# note that the snr and background stddev images dont have gti or energy extensions. These are gotten from the
+# headers of the images themselves
+_file_extension_names = ["image", "pcode", "signif", "varmap"]
+_accepted_image_types = ["flux", "pcode", "snr", "stddev"]
+
 
 class BatSkyImage(Histogram):
     """
@@ -56,7 +62,8 @@ class BatSkyImage(Histogram):
             emax=None,
             weights=None,
             wcs=None,
-            is_projectable=False
+            is_mosaic=False,
+            image_type=None
     ):
         """
         This class is meant to hold images of the sky that have been created from a deconvolution of the BAT DPI with
@@ -80,6 +87,12 @@ class BatSkyImage(Histogram):
             raise ValueError(
                 "A numpy array of a Histpy.Histogram needs to be passed in to initalize a BatSkyImage object"
             )
+
+        if image_type is not None:
+            # make sure it is one of the strings that we recognize internally
+            if type(image_type) is not str or not np.any([i == image_type for i in _accepted_image_types]):
+                raise TypeError(
+                    f"The image_type must be a string that corresponds to one of the following: {_accepted_image_types}")
 
         if wcs is None:
             warnings.warn(
@@ -203,7 +216,7 @@ class BatSkyImage(Histogram):
         self.wcs = wcs
 
         # set whether we have a mosaic image
-        self.is_projectable = is_projectable
+        self.is_mosaic = is_mosaic
 
     def _set_histogram(self, histogram_data=None, event_data=None, weights=None):
         """
@@ -415,7 +428,7 @@ class BatSkyImage(Histogram):
         emax_idx = self.axes["ENERGY"].find_bin(emax.item())
 
         # for mosaic images, cannot do normal projection with summing up
-        if self.is_projectable:
+        if self.is_mosaic:
             if tmax_idx - tmin_idx > 1 or emax_idx - emin_idx > 1:
                 raise ValueError(
                     f"Cannot do normal addition of a mosaiced image. Please choose a single time/energy bin to plot.")
@@ -501,11 +514,6 @@ class BatSkyImage(Histogram):
         :param file:
         :return:
         """
-
-        # list out the image extensions that we can read in. These should be lowercase.
-        # note that the snr and background stddev images dont have gti or energy extensions. These are gotten from the
-        # headers of the images themselves
-        extension_names = ["image", "pcode", "signif", "varmap"]
 
         input_file = Path(file).expanduser().resolve()
         if not input_file.exists():
@@ -620,7 +628,7 @@ class BatSkyImage(Histogram):
         :return: 
         """
 
-        if self.is_projectable and "ENERGY" not in [i for i in axis] and self.axes["ENERGY"].nbins > 1:
+        if self.is_mosaic and "ENERGY" not in [i for i in axis] and self.axes["ENERGY"].nbins > 1:
             raise ValueError("Cannot do normal sum over energy bins for this type of image.")
         else:
             return super().project(*axis)
