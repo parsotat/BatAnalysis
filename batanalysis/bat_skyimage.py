@@ -688,7 +688,7 @@ class BatSkyImage(Histogram):
             # over energy
             if self.image_type is None and ("ENERGY" not in [i for i in axis] and self.axes["ENERGY"].nbins > 1):
                 warnings.warn(
-                    "The image type for this object has not been specified. Defaulting to summing up the Hisotgram values over the ENERGY axis",
+                    "The image type for this object has not been specified. Defaulting to summing up the Histogram values over the ENERGY axis",
                     stacklevel=2,
                 )
 
