@@ -24,7 +24,7 @@ from reproject import reproject_to_healpix
 # note that the snr and background stddev images dont have gti or energy extensions. These are gotten from the
 # headers of the images themselves
 _file_extension_names = ["image", "pcode", "signif", "varmap"]
-_accepted_image_types = ["flux", "pcode", "snr", "stddev", "exp"]
+_accepted_image_types = ["flux", "pcode", "snr", "stddev", "exposure"]
 
 
 class BatSkyImage(Histogram):
@@ -215,8 +215,9 @@ class BatSkyImage(Histogram):
         self._set_histogram(histogram_data=parse_data, weights=weights)
         self.wcs = wcs
 
-        # set whether we have a mosaic image
+        # set whether we have a mosaic intermediate image and what type of image we have
         self.is_mosaic_intermediate = is_mosaic_intermediate
+        self.image_type = image_type
 
     def _set_histogram(self, histogram_data=None, event_data=None, weights=None):
         """
@@ -529,7 +530,7 @@ class BatSkyImage(Histogram):
                 header = f[i].header
                 # if we have an image, save it to our list of image headers
                 # if "image" in header["EXTNAME"].lower():
-                if np.any([name in header["EXTNAME"].lower() for name in extension_names]):
+                if np.any([name in header["EXTNAME"].lower() for name in _file_extension_names]):
                     img_headers.append(header)
                 elif "ebounds" in header["EXTNAME"].lower():
                     energy_header = header
@@ -633,7 +634,35 @@ class BatSkyImage(Histogram):
         :return: 
         """
 
-        if not self.is_mosaic_intermediate and "ENERGY" not in [i for i in axis] and self.axes["ENERGY"].nbins > 1:
-            raise ValueError("Cannot do normal sum over energy bins for this type of image.")
+        # if energy is not specified as a remaining axis OR if there is only 1 energy bin then we dont need to worry
+        # about all these nuances. If the image type is not specified, then also go to the normal behavior
+        if ("ENERGY" not in [i for i in axis] and self.axes["ENERGY"].nbins > 1) and self.image_type is not None:
+            # check to see if we have images that are not intermediate mosaic images and they are stddev/snr quantities
+            if not self.is_mosaic_intermediate and np.any([self.image_type == i for i in ["snr", "stddev"]]):
+                hist = Histogram(edges=self.axes[*axis], contents=np.sqrt((self * self).project(*axis)))
+
+            elif np.any([self.image_type == i for i in ["pcode", "exposure"]]):
+                # this gets executed even if self.is_mosaic_intermediate is True
+                if "HPX" in self.axes.labels:
+                    # only have 1 spatial dimension
+                    hist = self.slice[:, :, self.end - 1].project(*axis)
+                else:
+                    # have 2 spatial dimensions
+                    hist = self.slice[:, :, :, self.end - 1].project(*axis)
+            elif self.is_mosaic_intermediate or self.image_type == "flux":
+                hist = super().project(*axis)
+            else:
+                # capture all other cases with error
+                raise ValueError("Cannot do normal sum over energy bins for this type of image.")
         else:
-            return super().project(*axis)
+            # warn the user that this image_type isnt set and that we will be using the default behavior to sum
+            # over energy
+            if self.image_type is None and ("ENERGY" not in [i for i in axis] and self.axes["ENERGY"].nbins > 1):
+                warnings.warn(
+                    "The image type for this object has not been specified. Defaulting to summing up the Hisotgram values over the ENERGY axis",
+                    stacklevel=2,
+                )
+
+            hist = super().project(*axis)
+
+        return BatSkyImage(image_data=hist)
