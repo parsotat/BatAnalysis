@@ -509,7 +509,9 @@ class BatSkyView(object):
     @property
     def bkg_stddev_img(self):
         if self.is_mosaic:
-            return BatSkyImage(image_data=1 / np.sqrt(self.interim_var_img), image_type="stddev")
+            return BatSkyImage(
+                image_data=Histogram(self.interim_var_img.axes, contents=1 / np.sqrt(self.interim_var_img),
+                                     unit=np.sqrt(1 / self.interim_var_img.unit).unit), image_type="stddev")
         else:
             return self._bkg_stddev_img
 
@@ -575,12 +577,14 @@ class BatSkyView(object):
                 tstop.append(i.sky_img.tbins["TIME_STOP"])
 
                 # do the healpix projection calculation and get rid of time axis since it is irrelevant now
+                # also the time axis prevents us from directly adding 2 histograms together if they dont have the
+                # same timebins
                 flux_hist = i.sky_img.healpix_projection(coordsys=self.healpix_coordsys,
-                                                         nside=self.healpix_nside)
+                                                         nside=self.healpix_nside).project("HPX", "ENERGY")
                 pcode_hist = i.pcode_img.healpix_projection(coordsys=self.healpix_coordsys,
-                                                            nside=self.healpix_nside)
+                                                            nside=self.healpix_nside).project("HPX", "ENERGY")
                 bkg_stddev_hist = i.bkg_stddev_img.healpix_projection(coordsys=self.healpix_coordsys,
-                                                                      nside=self.healpix_nside)
+                                                                      nside=self.healpix_nside).project("HPX", "ENERGY")
 
                 exposure_hist = Histogram(flux_hist.axes,
                                           contents=flux_hist.contents.value * 0 + i.sky_img.exposure.value,
@@ -632,7 +636,6 @@ class BatSkyView(object):
                     interim_pcode_hist = deepcopy(pcode_hist) * tot_exposure_hist.contents.value
                     interm_inv_var_hist = (1 / (bkg_stddev_hist * bkg_stddev_hist)) * energy_quality_mask
                     interm_flux_hist = flux_hist * interm_inv_var_hist
-
                     # testing for the energy integrated mosaicing
                     # total_e_interim_inv_var_hist = (1 / (
                     #        total_e_bkg_stddev * total_e_bkg_stddev)) * total_e_energy_quality_mask
@@ -660,18 +663,19 @@ class BatSkyView(object):
 
             # create the SkyImages for each quantity
             tot_exposure = BatSkyImage(
-                image_data=Histogram([t_ax, hp_ax, energybin_ax], contents=tot_exposure_hist.contents,
+                image_data=Histogram([t_ax, hp_ax, energybin_ax], contents=tot_exposure_hist.contents[np.newaxis],
                                      unit=tot_exposure_hist.unit), image_type="exposure")
-            pcode = BatSkyImage(image_data=Histogram([t_ax, hp_ax, energybin_ax], contents=interim_pcode_hist.contents,
-                                                     unit=interim_pcode_hist.unit), image_type="pcode")
+            pcode = BatSkyImage(
+                image_data=Histogram([t_ax, hp_ax, energybin_ax], contents=interim_pcode_hist.contents[np.newaxis],
+                                     unit=interim_pcode_hist.unit), image_type="pcode")
 
             interm_flux = BatSkyImage(
-                image_data=Histogram([t_ax, hp_ax, energybin_ax], contents=interm_flux_hist.contents,
+                image_data=Histogram([t_ax, hp_ax, energybin_ax], contents=interm_flux_hist.contents[np.newaxis],
                                      unit=interm_flux_hist.unit), is_mosaic_intermediate=True, image_type="flux")
 
             # set the image type to None as we can still do projections normally without any additional considerations
             interm_inv_var = BatSkyImage(
-                image_data=Histogram([t_ax, hp_ax, energybin_ax], contents=interm_inv_var_hist.contents,
+                image_data=Histogram([t_ax, hp_ax, energybin_ax], contents=interm_inv_var_hist.contents[np.newaxis],
                                      unit=interm_inv_var_hist.unit), is_mosaic_intermediate=True, image_type=None)
 
             test_mosaic = BatSkyView(interim_sky_img=interm_flux, interim_var_img=interm_inv_var, pcode_img=pcode,

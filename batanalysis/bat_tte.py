@@ -1086,7 +1086,7 @@ class BatEvent(BatObservation, TimeTaggedEvents):
 
         dpi_list = []
         for start, end, i in zip(tstart, tstop, range(len(tstart))):
-            dpi = BatDPI(dpi_dir.joinpath(f"t_{start}-{end}_{nebin}chan.dpi"), event_file=self.event_files,
+            dpi = BatDPI(dpi_dir.joinpath(f"t_{start.value}-{end.value}_{nebin}chan.dpi"), event_file=self.event_files,
                          detector_quality_file=self.detector_quality_file)
 
             dpi.set_timebins(tmin=start, tmax=end, is_relative=is_relative, T0=T0)
