@@ -578,35 +578,41 @@ class BatSkyView(object):
 
                 # do the healpix projection calculation and get rid of time axis since it is irrelevant now
                 # also the time axis prevents us from directly adding 2 histograms together if they dont have the
-                # same timebins
-                flux_hist = i.sky_img.healpix_projection(coordsys=self.healpix_coordsys,
-                                                         nside=self.healpix_nside).project("HPX", "ENERGY")
-                pcode_hist = i.pcode_img.healpix_projection(coordsys=self.healpix_coordsys,
-                                                            nside=self.healpix_nside).project("HPX", "ENERGY")
-                bkg_stddev_hist = i.bkg_stddev_img.healpix_projection(coordsys=self.healpix_coordsys,
-                                                                      nside=self.healpix_nside).project("HPX", "ENERGY")
+                # same timebins.
 
-                exposure_hist = Histogram(flux_hist.axes,
-                                          contents=flux_hist.contents.value * 0 + i.sky_img.exposure.value,
-                                          unit=i.sky_img.exposure.unit)
+                # if we have a BatSkyView object that is a mosaic image already, dont need to do the sky_img flux and
+                # all the associated inverse variance weighting calculations all over again. Can just get those images
+                # via the appropriate attributes.
+                if not i.is_mosaic:
+                    flux_hist = i.sky_img.healpix_projection(coordsys=self.healpix_coordsys,
+                                                             nside=self.healpix_nside).project("HPX", "ENERGY")
+                    pcode_hist = i.pcode_img.healpix_projection(coordsys=self.healpix_coordsys,
+                                                                nside=self.healpix_nside).project("HPX", "ENERGY")
+                    bkg_stddev_hist = i.bkg_stddev_img.healpix_projection(coordsys=self.healpix_coordsys,
+                                                                          nside=self.healpix_nside).project("HPX",
+                                                                                                            "ENERGY")
 
-                # correct the units
-                if flux_hist.unit != u.count / u.s:
-                    flux_hist /= i.sky_img.exposure
-                if bkg_stddev_hist.unit != u.count / u.s:
-                    bkg_stddev_hist /= i.sky_img.exposure
+                    exposure_hist = Histogram(flux_hist.axes,
+                                              contents=flux_hist.contents.value * 0 + i.sky_img.exposure.value,
+                                              unit=i.sky_img.exposure.unit)
 
-                # construct the quality map for each energy and for the total energy images
-                energy_quality_mask = np.zeros_like(
-                    flux_hist.contents.value)
-                good_idx = np.where(
-                    (pcode_hist.contents > _pcodethresh
-                     )
-                    & (bkg_stddev_hist.contents > 0)
-                    & np.isfinite(flux_hist.contents)
-                    & np.isfinite(bkg_stddev_hist.contents)
-                )
-                energy_quality_mask[good_idx] = 1
+                    # correct the units
+                    if flux_hist.unit != u.count / u.s:
+                        flux_hist /= i.sky_img.exposure
+                    if bkg_stddev_hist.unit != u.count / u.s:
+                        bkg_stddev_hist /= i.sky_img.exposure
+
+                    # construct the quality map for each energy and for the total energy images
+                    energy_quality_mask = np.zeros_like(
+                        flux_hist.contents.value)
+                    good_idx = np.where(
+                        (pcode_hist.contents > _pcodethresh
+                         )
+                        & (bkg_stddev_hist.contents > 0)
+                        & np.isfinite(flux_hist.contents)
+                        & np.isfinite(bkg_stddev_hist.contents)
+                    )
+                    energy_quality_mask[good_idx] = 1
 
                 # testing for the energy integrated mosaicing
                 # total_e_energybin_ax = Axis(
@@ -630,30 +636,43 @@ class BatSkyView(object):
                 # )
                 # total_e_energy_quality_mask[total_e_good_idx] = 1
 
-                # make the intermediate images to do operations with
+                # make the intermediate images to do operations with or just get the appropriate images if we have them
                 if count == 0:
-                    tot_exposure_hist = deepcopy(exposure_hist) * energy_quality_mask
-                    interim_pcode_hist = deepcopy(pcode_hist) * tot_exposure_hist.contents.value
-                    interm_inv_var_hist = (1 / (bkg_stddev_hist * bkg_stddev_hist)) * energy_quality_mask
-                    interm_flux_hist = flux_hist * interm_inv_var_hist
-                    # testing for the energy integrated mosaicing
-                    # total_e_interim_inv_var_hist = (1 / (
-                    #        total_e_bkg_stddev * total_e_bkg_stddev)) * total_e_energy_quality_mask
-                    # total_e_interim_flux_hist = total_e_flux * total_e_interim_inv_var_hist
-
+                    if not i.is_mosaic:
+                        tot_exposure_hist = deepcopy(exposure_hist) * energy_quality_mask
+                        interim_pcode_hist = deepcopy(pcode_hist) * tot_exposure_hist.contents.value
+                        interm_inv_var_hist = (1 / (bkg_stddev_hist * bkg_stddev_hist)) * energy_quality_mask
+                        interm_flux_hist = flux_hist * interm_inv_var_hist
+                        # testing for the energy integrated mosaicing
+                        # total_e_interim_inv_var_hist = (1 / (
+                        #        total_e_bkg_stddev * total_e_bkg_stddev)) * total_e_energy_quality_mask
+                        # total_e_interim_flux_hist = total_e_flux * total_e_interim_inv_var_hist
+                    else:
+                        tot_exposure_hist = i.exposure_img.project("HPX", "ENERGY")
+                        interim_pcode_hist = i.pcode_img.project("HPX", "ENERGY")
+                        interm_inv_var_hist = i.interim_var_img.project("HPX", "ENERGY")
+                        interm_flux_hist = i.interim_sky_img.project("HPX", "ENERGY")
 
                 else:
-                    tot_exposure_hist += deepcopy(exposure_hist) * energy_quality_mask
-                    interim_pcode_hist += deepcopy(pcode_hist) * tot_exposure_hist.contents.value
-                    temp_interm_inv_var_hist = (1 / (bkg_stddev_hist * bkg_stddev_hist)) * energy_quality_mask
-                    interm_inv_var_hist += temp_interm_inv_var_hist
-                    interm_flux_hist += flux_hist * temp_interm_inv_var_hist
+                    # if we dont have a mosaic sky view object where we calculated exposure_hist, etc above then execute
+                    # this code block to do mosaicing. otherwise just call the relevant attributes
+                    if not i.is_mosaic:
+                        tot_exposure_hist += deepcopy(exposure_hist) * energy_quality_mask
+                        interim_pcode_hist += deepcopy(pcode_hist) * tot_exposure_hist.contents.value
+                        temp_interm_inv_var_hist = (1 / (bkg_stddev_hist * bkg_stddev_hist)) * energy_quality_mask
+                        interm_inv_var_hist += temp_interm_inv_var_hist
+                        interm_flux_hist += flux_hist * temp_interm_inv_var_hist
 
-                    # testing for the energy integrated mosaicing
-                    # temp_total_e_interim_inv_var_hist = (1 / (
-                    #        total_e_bkg_stddev * total_e_bkg_stddev)) * total_e_energy_quality_mask
-                    # total_e_interim_flux_hist += total_e_flux * temp_total_e_interim_inv_var_hist
-                    # total_e_interim_inv_var_hist += temp_total_e_interim_inv_var_hist
+                        # testing for the energy integrated mosaicing
+                        # temp_total_e_interim_inv_var_hist = (1 / (
+                        #        total_e_bkg_stddev * total_e_bkg_stddev)) * total_e_energy_quality_mask
+                        # total_e_interim_flux_hist += total_e_flux * temp_total_e_interim_inv_var_hist
+                        # total_e_interim_inv_var_hist += temp_total_e_interim_inv_var_hist
+                    else:
+                        tot_exposure_hist += i.exposure_img.project("HPX", "ENERGY")
+                        interim_pcode_hist += i.pcode_img.project("HPX", "ENERGY")
+                        interm_inv_var_hist += i.interim_var_img.project("HPX", "ENERGY")
+                        interm_flux_hist += i.interim_sky_img.project("HPX", "ENERGY")
 
             tmin = u.Quantity(tstart).min()
             tmax = u.Quantity(tstop).max()
