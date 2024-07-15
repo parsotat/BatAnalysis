@@ -16,6 +16,7 @@ import astropy.units as u
 import numpy as np
 from astropy.io import fits
 
+from .bat_dpi import BatDPI
 from .batlib import dirtest, decompose_det_id
 from .batobservation import BatObservation
 from .batproducts import Lightcurve, Spectrum
@@ -1038,6 +1039,7 @@ class BatEvent(BatObservation, TimeTaggedEvents):
 
         return self.spectrum
 
+    @u.quantity_input(timebins=["time"], tstart=["time"], tstop=["time"])
     def create_dph(
             self,
             dph_file=None,
@@ -1060,7 +1062,18 @@ class BatEvent(BatObservation, TimeTaggedEvents):
 
         return None
 
-    def create_dpi(self, **kwargs):
+    @u.quantity_input(timebins=["time"], tstart=["time"], tstop=["time"], energybins=["energy"])
+    def create_dpi(self,
+                   dpi_file=None,
+                   tstart=None,
+                   tstop=None,
+                   timebins=None,
+                   T0=None,
+                   is_relative=False,
+                   energybins=[15, 350] * u.keV,
+                   recalc=False,
+                   mask_weighting=True,
+                   ):
         """
         This method creates and returns a detector plane image.
 
@@ -1068,9 +1081,21 @@ class BatEvent(BatObservation, TimeTaggedEvents):
         :return:
         """
 
-        raise NotImplementedError("Creating the DPI has not yet been implemented.")
+        dpi_dir = self.result_dir.joinpath("dpi")
+        nebin = len(energybins) - 1
 
-        return None
+        dpi_list = []
+        for start, end, i in zip(tstart, tstop, range(len(tstart))):
+            dpi = BatDPI(dpi_dir.joinpath(f"t_{start}-{end}_{nebin}chan.dpi"), event_file=self.event_files,
+                         detector_quality_file=self.detector_quality_file)
+
+            dpi.set_timebins(tmin=start, tmax=end, is_relative=is_relative, T0=T0)
+            dpi.set_energybins(energybins=energybins)
+
+            dpi_list.append(dpi)
+        # raise NotImplementedError("Creating the DPI has not yet been implemented.")
+
+        return dpi_list
 
     def create_sky_image(self, **kwargs):
         """

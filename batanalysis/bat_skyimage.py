@@ -391,6 +391,9 @@ class BatSkyImage(Histogram):
         This is a convenience plotting function that allows for quick and easy plotting of a sky image. It allows for
         energy and time (where applicable) slices and different representations of the sky image.
 
+        TODO: consider if the image is already a healpix projection with some nside and the user wants to plot with a
+            different nside value
+
         :param emin:
         :param emax:
         :param tmin:

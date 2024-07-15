@@ -605,26 +605,26 @@ class BatSkyView(object):
                 energy_quality_mask[good_idx] = 1
 
                 # testing for the energy integrated mosaicing
-                total_e_energybin_ax = Axis(
-                    u.Quantity([self.sky_img.axes["ENERGY"].edges[0], self.sky_img.axes["ENERGY"].edges[-1]]),
-                    label="ENERGY")
-                ax = [self.sky_img.axes["TIME"], bkg_stddev_hist.axes["HPX"], total_e_energybin_ax]
-                total_e_flux = Histogram(edges=ax,
-                                         contents=flux_hist.project("TIME", "HPX").contents[:, :, np.newaxis].value,
-                                         unit=flux_hist.unit)
-                total_e_bkg_stddev = Histogram(edges=ax, contents=bkg_stddev_hist.project("TIME", "HPX").contents[:, :,
-                                                                  np.newaxis].value, unit=bkg_stddev_hist.unit)
+                # total_e_energybin_ax = Axis(
+                #    u.Quantity([self.sky_img.axes["ENERGY"].edges[0], self.sky_img.axes["ENERGY"].edges[-1]]),
+                #    label="ENERGY")
+                # ax = [self.sky_img.axes["TIME"], bkg_stddev_hist.axes["HPX"], total_e_energybin_ax]
+                # total_e_flux = Histogram(edges=ax,
+                #                         contents=flux_hist.project("TIME", "HPX").contents[:, :, np.newaxis].value,
+                #                         unit=flux_hist.unit)
+                # total_e_bkg_stddev = Histogram(edges=ax, contents=bkg_stddev_hist.project("TIME", "HPX").contents[:, :,
+                #                                                  np.newaxis].value, unit=bkg_stddev_hist.unit)
 
-                total_e_energy_quality_mask = np.zeros_like(
-                    total_e_flux.contents.value)
-                total_e_good_idx = np.where(
-                    (pcode_hist.contents[:, :, 0:1] > _pcodethresh
-                     )
-                    & (total_e_bkg_stddev.contents > 0)
-                    & np.isfinite(total_e_flux.contents)
-                    & np.isfinite(total_e_bkg_stddev.contents)
-                )
-                total_e_energy_quality_mask[total_e_good_idx] = 1
+                # total_e_energy_quality_mask = np.zeros_like(
+                #    total_e_flux.contents.value)
+                # total_e_good_idx = np.where(
+                #    (pcode_hist.contents[:, :, 0:1] > _pcodethresh
+                #     )
+                #    & (total_e_bkg_stddev.contents > 0)
+                #    & np.isfinite(total_e_flux.contents)
+                #    & np.isfinite(total_e_bkg_stddev.contents)
+                # )
+                # total_e_energy_quality_mask[total_e_good_idx] = 1
 
                 # make the intermediate images to do operations with
                 if count == 0:
@@ -634,9 +634,9 @@ class BatSkyView(object):
                     interm_flux_hist = flux_hist * interm_inv_var_hist
 
                     # testing for the energy integrated mosaicing
-                    total_e_interim_inv_var_hist = (1 / (
-                            total_e_bkg_stddev * total_e_bkg_stddev)) * total_e_energy_quality_mask
-                    total_e_interim_flux_hist = total_e_flux * total_e_interim_inv_var_hist
+                    # total_e_interim_inv_var_hist = (1 / (
+                    #        total_e_bkg_stddev * total_e_bkg_stddev)) * total_e_energy_quality_mask
+                    # total_e_interim_flux_hist = total_e_flux * total_e_interim_inv_var_hist
 
 
                 else:
@@ -647,10 +647,10 @@ class BatSkyView(object):
                     interm_flux_hist += flux_hist * temp_interm_inv_var_hist
 
                     # testing for the energy integrated mosaicing
-                    temp_total_e_interim_inv_var_hist = (1 / (
-                            total_e_bkg_stddev * total_e_bkg_stddev)) * total_e_energy_quality_mask
-                    total_e_interim_flux_hist += total_e_flux * temp_total_e_interim_inv_var_hist
-                    total_e_interim_inv_var_hist += temp_total_e_interim_inv_var_hist
+                    # temp_total_e_interim_inv_var_hist = (1 / (
+                    #        total_e_bkg_stddev * total_e_bkg_stddev)) * total_e_energy_quality_mask
+                    # total_e_interim_flux_hist += total_e_flux * temp_total_e_interim_inv_var_hist
+                    # total_e_interim_inv_var_hist += temp_total_e_interim_inv_var_hist
 
             tmin = u.Quantity(tstart).min()
             tmax = u.Quantity(tstop).max()
@@ -678,23 +678,26 @@ class BatSkyView(object):
                                      exposure_img=tot_exposure)
 
             # testing for the energy integrated mosaicing
-            total_e_interm_flux = BatSkyImage(
-                image_data=Histogram([t_ax, hp_ax, total_e_energybin_ax], contents=total_e_interim_flux_hist.contents,
-                                     unit=total_e_interim_flux_hist.unit), is_mosaic_intermediate=True,
-                image_type="flux")
-            total_e_interm_inv_var = BatSkyImage(
-                image_data=Histogram([t_ax, hp_ax, total_e_energybin_ax],
-                                     contents=total_e_interim_inv_var_hist.contents,
-                                     unit=total_e_interim_inv_var_hist.unit), is_mosaic_intermediate=True,
-                image_type=None)
+            # total_e_interm_flux = BatSkyImage(
+            #    image_data=Histogram([t_ax, hp_ax, total_e_energybin_ax], contents=total_e_interim_flux_hist.contents,
+            #                         unit=total_e_interim_flux_hist.unit), is_mosaic_intermediate=True,
+            #    image_type="flux")
+            # total_e_interm_inv_var = BatSkyImage(
+            #    image_data=Histogram([t_ax, hp_ax, total_e_energybin_ax],
+            #                         contents=total_e_interim_inv_var_hist.contents,
+            #                         unit=total_e_interim_inv_var_hist.unit), is_mosaic_intermediate=True,
+            #    image_type=None)
 
-            test_total_e_mosaic = BatSkyView(interim_sky_img=total_e_interm_flux,
-                                             interim_var_img=total_e_interm_inv_var, pcode_img=pcode,
-                                             exposure_img=tot_exposure)
+            # test_total_e_mosaic = BatSkyView(interim_sky_img=total_e_interm_flux,
+            #                                 interim_var_img=total_e_interm_inv_var, pcode_img=pcode,
+            #                                 exposure_img=tot_exposure)
 
-            return test_mosaic, test_total_e_mosaic
+            return test_mosaic  # , test_total_e_mosaic
         else:
             raise NotImplementedError("Adding Sky Images with the template sky facets is not yet implemented.")
 
     def __radd__(self, other):
+        return self.__add__(other)
+
+    def __iadd__(self, other):
         return self.__add__(other)
