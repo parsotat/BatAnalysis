@@ -540,7 +540,8 @@ class BatSkyView(object):
 
         We verified the mosaicing by doing the mosaicing over the preslew time period and comparing the healpix SNR to
         that of the normal DPI and sky image for the preconstructed preslew image projected into a healpix map. We found
-        approximately the same value
+        approximately the same value. When we increase the mosaiced healpix_nsides to 512, we get the SNR of the mosaic to be
+        about the same as the sky image from the dpi, without it being projected to healpix.
 
         :param other:
         :return:
@@ -716,6 +717,10 @@ class BatSkyView(object):
 
             test_mosaic = BatSkyView(interim_sky_img=interm_flux, interim_var_img=interm_inv_var, pcode_img=pcode,
                                      exposure_img=tot_exposure)
+
+            # make sure that these attributes are set correctly for the mosaic skyview
+            test_mosaic.healpix_nside = nsides
+            test_mosaic.healpix_coordsys = coordsys
 
             # testing for the energy integrated mosaicing
             # total_e_interm_flux = BatSkyImage(
