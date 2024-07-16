@@ -58,7 +58,7 @@ class BatDPI(DetectorPlaneHistogram):
         :param event_file: None or path object of the event file that will be rebinned in a call to heasoftpy batbinevt
         :param detector_quality_file: Path object for the detector quality mask that was constructed for the associated
             event file
-        :param event_data: None or Event data dictionary or event data class (to be created)
+        :param event_data: None or TimeTaggedEvents class that has been initialized with event data
         :param input_dict: None or a dict of values that will be passed to batbinevt in the creation of the DPI.
             If a DPI is being read in from one that was previously created, the prior parameters that were used to
             calculate the DPI will be read in.
@@ -496,12 +496,12 @@ class BatDPI(DetectorPlaneHistogram):
             the is_relative parameter should be True. If this parameter is passed in, then it supercedes the values of
             tmin and tmax.
         :param tmin: astropy.units.Quantity denoting the minimum values of the timebin edges that the user would like
-            the lightcurve to be binned into. Units will usually be in seconds for this. The values can be relative to
-            the specified T0. If so, then the T0 needs to be specified andthe is_relative parameter should be True.
+            the DPI to be binned into. Units will usually be in seconds for this. The values can be relative to
+            the specified T0. If so, then the T0 needs to be specified and the is_relative parameter should be True.
             NOTE: if the timebins parameter is passed in then anything passed into tmin/tmax is ignored
         :param tmax: astropy.units.Quantity denoting the maximum values of the timebin edges that the user would like
-            the lightcurve to be binned into. Units will usually be in seconds for this. The values can be relative to
-            the specified T0. If so, then the T0 needs to be specified andthe is_relative parameter should be True.
+            the DPI to be binned into. Units will usually be in seconds for this. The values can be relative to
+            the specified T0. If so, then the T0 needs to be specified and the is_relative parameter should be True.
             NOTE: if the timebins parameter is passed in then anything passed into tmin/tmax is ignored
         :param timebinalg: string that can be "uniform or "snr" to specify the type of timebinning algorithm we may want
             to specify for batbinevt (see related documentation: https://heasarc.gsfc.nasa.gov/ftools/caldb/help/batbinevt.html)

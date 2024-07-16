@@ -432,12 +432,12 @@ class BatDPH(DetectorPlaneHistogram):
             the is_relative parameter should be True. If this parameter is passed in, then it supercedes the values of
             tmin and tmax.
         :param tmin: astropy.units.Quantity denoting the minimum values of the timebin edges that the user would like
-            the lightcurve to be binned into. Units will usually be in seconds for this. The values can be relative to
-            the specified T0. If so, then the T0 needs to be specified andthe is_relative parameter should be True.
+            the DPH to be binned into. Units will usually be in seconds for this. The values can be relative to
+            the specified T0. If so, then the T0 needs to be specified and the is_relative parameter should be True.
             NOTE: if the timebins parameter is passed in then anything passed into tmin/tmax is ignored
         :param tmax: astropy.units.Quantity denoting the maximum values of the timebin edges that the user would like
-            the lightcurve to be binned into. Units will usually be in seconds for this. The values can be relative to
-            the specified T0. If so, then the T0 needs to be specified andthe is_relative parameter should be True.
+            the DPH to be binned into. Units will usually be in seconds for this. The values can be relative to
+            the specified T0. If so, then the T0 needs to be specified and the is_relative parameter should be True.
             NOTE: if the timebins parameter is passed in then anything passed into tmin/tmax is ignored
         :param timebinalg: string that can be "uniform or "snr" to specify the type of timebinning algorithm we may want
             to specify for batbinevt (see related documentation: https://heasarc.gsfc.nasa.gov/ftools/caldb/help/batbinevt.html)

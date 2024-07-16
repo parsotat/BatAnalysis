@@ -36,11 +36,11 @@ class BatSkyImage(Histogram):
 
     This hold data correspondent to BAT's view of the sky. This can be a flux map (sky image) created from a FFT
     deconvolution, a partial coding map, a significance map, or a background variance map. These can all be energy
-    dependent except for the partial coding map.
+    dependent including the partial coding map (though the partial coding map itself is independent of energy).
 
-    TODO: make this class compatible with mosaic-ed data, have it hold the fluxes, etc but also the intermediate
-        calculated fluxes etc that allow for quick/easy calculations of mosaic images. Also need to add projection
-        to see if when doing projections in energy that we add up the intermediate mosaic images appropriately.
+    This class can also hold information related to a mosaiced image such as the intermediate images or the final
+    transformed images.
+
     """
 
     @u.quantity_input(
@@ -67,25 +67,54 @@ class BatSkyImage(Histogram):
     ):
         """
         This class is meant to hold images of the sky that have been created from a deconvolution of the BAT DPI with
-        the coded mask. The sky data can represent flux as a function of energy, background variance as a function of
+        the coded mask. The sky data can represent flux as a function of energy, background stddev as a function of
         energy, the significance map as a function of energy, and the partial coding map.
 
-        This class holds an image for a single time bin for simplicity.
+        This class holds an image for a single time bin for simplicity. Since this class is generally written to hold
+        sky images that can be fluxes, background stddev, signal to noise ratios, etc, the direct summation of energy 
+        binned quantities to produce energy integrated quantities are not always valid. ie flux in different energy bins
+        can be added directly but the background stddev in each energy bin has to be added in quadrature. To account for
+        these differences, the user must specify what type of image the object contains. This has to be a string 
+        correspondent to one of the following: "flux", "pcode", "snr", "stddev", "exposure"
 
-        :param image_data:
-        :param timebins:
-        :param tmin:
-        :param tmax:
-        :param energybins:
-        :param emin:
-        :param emax:
-        :param weights:
+        :param image_data: None or, a numpy array, an astropy Quantity array, or a Histogram object. If a numpy array is passed
+            in the units will be assumed to be counts. If a Quantity array or a Histogram is passed in then the
+            units will be obtained from those objects. If a Histogram object is passed in, the time, space, and energy
+            axes will be inherited from the Histogram and passing in other parameters to initalize a BatSkyImage will be
+            ignored.
+        :param timebins: None or an astropy Quantity array with the timebin edges that define the timebinning of the image_data
+            that is passed in.
+            NOTE: if a Histogram object is passed in for image_data, then anything passed into this parameter is ignored
+        :param tmin: None or an astropy.units.Quantity denoting the minimum values of the timebin edges that the image_data was
+            binned with respect to.
+            NOTE: if the timebins parameter is passed in then anything passed into tmin/tmax is ignored
+            NOTE: if a Histogram object is passed in for image_data, then anything passed into this parameter is ignored
+        :param tmax: None or an astropy.units.Quantity denoting the maximum values of the timebin edges that the image_data was
+            binned with respect to.
+            NOTE: if the timebins parameter is passed in then anything passed into tmin/tmax is ignored
+            NOTE: if a Histogram object is passed in for image_data, then anything passed into this parameter is ignored
+        :param energybins: None or an astropy Quantity object outlining the energy bin edges that the sky image has been binned into
+        :param emin: None or an an astropy.unit.Quantity object of 1 or more elements. These are the minimum edges of the
+            energy bins that the sky image has been binned into.
+            NOTE: If the energybins is specified, the emin/emax parameters are ignored.
+            NOTE: if a Histogram object is passed in for image_data, then anything passed into this parameter is ignored
+        :param emax: None or an an astropy.unit.Quantity object of 1 or more elements. These are the minimum edges of the
+            energy bins that the sky image has been binned into.
+            NOTE: If the energybins is specified, the emin/emax parameters are ignored.
+            NOTE: if a Histogram object is passed in for image_data, then anything passed into this parameter is ignored
+        :param weights: None or a numpy array with the same shape as image_data that defines the weight in each pixel
+            of the sky image
+        :param wcs: None or an astropy WCS object that defines the world coordinate system for the BAtSkyImage
+        :param is_mosaic_intermediate: Boolean to denote if this BatSkyImage object contains intermediate mosaic images.
+            This helps with defining how projections are done in energy. 
+        :param image_type: string to denote the type of image that is contained in the object. This is necessary 
+            information to define how projections in energy are done in the BatSkyImage. 
         """
 
         # do some error checking
         if image_data is None:
             raise ValueError(
-                "A numpy array of a Histpy.Histogram needs to be passed in to initalize a BatSkyImage object"
+                "A numpy array or a Histpy.Histogram needs to be passed in to initalize a BatSkyImage object"
             )
 
         if image_type is not None:
@@ -97,7 +126,7 @@ class BatSkyImage(Histogram):
         if wcs is None:
             warnings.warn(
                 "No astropy World Coordinate System has been specified the sky image is assumed to be in the detector "
-                "tangent plane. No conversion to Healpix will be possible",
+                "tangent plane. No conversion to Healpix or RA/Dec & galactic coordinate systems will be possible.",
                 stacklevel=2,
             )
         else:
@@ -226,13 +255,13 @@ class BatSkyImage(Histogram):
 
         COPIED from DetectorPlaneHist class, can be organized better.
 
-        :param histogram_data: None or histpy Histogram or a numpy array of N dimensions. Thsi should be formatted
+        :param histogram_data: None or histpy Histogram or a numpy array of N dimensions. This should be formatted
             such that it has the following dimensions: (T,Ny,Nx,E) where T is the number of timebins, Ny is the
             number of image pixels in the y direction, Nx represents an identical
             quantity in the x direction, and E is the number of energy bins. These should be the appropriate sizes for
             the tbins and ebins attributes
-        :param event_data: None or Event data dictionary or event data class (to be created)
-        :param weights: None or the weights of the same size as event_data or histogram_data
+        :param event_data: None or TimeTaggedEvents class that has been initialized with event data (Not used currently)
+        :param weights: None or the weights with the same size as event_data or histogram_data
         :return: None
         """
 
@@ -309,11 +338,15 @@ class BatSkyImage(Histogram):
 
     def healpix_projection(self, coordsys="galactic", nside=128):
         """
-        This creates a healpix projection of the image. The dimension of the array is
+        This creates a healpix projection of the image. This currently works for going from the batfftimage sky pixel to
+        the healpix projection.
 
-        :param coordsys:
-        :param nside:
-        :return:
+        TODO: how to deal with having a sky image that is a healpix projection and wanting to change that
+            healpix projection resolution? What about changing the coord sys?
+
+        :param coordsys: str defining the coordinate system of the output healpix map. This can be "galactic" or "icrs"
+        :param nside: int representing the resolution of the healpix map
+        :return: a BatSkyImage object with the healpix projection of the original sky image
         """
         if "HPX" not in self.axes.labels:
 
@@ -358,10 +391,16 @@ class BatSkyImage(Histogram):
 
     def calc_radec(self):
         """
+        Calculates the RA/Dec from the sky image pixels using the associated WCS that was passed in.
+        The units are degrees. The shapes are the same as that of the sky image.
 
-        :return:
+        :return: ra, dec
         """
         from .mosaic import convert_xy2radec
+
+        if self.wcs is None:
+            raise ValueError(
+                "Cannot convert from the sky image pixel coordinates to RA/Dec without the WCS information.")
 
         x = np.arange(self.axes["IMX"].nbins)
         y = np.arange(self.axes["IMY"].nbins)
@@ -375,9 +414,14 @@ class BatSkyImage(Histogram):
 
     def calc_glatlon(self):
         """
+        Calculates the galatic latitude/longitude from the sky image pixels using the associated WCS that was passed in.
+        The units are degrees. The shapes are the same as that of the sky image.
 
-        :return:
+        :return:galactic latitude, galactic longitude
         """
+        if self.wcs is None:
+            raise ValueError(
+                "Cannot convert from the sky image pixel coordinates to galactic coordinates without the WCS information.")
 
         ra, dec = self.calc_radec()
 
@@ -394,14 +438,27 @@ class BatSkyImage(Histogram):
         TODO: consider if the image is already a healpix projection with some nside and the user wants to plot with a
             different nside value
 
-        :param emin:
-        :param emax:
-        :param tmin:
-        :param tmax:
-        :param projection:
-        :param coordsys:
-        :param nside:
-        :return:
+        :param emin: None or an astropy Quantity object that defines the minimum energy range of the sky image
+            that will be plotted. If this is None, it will default to the minimum energy defined in the sky image itself.
+        :param emax: None or an astropy Quantity object that defines the maximum energy range of the sky image
+            that will be plotted. If this is None, it will default to the maximum energy defined in the sky image itself.
+        :param tmin: None or an astropy Quantity object that defines the minimum time range of the sky image
+            that will be plotted. If this is None, it will default to the minimum time defined in the sky image itself.
+            NOTE: This parameter currently does not do anything as sky images only hold images for a single timebin
+        :param tmax: None or an astropy Quantity object that defines the maximum time range of the sky image
+            that will be plotted. If this is None, it will default to the maximum time defined in the sky image itself.
+            NOTE: This parameter currently does not do anything as sky images only hold images for a single timebin
+        :param projection: None or a string that denotes if the plotted sky image should be reprojected onto a healpix map
+            of a plot with ra/dec coordinates. This is only possible if the sky image is that of
+            the sky pixel values (direct from batfftimage) The accepted
+            strings are: "healpix" or "ra/dec". If None is passed in then the projection will be that of the sky image
+            itself. ie if the sky image is already in a healpix map, that is the projection that will be plotted.
+        :param coordsys: string denoting if the galactic or icrs coordinate system should be used for a healpix map.
+            Valid options for this parameter are "galactic" and "icrs"
+        :param nside: if projection="healpix", then this defines the healpix projection's resolution. If the sky image
+            that is being plotted is already a healpix projection then this parameter does nothing and the native
+            healpix resolution of the sky image is used.
+        :return: (matplotlib axis object, matplotlib Quadmesh object) or just the matplotlib Quadmesh object
         """
 
         # do some error checking
@@ -527,9 +584,14 @@ class BatSkyImage(Histogram):
     @classmethod
     def from_file(cls, file):
         """
+        This convenience class method allows a pre-constructed sky image to be read in and used to construct a new
+        BatSkyImage object. This method can currently process images that have these extension header
+        names: "image", "pcode", "signif", "varmap"
+
         TODO: be able to parse the skyfacet files for mosaicing images
-        :param file:
-        :return:
+        
+        :param file: string of Path object to the sky image file that will be processed
+        :return: BatSkyImage object
         """
 
         input_file = Path(file).expanduser().resolve()
@@ -651,7 +713,7 @@ class BatSkyImage(Histogram):
 
     def project(self, *axis):
         """
-        This overwrites the parent class project method.
+        This overwrites the Histogram class' project method.
             1) If we have a non-intermediate-mosaic background stddev/snr image, we need to add quantities in quadrature
                 instead of just adding the energy bins.
             2) If we have a mosaic intermediate image or a flux image, we can just add directly and calls the Histogram
@@ -660,8 +722,8 @@ class BatSkyImage(Histogram):
                 want to return a slice of the Histogram (if there is more than 1 energy)
             4) If "ENERGY" is a value specified in axes, then we dont need to worry about any of this
         
-        :param axis: 
-        :return: 
+        :param axis: gets passed into the Histogram project method.
+        :return: Histogram object with the proper projection done and the axes that were requested
         """
 
         # if energy is not specified as a remaining axis OR if there is only 1 energy bin then we dont need to worry
