@@ -26,17 +26,20 @@ class TimeTaggedEvents(object):
             mask_weight=None,
     ):
         """
-        This initalizes the TimeTaggedEvent class and allows for the data to be accessed easily.
+        This initalizes the TimeTaggedEvent class and allows for event data to be accessed easily.
 
-        :param times:
-        :param detector_id:
-        :param detx:
-        :param dety:
-        :param quality_flag:
-        :param energy:
-        :param pulse_height_amplitude:
-        :param pulse_invariant:
-        :param mask_weight:
+        All attributes must be initalized and kept together here. They should all be astropy Quantity arrays with the
+        units appropriately set for each quantity. This should be taken care of by the user.
+
+        :param times: The MET times of each measured photon
+        :param detector_id: The detector ID where each photon was measured
+        :param detx: The detector X pixel where the photon was measured
+        :param dety: The detector Y pixel where the photon was measured
+        :param quality_flag: The quality flag for each measured photon
+        :param energy: The gain/offset corrected energy of each measured photon
+        :param pulse_height_amplitude: The pulse height amplitude of each measured photon
+        :param pulse_invariant: The pulse invariant of each measured photon
+        :param mask_weight: The mask weighting that may apply to each photon. Can be set to None to ignore mask weighting
         """
 
         self.time = times
