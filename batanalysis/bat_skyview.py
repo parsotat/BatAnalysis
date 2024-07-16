@@ -538,6 +538,10 @@ class BatSkyView(object):
             2) a reprojection onto the skyfacets taking the partial coding, the variance weighting, the off-axis
                 corrections into account
 
+        We verified the mosaicing by doing the mosaicing over the preslew time period and comparing the healpix SNR to
+        that of the normal DPI and sky image for the preconstructed preslew image projected into a healpix map. We found
+        approximately the same value
+
         :param other:
         :return:
         """
@@ -567,6 +571,19 @@ class BatSkyView(object):
                 # need to id the max when we can have None as one of the values in the array
                 nsides = np.nanmax(np.array(nsides, dtype=np.float64))
 
+            # try to choose between a healpix projection's coord sys  incase there are 2 different one that are
+            # specified. By default use the one that the potential mosaic image uses
+            is_mosaic = [i.is_mosaic for i in [self, other]]
+            if np.any(is_mosaic):
+                # id the mosaic's healpix coord sys
+                if is_mosaic[0]:
+                    coordsys = self.healpix_coordsys
+                else:
+                    coordsys = other.healpix_coordsys
+            else:
+                # choose the first one, seof
+                coordsys = self.healpix_coordsys
+
             # now create the histograms that we need to do the calculations, need flux and std dev to be in units of cts/s
             exposure = []
             tstart = []
@@ -584,13 +601,13 @@ class BatSkyView(object):
                 # all the associated inverse variance weighting calculations all over again. Can just get those images
                 # via the appropriate attributes.
                 if not i.is_mosaic:
-                    flux_hist = i.sky_img.healpix_projection(coordsys=self.healpix_coordsys,
-                                                             nside=self.healpix_nside).project("HPX", "ENERGY")
-                    pcode_hist = i.pcode_img.healpix_projection(coordsys=self.healpix_coordsys,
-                                                                nside=self.healpix_nside).project("HPX", "ENERGY")
-                    bkg_stddev_hist = i.bkg_stddev_img.healpix_projection(coordsys=self.healpix_coordsys,
-                                                                          nside=self.healpix_nside).project("HPX",
-                                                                                                            "ENERGY")
+                    flux_hist = i.sky_img.healpix_projection(coordsys=coordsys,
+                                                             nside=nsides).project("HPX", "ENERGY")
+                    pcode_hist = i.pcode_img.healpix_projection(coordsys=coordsys,
+                                                                nside=nsides).project("HPX", "ENERGY")
+                    bkg_stddev_hist = i.bkg_stddev_img.healpix_projection(coordsys=coordsys,
+                                                                          nside=nsides).project("HPX",
+                                                                                                "ENERGY")
 
                     exposure_hist = Histogram(flux_hist.axes,
                                               contents=flux_hist.contents.value * 0 + i.sky_img.exposure.value,
@@ -677,7 +694,7 @@ class BatSkyView(object):
             tmin = u.Quantity(tstart).min()
             tmax = u.Quantity(tstop).max()
             energybin_ax = self.sky_img.axes["ENERGY"]
-            hp_ax = HealpixAxis(nside=self.healpix_nside, coordsys=self.healpix_coordsys, label="HPX")
+            hp_ax = HealpixAxis(nside=nsides, coordsys=coordsys, label="HPX")
             t_ax = Axis(u.Quantity([tmin, tmax]), label="TIME")
 
             # create the SkyImages for each quantity

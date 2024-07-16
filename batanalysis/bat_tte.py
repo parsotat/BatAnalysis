@@ -1072,7 +1072,6 @@ class BatEvent(BatObservation, TimeTaggedEvents):
                    is_relative=False,
                    energybins=[15, 350] * u.keV,
                    recalc=False,
-                   mask_weighting=True,
                    ):
         """
         This method creates and returns a detector plane image.
@@ -1087,7 +1086,7 @@ class BatEvent(BatObservation, TimeTaggedEvents):
         dpi_list = []
         for start, end, i in zip(tstart, tstop, range(len(tstart))):
             dpi = BatDPI(dpi_dir.joinpath(f"t_{start.value}-{end.value}_{nebin}chan.dpi"), event_file=self.event_files,
-                         detector_quality_file=self.detector_quality_file)
+                         detector_quality_file=self.detector_quality_file, recalc=recalc)
 
             dpi.set_timebins(tmin=start, tmax=end, is_relative=is_relative, T0=T0)
             dpi.set_energybins(energybins=energybins)
