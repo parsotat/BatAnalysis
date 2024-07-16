@@ -13,6 +13,8 @@ import numpy as np
 from histpy import Histogram
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
+from .bat_tte import TimeTaggedEvents
+
 try:
     import heasoftpy as hsp
 except ModuleNotFoundError as err:
@@ -65,7 +67,7 @@ class DetectorPlaneHistogram(Histogram):
         det_x_edges and det_y_edges.
 
 
-        :param event_data: None or Event data dictionary or event data class (to be created)
+        :param event_data: None or TimeTaggedEvents class
         :param histogram_data: None or histpy Histogram or a numpy array of N dimensions. Thsi should be formatted
             such that it has the following dimensions: (T,Ny,Nx,E) where T is the number of timebins, Ny is the
             number of detectors in the y direction see the det_x_edges class attribute, Nx represents an identical
@@ -75,9 +77,9 @@ class DetectorPlaneHistogram(Histogram):
         :param tmax: None or an astropy Quantity array of the end timebin edges, should be length T in size
         :param energybins: None or an astropy Quantity array of the continuous energy bin edges, should be size E+1
             in size
-        :param emin: None or an or an astropy Quantity array of the beginning of the energy bins
-        :param emax: None or an or an astropy Quantity array of the end of the energy bins
-        :param weights: None or the weights of the same size as event_data or histogram_data
+        :param emin: None or an astropy Quantity array of the beginning of the energy bins
+        :param emax: None or an astropy Quantity array of the end of the energy bins
+        :param weights: None or the weights of the same size as data contained in the event_data class or histogram_data
         """
 
         # do some error checking
@@ -95,6 +97,10 @@ class DetectorPlaneHistogram(Histogram):
 
         # determine the type of data that we have
         if event_data is not None:
+            # make sure that it is a TimeTaggedEvents class
+            if not isinstance(event_data, TimeTaggedEvents):
+                raise ValueError("The passed in event_data needs to be an instance of the TimeTaggedEvents class.")
+
             parse_data = deepcopy(event_data)
             self._passed_data = "event"
             self._event_data = parse_data
@@ -110,7 +116,7 @@ class DetectorPlaneHistogram(Histogram):
         if timebins is None and tmin is None and tmax is None:
             if event_data is not None:
                 timebin_edges = u.Quantity(
-                    [event_data["TIME"].min(), event_data["TIME"].max()]
+                    [event_data.time.min(), event_data.time.max()]
                 )
             else:
                 if not isinstance(histogram_data, Histogram):
@@ -157,7 +163,7 @@ class DetectorPlaneHistogram(Histogram):
         if energybins is None and emin is None and emax is None:
             if event_data is not None:
                 energybin_edges = u.Quantity(
-                    [event_data["ENERGY"].min(), event_data["ENERGY"].max()]
+                    [event_data.energy.min(), event_data.energy.max()]
                 )
             else:
                 if not isinstance(histogram_data, Histogram):
@@ -248,8 +254,8 @@ class DetectorPlaneHistogram(Histogram):
             number of detectors in the y direction see the det_x_edges class attribute, Nx represents an identical
             quantity in the x direction, and E is the number of energy bins. These should be the appropriate sizes for
             the tbins and ebins attributes
-        :param event_data: None or Event data dictionary or event data class (to be created)
-        :param weights: None or the weights of the same size as event_data or histogram_data
+        :param event_data: None or TimeTaggedEvents class
+        :param weights: None or the weights of the same size as data contained in event_data or histogram_data
         :return: None
         """
 
@@ -303,10 +309,10 @@ class DetectorPlaneHistogram(Histogram):
                 unit=u.count,
             )
             self.fill(
-                event_data["TIME"],
-                event_data["DETY"].value,
-                event_data["DETX"].value,
-                event_data["ENERGY"],
+                event_data.time,
+                event_data.dety.value,
+                event_data.detx.value,
+                event_data.energy,
                 weight=weights,
             )
 
@@ -404,8 +410,8 @@ class DetectorPlaneHistogram(Histogram):
         else:
             # for event data just make sure that the time intervals are within the event data times
             idx = np.where(
-                (self.tbins["TIME_START"] > self._event_data["TIME"].min())
-                & (self.tbins["TIME_STOP"] <= self._event_data["TIME"].max())
+                (self.tbins["TIME_START"] > self._event_data.time.min())
+                & (self.tbins["TIME_STOP"] <= self._event_data.time.max())
             )
             self.gti["TIME_START"] = self.tbins["TIME_START"][idx]
             self.gti["TIME_STOP"] = self.tbins["TIME_STOP"][idx]

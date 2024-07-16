@@ -80,7 +80,7 @@ class TimeTaggedEvents(object):
         self.detector_chan = channel
 
 
-class BatEvent(BatObservation, TimeTaggedEvents):
+class BatEvent(BatObservation):
     def __init__(
             self,
             obs_id,
