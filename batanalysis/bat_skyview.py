@@ -31,7 +31,6 @@ class BatSkyView(object):
     energy or time bins. We can also handle the projection of the image onto a healpix map.
 
     TODO: create a python FFT deconvolution. This primarily relies on the batfftimage to create the data.
-    TODO: make class compatible with mosaiced skyview
     """
 
     def __init__(
@@ -245,8 +244,8 @@ class BatSkyView(object):
         :param input_dict: Dictionary of inputs that will be passed to heasoftpy's batfftimage
         :return: heasoftpy Result object from batfftimage
 
-        :param input_dict:
-        :return:
+        :param input_dict: dictionary of key/value pairs that will be passed to batfftimage
+        :return: heasoft result object
         """
 
         input_dict["clobber"] = "YES"
@@ -380,10 +379,18 @@ class BatSkyView(object):
 
     @property
     def pcodeimg_file(self):
+        """
+        The file that contains the partial coding image associated with the BatSkyView
+
+        :return: Path
+        """
         return self._pcodeimg_file
 
     @pcodeimg_file.setter
     def pcodeimg_file(self, value):
+        # if the user is setting this value, want to make sure that it exists and that we are not containing a mosaic
+        # pcode file. Then we reparse all the images. This is inefficient, can just read in the pcode file but that is a
+        # future TODO.
         if value is not None:
             temp_value = Path(value).expanduser().resolve()
             if temp_value.exists() and not self.is_mosaic:
@@ -396,10 +403,18 @@ class BatSkyView(object):
 
     @property
     def projection(self):
+        """
+        The type of projection that should be used when added to another BatSkyImage. Can be None of "healpix"
+
+        :return: str
+        """
         return self._projection
 
     @projection.setter
     def projection(self, value):
+        # this helps set the addition of the sky images and creation of the mosaiced images. None means that
+        # we will be using the "traditional" sky facets, while "healpix" means that we will be projecting everything
+        # onto the healpix map
         if value is not None and "healpix" not in value:
             raise ValueError("The projection attribute can only be set to None or healpix.")
 
@@ -407,10 +422,18 @@ class BatSkyView(object):
 
     @property
     def healpix_nside(self):
+        """
+        When projection is set to "healpix" this defines the healpix map resolution for the addition of the sky views
+        once they are projected onto the healpix map.
+
+        :return: int
+        """
         return self._healpix_nside
 
     @healpix_nside.setter
     def healpix_nside(self, value):
+        # need to make sure that the projection is actually set to healpix for this attribute to mean anything
+        # when it is set, it defines the healpix map resolution that the sky images will be projected to and then added
         if self.projection is not None and "healpix" not in self.projection:
             raise ValueError("The projection attribute needs to be set to healpix before healpix_nside can be set.")
 
@@ -418,10 +441,18 @@ class BatSkyView(object):
 
     @property
     def healpix_coordsys(self):
+        """
+        When projection is set to "healpix" this defines the healpix map's coordinate system that will be used to add
+        the BatSkyView objects. This can be set to "galactic" or "icrs"
+
+        :return: str
+        """
         return self._healpix_coordsys
 
     @healpix_coordsys.setter
     def healpix_coordsys(self, value):
+        # need to make sure that the projection is actually set to healpix for this attribute to mean anything
+        # when this is set, it will define the coordinate system of the healpix map
         if self.projection is not None and "healpix" not in self.projection:
             raise ValueError("The projection attribute needs to be set to healpix before healpix_coordsys can be set.")
 
@@ -430,10 +461,11 @@ class BatSkyView(object):
     @classmethod
     def from_file(cls, skyimg_file, pcodeimg_file=None):
         """
+        This class method allows a user to load in a sky flux map and an associated partial coding image.
 
-        :param skyimg_file:
-        :param pcodeimg_file:
-        :return:
+        :param skyimg_file: Path to the flux sky image that will be loaded in
+        :param pcodeimg_file: None or a Path to the partial coding image associated with the flux sky image file
+        :return: BatSkyView object
         """
 
         skyview = cls(skyimg_file=skyimg_file)
@@ -443,10 +475,28 @@ class BatSkyView(object):
 
     def detect_sources(self, catalog_file=None, input_dict=None):
         """
+        This method allows for the detection of any source in the BatSkyView, using batcelldetect.
 
-        :param catalog_file:
-        :param input_dict:
-        :return:
+        There must be a partial coding image file specified via the pcodeimg_file attribute in order to detect sources.
+        An output catalog of all the sources and their information including counts, SNR, etc are created.
+
+        TODO: add support for healpix/mosaic projections of sky images
+
+        :param catalog_file: None or a Path pointing to a input catalog file that will be passed to batcelldetect to
+            identify any known or unknown sources. None will lead to the method using the survey catalog file that is
+            included in the BatAnalysis python package.
+        :param input_dict: None or a dictionary or key/value pairs that will be passed to batcelldetect. If a value of
+            None is passed in the following dictionary will be passed to batcelldetect:
+                self.src_detect_input_dict["outfile"] = self.skyimg_file.parent.joinpath(f"{self.skyimg_file.stem}.cat")
+                self.src_detect_input_dict["regionfile"] = self.skyimg_file.parent.joinpath(f"{self.skyimg_file.stem}.reg")
+                self.src_detect_input_dict["infile"] = str(self.skyimg_file)
+                self.src_detect_input_dict["incatalog"] = str(catalog_file)
+                self.src_detect_input_dict["pcodefile"] = str(self.pcodeimg_file)
+                self.src_detect_input_dict["snrthresh"] = 6
+                self.src_detect_input_dict["pcodethresh"] = 0.05
+                self.src_detect_input_dict["vectorflux"] = "YES"
+
+        :return: None
         """
 
         if self.is_mosaic and "HPX" in self.sky_img.axes.labels:
@@ -497,6 +547,14 @@ class BatSkyView(object):
 
     @property
     def sky_img(self):
+        """
+        The flux sky image. If the BatSkyView contains a mosaic sky view, this value will be calculated on the fly.
+
+        TODO: calculate this value once, if is_mosaic==True so if the user accesses this property many times we dont
+            waste time/memory recalculating.
+
+        :return: BatSkyImage
+        """
         if self.is_mosaic:
             return BatSkyImage(image_data=self.interim_sky_img / self.interim_var_img, image_type="flux")
         else:
@@ -508,6 +566,15 @@ class BatSkyView(object):
 
     @property
     def bkg_stddev_img(self):
+        """
+        The background standard deviation sky image. If the BatSkyView contains a mosaic sky view, this value will be calculated on the fly.
+
+        TODO: calculate this value once, if is_mosaic==True so if the user accesses this property many times we dont
+            waste time/memory recalculating.
+
+        :return: BatSkyImage
+        """
+
         if self.is_mosaic:
             return BatSkyImage(
                 image_data=Histogram(self.interim_var_img.axes, contents=1 / np.sqrt(self.interim_var_img),
@@ -521,6 +588,15 @@ class BatSkyView(object):
 
     @property
     def snr_img(self):
+        """
+        The SNR sky image. If the BatSkyView contains a mosaic sky view, this value will be calculated on the fly.
+
+        TODO: calculate this value once, if is_mosaic==True so if the user accesses this property many times we dont
+            waste time/memory recalculating. 
+
+        :return: BatSkyImage
+        """
+
         if self.is_mosaic:
             return BatSkyImage(image_data=self.sky_img / self.bkg_stddev_img, image_type="snr")
         else:
@@ -543,8 +619,8 @@ class BatSkyView(object):
         approximately the same value. When we increase the mosaiced healpix_nsides to 512, we get the SNR of the mosaic to be
         about the same as the sky image from the dpi, without it being projected to healpix.
 
-        :param other:
-        :return:
+        :param other: BatSkyView
+        :return: BaSkyView
         """
         # make sure that we are adding 2 skyviews
         if not isinstance(other, type(self)):
