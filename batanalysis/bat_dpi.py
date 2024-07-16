@@ -405,10 +405,13 @@ class BatDPI(DetectorPlaneHistogram):
         """
 
         NOTE: This is copied from the BatDPH class, this can be done better
-        :param energybins:
-        :param emin:
-        :param emax:
-        :return:
+        :param energybins: astropy Quantity object outlining the energy bin edges that the DPI will be binned into
+        :param emin: an astropy.unit.Quantity object of 1 or more elements. These are the minimum edges of the
+            energy bins that the user would like. NOTE: If emin/emax are specified, the energybins parameter is ignored.
+        :param emax: an astropy.unit.Quantity object of 1 or more elements. These are the maximum edges of the
+            energy bins that the user would like. It shoudl have the same number of elements as emin.
+            NOTE: If emin/emax are specified, the energybins parameter is ignored.
+        :return: None
         """
 
         if self.event_file is None:

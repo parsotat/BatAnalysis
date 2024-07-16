@@ -73,7 +73,7 @@ class TimeTaggedEvents(object):
         self.mask_weight = mask_weight
 
         # get the block/DM/sandwich/channel info
-        block, dm, side, channel = decompose_det_id(self.data["DET_ID"])
+        block, dm, side, channel = decompose_det_id(self.detector_id)
         self.detector_block = block
         self.detector_dm = dm
         self.detector_sand = side
@@ -416,26 +416,25 @@ class BatEvent(BatObservation, TimeTaggedEvents):
     def _parse_event_file(self):
         """
         This function reads in the data from the event file
-        :return:
+        :return: None
         """
 
-        self.data = {}
+        all_data = {}
         with fits.open(self.event_files) as file:
             data = file[1].data
             for i in data.columns:
-                self.data[i.name] = u.Quantity(data[i.name], i.unit)
+                all_data[i.name] = u.Quantity(data[i.name], i.unit)
 
-        TimeTaggedEvents.__init__(
-            self,
-            self.data["TIME"],
-            self.data["DET_ID"],
-            self.data["DETX"],
-            self.data["DETY"],
-            self.data["EVENT_FLAGS"],
-            self.data["ENERGY"],
-            self.data["PHA"],
-            self.data["PI"],
-            mask_weight=self.data["MASK_WEIGHT"],
+        self.data = TimeTaggedEvents(
+            all_data["TIME"],
+            all_data["DET_ID"],
+            all_data["DETX"],
+            all_data["DETY"],
+            all_data["EVENT_FLAGS"],
+            all_data["ENERGY"],
+            all_data["PHA"],
+            all_data["PI"],
+            mask_weight=all_data["MASK_WEIGHT"],
         )
 
     def load(self, f):

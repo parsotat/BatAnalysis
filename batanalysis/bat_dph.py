@@ -88,8 +88,8 @@ class BatDPH(DetectorPlaneHistogram):
         :param load_dir: Path of the directory that holds the DPH file that will be loaded in
         :param tmin: None or an astropy Quantity array of the beginning timebin edges
         :param tmax: None or an astropy Quantity array of the end timebin edges
-        :param emin: None or an or an astropy Quantity array of the beginning of the energy bins
-        :param emax: None or an or an astropy Quantity array of the end of the energy bins
+        :param emin: None or an astropy Quantity array of the beginning of the energy bins
+        :param emax: None or an astropy Quantity array of the end of the energy bins
         """
 
         if dph_file is not None:
@@ -341,6 +341,7 @@ class BatDPH(DetectorPlaneHistogram):
     @u.quantity_input(energybins=["energy"], emin=["energy"], emax=["energy"])
     def set_energybins(self, energybins=None, emin=None, emax=None):
         """
+
 
         :param energybins:
         :param emin:

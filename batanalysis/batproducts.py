@@ -380,10 +380,10 @@ class Lightcurve(BatObservation):
         :param energybins: a list or single string denoting the energy bins in keV that the lightcurve shoudl be binned into
             The string should be formatted as "15-25" where the dash is necessary. A list should be formatted as multiple
             elements of the strings, where none of the energy ranges overlap.
-        :param emin: a list or a astropy.unit.Quantity object of 1 or more elements. These are the minimum edges of the
+        :param emin: an astropy.unit.Quantity object of 1 or more elements. These are the minimum edges of the
             energy bins that the user would like. NOTE: If emin/emax are specified, the energybins parameter is ignored.
-        :param emax: a list or a astropy.unit.Quantity object of 1 or more elements. These are the maximum edges of the
-            energy bins that the user would like. It shoudl have the same number of elements as emin.
+        :param emax: an astropy.unit.Quantity object of 1 or more elements. These are the maximum edges of the
+            energy bins that the user would like. It should have the same number of elements as emin.
             NOTE: If emin/emax are specified, the energybins parameter is ignored.
         :param calc_energy_integrated: Boolean to denote wether the energy integrated light curve should be calculated
             based off the min and max energies that were passed in. If a single energy bin is requested for the rebinning
