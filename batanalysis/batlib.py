@@ -2499,6 +2499,9 @@ def decompose_det_id(detector_id):
      DetID = (2048 * Block) + (256 * DM) + (128 * Side) + (Channel).
      0 ≤ Block ≤ 15 ; 0 ≤ DM ≤ 7; 0 ≤ Side ≤ 1; 0 ≤ Channel ≤ 127.
 
+    :param detector_id: array or astropy quantity object with all the detector ids that a user wants to convert to
+        block, dm, side, and channel identifiers
+    :return: block, dm, side, channel
     """
 
     # get the value and make sure that we have an int16 number

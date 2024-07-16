@@ -666,8 +666,8 @@ class BatDPI(DetectorPlaneHistogram):
     def _create_custom_timebins(self, timebins, output_file=None):
         """
         This method creates custom time bins from a user defined set of time bin edges. The created fits file with the
-        timebins of interest will by default have the same name as the dpi file, however it will have a "gti" suffix instead of
-        a "dpi" suffix and it will be stored in the gti subdirectory of the event results directory.
+        timebins of interest will by default have the same name as the dpi file, however it will have a "gti" suffix
+        instead of a "dpi" suffix and it will be stored in the gti subdirectory of the event results directory.
 
         Note: This method is here so the call to create a gti file with custom timebins can be phased out eventually.
         NOTE: This is copied from the BatDPH class, this can be done better
