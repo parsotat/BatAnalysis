@@ -13,7 +13,7 @@ import numpy as np
 from histpy import Histogram
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
-from .bat_tte import TimeTaggedEvents
+from .tte_data import TimeTaggedEvents
 
 try:
     import heasoftpy as hsp
@@ -68,7 +68,7 @@ class DetectorPlaneHistogram(Histogram):
 
 
         :param event_data: None or TimeTaggedEvents class
-        :param histogram_data: None or histpy Histogram or a numpy array of N dimensions. Thsi should be formatted
+        :param histogram_data: None or histpy Histogram or a numpy array of N dimensions. This should be formatted
             such that it has the following dimensions: (T,Ny,Nx,E) where T is the number of timebins, Ny is the
             number of detectors in the y direction see the det_x_edges class attribute, Nx represents an identical
             quantity in the x direction, and E is the number of energy bins
