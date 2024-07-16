@@ -64,7 +64,7 @@ class BatDPH(DetectorPlaneHistogram):
         :param dph_file: None or Pathlib Path object for the full path to a DPH file that will be created with a call to heasoftpy's
             batbinevt
         :param event_file: None or path object of the event file that will be rebinned in a call to heasoftpy batbinevt
-        :param event_data: None or Event data dictionary or event data class (to be created)
+        :param event_data: None or TimeTaggedEvents class that has been initialized with event data
         :param input_dict: None or a dict of values that will be passed to batbinevt in the creation of the DPH.
             If a DPH is being read in from one that was previously created, the prior parameters that were used to
             calculate the DPH will be read in.
@@ -341,11 +341,14 @@ class BatDPH(DetectorPlaneHistogram):
     @u.quantity_input(energybins=["energy"], emin=["energy"], emax=["energy"])
     def set_energybins(self, energybins=None, emin=None, emax=None):
         """
+        This method allows for the dynamic rebinning of the DPH in energy.
 
-
-        :param energybins:
-        :param emin:
-        :param emax:
+        :param energybins: astropy Quantity object outlining the energy bin edges that the DPI will be binned into
+        :param emin: an astropy.unit.Quantity object of 1 or more elements. These are the minimum edges of the
+            energy bins that the user would like. NOTE: If emin/emax are specified, the energybins parameter is ignored.
+        :param emax: an astropy.unit.Quantity object of 1 or more elements. These are the maximum edges of the
+            energy bins that the user would like. It shoudl have the same number of elements as emin.
+            NOTE: If emin/emax are specified, the energybins parameter is ignored.
         :return:
         """
 
@@ -422,11 +425,33 @@ class BatDPH(DetectorPlaneHistogram):
     def set_timebins(self, timebins=None, tmin=None, tmax=None, timebinalg="uniform", T0=None, is_relative=False,
                      timedelta=np.timedelta64(1, 's')):
         """
+        This method allows for the dynamic rebinning of the DPH in time.
 
-        :param timebins:
-        :param tmin:
-        :param tmax:
-        :return:
+        :param timebins: astropy.units.Quantity denoting the array of time bin edges. Units will usually be in seconds
+            for this. The values can be relative to the specified T0. If so, then the T0 needs to be specified and
+            the is_relative parameter should be True. If this parameter is passed in, then it supercedes the values of
+            tmin and tmax.
+        :param tmin: astropy.units.Quantity denoting the minimum values of the timebin edges that the user would like
+            the lightcurve to be binned into. Units will usually be in seconds for this. The values can be relative to
+            the specified T0. If so, then the T0 needs to be specified andthe is_relative parameter should be True.
+            NOTE: if the timebins parameter is passed in then anything passed into tmin/tmax is ignored
+        :param tmax: astropy.units.Quantity denoting the maximum values of the timebin edges that the user would like
+            the lightcurve to be binned into. Units will usually be in seconds for this. The values can be relative to
+            the specified T0. If so, then the T0 needs to be specified andthe is_relative parameter should be True.
+            NOTE: if the timebins parameter is passed in then anything passed into tmin/tmax is ignored
+        :param timebinalg: string that can be "uniform or "snr" to specify the type of timebinning algorithm we may want
+            to specify for batbinevt (see related documentation: https://heasarc.gsfc.nasa.gov/ftools/caldb/help/batbinevt.html)
+            This is only relevant if the user  does not pass in any values for the timebins/tmin/tmax parameters.
+            In this case, the method will bin the DPHs starting from the start time of the event file to the end time
+            in the event file in time bin widths correspondent to the timedelta parameter below.
+            In the case where tmin/tmax is specified and they are single values, the default behavior is to create a
+            single DPH that is collected over the time interval specified by tmin/tmax.
+        :param T0: float or an astropy.units.Quantity object with some time of interest (eg trigger time)
+        :param is_relative: Boolean switch denoting if the T0 that is passed in should be added to the
+            timebins/tmin/tmax that were passed in.
+        :param timedelta: a numpy timedelta object that specifies the uniform/snr timebinning that may be used
+            if the timebinalg parameter is passed to batbinevt
+        :return: None
         """
 
         if type(is_relative) is not bool:
@@ -558,9 +583,11 @@ class BatDPH(DetectorPlaneHistogram):
         This method allows the user to save the rebinned DPH to a file. If no file is specified, then the dph_file
         attribute is used.
 
-        :param fits_filename:
-        :param overwrite:
-        :return:
+        :param fits_filename: None or a string or a Path object outlining the location/name of the DPH fits file that
+            will be saved. If this is None, the dph_file attribute will be used.
+        :param overwrite: Boolean to denote if the file should be overwritten. If this isn't set and a file of the same
+            name as what is attempting to be saved exists, then the method will throw an error
+        :return: None
         """
 
         # get the defualt file name otherwise use what was passed in and expand to absolute path
@@ -648,11 +675,12 @@ class BatDPH(DetectorPlaneHistogram):
                 f"The call to Heasoft batbinevt failed with inputs {input_dict}."
             )
 
+    @u.quantity_input(timebins=["time"])
     def _create_custom_timebins(self, timebins, output_file=None):
         """
         This method creates custom time bins from a user defined set of time bin edges. The created fits file with the
-        timebins of interest will by default have the same name as the lightcurve file, however it will have a "gti" suffix instead of
-        a "lc" suffix and it will be stored in the gti subdirectory of the event results directory.
+        timebins of interest will by default have the same name as the lightcurve file, however it will have a "gti"
+        suffix instead of a "dph" suffix and it will be stored in the gti subdirectory of the event results directory.
 
         Note: This method is here so the call to create a gti file with custom timebins can be phased out eventually.
 

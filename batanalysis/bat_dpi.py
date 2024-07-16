@@ -487,12 +487,36 @@ class BatDPI(DetectorPlaneHistogram):
     def set_timebins(self, timebins=None, tmin=None, tmax=None, timebinalg="uniform", T0=None, is_relative=False,
                      timedelta=np.timedelta64(1, 's')):
         """
+        This method allows for the dynamic rebinning of the DPI in time.
+
         NOTE: This is copied from the BatDPH class, this can be done better
 
-        :param timebins:
-        :param tmin:
-        :param tmax:
-        :return:
+        :param timebins: astropy.units.Quantity denoting the array of time bin edges. Units will usually be in seconds
+            for this. The values can be relative to the specified T0. If so, then the T0 needs to be specified and
+            the is_relative parameter should be True. If this parameter is passed in, then it supercedes the values of
+            tmin and tmax.
+        :param tmin: astropy.units.Quantity denoting the minimum values of the timebin edges that the user would like
+            the lightcurve to be binned into. Units will usually be in seconds for this. The values can be relative to
+            the specified T0. If so, then the T0 needs to be specified andthe is_relative parameter should be True.
+            NOTE: if the timebins parameter is passed in then anything passed into tmin/tmax is ignored
+        :param tmax: astropy.units.Quantity denoting the maximum values of the timebin edges that the user would like
+            the lightcurve to be binned into. Units will usually be in seconds for this. The values can be relative to
+            the specified T0. If so, then the T0 needs to be specified andthe is_relative parameter should be True.
+            NOTE: if the timebins parameter is passed in then anything passed into tmin/tmax is ignored
+        :param timebinalg: string that can be "uniform or "snr" to specify the type of timebinning algorithm we may want
+            to specify for batbinevt (see related documentation: https://heasarc.gsfc.nasa.gov/ftools/caldb/help/batbinevt.html)
+            This is only relevant if the user  does not pass in any values for the timebins/tmin/tmax parameters.
+            In this case, the method will bin the DPIs starting from the start time of the event file to the end time
+            in the event file in time bin widths correspondent to the timedelta parameter below.
+            In the case where tmin/tmax is specified and they are single values, the default behavior is to create a
+            single DPI that is collected over the time interval specified by tmin/tmax.
+        :param T0: float or an astropy.units.Quantity object with some time of interest (eg trigger time)
+        :param is_relative: Boolean switch denoting if the T0 that is passed in should be added to the
+            timebins/tmin/tmax that were passed in.
+        :param timedelta: a numpy timedelta object that specifies the uniform/snr timebinning that may be used
+            if the timebinalg parameter is passed to batbinevt
+        :return: None
+
         """
 
         if type(is_relative) is not bool:

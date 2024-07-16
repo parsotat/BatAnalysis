@@ -67,7 +67,7 @@ class DetectorPlaneHistogram(Histogram):
         det_x_edges and det_y_edges.
 
 
-        :param event_data: None or TimeTaggedEvents class
+        :param event_data: None or TimeTaggedEvents class that has been initialized with event data
         :param histogram_data: None or histpy Histogram or a numpy array of N dimensions. This should be formatted
             such that it has the following dimensions: (T,Ny,Nx,E) where T is the number of timebins, Ny is the
             number of detectors in the y direction see the det_x_edges class attribute, Nx represents an identical
