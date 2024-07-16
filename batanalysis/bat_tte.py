@@ -20,6 +20,7 @@ from .bat_dpi import BatDPI
 from .batlib import dirtest
 from .batobservation import BatObservation
 from .batproducts import Lightcurve, Spectrum
+from .tte_data import TimeTaggedEvents
 
 # for python>3.6
 try:
