@@ -569,7 +569,7 @@ class BatSkyView(object):
                 nsides = 128
             else:
                 # need to id the max when we can have None as one of the values in the array
-                nsides = np.nanmax(np.array(nsides, dtype=np.float64))
+                nsides = int(np.nanmax(np.array(nsides, dtype=np.float64)))
 
             # try to choose between a healpix projection's coord sys  incase there are 2 different one that are
             # specified. By default use the one that the potential mosaic image uses
