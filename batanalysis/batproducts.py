@@ -40,6 +40,7 @@ class Lightcurve(BatObservation):
 
     """
 
+    @u.quantity_input(ra=u.deg, dec=u.deg)
     def __init__(self, lightcurve_file, event_file, detector_quality_file, ra=None, dec=None, lc_input_dict=None,
                  recalc=False, mask_weighting=True):
         """
@@ -62,10 +63,10 @@ class Lightcurve(BatObservation):
             the lightcurve or read the previously ocnstructed lightcurve file
         :param detector_quality_file: Path object for the detector quality mask that was constructed for the associated
             event file
-        :param ra: None or float representing the decimal degree RA value of the source for which the mask weighting was
+        :param ra: None or astropy Quantity representing the decimal degree RA value of the source for which the mask weighting was
             applied to the passed in event file. A value of None indicates that the RA of the source will be obtained
             from the event file which is then saved to lightcurve_file
-        :param dec: None or float representing the decimal degree DEC value of the source for which the mask weighting was
+        :param dec: None or astropy Quantity representing the decimal degree DEC value of the source for which the mask weighting was
             applied to the passed in event file. A value of None indicates that the DEC of the source will be obtained
             from the event file which is then saved to lightcurve_file
         :param lc_input_dict: None or a dict of values that will be passed to batbinevt in the creation of the lightcurve.
@@ -368,18 +369,17 @@ class Lightcurve(BatObservation):
             # reparse the lightcurve file to get the info
             self._parse_lightcurve_file(calc_energy_integrated=calc_energy_integrated)
 
-    @u.quantity_input(emin=['energy'], emax=['energy'])
-    def set_energybins(self, energybins=["15-25", "25-50", "50-100", "100-350"], emin=None, emax=None,
+    @u.quantity_input(energybins=["energy"], emin=['energy'], emax=['energy'])
+    def set_energybins(self, energybins=[15, 25, 50, 100, 350] * u.keV, emin=None, emax=None,
                        calc_energy_integrated=True):
         """
         This method allows the energy binning to be set for the lightcurve. The energy rebinning is done automatically
         and the information for the rebinned lightcurve is automatically updated in the data attribute (which holds the
-        light curve information itself including rates/counts, errors, fracitonal exposure, total counts, etc) and the
+        light curve information itself including rates/counts, errors, fractional exposure, total counts, etc) and the
         ebins attribute which holds the energybins associated with the lightcurve.
 
-        :param energybins: a list or single string denoting the energy bins in keV that the lightcurve shoudl be binned into
-            The string should be formatted as "15-25" where the dash is necessary. A list should be formatted as multiple
-            elements of the strings, where none of the energy ranges overlap.
+        :param energybins: None or an astropy.unit.Quantity object of 2 or more elements with the energy bin edges in
+            keV that the lightcurve should be binned into. None of the energy ranges should overlap.
         :param emin: an astropy.unit.Quantity object of 1 or more elements. These are the minimum edges of the
             energy bins that the user would like. NOTE: If emin/emax are specified, the energybins parameter is ignored.
         :param emax: an astropy.unit.Quantity object of 1 or more elements. These are the maximum edges of the
@@ -406,50 +406,34 @@ class Lightcurve(BatObservation):
 
         # see if the user specified either the energy bins directly or emin/emax separately
         if emin is None and emax is None:
-            # make sure that energybins is a list
-            if type(energybins) is not list:
-                energybins = [energybins]
+            # make sure the energybins is not None
+            if energybins is None:
+                raise ValueError("energybins cannot be None if both emin and emax are set to None.")
 
-            # verify that all elements are strings
-            for i in energybins:
-                if type(i) is not str:
-                    raise ValueError(
-                        'All elements of the passed in energybins variable must be a string. Please make sure this condition is met.')
+            if energybins.size < 2:
+                raise ValueError("The size of the energybins array must be >1.")
 
-            # need to get emin and emax values, assume that these are in keV already when converting to astropy quantities
-            emin = []
-            emax = []
-            for i in energybins:
-                energies = i.split('-')
-                emin.append(float(energies[0]))
-                emax.append(float(energies[1]))
-            emin = u.Quantity(emin, u.keV)
-            emax = u.Quantity(emax, u.keV)
+            emin = energybins[:-1].to(u.keV)
+            emax = energybins[1:].to(u.keV)
 
         else:
             # make sure that both emin and emax are defined and have the same number of elements
             if (emin is None and emax is not None) or (emax is None and emin is not None):
                 raise ValueError('Both emin and emax must be defined.')
 
-            # see if they are astropy quantity items with units
-            if type(emin) is not u.Quantity:
-                emin = u.Quantity(emin, u.keV)
-            if type(emax) is not u.Quantity:
-                emax = u.Quantity(emax, u.keV)
-
             if emin.size != emax.size:
                 raise ValueError('Both emin and emax must have the same length.')
 
-            # create our energybins input to batbinevt
-            if emin.size > 1:
-                energybins = []
-                for min, max in zip(emin.to(u.keV), emax.to(u.keV)):
-                    energybins.append(f"{min.value}-{max.value}")
-            else:
-                energybins = [f"{emin.to(u.keV).value}-{emax.to(u.keV).value}"]
+        # create our energybins input to batbinevt
+        if emin.size > 1:
+            str_energybins = []
+            for min, max in zip(emin.to(u.keV), emax.to(u.keV)):
+                str_energybins.append(f"{min.value}-{max.value}")
+        else:
+            str_energybins = [f"{emin.to(u.keV).value}-{emax.to(u.keV).value}"]
 
         # create the full string
-        ebins = ','.join(energybins)
+        ebins = ','.join(str_energybins)
 
         # create a temp dict to hold the energy rebinning parameters to pass to heasoftpy. If things dont run
         # successfully then the updated parameter list will not be saved
@@ -515,12 +499,17 @@ class Lightcurve(BatObservation):
                 self._is_rate_lc = True
 
         if self.ra is None and self.dec is None:
-            self.ra = header["RA_OBJ"]
-            self.dec = header["DEC_OBJ"]
+            if "deg" in header.comments["RA_OBJ"]:
+                self.ra = header["RA_OBJ"]
+                self.dec = header["DEC_OBJ"]
+            else:
+                raise ValueError(
+                    "The lightcurve file RA/DEC_OBJ does not seem to be in the units of decimal degrees which is not supported.")
         else:
             # test if the passed in coordinates are what they should be for the light curve file
             # TODO: see if we are ~? arcmin close to one another
-            assert (np.isclose(self.ra, header["RA_OBJ"]) and np.isclose(self.dec, header["DEC_OBJ"])), \
+            assert (np.isclose(self.ra.to(u.deg).value, header["RA_OBJ"]) and np.isclose(self.dec.to(u.deg).value,
+                                                                                         header["DEC_OBJ"])), \
                 f"The passed in RA/DEC values ({self.ra},{self.dec}) do not match the values used to produce the lightcurve which are ({header['RA_OBJ']},{header['DEC_OBJ']})"
 
         # read in the data and save to data attribute which is a dictionary of the column names as keys and the numpy arrays as values
@@ -692,13 +681,13 @@ class Lightcurve(BatObservation):
                 # calculated for
                 # update the event file RA/DEC_OBJ values everywhere
                 for i in file:
-                    i.header["RA_OBJ"] = self.ra
-                    i.header["DEC_OBJ"] = self.dec
+                    i.header["RA_OBJ"] = self.ra.to(u.deg).value
+                    i.header["DEC_OBJ"] = self.dec.to(u.deg).value
 
                     # the BAT_RA/BAT_DEC keys have to updated too since this is something
                     # that the software manual points out should be updated
-                    i.header["BAT_RA"] = self.ra
-                    i.header["BAT_DEC"] = self.dec
+                    i.header["BAT_RA"] = self.ra.to(u.deg).value
+                    i.header["BAT_DEC"] = self.dec.to(u.deg).value
 
                 file.flush()
 
@@ -1536,7 +1525,7 @@ class Spectrum(BatObservation):
 
         :param energybins: single string "CALDB" denoting that the 80 channel default spectrum should be constructed or
           an astropy.unit.Quantity object of 2 or more elements with the energy bin edges in keV that the pha should be
-          binned into. None of the energy ranges overlap.
+          binned into. None of the energy ranges should overlap.
         :param emin: a list or a astropy.unit.Quantity object of 1 or more elements. These are the minimum edges of the
             energy bins that the user would like. NOTE: If emin/emax are specified, the energybins parameter is ignored.
         :param emax: a list or a astropy.unit.Quantity object of 1 or more elements. These are the maximum edges of the
@@ -1580,16 +1569,16 @@ class Spectrum(BatObservation):
             if emin.size != emax.size:
                 raise ValueError('Both emin and emax must have the same length.')
 
-            # create our energybins input to batbinevt
-            if emin.size > 1:
-                energybins = []
-                for min_e, max_e in zip(emin.to(u.keV), emax.to(u.keV)):
-                    energybins.append(f"{min_e.value}-{max_e.value}")
-            else:
-                energybins = [f"{emin.to(u.keV).value}-{emax.to(u.keV).value}"]
+        # create our energybins input to batbinevt
+        if emin.size > 1:
+            str_energybins = []
+            for min_e, max_e in zip(emin.to(u.keV), emax.to(u.keV)):
+                str_energybins.append(f"{min_e.value}-{max_e.value}")
+        else:
+            str_energybins = [f"{emin.to(u.keV).value}-{emax.to(u.keV).value}"]
 
         # create the full string
-        ebins = ','.join(energybins)
+        ebins = ','.join(str_energybins)
 
         # create a temp dict to hold the energy rebinning parameters to pass to heasoftpy. If things dont run
         # successfully then the updated parameter list will not be saved
@@ -1731,13 +1720,13 @@ class Spectrum(BatObservation):
                 # calculated for
                 # update the event file RA/DEC_OBJ values everywhere
                 for i in file:
-                    i.header["RA_OBJ"] = self.ra
-                    i.header["DEC_OBJ"] = self.dec
+                    i.header["RA_OBJ"] = self.ra.to(u.deg).value
+                    i.header["DEC_OBJ"] = self.dec.to(u.deg).value
 
                     # the BAT_RA/BAT_DEC keys have to updated too since this is something
                     # that the software manual points out should be updated
-                    i.header["BAT_RA"] = self.ra
-                    i.header["BAT_DEC"] = self.dec
+                    i.header["BAT_RA"] = self.ra.to(u.deg).value
+                    i.header["BAT_DEC"] = self.dec.to(u.deg).value
 
                 file.flush()
 
@@ -1750,8 +1739,12 @@ class Spectrum(BatObservation):
         """
 
         with fits.open(self.event_file) as file:
-            event_ra = file[0].header["RA_OBJ"]
-            event_dec = file[0].header["DEC_OBJ"]
+            if "deg" in file[0].header.comments["RA_OBJ"]:
+                event_ra = file[0].header["RA_OBJ"] * u.deg
+                event_dec = file[0].header["DEC_OBJ"] * u.deg
+            else:
+                raise ValueError(
+                    "The PHA file RA/DEC_OBJ does not seem to be in the units of decimal degrees which is not supported.")
             coord_match = (event_ra == self.ra) and (event_dec == self.dec)
 
         return coord_match

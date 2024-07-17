@@ -643,7 +643,7 @@ class BatEvent(BatObservation):
 
         return None
 
-    @u.quantity_input(timebins=["time"], tstart=["time"], tstop=["time"])
+    @u.quantity_input(timebins=["time"], tstart=["time"], tstop=["time"], energybins=["energy"])
     def create_lightcurve(
             self,
             lc_file=None,
@@ -654,7 +654,7 @@ class BatEvent(BatObservation):
             timebins=None,
             T0=None,
             is_relative=False,
-            energybins=["15-25", "25-50", "50-100", "100-350"],
+            energybins=[15, 25, 50, 100, 350] * u.keV,
             mask_weighting=True,
             recalc=False,
     ):
@@ -711,7 +711,8 @@ class BatEvent(BatObservation):
         :param T0: float or an astropy.units.Quantity object with some tiem of interest (eg trigger time)
         :param is_relative: Boolean switch denoting if the T0 that is passed in should be added to the
             timebins/tmin/tmax that were passed in.
-        :param energybins:
+        :param energybins: astropy.units.Quantity denoting the energy bin edges for the energy resolved lightcurves that
+            will be calculated
         :param mask_weighting: Boolean to denote if mask weighting should be applied. By default this is set to True,
             however if a source is out of the BAT field of view the mask weighting will produce a lightcurve of 0 counts.
             Setting mask_weighting=False in this case ignores the position of the source and allows the pure rates/counts
@@ -819,7 +820,7 @@ class BatEvent(BatObservation):
             for. The times can be defined relative to some time of interest which can be specified with the T0 parameter
         :param T0: float or astropy Quantity scalar denoting the time that time bins may be defined relative to
         :param is_relative: boolean to denote if the specified timebins are relative times with respect to T0
-        :param energybins: None or an array of energy bin edges that the pha files should be created with. None defaults
+        :param energybins: None or an astropy Quantity array of energy bin edges that the pha files should be created with. None defaults
             to the 80 channel CALDB energy bins.
         :param recalc: Boolean to denote if a set of
         :param mask_weighting: boolean, default True, to denote if the mask weighting should be applied in constructing the pha file.
