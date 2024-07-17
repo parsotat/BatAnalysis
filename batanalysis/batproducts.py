@@ -1199,6 +1199,7 @@ class Lightcurve(BatObservation):
 
 
 class Spectrum(BatObservation):
+    @u.quantity_input(ra=u.deg, dec=u.deg)
     def __init__(self, pha_file, event_file, detector_quality_file, auxil_raytracing_file, ra=None, dec=None,
                  pha_input_dict=None, mask_weighting=True, recalc=False):
         """
@@ -1223,10 +1224,10 @@ class Spectrum(BatObservation):
             event file
         :param auxil_raytracing_file: Path object pointing to the auxiliary ray tracing file that is created by applying
             the mask weighting to the event file that is passed in.
-        :param ra: None or float representing the decimal degree RA value of the source for which the mask weighting was
+        :param ra: None or astropy Quantity representing the decimal degree RA value of the source for which the mask weighting was
             applied to the passed in event file. A value of None indicates that the RA of the source will be obtained
             from the event file which is then saved to pha_file
-        :param dec: None or float representing the decimal degree DEC value of the source for which the mask weighting was
+        :param dec: None or astropy Quantity representing the decimal degree DEC value of the source for which the mask weighting was
             applied to the passed in event file. A value of None indicates that the DEC of the source will be obtained
             from the event file which is then saved to pha_file
         :param pha_input_dict: None or a dict of values that will be passed to batbinevt in the creation of the pha file.
@@ -1533,9 +1534,9 @@ class Spectrum(BatObservation):
         pha file information itself including rates/counts, errors,  etc) and the
         ebins attribute which holds the energybins associated with the pha file.
 
-        :param energybins: a list or single string denoting the energy bins in keV that the pha should be binned into
-            The string should be formatted as "15-25" where the dash is necessary. A list should be formatted as multiple
-            elements of the strings, where none of the energy ranges overlap.
+        :param energybins: single string "CALDB" denoting that the 80 channel default spectrum should be constructed or
+          an astropy.unit.Quantity object of 2 or more elements with the energy bin edges in keV that the pha should be
+          binned into. None of the energy ranges overlap.
         :param emin: a list or a astropy.unit.Quantity object of 1 or more elements. These are the minimum edges of the
             energy bins that the user would like. NOTE: If emin/emax are specified, the energybins parameter is ignored.
         :param emax: a list or a astropy.unit.Quantity object of 1 or more elements. These are the maximum edges of the
@@ -1553,28 +1554,17 @@ class Spectrum(BatObservation):
         # see if the user specified either the energy bins directly or emin/emax separately
         if emin is None and emax is None:
 
-            # make sure that energybins is a list
-            if type(energybins) is not list:
-                energybins = [energybins]
-                energybins = [i.capitalize for i in
-                              energybins]  # do thsi for potential "CALDB" input, doesnt affect numbers
-
             if "CALDB" not in energybins:
-                # verify that all elements are strings
-                for i in energybins:
-                    if type(i) is not str:
-                        raise ValueError(
-                            'All elements of the passed in energybins variable must be a string. Please make sure this condition is met.')
+                # verify that we have a Quantity array with >1 elements
+                if not isinstance(energybins, u.Quantity):
+                    raise ValueError(
+                        'The energybins only accepts an astropy Quantity with the energy bin edges for the pha file.')
 
-                # need to get emin and emax values, assume that these are in keV already when converting to astropy quantities
-                emin = []
-                emax = []
-                for i in energybins:
-                    energies = i.split('-')
-                    emin.append(float(energies[0]))
-                    emax.append(float(energies[1]))
-                emin = u.Quantity(emin, u.keV)
-                emax = u.Quantity(emax, u.keV)
+                if energybins.size < 2:
+                    raise ValueError("The size of the energybins array must be >1.")
+
+                emin = energybins[:-1].to(u.keV)
+                emax = energybins[1:].to(u.keV)
 
         else:
             # make sure that both emin and emax are defined and have the same number of elements
@@ -1790,12 +1780,18 @@ class Spectrum(BatObservation):
             times = f["STDGTI"].data
 
         if self.ra is None and self.dec is None:
-            self.ra = header["RA_OBJ"]
-            self.dec = header["DEC_OBJ"]
+            if "deg" in header.comments["RA_OBJ"]:
+                self.ra = header["RA_OBJ"] * u.deg
+                self.dec = header["DEC_OBJ"] * u.deg
+            else:
+                raise ValueError(
+                    "The PHA file RA/DEC_OBJ does not seem to be in the units of decimal degrees which is not supported.")
+
         else:
             # test if the passed in coordinates are what they should be for the light curve file
             # TODO: see if we are ~? arcmin close to one another
-            assert (np.isclose(self.ra, header["RA_OBJ"]) and np.isclose(self.dec, header["DEC_OBJ"])), \
+            assert (np.isclose(self.ra.to(u.deg).value, header["RA_OBJ"]) and np.isclose(self.dec.to(u.deg).value,
+                                                                                         header["DEC_OBJ"])), \
                 (f"The passed in RA/DEC values ({self.ra},{self.dec}) "
                  f"do not match the values used to produce the lightcurve which are "
                  f"({header['RA_OBJ']},{header['DEC_OBJ']})")

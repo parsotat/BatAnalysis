@@ -767,7 +767,7 @@ class BatEvent(BatObservation):
 
         return self.lightcurve
 
-    @u.quantity_input(timebins=["time"], tstart=["time"], tstop=["time"])
+    @u.quantity_input(timebins=["time"], tstart=["time"], tstop=["time"], energybins=["energy"])
     def create_pha(
             self,
             pha_file=None,
