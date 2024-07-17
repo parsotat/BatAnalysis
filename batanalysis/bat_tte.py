@@ -213,13 +213,21 @@ class BatEvent(BatObservation):
             # get the tdrss coordinates if the file exists
             if len(tdrss_centroid_file) > 0:
                 with fits.open(tdrss_centroid_file[0]) as file:
-                    tdrss_ra = file[0].header["BRA_OBJ"]
-                    tdrss_dec = file[0].header["BDEC_OBJ"]
+                    if "deg" in file[0].header.comments["BRA_OBJ"]:
+                        tdrss_ra = file[0].header["BRA_OBJ"] * u.deg
+                        tdrss_dec = file[0].header["BDEC_OBJ"] * u.deg
+                    else:
+                        raise ValueError(
+                            "The TDRSS msbce file BRA/BDEC_OBJ does not seem to be in the units of decimal degrees which is not supported.")
 
             # get info from event file which must exist to get to this point
             with fits.open(self.event_files) as file:
-                event_ra = file[0].header["RA_OBJ"]
-                event_dec = file[0].header["DEC_OBJ"]
+                if "deg" in file[0].header.comments["RA_OBJ"]:
+                    event_ra = file[0].header["RA_OBJ"] * u.deg
+                    event_dec = file[0].header["DEC_OBJ"] * u.deg
+                else:
+                    raise ValueError(
+                        "The event file RA/DEC_OBJ does not seem to be in the units of decimal degrees which is not supported.")
 
             # by default, ra/dec="event" to use the coordinates set here by SDC but can use other coordinates
             if "tdrss" in ra or "tdrss" in dec:
@@ -236,13 +244,13 @@ class BatEvent(BatObservation):
                 self.ra = event_ra
                 self.dec = event_dec
             else:
-                if np.isreal(ra) and np.isreal(dec):
+                if isinstance(ra, u.Quantity) and isinstance(dec, u.Quantity):
                     self.ra = ra
                     self.dec = dec
                 else:
                     # the ra/dec values must be decimal degrees for the following analysis to work
                     raise ValueError(
-                        f"The passed values of ra and dec are not decimal degrees. Please set these to appropriate values."
+                        f"The passed values of ra and dec are not astropy unit quantities. Please set these to appropriate values."
                     )
 
             # see if the RA/DEC that the user wants to use is what is in the event file
@@ -389,7 +397,7 @@ class BatEvent(BatObservation):
         """
         file = self.result_dir.joinpath(
             "batevent.pickle"
-        )  # os.path.join(self.result_dir, "batsurvey.pickle")
+        )
         with open(file, "wb") as f:
             pickle.dump(self.__dict__, f, 2)
         print("A save file has been written to %s." % (str(file)))
@@ -533,6 +541,26 @@ class BatEvent(BatObservation):
                 )
 
         return None
+
+    @property
+    def ra(self):
+        """The right ascension of the source and the associated weighting assigned to the event file"""
+        return self._ra
+
+    @ra.setter
+    @u.quantity_input(value=u.deg)
+    def ra(self, value):
+        self._ra = value
+
+    @property
+    def dec(self):
+        """The declination of the source and the associated weighting assigned to the event file"""
+        return self._dec
+
+    @dec.setter
+    @u.quantity_input(value=u.deg)
+    def dec(self, value):
+        self._dec = value
 
     def apply_mask_weighting(self, ra=None, dec=None):
         """
