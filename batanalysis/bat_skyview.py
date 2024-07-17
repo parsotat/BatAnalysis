@@ -36,10 +36,11 @@ class BatSkyView(object):
     def __init__(
             self,
             skyimg_file=None,
-            dpi_file=None,
-            detector_quality_file=None,
+            bat_dpi=None,
+            # dpi_file=None,
+            # detector_quality_file=None,
             attitude_file=None,
-            dpi_data=None,
+            # dpi_data=None,
             input_dict=None,
             recalc=False,
             load_dir=None,
@@ -55,24 +56,48 @@ class BatSkyView(object):
             exposure_img=None
     ):
         """
+        A sky view object contains various sky images that are associated with a view of the sky in a single timebin.
+        These images can be the flux sky image, at a miminum, and can include other images such as a partial coding
+        image, a background standard deviation image, and a SNR image showing the significance of each image pixel.
+
         This class is very flexible in being able to
-            1) construct sky images from dpi's,
+            1) construct sky flux images from dpi's, including snr, background standard deviation, and partial coding
+                images
+            2) load in preconstructed sky flux images with the associated snr, background standard deviation, and
+                partial coding images
             2) hold mosaic sky images, including their intermediate images that can easily be summed together
 
-        :param skyimg_file:
-        :param dpi_file:
-        :param detector_quality_file:
+        For this class to hold information related to a sky image, the interm_sky_img, interim_var_img, pcode_img, and
+        exposure_img all need to be passed in. In this case, any other parameters passed in will be ignored.
+
+        To contain information related to a canonical flux sky image, including an associated background standard
+        deviation sky image, a SNR sky image, and a partial coding image, all other parameters play a role. These allow
+        the class to either create a new set of sky images (which collectively we call a sky view) and load in those
+        images OR load in pre-calculated sky images that are of the same view of the sky.
+
+        :param skyimg_file: None, or a Path object to the flux sky image file that will either be read in, if it exists,
+            or created via batfftimage. If None is specified, a flux sky image file name will be set to be the same as
+            the dpi_file (except the suffix will be .img instead of .dpi) and the directory that it will be assumed to
+            be contained in will be the same as dpi_file. If the assumed flux sky image exists, it will be reloaded so
+            long as recalc=False, otherwise the flux sky image will be created with batfftimage
+        #:param dpi_file: None, or a Path object to the dpi that will be used to produce a flux sky image in the case
+        #    where skyimg_file is None or the passed in skyimg_file does not exist.
+        :param bat_dpi: None or a BatDPI object that contains the DPI file that will be used to produce a flux sky image in the case
+            where skyimg_file is None or the passed in skyimg_file does not exist. The BatDPI must have the dpi_file and
+            detector_quality_file attributes defined.
+
+        #:param detector_quality_file:
         :param attitude_file:
-        :param dpi_data:
+        #:param dpi_data:
         :param input_dict:
         :param recalc:
         :param load_dir:
         :param create_pcode_img:
         :param create_snr_img:
         :param create_bkg_stddev_img:
-        :param sky_img: Not implemented yet
-        :param bkg_stddev_img: Not implemented yet
-        :param snr_img: Not implemented yet
+        :param sky_img: Placeholder, Not implemented yet
+        :param bkg_stddev_img: Placeholder, Not implemented yet
+        :param snr_img: Placeholder, Not implemented yet
         :param interim_sky_img:
         :param interim_var_img:
         :param pcode_img:
@@ -592,7 +617,7 @@ class BatSkyView(object):
         The SNR sky image. If the BatSkyView contains a mosaic sky view, this value will be calculated on the fly.
 
         TODO: calculate this value once, if is_mosaic==True so if the user accesses this property many times we dont
-            waste time/memory recalculating. 
+            waste time/memory recalculating.
 
         :return: BatSkyImage
         """
