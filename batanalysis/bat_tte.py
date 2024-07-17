@@ -562,6 +562,7 @@ class BatEvent(BatObservation):
     def dec(self, value):
         self._dec = value
 
+    @u.quantity_input(ra=u.deg, dec=u.deg)
     def apply_mask_weighting(self, ra=None, dec=None):
         """
         This method is meant to apply mask weighting for a source that is located at a certain position on the sky.
@@ -579,12 +580,12 @@ class BatEvent(BatObservation):
 
         # batmaskwtevt infile=bat/event/sw01116441000bevshsp_uf.evt attitude=auxil/sw01116441000sat.fits.gz detmask=grb.mask ra= dec=
         if ra is None and dec is None:
-            ra = self.ra
-            dec = self.dec
+            ra = self.ra.to(u.deg)
+            dec = self.dec.to(u.deg)
         else:
             # set the new ra/dec values
-            self.ra = ra
-            self.dec = dec
+            self.ra = ra.to(u.deg)
+            self.dec = dec.to(u.deg)
 
         # if this attribute is None, we need to define it and create it using the standard naming convention
         if self.auxil_raytracing_file is None:
@@ -598,8 +599,8 @@ class BatEvent(BatObservation):
             infile=str(self.event_files),
             attitude=str(self.attitude_file),
             detmask=str(self.detector_quality_file),
-            ra=ra,
-            dec=dec,
+            ra=ra.value,
+            dec=dec.value,
             auxfile=str(temp_auxil_raytracing_file),
             clobber="YES",
         )
@@ -612,18 +613,23 @@ class BatEvent(BatObservation):
 
         # modify the event file header with the RA/DEC of the weights that were applied, if they are different
         with fits.open(self.event_files, mode="update") as file:
-            event_ra = file[0].header["RA_OBJ"]
-            event_dec = file[0].header["DEC_OBJ"]
+            if "deg" in file[0].header.comments["RA_OBJ"]:
+                event_ra = file[0].header["RA_OBJ"] * u.deg
+                event_dec = file[0].header["DEC_OBJ"] * u.deg
+            else:
+                raise ValueError(
+                    "The event file RA/DEC_OBJ does not seem to be in the units of decimal degrees which is not supported.")
+
             if event_ra != self.ra or event_dec != self.dec:
                 # update the event file RA/DEC_OBJ values everywhere
                 for i in file:
-                    i.header["RA_OBJ"] = self.ra
-                    i.header["DEC_OBJ"] = self.dec
+                    i.header["RA_OBJ"] = self.ra.to(u.deg).value
+                    i.header["DEC_OBJ"] = self.dec.to(u.deg).value
 
                     # the BAT_RA/BAT_DEC keys have to updated too since this is something
                     # that the software manual points out should be updated
-                    i.header["BAT_RA"] = self.ra
-                    i.header["BAT_DEC"] = self.dec
+                    i.header["BAT_RA"] = self.ra.to(u.deg).value
+                    i.header["BAT_DEC"] = self.dec.to(u.deg).value
 
             file.flush()
 
