@@ -1676,8 +1676,8 @@ class Spectrum(BatObservation):
         if output.returncode != 0:
             raise RuntimeError(f"The call to Heasoft batdrmgen failed with output {output.stdout}.")
 
-        drm_file = pha_file.parent.joinpath(f"{pha_file.stem}.rsp")
-        self.set_drm_filename(drm_file)
+        self.drm_file = pha_file.parent.joinpath(f"{pha_file.stem}.rsp")
+        # self.set_drm_filename(drm_file)
 
     def _get_event_weights(self):
         """
@@ -2029,26 +2029,27 @@ class Spectrum(BatObservation):
 
         return self._call_batdrmgen()
 
-    def get_drm_filename(self):
+    @property
+    def drm_file(self):
         """
-        This method returns the detector response function file
+        The detector response function file.
 
         :return: Path object of the DRM file
         """
-        if self.drm_file is None:
-            self.calculate_drm()
+        if self._drm_file is None:
+            self._drm_file = self.calculate_drm()
 
-        return self.drm_file
+        return self._drm_file
 
-    def set_drm_filename(self, drmfile):
-        """
-        This method allows the drm_file attribute to be set
+    @drm_file.setter
+    def drm_file(self, value):
+        if type(value) is not Path:
+            raise ValueError("drm_file can only be set to a path object")
 
-        :param drmfile:a Path object to the drm file.
-        :return: None
-        """
+        if not value.exists():
+            raise ValueError(f"The file {value} does not seem to exist")
 
-        self.drm_file = drmfile
+        self._drm_file = value
 
     def get_pha_filename(self):
         """
