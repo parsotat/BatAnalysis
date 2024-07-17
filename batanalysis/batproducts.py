@@ -1637,7 +1637,7 @@ class Spectrum(BatObservation):
 
         :return: heasoftpy Result object from batphasyserr
         """
-        pha_file = self.get_pha_filename()
+        pha_file = self.pha_file
         input_dict = dict(infile=str(pha_file), syserrfile="CALDB")
 
         try:
@@ -1653,7 +1653,7 @@ class Spectrum(BatObservation):
 
         :return: heasoftpy Result object from batupdatephakw
         """
-        pha_file = self.get_pha_filename()
+        pha_file = self.pha_file
         input_dict = dict(infile=str(pha_file), auxfile=str(self.auxil_raytracing_file))
 
         try:
@@ -1670,7 +1670,7 @@ class Spectrum(BatObservation):
         :return: None
         """
 
-        pha_file = self.get_pha_filename()
+        pha_file = self.pha_file
         output = calc_response(pha_file)
 
         if output.returncode != 0:
@@ -1764,7 +1764,7 @@ class Spectrum(BatObservation):
 
         :return: None
         """
-        pha_file = self.get_pha_filename()
+        pha_file = self.pha_file
         with fits.open(pha_file) as f:
             header = f[1].header
             data = f[1].data
@@ -1936,7 +1936,7 @@ class Spectrum(BatObservation):
         if output_file is None:
             # use the same filename as for the lightcurve file but replace suffix with gti and put it in gti subdir
             # instead of lc
-            pha_file = self.get_pha_filename()
+            pha_file = self.pha_file
             new_path = pha_file.parts
             new_name = pha_file.name.replace("pha", "gti")
 
@@ -2051,24 +2051,25 @@ class Spectrum(BatObservation):
 
         self._drm_file = value
 
-    def get_pha_filename(self):
+    @property
+    def pha_file(self):
         """
-        This method returns the pha filename
+        The pulse height amplitude file.
 
-        :return: a path object of the pha filename
-        """
-
-        return self.pha_file
-
-    def set_pha_files(self, phafile):
-        """
-        This function allows the pha_file attribute to be changed to phafile.
-
-        :param phafile: Path object for the phafile that should be saved to the pha_file attribute
-        :return: None
+        :return: Path object of the DRM file
         """
 
-        self.pha_file = phafile
+        return self._pha_file
+
+    @pha_file.setter
+    def pha_file(self, value):
+        if type(value) is not Path:
+            raise ValueError("drm_file can only be set to a path object")
+
+        if not value.exists():
+            raise ValueError(f"The file {value} does not seem to exist")
+
+        self._pha_file = value
 
     def calc_upper_limit(self, bkg_nsigma=5):
         """
@@ -2081,7 +2082,7 @@ class Spectrum(BatObservation):
         :return: a Spectrum object with the upperlimit calculated pha file
         """
         try:
-            pha_file = self.get_pha_filename()
+            pha_file = self.pha_file
         except ValueError as e:
             print(e)
             raise ValueError("There is no PHA file from which upper limits can be calculated.")
