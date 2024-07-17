@@ -369,23 +369,7 @@ class BatEvent(BatObservation):
         :return: None
         """
 
-        all_data = {}
-        with fits.open(self.event_files) as file:
-            data = file[1].data
-            for i in data.columns:
-                all_data[i.name] = u.Quantity(data[i.name], i.unit)
-
-        self.data = TimeTaggedEvents(
-            all_data["TIME"],
-            all_data["DET_ID"],
-            all_data["DETX"],
-            all_data["DETY"],
-            all_data["EVENT_FLAGS"],
-            all_data["ENERGY"],
-            all_data["PHA"],
-            all_data["PI"],
-            mask_weight=all_data["MASK_WEIGHT"],
-        )
+        self.data = TimeTaggedEvents.from_file(self.event_files)
 
     def load(self, f):
         """
@@ -417,7 +401,7 @@ class BatEvent(BatObservation):
 
         The resulting quality mask is placed in the bat/hk/directory with the appropriate observation ID and code=bdqcb
 
-        This should be taken care of by the SDC but this funciton will document how this can be done incase a detector
+        This should be taken care of by the SDC but this function will document how this can be done incase a detector
         quality mask has not been created. Have confirmed that the bat/hk/*bdqcb* file is the same as what is outputted
         by the website linked above
 

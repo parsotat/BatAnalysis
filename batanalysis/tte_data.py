@@ -3,6 +3,11 @@ This file holds the BAT TimeTaggedEvents class
 
 Tyler Parsotan Jul 16 2024
 """
+from pathlib import Path
+
+import astropy.units as u
+from astropy.io import fits
+
 from .batlib import decompose_det_id
 
 
@@ -58,3 +63,38 @@ class TimeTaggedEvents(object):
         self.detector_dm = dm
         self.detector_sand = side
         self.detector_chan = channel
+
+    @classmethod
+    def from_file(cls, event_file):
+        """
+        This class method creates a TimeTaggedEvents class from the information in an unzipped event file. The file must
+        be unzipped at this point since the processing of event data with heasoft tools require this, so we enforce this
+        as well at this time.
+
+        :param event_file: Path to event file that will be parsed
+        :return: TimeTaggedEvents object
+        """
+
+        event_file = Path(event_file).expanduser().resolve()
+
+        if not event_file.exists():
+            raise ValueError(f"The event file passed in to be read {event_file} does not seem to exist.")
+
+        # iteratively read in the data with units
+        all_data = {}
+        with fits.open(event_file) as file:
+            data = file[1].data
+            for i in data.columns:
+                all_data[i.name] = u.Quantity(data[i.name], i.unit)
+
+        return cls(
+            all_data["TIME"],
+            all_data["DET_ID"],
+            all_data["DETX"],
+            all_data["DETY"],
+            all_data["EVENT_FLAGS"],
+            all_data["ENERGY"],
+            all_data["PHA"],
+            all_data["PI"],
+            mask_weight=all_data["MASK_WEIGHT"],
+        )
