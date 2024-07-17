@@ -81,20 +81,35 @@ class BatSkyView(object):
         :param bat_dpi: None or a BatDPI object that contains the DPI file that will be used to produce a flux sky image in the case
             where skyimg_file is None or the passed in skyimg_file does not exist. The BatDPI must have the dpi_file and
             detector_quality_file attributes defined.
-        :param attitude_file:
-        :param input_dict:
-        :param recalc:
-        :param load_dir:
-        :param create_pcode_img:
-        :param create_snr_img:
-        :param create_bkg_stddev_img:
+        :param attitude_file: None or a Path object to the attitude file associated with the DPI. If a new flux sky
+            is being created, this file is needed.
+        :param input_dict: None or dict of key/value pairs that will be passed to batfftimage. If this is set to None,
+            the default batfftimage parameter values will be used. If a dictionary is passed in, it will overwrite the
+            default values
+        :param recalc: boolean to denote if the sky image and associated images should be loaded or completely
+            recalculated
+        :param load_dir: Not implemented yet
+        :param create_pcode_img: bool to denote if the partial coding should be calculated with the flux sky image.
+            If the sky view will be added to others, then this is necessary
+        :param create_snr_img: bool to denote if the SNR image map should be calculated with the
+            flux sky image
+        :param create_bkg_stddev_img: bool to denote if the background standard deviation image should be calculated with the
+            flux sky image.
+            If the sky view will be added to others, then this is necessary
         :param sky_img: Placeholder, Not implemented yet
         :param bkg_stddev_img: Placeholder, Not implemented yet
         :param snr_img: Placeholder, Not implemented yet
-        :param interim_sky_img:
-        :param interim_var_img:
-        :param pcode_img:
-        :param exposure_img:
+        :param interim_sky_img: None or a BatSkyImage object that holds the intermediate mosaic flux sky image
+            NOTE: for the BatSkyView to recognize that it contains mosaiced images this parameter needs to be supplied
+        :param interim_var_img:None or a BatSkyImage object that holds the intermediate mosaic inverse variance sky
+            image
+            NOTE: for the BatSkyView to recognize that it contains mosaiced images this parameter needs to be supplied
+        :param pcode_img: None or a BatSkyImage object that holds the intermediate mosaic partial coding exposure sky
+            image
+            NOTE: for the BatSkyView to recognize that it contains mosaiced images this parameter needs to be supplied
+        :param exposure_img:None or a BatSkyImage object that holds the intermediate mosaic exposure sky image
+            NOTE: for the BatSkyView to recognize that it contains mosaiced images this parameter needs to be supplied
+
         """
 
         # do some error checking
@@ -113,10 +128,15 @@ class BatSkyView(object):
         if self.is_mosaic:
             # if is_mosac is True, this can mean that at least one of the parameters passed in is not None,
             # need to check if any are None now. If there are any that are None, throw an error b/c user needs to pass
-            # all images in
+            # all images in. also make sure that they are all BaSkyImage objects
             if np.any([i is None for i in [interim_sky_img, interim_var_img, pcode_img, exposure_img]]):
                 raise ValueError(
                     "To properly create a BatSkyView from mosaics, the intermediate sky flux, background variance, partial coding vignette, and exposure images need to be passed in.")
+
+            if np.any([not isinstance(i, BatSkyImage) for i in
+                       [interim_sky_img, interim_var_img, pcode_img, exposure_img]]):
+                raise ValueError(
+                    "To properly create a BatSkyView from mosaics, the intermediate sky flux, background variance, partial coding vignette, and exposure images all need to be BatSkyImage objects.")
 
         # if self.is_mosaic is true, we dont care about the stuff related to creating a sky image from a DPI
         if not self.is_mosaic:
