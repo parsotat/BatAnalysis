@@ -13,6 +13,7 @@ import numpy as np
 from astropy.io import fits
 from histpy import Histogram, HealpixAxis, Axis
 
+from .bat_dpi import BatDPI
 from .bat_skyimage import BatSkyImage
 from .mosaic import _pcodethresh
 
@@ -37,10 +38,7 @@ class BatSkyView(object):
             self,
             skyimg_file=None,
             bat_dpi=None,
-            # dpi_file=None,
-            # detector_quality_file=None,
             attitude_file=None,
-            # dpi_data=None,
             input_dict=None,
             recalc=False,
             load_dir=None,
@@ -80,15 +78,10 @@ class BatSkyView(object):
             the dpi_file (except the suffix will be .img instead of .dpi) and the directory that it will be assumed to
             be contained in will be the same as dpi_file. If the assumed flux sky image exists, it will be reloaded so
             long as recalc=False, otherwise the flux sky image will be created with batfftimage
-        #:param dpi_file: None, or a Path object to the dpi that will be used to produce a flux sky image in the case
-        #    where skyimg_file is None or the passed in skyimg_file does not exist.
         :param bat_dpi: None or a BatDPI object that contains the DPI file that will be used to produce a flux sky image in the case
             where skyimg_file is None or the passed in skyimg_file does not exist. The BatDPI must have the dpi_file and
             detector_quality_file attributes defined.
-
-        #:param detector_quality_file:
         :param attitude_file:
-        #:param dpi_data:
         :param input_dict:
         :param recalc:
         :param load_dir:
@@ -103,10 +96,6 @@ class BatSkyView(object):
         :param pcode_img:
         :param exposure_img:
         """
-
-        if dpi_data is not None:
-            raise NotImplementedError(
-                "Dealing with the DPI data directly to calculate the sky image is not yet supported.")
 
         # do some error checking
         # The user can either specify parameters related to the creation of a normal sky image (and associated images) or
@@ -132,16 +121,26 @@ class BatSkyView(object):
         # if self.is_mosaic is true, we dont care about the stuff related to creating a sky image from a DPI
         if not self.is_mosaic:
 
+            # make sure we have the correct object for bat_dpi
+            if bat_dpi is not None:
+                if not isinstance(bat_dpi, BatDPI):
+                    raise ValueError("The input to the bat_dpi parameter must be a BatDPI object. ")
+
             # if the user specified a sky image then use it, otherwise set the sky image to be the same name as the dpi
             # and same location
             self.skyimg_file = None
             if skyimg_file is not None:
                 self.skyimg_file = Path(skyimg_file).expanduser().resolve()
             else:
-                self.skyimg_file = dpi_file.parent.joinpath(f"{dpi_file.stem}.img")
+                # make sure that we can define the output sky image filename
+                if bat_dpi.dpi_file is not None:
+                    self.skyimg_file = bat_dpi.dpi_file.parent.joinpath(f"{bat_dpi.dpi_file.stem}.img")
+                else:
+                    raise ValueError(
+                        "The BatDPI object passed to bat_dpi must have the dpi_file attribute defined to create the sky image from.")
 
-            if dpi_file is not None:
-                self.dpi_file = Path(dpi_file).expanduser().resolve()
+            if bat_dpi.dpi_file is not None:
+                self.dpi_file = Path(bat_dpi.dpi_file).expanduser().resolve()
                 if not self.dpi_file.exists():
                     raise ValueError(
                         f"The specified DPI file {self.dpi_file} does not seem "
@@ -149,18 +148,19 @@ class BatSkyView(object):
             else:
                 # the user could have passed in just a sky image that was previously created and then the dpi file doesnt
                 # need to be passed in
-                self.dpi_file = dpi_file
+                self.dpi_file = None
                 if not self.skyimg_file.exists() or recalc:
-                    raise ValueError("Please specify a DPI file to create the sky image from.")
+                    raise ValueError(
+                        "The BatDPI object passed to bat_dpi must have the dpi_file attribute defined to create the sky image from.")
 
-            if detector_quality_file is not None:
-                self.detector_quality_file = Path(detector_quality_file).expanduser().resolve()
+            if bat_dpi.detector_quality_file is not None:
+                self.detector_quality_file = Path(bat_dpi.detector_quality_file).expanduser().resolve()
                 if not self.detector_quality_file.exists():
                     raise ValueError(
                         f"The specified detector quality mask file {self.detector_quality_file} does not seem "
                         f"to exist. Please double check that it does.")
             else:
-                self.detector_quality_file = "NONE"  # TODO: should be replaced with None
+                self.detector_quality_file = None
                 warnings.warn(
                     "No detector quality mask file has been specified. Sky images will be constructed assuming "
                     "that all detectors are on.", stacklevel=2)
@@ -187,18 +187,22 @@ class BatSkyView(object):
                 self.skyimg_input_dict["infile"] = str(self.dpi_file)
                 self.skyimg_input_dict["outfile"] = str(self.skyimg_file)
                 self.skyimg_input_dict["attitude"] = str(self.attitude_file)
-                self.skyimg_input_dict["detmask"] = str(self.detector_quality_file)
+
+                if self.detector_quality_file is not None:
+                    self.skyimg_input_dict["detmask"] = str(self.detector_quality_file)
+                else:
+                    self.skyimg_input_dict["detmask"] = "NONE"
 
                 if create_bkg_stddev_img:
                     self.bkg_stddev_img_file = self.skyimg_file.parent.joinpath(
-                        f"{dpi_file.stem}_bkg_stddev.img")
+                        f"{self.dpi_file.stem}_bkg_stddev.img")
                     self.skyimg_input_dict["bkgvarmap"] = str(self.bkg_stddev_img_file)
                 else:
                     self.bkg_stddev_img_file = None
 
                 if create_snr_img:
                     self.snr_img_file = self.skyimg_file.parent.joinpath(
-                        f"{dpi_file.stem}_snr.img")
+                        f"{self.dpi_file.stem}_snr.img")
                     self.skyimg_input_dict["signifmap"] = str(self.snr_img_file)
                 else:
                     self.snr_img_file = None
@@ -221,7 +225,7 @@ class BatSkyView(object):
                 # pcode map that will be able to be passed into batcelldetect
                 if create_pcode_img:
                     temp_pcodeimg_file = self.skyimg_file.parent.joinpath(
-                        f"{dpi_file.stem}.pcodeimg")
+                        f"{self.dpi_file.stem}.pcodeimg")
                     pcodeimg_input_dict = self.skyimg_input_dict.copy()
                     pcodeimg_input_dict["pcodemap"] = "YES"
                     pcodeimg_input_dict["outfile"] = str(temp_pcodeimg_file)
