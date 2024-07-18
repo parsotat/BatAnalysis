@@ -2043,7 +2043,7 @@ class Spectrum(BatObservation):
 
     @drm_file.setter
     def drm_file(self, value):
-        if type(value) is not Path:
+        if not isinstance(value, Path):
             raise ValueError("drm_file can only be set to a path object")
 
         if not value.exists():
@@ -2063,7 +2063,7 @@ class Spectrum(BatObservation):
 
     @pha_file.setter
     def pha_file(self, value):
-        if type(value) is not Path:
+        if not isinstance(value, Path):
             raise ValueError("drm_file can only be set to a path object")
 
         if not value.exists():
