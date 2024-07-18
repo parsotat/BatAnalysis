@@ -1865,7 +1865,7 @@ class Spectrum(BatObservation):
         # TODO: create a DRM object to hold this info
         if "RESPFILE" in header.keys():
             drm_file = header["RESPFILE"]
-            if drm_file == "NONE":
+            if drm_file.lower() == "none":
                 self.drm_file = None
             else:
                 drm_file = pha_file.parent.joinpath(header["RESPFILE"])
