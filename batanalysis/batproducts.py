@@ -168,6 +168,26 @@ class Lightcurve(BatObservation):
 
         # were done getting all the info that we need. From here, the user can rebin the timebins and the energy bins
 
+    @property
+    def ra(self):
+        """The right ascension of the source and the associated weighting assigned to the event file to produce the lightcurve"""
+        return self._ra
+
+    @ra.setter
+    @u.quantity_input
+    def ra(self, value: u.Quantity[u.deg] | None):
+        self._ra = value
+
+    @property
+    def dec(self):
+        """The declination of the source and the associated weighting assigned to the event file to produce the lightcurve"""
+        return self._dec
+
+    @dec.setter
+    @u.quantity_input
+    def dec(self, value: u.Quantity[u.deg] | None):
+        self._dec = value
+
     @u.quantity_input(timebins=['time'], tmin=['time'], tmax=['time'])
     def set_timebins(self, timebinalg="uniform", timebins=None, tmin=None, tmax=None, T0=None, is_relative=False,
                      timedelta=np.timedelta64(64, 'ms'), snrthresh=None, save_durations=True):
@@ -500,8 +520,8 @@ class Lightcurve(BatObservation):
 
         if self.ra is None and self.dec is None:
             if "deg" in header.comments["RA_OBJ"]:
-                self.ra = header["RA_OBJ"]
-                self.dec = header["DEC_OBJ"]
+                self.ra = header["RA_OBJ"] * u.deg
+                self.dec = header["DEC_OBJ"] * u.deg
             else:
                 raise ValueError(
                     "The lightcurve file RA/DEC_OBJ does not seem to be in the units of decimal degrees which is not supported.")
@@ -702,7 +722,7 @@ class Lightcurve(BatObservation):
         with fits.open(self.event_file) as file:
             event_ra = file[0].header["RA_OBJ"]
             event_dec = file[0].header["DEC_OBJ"]
-            coord_match = (event_ra == self.ra) and (event_dec == self.dec)
+            coord_match = (event_ra == self.ra.to(u.deg).value) and (event_dec == self.dec.to(u.deg).value)
 
         return coord_match
 
@@ -1641,7 +1661,12 @@ class Spectrum(BatObservation):
         input_dict = dict(infile=str(pha_file), syserrfile="CALDB")
 
         try:
-            return hsp.batphasyserr(**input_dict)
+            tmp_bat_pha_sys_result = hsp.batphasyserr(**input_dict)
+            if tmp_bat_pha_sys_result.returncode != 0:
+                raise RuntimeError(
+                    f'The application of systematic errors to the PHA file failed with message: {tmp_bat_pha_sys_result.output}')
+            else:
+                return tmp_bat_pha_sys_result
         except Exception as e:
             print(e)
             raise RuntimeError(f"The call to Heasoft batphasyserr failed with inputs {input_dict}.")
@@ -1657,7 +1682,13 @@ class Spectrum(BatObservation):
         input_dict = dict(infile=str(pha_file), auxfile=str(self.auxil_raytracing_file))
 
         try:
-            return hsp.batupdatephakw(**input_dict)
+            tmp_bat_pha_kw_result = hsp.batupdatephakw(**input_dict)
+            if tmp_bat_pha_kw_result.returncode != 0:
+                raise RuntimeError(
+                    f'The application of geometric corrections to the PHA file failed with message: {tmp_bat_pha_kw_result.output}')
+            else:
+                return tmp_bat_pha_kw_result
+
         except Exception as e:
             print(e)
             raise RuntimeError(f"The call to Heasoft batupdatephakw failed with inputs {input_dict}.")
@@ -1834,14 +1865,18 @@ class Spectrum(BatObservation):
         # TODO: create a DRM object to hold this info
         if "RESPFILE" in header.keys():
             drm_file = header["RESPFILE"]
-            self.drm_file = drm_file
             if drm_file == "NONE":
                 self.drm_file = None
             else:
                 drm_file = pha_file.parent.joinpath(header["RESPFILE"])
-                self.drm_file = drm_file
                 if not drm_file.exists():
                     self.drm_file = None
+                    warnings.warn(
+                        f"The drm file {drm_file} does not seem to exist. Setting to None and continuing to parse the pha file.",
+                        stacklevel=2,
+                    )
+                else:
+                    self.drm_file = drm_file
 
         # if self.pha_input_dict ==None, then we will need to try to read in the hisotry of parameters passed into
         # batbinevt to create the pha file. thsi usually is needed when we first parse a file so we know what things
@@ -2030,6 +2065,26 @@ class Spectrum(BatObservation):
         return self._call_batdrmgen()
 
     @property
+    def ra(self):
+        """The right ascension of the source and the associated weighting assigned to the event file to produce the spectrum"""
+        return self._ra
+
+    @ra.setter
+    @u.quantity_input
+    def ra(self, value: u.Quantity[u.deg] | None):
+        self._ra = value
+
+    @property
+    def dec(self):
+        """The declination of the source and the associated weighting assigned to the event file to produce the spectrum"""
+        return self._dec
+
+    @dec.setter
+    @u.quantity_input
+    def dec(self, value: u.Quantity[u.deg] | None):
+        self._dec = value
+
+    @property
     def drm_file(self):
         """
         The detector response function file.
@@ -2043,10 +2098,10 @@ class Spectrum(BatObservation):
 
     @drm_file.setter
     def drm_file(self, value):
-        if not isinstance(value, Path):
-            raise ValueError("drm_file can only be set to a path object")
+        if not isinstance(value, Path) and value is not None:
+            raise ValueError("drm_file can only be set to None or a path object")
 
-        if not value.exists():
+        if value is not None and not value.exists():
             raise ValueError(f"The file {value} does not seem to exist")
 
         self._drm_file = value
@@ -2064,10 +2119,10 @@ class Spectrum(BatObservation):
     @pha_file.setter
     def pha_file(self, value):
         if not isinstance(value, Path):
-            raise ValueError("drm_file can only be set to a path object")
+            raise ValueError("pha_file can only be set to a path object")
 
-        if not value.exists():
-            raise ValueError(f"The file {value} does not seem to exist")
+        # if not value.exists():
+        #    raise ValueError(f"The file {value} does not seem to exist")
 
         self._pha_file = value
 
