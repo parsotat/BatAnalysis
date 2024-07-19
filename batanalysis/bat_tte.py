@@ -986,7 +986,7 @@ class BatEvent(BatObservation):
             )
 
             # need to check about recalculating this if recalc=False
-            if pha_file is None and recalc or pha_file is not None:
+            if (pha_file is None and recalc) or pha_file is not None:
                 spectrum.set_timebins(
                     tmin=input_tstart[i],
                     tmax=input_tstop[i],
@@ -1064,9 +1064,10 @@ class BatEvent(BatObservation):
 
         return dpi_list
 
-    def create_sky_image(self, **kwargs):
+    def create_skyview(self, **kwargs):
         """
-        This method returns a sky image
+        This method returns a sky view for all the DPIs that have been created or the specified DPI. If no DPIs
+        have been created, this method will create them. 
 
         :param kwargs:
         :return:
