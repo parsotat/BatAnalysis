@@ -930,11 +930,12 @@ class BatEvent(BatObservation):
                 if input_tstart is not None and input_tstart.size != len(
                         final_pha_files
                 ):
-                    warnings.warn(
-                        f"Deleting all files in {self.result_dir.joinpath('pha')} and creating new"
-                        f"pha files for the passed in timebins"
-                    )
-                    dirtest(self.result_dir.joinpath("pha"))
+                    #dont need to recalc since we will do that anyway in the creation of the Spectrum object
+                    #warnings.warn(
+                    #    f"Deleting all files in {self.result_dir.joinpath('pha')} and creating new"
+                    #    f"pha files for the passed in timebins"
+                    #)
+                    #dirtest(self.result_dir.joinpath("pha"))
                     # iterate through the pha files that need to be created
                     final_pha_files = []
                     base = "spectrum_"
