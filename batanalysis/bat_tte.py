@@ -969,8 +969,8 @@ class BatEvent(BatObservation):
             # list. this is to get the loop below going.
             if recalc and input_tstart is None and energybins is None:
                 raise ValueError(
-                    "recalc has been set to True, but there is not sufficient information for rebinning "
-                    f"the following lightcurves {','.join([i.name for i in final_pha_files])}. Please enter"
+                    "recalc has been set to True, but there is not sufficient information for recalculating "
+                    f"the following PHA files {','.join([i.name for i in final_pha_files])}. Please enter"
                     "information related to a change in timebins or energy bins"
                 )
 
@@ -986,7 +986,8 @@ class BatEvent(BatObservation):
             )
 
             # need to check about recalculating this if recalc=False
-            if (pha_file is None and recalc) or pha_file is not None:
+            # if (pha_file is None and recalc) or pha_file is not None:
+            if recalc:
                 spectrum.set_timebins(
                     tmin=input_tstart[i],
                     tmax=input_tstop[i],
@@ -1067,7 +1068,7 @@ class BatEvent(BatObservation):
     def create_skyview(self, **kwargs):
         """
         This method returns a sky view for all the DPIs that have been created or the specified DPI. If no DPIs
-        have been created, this method will create them. 
+        have been created, this method will create them.
 
         :param kwargs:
         :return:
