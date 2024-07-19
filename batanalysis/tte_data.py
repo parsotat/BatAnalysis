@@ -20,7 +20,7 @@ class TimeTaggedEvents(object):
 
     def __init__(
             self,
-            times,
+            time,
             detector_id,
             detx,
             dety,
@@ -47,7 +47,7 @@ class TimeTaggedEvents(object):
         :param mask_weight: The mask weighting that may apply to each photon. Can be set to None to ignore mask weighting
         """
 
-        self.time = times
+        self.time = time
         self.detector_id = detector_id
         self.detx = detx
         self.dety = dety
