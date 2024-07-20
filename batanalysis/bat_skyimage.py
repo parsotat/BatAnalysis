@@ -733,6 +733,7 @@ class BatSkyImage(Histogram):
             if not self.is_mosaic_intermediate and np.any([self.image_type == i for i in ["snr", "stddev"]]):
                 # because the self.project is recursive below, we need to create a new Histogram object so we call that
                 temp_hist = Histogram(edges=self.axes, contents=(self * self).contents.value)
+
                 hist = Histogram(edges=self.axes[*axis], contents=np.sqrt(temp_hist.project(*axis)), unit=self.unit)
 
             elif np.any([self.image_type == i for i in ["pcode", "exposure"]]):
