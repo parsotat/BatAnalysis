@@ -746,17 +746,20 @@ class BatEvent(BatObservation):
                     max_t += T0
 
                 # finally add the energy channels
-                lc_filename = f"t_{min_t}-{max_t}_dt_custom_{len(energybins)}chan.lc"
+                lc_filename = Path(f"t_{min_t}-{max_t}_dt_custom_{len(energybins) - 1}chan.lc")
             else:
                 # use th normal batbinevt related information with energy channel as distinguishing info
-                lc_filename = f"t_{timebinalg}_dt_{timedelta}_{len(energybins)}chan.lc"
+                lc_filename = Path(
+                    f"t_{timebinalg}_dt_{timedelta / np.timedelta64(1, 's')}_{len(energybins) - 1}chan.lc")
 
         else:
-            if not lc_file.is_absolute():
-                # assume that the user wants to put it in the lc directory, or load a file in the lc directory
-                lc_filename = lc_dir.joinpath(lc_file)
-            else:
-                lc_filename = Path(lc_file).expanduser().resolve()
+            lc_filename = lc_file
+
+        if not lc_filename.is_absolute():
+            # assume that the user wants to put it in the lc directory, or load a file in the lc directory
+            lc_filename = lc_dir.joinpath(lc_filename)
+        else:
+            lc_filename = Path(lc_filename).expanduser().resolve()
 
         # if the file exists and recalc=False, just load it in and return it. Dont need to add it to the list of
         # lightcurves via the self.lightcurves property
@@ -784,6 +787,9 @@ class BatEvent(BatObservation):
             lc.set_energybins(energybins=energybins)
 
             self.lightcurves = lc
+
+        # TODO: how to deal with an event file being loaded in and a user wanting to load in a previously created Lightcurve object?
+        # they can use this method to get the lightcurve object and then do event.lightcurves=lc
 
         return lc
 
@@ -1109,12 +1115,11 @@ class BatEvent(BatObservation):
 
     @spectra.setter
     def spectra(self, value):
-        if self._spectra is None:
-            self._spectra = []
-
         if value is None:
             self._spectra = value
         elif isinstance(value, Spectrum):
+            if self._spectra is None:
+                self._spectra = []
             self._spectra.append(value)
         elif isinstance(value, list):
             if len(value) > 0:
@@ -1132,12 +1137,11 @@ class BatEvent(BatObservation):
 
     @lightcurves.setter
     def lightcurves(self, value):
-        if self._lightcurves is None:
-            self._lightcurves = []
-
         if value is None:
             self._lightcurves = value
-        elif isinstance(value, Spectrum):
+        elif isinstance(value, Lightcurve):
+            if self._lightcurves is None:
+                self._lightcurves = []
             self._lightcurves.append(value)
         elif isinstance(value, list):
             if len(value) > 0:
