@@ -765,7 +765,7 @@ class BatEvent(BatObservation):
         )
         lc.set_energybins(energybins=energybins)
 
-        self.lightcurve = lc
+        self.lightcurves = lc
 
         return self.lightcurve
 
@@ -1003,12 +1003,14 @@ class BatEvent(BatObservation):
             spectrum_list.append(spectrum)
 
         # save the spectrum list as an attribute, if there is one spectrum then index it appropriately
-        if len(spectrum_list) == 1:
-            self.spectrum = spectrum_list[0]
-        else:
-            self.spectrum = spectrum_list
+        # if len(spectrum_list) == 1:
+        #    self.spectra = spectrum_list[0]
+        # else:
+        #    self.spectra = spectrum_list
+        for i in spectrum_list:
+            self.spectra = i
 
-        return self.spectrum
+        return self.spectra
 
     @u.quantity_input(timebins=["time"], tstart=["time"], tstop=["time"])
     def create_dph(
