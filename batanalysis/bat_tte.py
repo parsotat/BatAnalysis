@@ -17,7 +17,6 @@ import numpy as np
 from astropy.io import fits
 
 from .bat_dpi import BatDPI
-from .batlib import dirtest
 from .batobservation import BatObservation
 from .batproducts import Lightcurve, Spectrum
 from .tte_data import TimeTaggedEvents
@@ -361,11 +360,13 @@ class BatEvent(BatObservation):
             complete_file = self.result_dir.joinpath(".batevent_complete")
             complete_file.touch()
 
-            # save the state so we can load things later
-            self.save()
-
             # Now we can let the user define what they want to do for their light
             # curves and spctra. Need to determine how to organize this for any source in FOV to be analyzed.
+            self.spectra = None
+            self.lightcurves = None
+
+            # save the state so we can load things later
+            self.save()
 
         else:
             load_file = Path(load_file).expanduser().resolve()
@@ -708,7 +709,7 @@ class BatEvent(BatObservation):
         :param timebins: astropy.units.Quantity denoting the array of time bin edges. Units will usually be in seconds
             for this. The values can be relative to the specified T0. If so, then the T0 needs to be specified and
             the is_relative parameter should be True.
-        :param T0: float or an astropy.units.Quantity object with some tiem of interest (eg trigger time)
+        :param T0: float or an astropy.units.Quantity object with some time of interest (eg trigger time)
         :param is_relative: Boolean switch denoting if the T0 that is passed in should be added to the
             timebins/tmin/tmax that were passed in.
         :param energybins: astropy.units.Quantity denoting the energy bin edges for the energy resolved lightcurves that
@@ -930,12 +931,12 @@ class BatEvent(BatObservation):
                 if input_tstart is not None and input_tstart.size != len(
                         final_pha_files
                 ):
-                    #dont need to recalc since we will do that anyway in the creation of the Spectrum object
-                    #warnings.warn(
+                    # dont need to recalc since we will do that anyway in the creation of the Spectrum object
+                    # warnings.warn(
                     #    f"Deleting all files in {self.result_dir.joinpath('pha')} and creating new"
                     #    f"pha files for the passed in timebins"
-                    #)
-                    #dirtest(self.result_dir.joinpath("pha"))
+                    # )
+                    # dirtest(self.result_dir.joinpath("pha"))
                     # iterate through the pha files that need to be created
                     final_pha_files = []
                     base = "spectrum_"
@@ -1080,3 +1081,49 @@ class BatEvent(BatObservation):
         )
 
         return None
+
+    @property
+    def spectra(self):
+        """A list of spectrum objects that have been created from the event object"""
+        return self._spectra
+
+    @spectra.setter
+    def spectra(self, value):
+        if self._spectra is None:
+            self._spectra = []
+
+        if value is None:
+            self._spectra = value
+        elif isinstance(value, Spectrum):
+            self._spectra.append(value)
+        elif isinstance(value, list):
+            if len(value) > 0:
+                raise ValueError(
+                    "The spectra property can only be set to None, an empty list, or have a Spectrum object appended to it.")
+            self._spectra = value
+        else:
+            raise ValueError(
+                "The spectra property can only be set to None, an empty list, or have a Spectrum object appended to it.")
+
+    @property
+    def lightcurves(self):
+        """A list of lightcurve objects that have been created from the event file"""
+        return self._lightcurves
+
+    @lightcurves.setter
+    def lightcurves(self, value):
+        if self._lightcurves is None:
+            self._lightcurves = []
+
+        if value is None:
+            self._lightcurves = value
+        elif isinstance(value, Spectrum):
+            self._lightcurves.append(value)
+        elif isinstance(value, list):
+            if len(value) > 0:
+                raise ValueError(
+                    "The lightcurves property can only be set to None, an empty list, or have a Lightcurve object appended to it.")
+            self._lightcurves = value
+        else:
+            raise ValueError(
+                "The lightcurves property can only be set to None, an empty list, or have a Lightcurve object appended to it.")
