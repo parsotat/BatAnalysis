@@ -726,46 +726,64 @@ class BatEvent(BatObservation):
         # timedel=1.0 timebinalg=u energybins=15-150
         # detmask=../hk/sw00145675000bcbdq.hk.gz clobber=YES
 
-        if lc_file is None:
-            if not recalc:
-                # make up a name for the light curve that hasnt been used already in the LC directory
-                lc_files = list(self.result_dir.joinpath("lc").glob("*.lc"))
-                lc_files = [str(i) for i in lc_files]
-                base = "lightcurve_"
-                count = 0
-                while np.any([f"{base}{count}.lc" in t for t in lc_files]):
-                    count += 1
-                lc_file = self.result_dir.joinpath("lc").joinpath(f"{base}{count}.lc")
-            else:
-                lc_files = list(self.result_dir.joinpath("lc").glob("*.lc"))
-                if len(lc_files) == 1:
-                    lc_file = lc_files[0]
-                else:
-                    raise ValueError(
-                        f"There are too many files which meet the criteria to be loaded. Please specify one of {lc_files}."
-                    )
-        else:
-            lc_file = Path(lc_file).expanduser().resolve()
+        lc_dir = self.result_dir.joinpath("lc")
 
+        if lc_file is None:
+            # contruct the template name from the other inputs
+            if timebins is not None or tstart is not None or tstop is not None:
+                # try to access tstart/tmin first
+                try:
+                    min_t = tstart.min().value
+                    max_t = tstop.max().value
+                except AttributeError as e:
+                    # now try to access timebins
+                    min_t = timebins.min().value
+                    max_t = timebins.max().value
+
+                # add on the T0 if needed
+                if is_relative:
+                    min_t += T0
+                    max_t += T0
+
+                # finally add the energy channels
+                lc_filename = f"t_{min_t}-{max_t}_dt_custom_{len(energybins)}chan.lc"
+            else:
+                # use th normal batbinevt related information with energy channel as distinguishing info
+                lc_filename = f"t_{timebinalg}_dt_{timedelta}_{len(energybins)}chan.lc"
+
+        else:
+            if not lc_file.is_absolute():
+                # assume that the user wants to put it in the lc directory, or load a file in the lc directory
+                lc_filename = lc_dir.joinpath(lc_file)
+            else:
+                lc_filename = Path(lc_file).expanduser().resolve()
+
+        # if the file exists and recalc=False, just load it in and return it. Dont need to add it to the list of
+        # lightcurves via the self.lightcurves property
+        do_t_energy_calc = not (lc_filename.exists() and not recalc)
+
+        # within Lightcurve, we determine if we load things in or recalculate the Lightcurve with the passed in parameters
         lc = Lightcurve(
-            lc_file,
+            lc_filename,
             self.event_files,
             self.detector_quality_file,
             recalc=recalc,
             mask_weighting=mask_weighting,
         )
-        lc.set_timebins(
-            timebinalg=timebinalg,
-            timedelta=timedelta,
-            tmin=tstart,
-            tmax=tstop,
-            timebins=timebins,
-            is_relative=is_relative,
-            T0=T0,
-        )
-        lc.set_energybins(energybins=energybins)
 
-        self.lightcurves = lc
+        if do_t_energy_calc:
+            lc.set_timebins(
+                timebinalg=timebinalg,
+                timedelta=timedelta,
+                tmin=tstart,
+                tmax=tstop,
+                timebins=timebins,
+                is_relative=is_relative,
+                T0=T0,
+            )
+            lc.set_energybins(energybins=energybins)
+
+            self.lightcurves = lc
 
         return lc
 
