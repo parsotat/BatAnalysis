@@ -767,7 +767,7 @@ class BatEvent(BatObservation):
 
         self.lightcurves = lc
 
-        return self.lightcurve
+        return lc
 
     @u.quantity_input(timebins=["time"], tstart=["time"], tstop=["time"], energybins=["energy"])
     def create_pha(
@@ -1010,7 +1010,7 @@ class BatEvent(BatObservation):
         for i in spectrum_list:
             self.spectra = i
 
-        return self.spectra
+        return spectrum_list
 
     @u.quantity_input(timebins=["time"], tstart=["time"], tstop=["time"])
     def create_dph(
