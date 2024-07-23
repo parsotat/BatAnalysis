@@ -743,8 +743,13 @@ class BatEvent(BatObservation):
 
                 # add on the T0 if needed
                 if is_relative:
-                    min_t += T0
-                    max_t += T0
+                    if isinstance(T0, u.Quantity):
+                        min_t += T0.value
+                        max_t += T0.value
+
+                    else:
+                        min_t += T0
+                        max_t += T0
 
                 # finally add the energy channels
                 lc_filename = Path(f"t_{min_t}-{max_t}_dt_custom_{len(energybins) - 1}chan.lc")
@@ -903,11 +908,16 @@ class BatEvent(BatObservation):
         if pha_file is None:
             # construct the template name from the spectral inputs
             pha_filename = []
-            for start, end in zip(input_tstart, input_tstop):
+            for start, end in zip(input_tstart.value, input_tstop.value):
                 if is_relative:
-                    start += T0
-                    end += T0
-                name = f"t_{start}-{end}_{nchannels}chan.pha"
+                    if isinstance(T0, u.Quantity):
+                        start += T0.value
+                        end += T0.value
+                    else:
+                        start += T0
+                        end += T0
+
+                name = Path(f"t_{start}-{end}_{nchannels}chan.pha")
                 pha_filename.append(name)
 
             # if we want to load the upper limits, need to see if we have this file. Assume we are looking for
@@ -916,13 +926,16 @@ class BatEvent(BatObservation):
             if load_upperlims:
                 new_phafilename = []
                 for i in pha_filename:
-                    if pha_dir.joinpath(f"{i.stem}_upperlimit.pha").exists():
-                        new_phafilename.append(pha_dir.joinpath(f"{i.stem}_upperlimit.pha"))
+                    upperlim_files = list(pha_dir.glob(f"{i.stem}_bkgnsigma_*_upperlimit.pha"))
+                    if len(upperlim_files) > 0:
+                        for j in upperlim_files:
+                            new_phafilename.append(j)
                     else:
                         new_phafilename.append(i)
                         warnings.warn(
                             f"There is no associated upper limit pha file for {i}, will continue by just loading in this file.",
                             stacklevel=2)
+                pha_filename = new_phafilename
 
         else:
             pha_filename = pha_file
