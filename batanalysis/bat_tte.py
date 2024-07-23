@@ -998,7 +998,10 @@ class BatEvent(BatObservation):
             if t_energy_calc:
                 self.spectra = i
 
-        return spectrum_list
+        if len(spectrum_list) == 1:
+            return spectrum_list[0]
+        else:
+            return spectrum_list
 
     @u.quantity_input(timebins=["time"], tstart=["time"], tstop=["time"])
     def create_dph(
