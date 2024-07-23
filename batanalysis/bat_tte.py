@@ -16,6 +16,7 @@ import astropy.units as u
 import numpy as np
 from astropy.io import fits
 
+from .bat_dph import BatDPH
 from .bat_dpi import BatDPI
 from .batobservation import BatObservation
 from .batproducts import Lightcurve, Spectrum
@@ -690,23 +691,21 @@ class BatEvent(BatObservation):
         :param tstart: astropy.units.Quantity denoting the minimum values of the timebin edges that the user would like
             the lightcurve to be binned into. Units will usually be in seconds for this. The values can be relative to
             the specified T0. If so, then the T0 needs to be specified andthe is_relative parameter should be True.
-            NOTE: if tmin/tmax are specified then anything passed to the timebins parameter is ignored.
+            NOTE: if tstart/tstop are specified then anything passed to the timebins parameter is ignored.
 
-            If the length of tmin is 1 then this denotes the time when the binned lightcurve should start. For this single
+            If the length of tstart is 1 then this denotes the time when the binned lightcurve should start. For this single
             value, it can also be defined relative to T0. If so, then the T0 needs to be specified and the is_relative parameter
             should be True.
 
-            NOTE: if tmin/tmax are specified then anything passed to the timebins parameter is ignored.
         :param tstop: astropy.units.Quantity denoting the maximum values of the timebin edges that the user would like
             the lightcurve to be binned into. Units will usually be in seconds for this. The values can be relative to
             the specified T0. If so, then the T0 needs to be specified andthe is_relative parameter should be True.
-            NOTE: if tmin/tmax are specified then anything passed to the timebins parameter is ignored.
+            NOTE: if tstart/tstop are specified then anything passed to the timebins parameter is ignored.
 
-            If the length of tmin is 1 then this denotes the time when the binned lightcurve should end. For this single
+            If the length of tstop is 1 then this denotes the time when the binned lightcurve should end. For this single
             value, it can also be defined relative to T0. If so, then the T0 needs to be specified and the is_relative parameter
             should be True.
 
-            NOTE: if tmin/tmax are specified then anything passed to the timebins parameter is ignored.
         :param timebins: astropy.units.Quantity denoting the array of time bin edges. Units will usually be in seconds
             for this. The values can be relative to the specified T0. If so, then the T0 needs to be specified and
             the is_relative parameter should be True.
@@ -794,8 +793,9 @@ class BatEvent(BatObservation):
 
             self.lightcurves = lc
 
-        # TODO: how to deal with an event file being loaded in and a user wanting to load in a previously created Lightcurve object?
-        # they can use this method to get the lightcurve object and then do event.lightcurves=lc
+        # TODO: how to deal with an event file being loaded in and a user wanting to load in a previously created
+        #  Lightcurve object? they can use this method to get the lightcurve object and then do event.lightcurves=lc,
+        #  will need to change the error for property only being able to be set to an empty list
 
         return lc
 
@@ -844,9 +844,13 @@ class BatEvent(BatObservation):
         :param tstart: astropy Quantity scalar or array denoting the start MET time of timebins that the user would like
             to create pha files for. A pha file will be created for each time range specified by tstart and tstop. The
             times can be defined relative to some time of interest which can be specified with the T0 parameter.
+            NOTE: if tstart/tstop are specified then anything passed to the timebins parameter is ignored.
+
         :param tstop: astropy Quantity scalar or array denoting the end MET time of timebins that the user would like to
             create pha files for. A pha file will be created for each time range specified by tstart and tstop. The
             times can be defined relative to some time of interest which can be specified with the T0 parameter.
+            NOTE: if tstart/tstop are specified then anything passed to the timebins parameter is ignored.
+
         :param timebins: astropy Quantity  array denoting the MET timebin edges that the spectra should be constructed
             for. The times can be defined relative to some time of interest which can be specified with the T0 parameter
         :param T0: float or astropy Quantity scalar denoting the time that time bins may be defined relative to
@@ -868,6 +872,13 @@ class BatEvent(BatObservation):
 
         input_tstart = None
         input_tstop = None
+
+        # if the timebins is defined, will need to break it up into the tstart and tstop arrays to iterate over
+        # if tstart/tstop are specified we will prefer to use those
+        if timebins is not None:
+            input_tstart = timebins[:-1]
+            input_tstop = timebins[1:]
+
         # do error checking on tmin/tmax make sure both are defined and that they are the same length
         if (tstart is None and tstop is not None) or (
                 tstart is None and tstop is not None
@@ -885,11 +896,6 @@ class BatEvent(BatObservation):
                 input_tstop = u.Quantity([input_tstop])
             else:
                 raise ValueError("Both tstart and tstop must have the same length.")
-
-        # if the timebins is defined, will need to break it up into the tstart and tstop arrays to iterate over
-        if timebins is not None:
-            input_tstart = timebins[:-1]
-            input_tstop = timebins[1:]
 
         if energybins is None:
             nchannels = 80
@@ -1003,7 +1009,7 @@ class BatEvent(BatObservation):
         else:
             return spectrum_list
 
-    @u.quantity_input(timebins=["time"], tstart=["time"], tstop=["time"])
+    @u.quantity_input(timebins=["time"], tstart=["time"], tstop=["time"], energybins=["energy"])
     def create_dph(
             self,
             dph_file=None,
@@ -1022,9 +1028,84 @@ class BatEvent(BatObservation):
         :return:
         """
 
-        raise NotImplementedError("Creating the DPH has not yet been implemented.")
+        dph_dir = self.result_dir.joinpath("dph")
+        if energybins is None:
+            nchannels = 1
+        else:
+            nchannels = len(energybins) - 1
 
-        return None
+        input_tstart = None
+        input_tstop = None
+
+        # if the timebins is defined, will need to break it up into the tstart and tstop arrays to iterate over
+        # if tstart/tstop are specified we will prefer to use those
+        if timebins is not None:
+            input_tstart = timebins[:-1]
+            input_tstop = timebins[1:]
+
+        # do error checking on tmin/tmax make sure both are defined and that they are the same length
+        if (tstart is None and tstop is not None) or (
+                tstart is None and tstop is not None
+        ):
+            raise ValueError("Both tstart and tstop must be defined.")
+
+        if tstart is not None and tstop is not None:
+            if tstart.size == tstop.size:
+                input_tstart = tstart.copy()
+                input_tstop = tstop.copy()
+
+            # make sure that we can iterate over the times even if the user passed in a single scalar quantity
+            if input_tstart.isscalar:
+                input_tstart = u.Quantity([input_tstart])
+                input_tstop = u.Quantity([input_tstop])
+            else:
+                raise ValueError("Both tstart and tstop must have the same length.")
+
+        if dph_file is None:
+            # construct the template name from the inputs
+            dph_filename = []
+            for start, end in zip(input_tstart.value, input_tstop.value):
+                if is_relative:
+                    if isinstance(T0, u.Quantity):
+                        start += T0.value
+                        end += T0.value
+                    else:
+                        start += T0
+                        end += T0
+
+                name = Path(f"t_{start}-{end}_{nchannels}chan.pha")
+                dph_filename.append(name)
+
+
+        else:
+            dph_filename = dph_file
+
+        final_dph_files = [
+            dph_dir.joinpath(f"{i}")
+            if not Path(i).is_absolute()
+            else Path(i).expanduser().resolve()
+            for i in dph_filename
+        ]
+
+        dph_list = []
+        for i in range(input_tstart.size):
+            # if the file exists and recalc=False, just load it in and return it. Dont need to add it to the list of
+            # dphs via the self.dphs property
+            do_t_energy_calc = not (final_dph_files[i].exists() and not recalc)
+
+            dph = BatDPI(final_dph_files[i], event_file=self.event_files,
+                         recalc=recalc)
+
+            if do_t_energy_calc:
+                dph.set_timebins(tmin=input_tstart[i], tmax=input_tstop[i], is_relative=is_relative, T0=T0)
+                if energybins is not None:
+                    dph.set_energybins(energybins=energybins)
+
+                self.dphs = dph
+
+            dph_list.append(dph)
+
+        return dph_list
 
     @u.quantity_input(timebins=["time"], tstart=["time"], tstop=["time"], energybins=["energy"])
     def create_dpi(self,
@@ -1118,3 +1199,25 @@ class BatEvent(BatObservation):
         else:
             raise ValueError(
                 "The lightcurves property can only be set to None, an empty list, or have a Lightcurve object appended to it.")
+
+    @property
+    def dphs(self):
+        """A list of DPH objects that have been created from the event file"""
+        return self._dphs
+
+    @dphs.setter
+    def dphs(self, value):
+        if value is None:
+            self._dphs = value
+        elif isinstance(value, BatDPH):
+            if self._dphs is None:
+                self._dphs = []
+            self._dphs.append(value)
+        elif isinstance(value, list):
+            if len(value) > 0:
+                raise ValueError(
+                    "The dphs property can only be set to None, an empty list, or have a BatDPH object appended to it.")
+            self._dphs = value
+        else:
+            raise ValueError(
+                "The dphs property can only be set to None, an empty list, or have a BatDPH object appended to it.")
