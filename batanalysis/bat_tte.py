@@ -1242,6 +1242,11 @@ class BatEvent(BatObservation):
                         s = start.min().value + T0
                         e = end.max().value + T0
 
+                    # make sure that the timebin does not extend past the min/max event data time
+                    if s < self.data.time.min().value or e > self.data.time.max().value:
+                        raise ValueError(
+                            f"The bounds of the timebin {s}-{e} extend past the min/max event time in the event file.")
+
                     dpi_filename.append(Path(f"t_{s}-{e}_{nchannels}chan.dpi"))
             else:
                 start = "start"
