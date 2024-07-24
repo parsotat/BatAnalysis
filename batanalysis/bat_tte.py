@@ -18,6 +18,7 @@ from astropy.io import fits
 
 from .bat_dph import BatDPH
 from .bat_dpi import BatDPI
+from .bat_skyview import BatSkyView
 from .batobservation import BatObservation
 from .batproducts import Lightcurve, Spectrum
 from .tte_data import TimeTaggedEvents
@@ -362,11 +363,14 @@ class BatEvent(BatObservation):
             complete_file.touch()
 
             # Now we can let the user define what they want to do for their light
-            # curves and spctra. Need to determine how to organize this for any source in FOV to be analyzed.
+            # curves, spctra, etc. Need to determine how to organize this for any source in FOV to be analyzed.
+
+            # initalize the properties to be None
             self.spectra = None
             self.lightcurves = None
             self.dphs = None
             self.dpis = None
+            self.skyviews = None
 
             # save the state so we can load things later
             self.save()
@@ -1283,7 +1287,16 @@ class BatEvent(BatObservation):
         else:
             return dpi_list
 
-    def create_skyview(self, **kwargs):
+    def create_skyview(self,
+                       dpis=None,
+                       tstart=None,
+                       tstop=None,
+                       timebins=None,
+                       T0=None,
+                       is_relative=False,
+                       energybins=[15, 350] * u.keV,
+                       recalc=False,
+                       ):
         """
         This method returns a sky view for all the DPIs that have been created or the specified DPI. If no DPIs
         have been created, this method will create them.
@@ -1292,11 +1305,55 @@ class BatEvent(BatObservation):
         :return:
         """
 
-        raise NotImplementedError(
-            "Creating the sky image has not yet been implemented."
-        )
+        skyview_dir = self.result_dir.joinpath("img")
 
-        return None
+        # make the directory if it doesnt exist, if it does then we are fine. This is done here because users dont
+        # usually create sky images with the event file but this creates a subdirectory to put them in  if a user wants to
+        # do so
+        skyview_dir.mkdir(exist_ok=True)
+
+        # if dpis is None, we need to create/load the DPI(s) from the other parameters passed in
+        if dpis is None:
+            dpi_output = self.create_dpi(tstart=tstart, tstop=tstop, timebins=timebins, T0=T0, is_relative=is_relative,
+                                         energybins=energybins, recalc=recalc)
+            # make sure we have a list
+            if not isinstance(dpi_output, list):
+                dpi_output = [dpi_output]
+        else:
+            if not isinstance(dpis, list):
+                dpi_output = [dpis]
+            else:
+                dpi_output = dpis
+
+            if np.any([not isinstance(i, BatDPI) for i in dpi_output]):
+                raise ValueError(
+                    "dpi can only be set to a BatDPI object or a list of BatDPI objects.")
+
+        # we have created/loaded the necessary information to now create the BatSkyView objects
+        skyviews_list = []
+        for dpi in dpi_output:
+            # create the name of the skyview files since we want them to be in the
+            # img folder
+            skyview_file = skyview_dir.joinpath(f"{dpi.dpi_file.stem}.img")
+
+            # determine if we need to save this object to the skyviews property
+            # if the file exists and recalc=False, just load it in and return it. Dont need to add it to the list of
+            # skyviews via the self.skyviews property
+            save_property = not (skyview_file.exists() and not recalc)
+
+            skyview = BatSkyView(skyimg_file=skyview_file, bat_dpi=dpi, attitude_file=self.attitude_file,
+                                 create_bkg_stddev_img=True,
+                                 create_snr_img=True, recalc=recalc)
+
+            if save_property:
+                self.skyviews = skyview
+
+            skyviews_list.append(skyview)
+
+        if len(skyviews_list) == 1:
+            return skyviews_list[0]
+        else:
+            return skyviews_list
 
     @property
     def spectra(self):
@@ -1373,7 +1430,7 @@ class BatEvent(BatObservation):
     def dpis(self, value):
         if value is None:
             self._dpis = value
-        elif isinstance(value, BatDPH):
+        elif isinstance(value, BatDPI):
             if self._dpis is None:
                 self._dpis = []
             self._dpis.append(value)
@@ -1385,3 +1442,25 @@ class BatEvent(BatObservation):
         else:
             raise ValueError(
                 "The dpis property can only be set to None, an empty list, or have a BatDPI object appended to it.")
+
+    @property
+    def skyviews(self):
+        """A list of BatSkyView objects that have been created from the event file"""
+        return self._skyviews
+
+    @skyviews.setter
+    def skyviews(self, value):
+        if value is None:
+            self._skyviews = value
+        elif isinstance(value, BatSkyView):
+            if self._skyviews is None:
+                self._skyviews = []
+            self._skyviews.append(value)
+        elif isinstance(value, list):
+            if len(value) > 0:
+                raise ValueError(
+                    "The skyviews property can only be set to None, an empty list, or have a BatSkyView object appended to it.")
+            self._skyviews = value
+        else:
+            raise ValueError(
+                "The skyviews property can only be set to None, an empty list, or have a BatSkyView object appended to it.")
