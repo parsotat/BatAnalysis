@@ -366,6 +366,7 @@ class BatEvent(BatObservation):
             self.spectra = None
             self.lightcurves = None
             self.dphs = None
+            self.dpis = None
 
             # save the state so we can load things later
             self.save()
@@ -965,7 +966,10 @@ class BatEvent(BatObservation):
                 pha_filename = new_phafilename
 
         else:
-            pha_filename = pha_file
+            if type(pha_file) is list:
+                pha_filename = pha_file
+            else:
+                pha_filename = [pha_file]
 
         # if a single file has been specified, assume that is should go in the event/pha directory unless
         # the user has passed in an absolute file path
@@ -1189,27 +1193,95 @@ class BatEvent(BatObservation):
                    recalc=False,
                    ):
         """
-        This method creates and returns a detector plane image.
+        This method creates and returns a detector plane image. Unlike the create_DPH method, one DPI created here
+        corresponds to only 1 time bin and as many energybins as is specified by the user.
 
         :param kwargs:
         :return:
         """
 
         dpi_dir = self.result_dir.joinpath("dpi")
-        nebin = len(energybins) - 1
+        nchannels = len(energybins) - 1
+
+        input_tstart = None
+        input_tstop = None
+        # if the timebins is defined, will need to break it up into the tstart and tstop arrays to iterate over
+        # if tstart/tstop are specified we will prefer to use those
+        if timebins is not None:
+            input_tstart = timebins[:-1]
+            input_tstop = timebins[1:]
+        # do error checking on tmin/tmax make sure both are defined and that they are the same length
+        if (tstart is None and tstop is not None) or (
+                tstart is None and tstop is not None
+        ):
+            raise ValueError("Both tstart and tstop must be defined.")
+        if tstart is not None and tstop is not None:
+            if tstart.size == tstop.size:
+                input_tstart = tstart.copy()
+                input_tstop = tstop.copy()
+            # make sure that we can iterate over the times even if the user passed in a single scalar quantity
+            if input_tstart.isscalar:
+                input_tstart = u.Quantity([input_tstart])
+                input_tstop = u.Quantity([input_tstop])
+            else:
+                raise ValueError("Both tstart and tstop must have the same length.")
+
+        if dpi_file is None:
+            # construct the template names
+            dpi_filename = []
+            if input_tstop is not None:
+                for start, end in zip(input_tstart, input_tstop):
+                    if isinstance(T0, u.Quantity):
+                        s = (start + T0).min().value
+                        e = (end + T0).max().value
+                    else:
+                        s = start.min().value + T0
+                        e = end.max().value + T0
+
+                    dpi_filename.append(Path(f"t_{s}-{e}_{nchannels}chan.dpi"))
+            else:
+                start = "start"
+                end = "end"
+                input_tstart = np.array([None])
+                input_tstop = np.array([None])
+
+                dpi_filename.append(Path(f"t_{start}-{end}_{nchannels}chan.dpi"))
+
+        else:
+            if type(dpi_file) is list:
+                dpi_filename = dpi_file
+            else:
+                dpi_filename = [dpi_file]
+
+        final_dpi_files = [
+            dpi_dir.joinpath(f"{i}")
+            if not Path(i).is_absolute()
+            else Path(i).expanduser().resolve()
+            for i in dpi_filename
+        ]
 
         dpi_list = []
-        for start, end, i in zip(tstart, tstop, range(len(tstart))):
-            dpi = BatDPI(dpi_dir.joinpath(f"t_{start.value}-{end.value}_{nebin}chan.dpi"), event_file=self.event_files,
+        for start, end, file in zip(input_tstart, input_tstop, final_dpi_files):
+            # if the file exists and recalc=False, just load it in and return it. Dont need to add it to the list of
+            # dphs via the self.dphs property
+            do_t_energy_calc = not (file.exists() and not recalc)
+
+            dpi = BatDPI(file, event_file=self.event_files,
                          detector_quality_file=self.detector_quality_file, recalc=recalc)
 
-            dpi.set_timebins(tmin=start, tmax=end, is_relative=is_relative, T0=T0)
-            dpi.set_energybins(energybins=energybins)
+            if do_t_energy_calc:
+                dpi.set_timebins(tmin=start, tmax=end, is_relative=is_relative, T0=T0)
+                if energybins is not None:
+                    dpi.set_energybins(energybins=energybins)
+
+                self.dpis = dpi
 
             dpi_list.append(dpi)
-        # raise NotImplementedError("Creating the DPI has not yet been implemented.")
 
-        return dpi_list
+        if len(dpi_list) == 1:
+            return dpi_list[0]
+        else:
+            return dpi_list
 
     def create_skyview(self, **kwargs):
         """
@@ -1291,3 +1363,25 @@ class BatEvent(BatObservation):
         else:
             raise ValueError(
                 "The dphs property can only be set to None, an empty list, or have a BatDPH object appended to it.")
+
+    @property
+    def dpis(self):
+        """A list of DPI objects that have been created from the event file"""
+        return self._dpis
+
+    @dpis.setter
+    def dpis(self, value):
+        if value is None:
+            self._dpis = value
+        elif isinstance(value, BatDPH):
+            if self._dpis is None:
+                self._dpis = []
+            self._dpis.append(value)
+        elif isinstance(value, list):
+            if len(value) > 0:
+                raise ValueError(
+                    "The dpis property can only be set to None, an empty list, or have a BatDPI object appended to it.")
+            self._dpis = value
+        else:
+            raise ValueError(
+                "The dpis property can only be set to None, an empty list, or have a BatDPI object appended to it.")
