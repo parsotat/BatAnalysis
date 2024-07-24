@@ -1060,8 +1060,8 @@ class BatEvent(BatObservation):
         creation. If a DPH is loaded in, then the BatDPH will not be saved to the dphs property by default. If
         a user wants to do so they can set the loaded BatDPH to the dphs property (ie self.dphs = loaded_dph).
 
-        :param dph_file: None or a path object of the lightcurve file that will be read in, if previously calculated,
-            or the location/name of the new lightcurve file that will contain the newly calculated lightcurve. If set
+        :param dph_file: None or a path object of the dph file that will be read in, if previously calculated,
+            or the location/name of the new dph file that will contain the newly calculated dph. If set
             to None, the DPH filename will be dynamically determined from the other input parameters. If the file exists,
             then it will be either read in or recreated, depending on the recalc parameter. By default, the DPHs are
             placed in the dph/ directory unless a Path object is passed in with an absolute filepath.
@@ -1197,11 +1197,49 @@ class BatEvent(BatObservation):
                    recalc=False,
                    ):
         """
-        This method creates and returns a detector plane image. Unlike the create_DPH method, one DPI created here
+        This method creates and returns a BatDPI object. Unlike the create_DPH method, one DPI created here
         corresponds to only 1 time bin and as many energybins as is specified by the user.
 
-        :param kwargs:
-        :return:
+        If the user attempts to create a DPI file outside of the range of times for which there is event data, an error
+        will be raised.
+
+        Any newly created BatDPI objects are saved to the dpis property where they are stored in order based on their
+        creation. If a DPI is loaded in, then the BatDPI will not be saved to the dpis property by default. If
+        a user wants to do so they can set the loaded BatDPI to the dpis property (ie self.dpis = loaded_dpi).
+
+
+        :param dpi_file: None or a path object of the DPI file that will be read in, if previously calculated,
+            or the location/name of the new DPI file that will contain the newly calculated DPI. If set
+            to None, the DPI filename will be dynamically determined from the other input parameters. If the file exists,
+            then it will be either read in or recreated, depending on the recalc parameter. By default, the DPIs are
+            placed in the dpi/ directory unless a Path object is passed in with an absolute filepath.
+        :param tstart: astropy.units.Quantity denoting the minimum values of the timebin edges that the user would like
+            the DPI to be binned into. Units will usually be in seconds for this. The values can be relative to
+            the specified T0. If so, then the T0 needs to be specified and the is_relative parameter should be True.
+            NOTE: if tstart/tstop are specified then anything passed to the timebins parameter is ignored.
+
+            If the length of tstart is 1 then this denotes the time when the binned lightcurve should start. For this single
+            value, it can also be defined relative to T0. If so, then the T0 needs to be specified and the is_relative parameter
+            should be True.
+        :param tstop: astropy.units.Quantity denoting the maximum values of the timebin edges that the user would like
+            the DPI to be binned into. Units will usually be in seconds for this. The values can be relative to
+            the specified T0. If so, then the T0 needs to be specified and the is_relative parameter should be True.
+            NOTE: if tstart/tstop are specified then anything passed to the timebins parameter is ignored.
+
+            If the length of tstop is 1 then this denotes the time when the binned lightcurve should end. For this single
+            value, it can also be defined relative to T0. If so, then the T0 needs to be specified and the is_relative parameter
+            should be True.
+        :param timebins: astropy.units.Quantity denoting the array of time bin edges. Units will usually be in seconds
+            for this. The values can be relative to the specified T0. If so, then the T0 needs to be specified and
+            the is_relative parameter should be True.
+        :param T0: float or an astropy.units.Quantity object with some time of interest (eg trigger time)
+        :param is_relative: Boolean switch denoting if the T0 that is passed in should be added to the
+            timebins/tstart/tstop that were passed in.
+        :param energybins: astropy.units.Quantity denoting the energy bin edges for the DPI that will be produced. None
+            sets the default energy binning to be 14-195 keV
+        :param recalc: Boolean to denote if the DPH specified by dph_file should be recalculated with the
+            specified time/energy binning. See the BatDPH class for a list of these defaults.
+        :return: BatDPI object or a list of BatDPI objects
         """
 
         dpi_dir = self.result_dir.joinpath("dpi")
@@ -1303,11 +1341,43 @@ class BatEvent(BatObservation):
                        recalc=False,
                        ):
         """
-        This method returns a sky view for all the DPIs that have been created or the specified DPI. If no DPIs
-        have been created, this method will create them.
+        This method returns a sky view for all the DPIs that have been specified. If no DPIs
+        have been created which correspond to the input times/energies then this method will create them and then produce
+        a BatSkyView object for all the DPIs.
 
-        :param kwargs:
-        :return:
+        Any newly created BatSkyView objects are saved to the skyviews property where they are stored in order based on their
+        creation. If a BatSkyView is loaded, then the BatSkyView will not be saved to the skyviews property by default. If
+        a user wants to do so they can set the loaded BatSkyView to the skyviews property (ie self.skyviews = loaded_skyview).
+
+
+        :param dpis: None, a BatDPI object, or a list of BatDPI objects that will be used to produce the BatSkyView object(s)
+        :param tstart: astropy.units.Quantity denoting the minimum values of the timebin edges that the user would like
+            the DPI and resulting skyview to be binned into. Units will usually be in seconds for this. The values can be relative to
+            the specified T0. If so, then the T0 needs to be specified and the is_relative parameter should be True.
+            NOTE: if tstart/tstop are specified then anything passed to the timebins parameter is ignored.
+
+            If the length of tstart is 1 then this denotes the time when the binned lightcurve should start. For this single
+            value, it can also be defined relative to T0. If so, then the T0 needs to be specified and the is_relative parameter
+            should be True.
+        :param tstop: astropy.units.Quantity denoting the maximum values of the timebin edges that the user would like
+            the DPI and resulting skyview to be binned into. Units will usually be in seconds for this. The values can be relative to
+            the specified T0. If so, then the T0 needs to be specified and the is_relative parameter should be True.
+            NOTE: if tstart/tstop are specified then anything passed to the timebins parameter is ignored.
+
+            If the length of tstop is 1 then this denotes the time when the binned lightcurve should end. For this single
+            value, it can also be defined relative to T0. If so, then the T0 needs to be specified and the is_relative parameter
+            should be True.
+        :param timebins: astropy.units.Quantity denoting the array of time bin edges. Units will usually be in seconds
+            for this. The values can be relative to the specified T0. If so, then the T0 needs to be specified and
+            the is_relative parameter should be True.
+        :param T0: float or an astropy.units.Quantity object with some time of interest (eg trigger time)
+        :param is_relative: Boolean switch denoting if the T0 that is passed in should be added to the
+            timebins/tstart/tstop that were passed in.
+        :param energybins: astropy.units.Quantity denoting the energy bin edges for the DPH that will be produced. None
+            sets the default energy binning to be 14-195 keV
+        :param recalc: Boolean to denote if the DPH specified by dph_file should be recalculated with the
+            specified time/energy binning. See the BatDPH class for a list of these defaults.
+        :return: BatSkyView object or a list of BatSkyView objects
         """
 
         skyview_dir = self.result_dir.joinpath("img")
