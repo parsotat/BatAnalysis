@@ -1107,7 +1107,7 @@ class BatEvent(BatObservation):
             # dphs via the self.dphs property
             do_t_energy_calc = not (final_dph_files[i].exists() and not recalc)
 
-            dph = BatDPI(final_dph_files[i], event_file=self.event_files,
+            dph = BatDPH(final_dph_files[i], event_file=self.event_files,
                          recalc=recalc)
 
             if do_t_energy_calc:
