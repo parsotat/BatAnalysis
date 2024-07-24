@@ -485,7 +485,7 @@ class BatDPI(DetectorPlaneHistogram):
 
     @u.quantity_input(timebins=["time"], tmin=["time"], tmax=["time"])
     def set_timebins(self, timebins=None, tmin=None, tmax=None, timebinalg="uniform", T0=None, is_relative=False,
-                     timedelta=np.timedelta64(1, 's')):
+                     timedelta=np.timedelta64(0, 's')):
         """
         This method allows for the dynamic rebinning of the DPI in time.
 
@@ -514,7 +514,8 @@ class BatDPI(DetectorPlaneHistogram):
         :param is_relative: Boolean switch denoting if the T0 that is passed in should be added to the
             timebins/tmin/tmax that were passed in.
         :param timedelta: a numpy timedelta object that specifies the uniform/snr timebinning that may be used
-            if the timebinalg parameter is passed to batbinevt
+            if the timebinalg parameter is passed to batbinevt. The default value of timebin=np.timedelta64(0, "s")
+            accumulates the whole event dataset into a single DPI.
         :return: None
 
         """

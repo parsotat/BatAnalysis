@@ -915,17 +915,21 @@ class BatEvent(BatObservation):
         if pha_file is None:
             # construct the template name from the spectral inputs
             pha_filename = []
-            for start, end in zip(input_tstart.value, input_tstop.value):
-                if is_relative:
-                    if isinstance(T0, u.Quantity):
-                        start += T0.value
-                        end += T0.value
-                    else:
-                        start += T0
-                        end += T0
+            if input_tstop is not None:
+                for start, end in zip(input_tstart.value, input_tstop.value):
+                    if is_relative:
+                        if isinstance(T0, u.Quantity):
+                            start += T0.value
+                            end += T0.value
+                        else:
+                            start += T0
+                            end += T0
+            else:
+                start = "start"
+                end = "end"
 
-                name = Path(f"t_{start}-{end}_{nchannels}chan.pha")
-                pha_filename.append(name)
+            name = Path(f"t_{start}-{end}_{nchannels}chan.pha")
+            pha_filename.append(name)
 
             # if we want to load the upper limits, need to see if we have this file. Assume we are looking for
             # files in the OBSID/pha directory
