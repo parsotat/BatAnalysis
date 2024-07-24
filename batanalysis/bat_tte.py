@@ -672,6 +672,14 @@ class BatEvent(BatObservation):
         class, the resulting Lightcurve class instance can be used to rebin the lightcurve however the user wants. The
         lightcurve is also saved to the BatEvent.lightcurve attribute when it is created thorugh this method.
 
+        This method also returns the Lightcurve object.
+
+        Any newly created Lightcurve objects are saved to the lightcurves property where they are stored in order based
+        on their creation. If a lightcurve file is loaded in, then the Lightcurve object will not be saved to the
+        lightcurves property by default. If a user wants to do so they can set the loaded Lightcurve object to the
+        lightcurves property (ie self.lightcurves = loaded_lightcurve).
+
+
         :param lc_file: None or a path object of the lightcurve file that will be read in, if previously calculated,
             or the location/name of the new lightcurve file that will contain the newly calculated lightcurve. If set
             to None, the lightcurve filename will be dynamically determined from the other input parameters.
@@ -835,9 +843,13 @@ class BatEvent(BatObservation):
         This method can load upper limit spectral files (spectra that allow users to construct flux upper limits when
         sources are not well detected). By default, these files are not loaded.
 
-        The spectrum/spectra get dynamically loaded to the spectrum attribute where the newly created spectrum/spectra
-        replaces what was saved in this attribute. This method also returns the Spectrum object or list of Spectrum
+        This method also returns the Spectrum object or list of Spectrum
         objects that is/are created.
+
+        Any newly created Spectrum objects are saved to the spectra property where they are stored in order based on their
+        creation. If a pha file is loaded in, then the Spectrum will not be saved to the dphs property by default. If
+        a user wants to do so they can set the loaded spectrum to the spectra property (ie self.spectra = loaded_spectrum).
+
 
         :param pha_file: None or a Path object denoting whether a new predetermined filename should be used, or if
             previous existing files should be loaded or written over (in conjunction with the recalc parameter). The
@@ -1031,13 +1043,20 @@ class BatEvent(BatObservation):
             recalc=False,
     ):
         """
-        This method creates a detector plane histogram.
+        This method creates a detector plane histogram. By default, this method will create a single BatDPH object for
+        the time/energy ranges that are specified. If tstart/tstop/timebins is set to None, the default time binning
+        will be a single time bin extending from the start time to the end time of the event dataset. If energybins is
+        set to None, the default energy binning will be a single energy bin from 14-195 keV.
+
+        Any newly created BatDPH objects are saved to the dphs property where they are stored in order based on their
+        creation. If a DPH is loaded in, then the BatDPH will not be saved to the dphs property by default. If
+        a user wants to do so they can set the loaded BatDPH to the dphs property (ie self.dphs = loaded_dph).
 
         :param dph_file: None or a path object of the lightcurve file that will be read in, if previously calculated,
             or the location/name of the new lightcurve file that will contain the newly calculated lightcurve. If set
             to None, the DPH filename will be dynamically determined from the other input parameters. If the file exists,
             then it will be either read in or recreated, depending on the recalc parameter. By default, the DPHs are
-            placed in the dph/ directory unless a Path object is passed in with an absolute filepath.             
+            placed in the dph/ directory unless a Path object is passed in with an absolute filepath.
         :param tstart: astropy.units.Quantity denoting the minimum values of the timebin edges that the user would like
             the DPH to be binned into. Units will usually be in seconds for this. The values can be relative to
             the specified T0. If so, then the T0 needs to be specified and the is_relative parameter should be True.
@@ -1060,7 +1079,8 @@ class BatEvent(BatObservation):
         :param T0: float or an astropy.units.Quantity object with some time of interest (eg trigger time)
         :param is_relative: Boolean switch denoting if the T0 that is passed in should be added to the
             timebins/tstart/tstop that were passed in.
-        :param energybins: astropy.units.Quantity denoting the energy bin edges for the DPH that will be produced
+        :param energybins: astropy.units.Quantity denoting the energy bin edges for the DPH that will be produced. None
+            sets the default energy binning to be 14-195 keV
         :param recalc: Boolean to denote if the DPH specified by dph_file should be recalculated with the
             specified time/energy binning. See the BatDPH class for a list of these defaults.
         :return: BatDPH object or list of BatDPH objects
