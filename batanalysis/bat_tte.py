@@ -927,6 +927,8 @@ class BatEvent(BatObservation):
             else:
                 start = "start"
                 end = "end"
+                input_tstart = np.array([None])
+                input_tstop = np.array([None])
 
             name = Path(f"t_{start}-{end}_{nchannels}chan.pha")
             pha_filename.append(name)
