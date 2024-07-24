@@ -1078,15 +1078,22 @@ class BatEvent(BatObservation):
         if dph_file is None:
             # construct the template name from the inputs
             dph_filename = []
-            if is_relative:
-                if isinstance(T0, u.Quantity):
-                    start = (input_tstart + T0).min().value
-                    end = (input_tstop + T0).max().value
-                else:
-                    start = input_tstart.min().value + T0
-                    end = input_tstop.max().value + T0
+            if input_tstop is not None:
+                if is_relative:
+                    if isinstance(T0, u.Quantity):
+                        start = (input_tstart + T0).min().value
+                        end = (input_tstop + T0).max().value
+                    else:
+                        start = input_tstart.min().value + T0
+                        end = input_tstop.max().value + T0
 
-            name = Path(f"t_{start}-{end}_{input_tstart.size}tbins_{nchannels}chan.dph")
+                ntbins = input_tstart.size
+            else:
+                start = "start"
+                end = "end"
+                ntbins = 1
+
+            name = Path(f"t_{start}-{end}_{ntbins}tbins_{nchannels}chan.dph")
             dph_filename.append(name)
 
 

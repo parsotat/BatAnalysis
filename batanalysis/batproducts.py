@@ -1373,7 +1373,7 @@ class Spectrum(BatObservation):
 
     @u.quantity_input(timebins=['time'], tmin=['time'], tmax=['time'])
     def set_timebins(self, timebinalg="uniform", timebins=None, tmin=None, tmax=None, T0=None, is_relative=False,
-                     timedelta=np.timedelta64(64, 'ms'), snrthresh=None):
+                     timedelta=np.timedelta64(0, 's'), snrthresh=None):
         """
         This method allows for the rebinning of the pha in time. The time binning is done dymaically and the
         information for the rebinned pha file is automatically updated in the data attribute (which holds the pha
@@ -1414,7 +1414,7 @@ class Spectrum(BatObservation):
             timebins/tmin/tmax that were passed in.
         :param timedelta: numpy.timedelta64 object denoting the size of the time binning. This value is used when
             timebinalg is set. When timebin=np.timedelta64(0, "s") the whole event dataset gets
-            accumulated into a spectrum.
+            accumulated into a single spectrum.
         :param snrthresh: float representing the snr threshold associated with the timebinalg="snr" or timebinalg="highsnr"
             parameter values. See above description of the timebinalg parameter to see how this snrthresh parameter is used.
         :return: None
