@@ -365,6 +365,7 @@ class BatEvent(BatObservation):
             # curves and spctra. Need to determine how to organize this for any source in FOV to be analyzed.
             self.spectra = None
             self.lightcurves = None
+            self.dphs = None
 
             # save the state so we can load things later
             self.save()
@@ -1020,12 +1021,19 @@ class BatEvent(BatObservation):
             is_relative=False,
             energybins=None,
             recalc=False,
-            mask_weighting=True,
     ):
         """
         This method creates a detector plane histogram.
 
-        :return:
+        :param dph_file:
+        :param tstart:
+        :param tstop:
+        :param timebins:
+        :param T0:
+        :param is_relative:
+        :param energybins:
+        :param recalc:
+        :return: BatDPH object or list of BatDPH objects
         """
 
         dph_dir = self.result_dir.joinpath("dph")
@@ -1073,7 +1081,7 @@ class BatEvent(BatObservation):
                         start += T0
                         end += T0
 
-                name = Path(f"t_{start}-{end}_{nchannels}chan.pha")
+                name = Path(f"t_{start}-{end}_{nchannels}chan.dpi")
                 dph_filename.append(name)
 
 
