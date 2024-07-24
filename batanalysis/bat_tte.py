@@ -672,8 +672,9 @@ class BatEvent(BatObservation):
         class, the resulting Lightcurve class instance can be used to rebin the lightcurve however the user wants. The
         lightcurve is also saved to the BatEvent.lightcurve attribute when it is created thorugh this method.
 
-        :param lc_file: path object of the lightcurve file that will be read in, if previously calculated,
-            or the location/name of the new lightcurve file that will contain the newly calculated lightcurve.
+        :param lc_file: None or a path object of the lightcurve file that will be read in, if previously calculated,
+            or the location/name of the new lightcurve file that will contain the newly calculated lightcurve. If set
+            to None, the lightcurve filename will be dynamically determined from the other input parameters.
         :param timebinalg: a string that can be set to "uniform", "snr", "highsnr", or "bayesian"
             "uniform" will do a uniform time binning from the specified tmin to tmax with the size of the bin set by
                 the timedelta parameter.
@@ -838,10 +839,11 @@ class BatEvent(BatObservation):
         replaces what was saved in this attribute. This method also returns the Spectrum object or list of Spectrum
         objects that is/are created.
 
-        :param pha_file: None, string, or Path object denoting whether a new predetermied filename should be used, or if
+        :param pha_file: None or a Path object denoting whether a new predetermined filename should be used, or if
             previous existing files should be loaded or written over (in conjunction with the recalc parameter). The
-            file should end with ".pha". If a string is passed without an abolute filepath then it is assumed that the
-            created pha file should be placed in the pha/ subdirectory  of the results directory
+            file should end with ".pha". If a string is passed without an absolute filepath then it is assumed that the
+            created pha file should be placed in the pha/ subdirectory  of the results directory. If set
+            to None, the pha filename will be dynamically determined from the other input parameters.
         :param tstart: astropy Quantity scalar or array denoting the start MET time of timebins that the user would like
             to create pha files for. A pha file will be created for each time range specified by tstart and tstop. The
             times can be defined relative to some time of interest which can be specified with the T0 parameter.
@@ -1031,14 +1033,36 @@ class BatEvent(BatObservation):
         """
         This method creates a detector plane histogram.
 
-        :param dph_file:
-        :param tstart:
-        :param tstop:
-        :param timebins:
-        :param T0:
-        :param is_relative:
-        :param energybins:
-        :param recalc:
+        :param dph_file: None or a path object of the lightcurve file that will be read in, if previously calculated,
+            or the location/name of the new lightcurve file that will contain the newly calculated lightcurve. If set
+            to None, the DPH filename will be dynamically determined from the other input parameters. If the file exists,
+            then it will be either read in or recreated, depending on the recalc parameter. By default, the DPHs are
+            placed in the dph/ directory unless a Path object is passed in with an absolute filepath.             
+        :param tstart: astropy.units.Quantity denoting the minimum values of the timebin edges that the user would like
+            the DPH to be binned into. Units will usually be in seconds for this. The values can be relative to
+            the specified T0. If so, then the T0 needs to be specified and the is_relative parameter should be True.
+            NOTE: if tstart/tstop are specified then anything passed to the timebins parameter is ignored.
+
+            If the length of tstart is 1 then this denotes the time when the binned lightcurve should start. For this single
+            value, it can also be defined relative to T0. If so, then the T0 needs to be specified and the is_relative parameter
+            should be True.
+        :param tstop: astropy.units.Quantity denoting the maximum values of the timebin edges that the user would like
+            the DPH to be binned into. Units will usually be in seconds for this. The values can be relative to
+            the specified T0. If so, then the T0 needs to be specified and the is_relative parameter should be True.
+            NOTE: if tstart/tstop are specified then anything passed to the timebins parameter is ignored.
+
+            If the length of tstop is 1 then this denotes the time when the binned lightcurve should end. For this single
+            value, it can also be defined relative to T0. If so, then the T0 needs to be specified and the is_relative parameter
+            should be True.
+        :param timebins: astropy.units.Quantity denoting the array of time bin edges. Units will usually be in seconds
+            for this. The values can be relative to the specified T0. If so, then the T0 needs to be specified and
+            the is_relative parameter should be True.
+        :param T0: float or an astropy.units.Quantity object with some time of interest (eg trigger time)
+        :param is_relative: Boolean switch denoting if the T0 that is passed in should be added to the
+            timebins/tstart/tstop that were passed in.
+        :param energybins: astropy.units.Quantity denoting the energy bin edges for the DPH that will be produced
+        :param recalc: Boolean to denote if the DPH specified by dph_file should be recalculated with the
+            specified time/energy binning. See the BatDPH class for a list of these defaults.
         :return: BatDPH object or list of BatDPH objects
         """
 
