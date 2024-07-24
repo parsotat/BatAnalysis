@@ -1037,6 +1037,12 @@ class BatEvent(BatObservation):
         """
 
         dph_dir = self.result_dir.joinpath("dph")
+
+        # make the directory if it doesnt exist, if it does then we are fine. This is done here because users dont
+        # usually create DPHs with the event file but this creates a subdirectory to put them in  if a user wants to
+        # do so
+        dph_dir.mkdir(exist_ok=True)
+
         if energybins is None:
             nchannels = 1
         else:
