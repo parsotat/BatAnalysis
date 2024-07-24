@@ -1078,17 +1078,16 @@ class BatEvent(BatObservation):
         if dph_file is None:
             # construct the template name from the inputs
             dph_filename = []
-            for start, end in zip(input_tstart.value, input_tstop.value):
-                if is_relative:
-                    if isinstance(T0, u.Quantity):
-                        start += T0.value
-                        end += T0.value
-                    else:
-                        start += T0
-                        end += T0
+            if is_relative:
+                if isinstance(T0, u.Quantity):
+                    start = (input_tstart + T0).min().value
+                    end = (input_tstop + T0).max().value
+                else:
+                    start = input_tstart.min().value + T0
+                    end = input_tstop.max().value + T0
 
-                name = Path(f"t_{start}-{end}_{nchannels}chan.dph")
-                dph_filename.append(name)
+            name = Path(f"t_{start}-{end}_{input_tstart.size}tbins_{nchannels}chan.dph")
+            dph_filename.append(name)
 
 
         else:
@@ -1102,7 +1101,7 @@ class BatEvent(BatObservation):
         ]
 
         dph_list = []
-        for i in range(input_tstart.size):
+        for i in range(len(final_dph_files)):
             # if the file exists and recalc=False, just load it in and return it. Dont need to add it to the list of
             # dphs via the self.dphs property
             do_t_energy_calc = not (final_dph_files[i].exists() and not recalc)
@@ -1111,15 +1110,15 @@ class BatEvent(BatObservation):
                          recalc=recalc)
 
             if do_t_energy_calc:
-                dph.set_timebins(tmin=input_tstart[i], tmax=input_tstop[i], is_relative=is_relative, T0=T0)
+                dph.set_timebins(tmin=input_tstart, tmax=input_tstop, is_relative=is_relative, T0=T0)
                 if energybins is not None:
                     dph.set_energybins(energybins=energybins)
 
                 self.dphs = dph
 
-            dph_list.append(dph)
+                dph_list.append(dph)
 
-        return dph_list
+        return dph_list[0]
 
     @u.quantity_input(timebins=["time"], tstart=["time"], tstop=["time"], energybins=["energy"])
     def create_dpi(self,
