@@ -14,14 +14,18 @@ class Attitude(object):
     """
     This class encapsulates the Swift attitude data contained in a *.sat or *.mkf file that is obtained by Swift
 
-    TODO: add methods to add/concatenate event data, plot event data, etc
+    TODO: add methods to add/concatenate attitude data, plot attitude data, etc
     """
 
-    def __init__(self):
+    def __init__(self, time, ra, dec, roll):
         """
         Itialize something
         """
-        return None
+
+        self.time = time
+        self.ra = ra
+        self.dec = dec
+        self.roll = roll
 
     @classmethod
     def from_file(cls, attitude_file):
@@ -36,3 +40,6 @@ class Attitude(object):
             data = file[1].data
             for i in data.columns:
                 all_data[i.name] = u.Quantity(data[i.name], i.unit)
+
+        return cls(time=all_data["TIME"], ra=all_data["POINTING"][:, 0], dec=all_data["POINTING"][:, 1],
+                   roll=all_data["POINTING"][:, 2])
