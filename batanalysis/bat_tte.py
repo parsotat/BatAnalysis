@@ -1087,7 +1087,7 @@ class BatEvent(BatObservation):
                         start += T0
                         end += T0
 
-                name = Path(f"t_{start}-{end}_{nchannels}chan.dpi")
+                name = Path(f"t_{start}-{end}_{nchannels}chan.dph")
                 dph_filename.append(name)
 
 
