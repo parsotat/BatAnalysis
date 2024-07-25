@@ -29,7 +29,6 @@ class Attitude(object):
         self.ra = ra
         self.dec = dec
         self.roll = roll
-        self.acs_flags = acs_flags
 
         self.quarternions = quarternion
 
