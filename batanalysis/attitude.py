@@ -36,6 +36,7 @@ class Attitude(object):
         self.is_10arcmin_settled = is_10arcmin_settled
         self.is_settled = is_settled
         self.in_saa = in_saa
+        self.in_safehold = in_safehold
 
     @classmethod
     def from_file(cls, attitude_file):
