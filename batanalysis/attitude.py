@@ -35,18 +35,21 @@ class Attitude(object):
         if not attitude_file.exists():
             raise ValueError(f"The attitude file passed in to be read {attitude_file} does not seem to exist.")
 
-        # iteratively read in the data with units for the *sat file
-        if "sat" in str(attitude_file):
-            all_data = {}
-            with fits.open(attitude_file) as file:
-                # read in extension 1 with general data
-                data = file[1].data
-                for i in data.columns:
-                    all_data[i.name] = u.Quantity(data[i.name], i.unit)
-                # also read in the 2nd extension to get the ACS flags
+        # iteratively read in the data with units for the *sat and mkf files
+        all_data = {}
+        with fits.open(attitude_file) as file:
+            # read in extension 1 with general data
+            data = file[1].data
+            for i in data.columns:
+                all_data[i.name] = u.Quantity(data[i.name], i.unit)
+
+            if "sat" in str(attitude_file):
+                # also read in the 2nd extension to get the ACS flags in teh sar file
                 data = file["ACS_DATA"].data
                 all_data["FLAGS"] = data["FLAGS"]
 
+        # with the data read in, process it and access the info that we need to create the class
+        if "sat" in str(attitude_file):
             time = all_data["TIME"]
             ra = all_data["POINTING"][:, 0]
             dec = all_data["POINTING"][:, 1]
@@ -54,12 +57,6 @@ class Attitude(object):
             flags = all_data["FLAGS"]
 
         elif "mkf" in str(attitude_file):
-            all_data = {}
-            with fits.open(attitude_file) as file:
-                # read in extension 1 with general data
-                data = file[1].data
-                for i in data.columns:
-                    all_data[i.name] = u.Quantity(data[i.name], i.unit)
 
             time = all_data["TIME"]
             ra = all_data["RA"]
