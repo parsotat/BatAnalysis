@@ -7,6 +7,7 @@ Tyler Parsotan July 2024
 from pathlib import Path
 
 import astropy.units as u
+import matplotlib.pyplot as plt
 from astropy.io import fits
 
 
@@ -67,3 +68,29 @@ class Attitude(object):
 
         return cls(time=time, ra=ra, dec=dec,
                    roll=roll, acs_flags=flags)
+
+    def plot(self, T0=None):
+        """
+        Plot the ra/dec/roll of the attitude.
+
+        :return:
+        """
+
+        if T0 is None:
+            t_rel = self.time.min()
+        else:
+            if type(T0) is not u.Quantity:
+                t_rel = T0 * u.s
+
+        fig, ax = plt.subplots(1, sharex=True)
+
+        plt.plot(self.time - t_rel, self.ra, label="RA")
+        plt.plot(self.time - t_rel, self.dec, label="DEC")
+        plt.plot(self.time - t_rel, self.roll, label="ROLL")
+
+        if T0 is not None:
+            plt.axvline(0, ls='--')
+
+        plt.legend()
+        plt.xlabel(f"MET-{T0}")
+        plt.ylabel(f"Pointing ({self.ra.unit})")

@@ -28,6 +28,7 @@ from ._version import __version__
 
 from .batobservation import *
 from .batproducts import *
+from .attitude import *
 from .bat_survey import *
 from .bat_tte import *
 from .bat_dph import *
