@@ -17,7 +17,7 @@ class Attitude(object):
     TODO: add methods to add/concatenate attitude data, plot attitude data, etc
     """
 
-    def __init__(self, time, ra, dec, roll):
+    def __init__(self, time, ra, dec, roll, acs_flags):
         """
         Itialize something
         """
@@ -26,6 +26,7 @@ class Attitude(object):
         self.ra = ra
         self.dec = dec
         self.roll = roll
+        self.acs_flags = acs_flags
 
     @classmethod
     def from_file(cls, attitude_file):
@@ -34,12 +35,38 @@ class Attitude(object):
         if not attitude_file.exists():
             raise ValueError(f"The attitude file passed in to be read {attitude_file} does not seem to exist.")
 
-        # iteratively read in the data with units
-        all_data = {}
-        with fits.open(attitude_file) as file:
-            data = file[1].data
-            for i in data.columns:
-                all_data[i.name] = u.Quantity(data[i.name], i.unit)
+        # iteratively read in the data with units for the *sat file
+        if "sat" in str(attitude_file):
+            all_data = {}
+            with fits.open(attitude_file) as file:
+                # read in extension 1 with general data
+                data = file[1].data
+                for i in data.columns:
+                    all_data[i.name] = u.Quantity(data[i.name], i.unit)
+                # also read in the 2nd extension to get the ACS flags
+                data = file["ACS_DATA"].data
+                all_data["FLAGS"] = data["FLAGS"]
 
-        return cls(time=all_data["TIME"], ra=all_data["POINTING"][:, 0], dec=all_data["POINTING"][:, 1],
-                   roll=all_data["POINTING"][:, 2])
+            time = all_data["TIME"]
+            ra = all_data["POINTING"][:, 0]
+            dec = all_data["POINTING"][:, 1]
+            roll = all_data["POINTING"][:, 2]
+            flags = all_data["FLAGS"]
+
+        elif "mkf" in str(attitude_file):
+            all_data = {}
+            with fits.open(attitude_file) as file:
+                # read in extension 1 with general data
+                data = file[1].data
+                for i in data.columns:
+                    all_data[i.name] = u.Quantity(data[i.name], i.unit)
+
+            time = all_data["TIME"]
+            ra = all_data["RA"]
+            dec = all_data["DEC"]
+            roll = all_data["ROLL"]
+        else:
+            raise ValueError("This attitude file is not recognized. Please pass in a *.sat or *.mkf file.")
+
+        return cls(time=time, ra=ra, dec=dec,
+                   roll=roll, acs_flags=flags)
