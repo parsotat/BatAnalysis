@@ -18,7 +18,7 @@ class Attitude(object):
     TODO: add methods to add/concatenate attitude data, plot attitude data, etc
     """
 
-    def __init__(self, time, ra, dec, roll, acs_flags, quarternion=None, is_10arcmin_settled=None, is_settled=None,
+    def __init__(self, time, ra, dec, roll, quarternion=None, is_10arcmin_settled=None, is_settled=None,
                  in_saa=None,
                  in_safehold=None):
         """
