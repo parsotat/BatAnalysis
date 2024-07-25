@@ -16,6 +16,7 @@ import astropy.units as u
 import numpy as np
 from astropy.io import fits
 
+from .attitude import Attitude
 from .bat_dph import BatDPH
 from .bat_dpi import BatDPI
 from .bat_skyview import BatSkyView
@@ -357,6 +358,9 @@ class BatEvent(BatObservation):
 
             # want to get some other basic information for use later, including all the photon data
             self._parse_event_file()
+
+            # and the attitude data
+            self.attitude = Attitude.from_file(self.attitude_file)
 
             # create the marker file that tells us that the __init__ method completed successfully
             complete_file = self.result_dir.joinpath(".batevent_complete")
