@@ -18,7 +18,9 @@ class Attitude(object):
     TODO: add methods to add/concatenate attitude data, plot attitude data, etc
     """
 
-    def __init__(self, time, ra, dec, roll, acs_flags):
+    def __init__(self, time, ra, dec, roll, acs_flags, quarternion=None, is_10arcmin_settled=None, is_settled=None,
+                 in_saa=None,
+                 in_safehold=None):
         """
         Itialize something
         """
@@ -28,6 +30,12 @@ class Attitude(object):
         self.dec = dec
         self.roll = roll
         self.acs_flags = acs_flags
+
+        self.quarternions = quarternion
+
+        self.is_10arcmin_settled = is_10arcmin_settled
+        self.is_settled = is_settled
+        self.in_saa = in_saa
 
     @classmethod
     def from_file(cls, attitude_file):
@@ -55,7 +63,13 @@ class Attitude(object):
             ra = all_data["POINTING"][:, 0]
             dec = all_data["POINTING"][:, 1]
             roll = all_data["POINTING"][:, 2]
-            flags = all_data["FLAGS"]
+
+            quarternions = all_data["QPARAM"]
+
+            is_10arcmin_settled = all_data["FLAGS"][:, 0]
+            is_settled = all_data["FLAGS"][:, 1]
+            in_saa = all_data["FLAGS"][:, 2]
+            in_safehold = all_data["FLAGS"][:, 3]
 
         elif "mkf" in str(attitude_file):
 
@@ -63,11 +77,20 @@ class Attitude(object):
             ra = all_data["RA"]
             dec = all_data["DEC"]
             roll = all_data["ROLL"]
+
+            quarternions = None
+
+            is_10arcmin_settled = all_data["TEN_ARCMIN"]
+            is_settled = all_data["SETTLED"]
+            in_saa = all_data["ACS_SAA"]
+            in_safehold = all_data["SAFEHOLD"]
+
         else:
             raise ValueError("This attitude file is not recognized. Please pass in a *.sat or *.mkf file.")
 
         return cls(time=time, ra=ra, dec=dec,
-                   roll=roll, acs_flags=flags)
+                   roll=roll, is_10arcmin_settled=is_10arcmin_settled, is_settled=is_settled, in_saa=in_saa,
+                   in_safehold=in_safehold)
 
     def plot(self, T0=None):
         """
