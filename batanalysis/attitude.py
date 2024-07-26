@@ -64,6 +64,7 @@ class Attitude(object):
             dec = all_data["POINTING"][:, 1]
             roll = all_data["POINTING"][:, 2]
 
+            # quarternions have scalar last, we may need to multiply by -1 to get it to fix the scipy/gdt convention
             quarternions = all_data["QPARAM"]
 
             is_10arcmin_settled = all_data["FLAGS"][:, 0]

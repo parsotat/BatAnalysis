@@ -10,7 +10,9 @@ from pathlib import Path
 
 import astropy.units as u
 import numpy as np
+from astropy.coordinates import SkyCoord
 from astropy.io import fits
+from astropy.table import QTable
 from histpy import Histogram, HealpixAxis, Axis
 
 from .bat_dpi import BatDPI
@@ -529,7 +531,7 @@ class BatSkyView(object):
         There must be a partial coding image file specified via the pcodeimg_file attribute in order to detect sources.
         An output catalog of all the sources and their information including counts, SNR, etc are created.
 
-        TODO: add support for healpix/mosaic projections of sky images
+        TODO: add support for healpix/mosaic projections of sky images with different energy bands. only works for 1 energy range
 
         :param catalog_file: None or a Path pointing to a input catalog file that will be passed to batcelldetect to
             identify any known or unknown sources. None will lead to the method using the survey catalog file that is
@@ -548,14 +550,6 @@ class BatSkyView(object):
         :return: None
         """
 
-        if self.is_mosaic and "HPX" in self.sky_img.axes.labels:
-            raise ValueError("Cannot run batcelldetect on healpix sky images.")
-
-        # need the pcode file
-        if self.pcodeimg_file is None:
-            raise ValueError("Please specify a partial coding file associated with the sky image in order to conduct "
-                             "source detection.")
-
         # use the default catalog is none is specified
         if catalog_file is None:
             catalog_file = (
@@ -570,12 +564,7 @@ class BatSkyView(object):
 
         # fill in defaults, which can be overwritten if values are passed into the input_dict parameter
         self.src_detect_input_dict = default_params_dict
-        self.src_detect_input_dict["outfile"] = self.skyimg_file.parent.joinpath(f"{self.skyimg_file.stem}.cat")
-        self.src_detect_input_dict["regionfile"] = self.skyimg_file.parent.joinpath(f"{self.skyimg_file.stem}.reg")
 
-        self.src_detect_input_dict["infile"] = str(self.skyimg_file)
-        self.src_detect_input_dict["incatalog"] = str(catalog_file)
-        self.src_detect_input_dict["pcodefile"] = str(self.pcodeimg_file)
         self.src_detect_input_dict["snrthresh"] = 6
         self.src_detect_input_dict["pcodethresh"] = 0.05
         self.src_detect_input_dict["vectorflux"] = "YES"
@@ -585,14 +574,84 @@ class BatSkyView(object):
                 if key in self.skyimg_input_dict.keys():
                     self.skyimg_input_dict[key] = input_dict[key]
 
-        # create all the images that were requested
-        self.batcelldetect_result = self._call_batcelldetect(self.src_detect_input_dict)
+        # if we dont have a mosaic image or an image that is a healpix projection then use batcelldetect
+        if not (self.is_mosaic or "HPX" in self.sky_img.axes.labels):
+            # need the pcode file
+            if self.pcodeimg_file is None:
+                raise ValueError(
+                    "Please specify a partial coding file associated with the sky image in order to conduct "
+                    "source detection.")
 
-        # make sure that this calculation ran successfully
-        if self.batcelldetect_result.returncode != 0:
-            raise RuntimeError(
-                f"The detection of sources in the skyimage failed with message: {self.batcelldetect_result.output}"
-            )
+            # modify the relevant file parameters
+            self.src_detect_input_dict["outfile"] = self.skyimg_file.parent.joinpath(f"{self.skyimg_file.stem}.cat")
+            self.src_detect_input_dict["regionfile"] = self.skyimg_file.parent.joinpath(f"{self.skyimg_file.stem}.reg")
+
+            self.src_detect_input_dict["infile"] = str(self.skyimg_file)
+            self.src_detect_input_dict["incatalog"] = str(catalog_file)
+            self.src_detect_input_dict["pcodefile"] = str(self.pcodeimg_file)
+
+            # create all the images that were requested
+            self.batcelldetect_result = self._call_batcelldetect(self.src_detect_input_dict)
+
+            # make sure that this calculation ran successfully
+            if self.batcelldetect_result.returncode != 0:
+                raise RuntimeError(
+                    f"The detection of sources in the skyimage failed with message: {self.batcelldetect_result.output}"
+                )
+
+            output_table = None
+        else:
+            snrthresh = self.src_detect_input_dict["snrthresh"]
+            pcodethresh = self.src_detect_input_dict["pcodethresh"]
+
+            # if we have a mosaic skyview calcualte these now
+            snr_image = self.snr_img
+            pcode_image = self.pcode_img
+
+            # get a sorted list of maximum SNR pixels that meet the snrthresh and pcodethresh criteria.
+            # first need to mask off any np.nan values
+            good_values = np.where(
+                np.isfinite(snr_image.contents) & np.isfinite(pcode_image.contents) & (
+                        snr_image.contents > snrthresh) & (pcode_image.contents > pcodethresh))
+
+            # now that we have the good snr values, we need to get the snr values and sort them from largest to smallest
+            good_snr_values = snr_image.contents[good_values]
+            sorted_good_snr_values_idx = np.argsort(good_snr_values)[::-1]
+
+            # also want to get the coordinates of the healpix pixels. Need to extract the appropriate axis index values
+            hp_ax = snr_image.axes["HPX"]
+            hp_ax_idx = snr_image.axes.label_to_index("HPX")
+            good_snr_skycoords = SkyCoord([hp_ax.pix2skycoord(i) for i in good_values[hp_ax_idx]])
+
+            # now want to compare these to all the sources in the catalog file to determine their nearest known source
+            # first read in the relevant data from the catalog
+            with fits.open(catalog_file) as f:
+                catalog_names = f[1].data["NAME"]
+                catalog_coords = SkyCoord(ra=f[1].data["RA_OBJ"], dec=f[1].data["DEC_OBJ"], unit="deg", frame="icrs")
+
+            # calculate the separations, need the np.newaxis for broadcasting
+            all_separations = good_snr_skycoords[:, np.newaxis].separation(catalog_coords)
+
+            # get the minima and their indexes, also want the number of psf fwhm that each source is from the location
+            # of the SNR maximum that we are interested in
+            psffwhm = 0.37413 * u.deg
+            psffwhm_separation = all_separations.min(axis=1) / psffwhm
+            closest_catalog_names = catalog_names[np.argmin(all_separations, axis=1)]
+            closest_catalog_coords = catalog_coords[np.argmin(all_separations, axis=1)]
+
+            # now accumulate all the info into an astropy table array that is sorted by SNR
+            output_table = QTable(
+                [good_snr_skycoords[sorted_good_snr_values_idx].icrs, good_snr_values[sorted_good_snr_values_idx],
+                 closest_catalog_names[sorted_good_snr_values_idx],
+                 closest_catalog_coords[sorted_good_snr_values_idx].icrs,
+                 all_separations.min(axis=1)[sorted_good_snr_values_idx],
+                 psffwhm_separation[sorted_good_snr_values_idx]],
+                names=["SNR_skycoord", 'SNR', 'closest_source', 'closest_source_skycoord', "separation",
+                       "psffwhm_separation"])
+
+            # TODO: in the future can think about table joins here: https://docs.astropy.org/en/stable/table/operations.html#id12
+
+        return output_table
 
     @property
     def sky_img(self):
