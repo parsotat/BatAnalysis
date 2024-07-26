@@ -526,9 +526,19 @@ class BatSkyView(object):
 
     def detect_sources(self, catalog_file=None, input_dict=None):
         """
-        This method allows for the detection of any source in the BatSkyView, using batcelldetect.
+        This method allows for the detection of any source in the BatSkyView, using batcelldetect, if a standard
+        BatSkyView is being analyzed (ie the normal sky images that are output from batfftimage.
 
-        There must be a partial coding image file specified via the pcodeimg_file attribute in order to detect sources.
+        Alternatively, if the BatSkyView is a mosaiced set of images or one that has images with healpix projections
+        then the code identifies the pixels in the healpix SNR image with the maximum SNR values that pass some snr
+        threshold (snrthresh) and partial coding threshold (pcodethresh) that is defined in input_dict. It will
+        correlate these pixel's coordinates to those in the catalog_file that is specified and it will identify the
+        closest known source. This analysis capability has only been tested for a single energy bin of a mosaic/healpix
+        based BatSkyView.
+
+        There must be a partial coding image file specified via the pcodeimg_file attribute in order to detect sources
+        with batcelldetect.
+        For the healpix/mosaic analysis, the pcode_img attribute must be set.
         An output catalog of all the sources and their information including counts, SNR, etc are created.
 
         TODO: add support for healpix/mosaic projections of sky images with different energy bands. only works for 1 energy range
@@ -547,7 +557,15 @@ class BatSkyView(object):
                 self.src_detect_input_dict["pcodethresh"] = 0.05
                 self.src_detect_input_dict["vectorflux"] = "YES"
 
-        :return: None
+            For the case of detecting sources in a mosaic BatSkyView or a BatSkyView that is in the healpix projection,
+            the snrthresh and pcodethresh that is passed in to the dictionary are used to filter out the potential
+            detected sources in the BatSkyView.
+
+        :return: astropy QTable that outputs the detected sources, sorted by SNR from max to min, from
+            batcelldetect when it is run on a "normal" BatSkyView or if the BatSkyView object contains a mosaic image or
+            a healpix sky image a QTable with the measured SNR peaks, their coordinates, their nearest source in the
+            input source catalog, with the angular separation, and the angular separation normalized by the BAT PSF
+            (0.37413 deg)
         """
 
         # use the default catalog is none is specified
@@ -583,7 +601,8 @@ class BatSkyView(object):
                     "source detection.")
 
             # modify the relevant file parameters
-            self.src_detect_input_dict["outfile"] = self.skyimg_file.parent.joinpath(f"{self.skyimg_file.stem}.cat")
+            output_catalog_file = self.skyimg_file.parent.joinpath(f"{self.skyimg_file.stem}.cat")
+            self.src_detect_input_dict["outfile"] = output_catalog_file
             self.src_detect_input_dict["regionfile"] = self.skyimg_file.parent.joinpath(f"{self.skyimg_file.stem}.reg")
 
             self.src_detect_input_dict["infile"] = str(self.skyimg_file)
@@ -599,7 +618,22 @@ class BatSkyView(object):
                     f"The detection of sources in the skyimage failed with message: {self.batcelldetect_result.output}"
                 )
 
-            output_table = None
+            # read in the created catalog file and create an astropy Qtable from it that is sorted by the SNR
+            with fits.open(output_catalog_file) as f:
+                output_table = QTable(f[1].data)
+                cat_skycoords = SkyCoord(ra=f[1].data["RA_OBJ"], dec=f[1].data["DEC_OBJ"],
+                                         unit=f[1].data.columns["RA_OBJ"].unit)
+
+            # take out the RA/DEC/GLAT/GLON_OBJ
+            # output_table.remove_columns(["RA_OBJ", "DEC_OBJ", "GLAT_OBJ", "GLON_OBJ"])
+
+            # put in the skycoord
+            output_table.add_column(cat_skycoords, name='SKYCOORD', index=2)
+
+            # sort it by the SNR
+            output_table.sort(keys="SNR", reverse=True)
+
+
         else:
             snrthresh = self.src_detect_input_dict["snrthresh"]
             pcodethresh = self.src_detect_input_dict["pcodethresh"]
