@@ -625,7 +625,7 @@ class BatSkyView(object):
                                          unit=f[1].data.columns["RA_OBJ"].unit)
 
             # take out the RA/DEC/GLAT/GLON_OBJ
-            # output_table.remove_columns(["RA_OBJ", "DEC_OBJ", "GLAT_OBJ", "GLON_OBJ"])
+            output_table.remove_columns(["RA_OBJ", "DEC_OBJ", "GLAT_OBJ", "GLON_OBJ"])
 
             # put in the skycoord
             output_table.add_column(cat_skycoords, name='SKYCOORD', index=2)
