@@ -161,7 +161,7 @@ class BatSkyView(object):
                     raise ValueError(
                         "The BatDPI object passed to bat_dpi must have the dpi_file attribute defined to create the sky image from.")
 
-            if bat_dpi.dpi_file is not None:
+            if bat_dpi is not None and bat_dpi.dpi_file is not None:
                 self.dpi_file = Path(bat_dpi.dpi_file).expanduser().resolve()
                 if not self.dpi_file.exists():
                     raise ValueError(
@@ -175,7 +175,7 @@ class BatSkyView(object):
                     raise ValueError(
                         "The BatDPI object passed to bat_dpi must have the dpi_file attribute defined to create the sky image from.")
 
-            if bat_dpi.detector_quality_file is not None:
+            if bat_dpi is not None and bat_dpi.detector_quality_file is not None:
                 self.detector_quality_file = Path(bat_dpi.detector_quality_file).expanduser().resolve()
                 if not self.detector_quality_file.exists():
                     raise ValueError(

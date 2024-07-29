@@ -1281,8 +1281,12 @@ class BatEvent(BatObservation):
                         s = (start + T0).min().value
                         e = (end + T0).max().value
                     else:
-                        s = start.min().value + T0
-                        e = end.max().value + T0
+                        if T0 is None:
+                            s = start.min().value
+                            e = end.max().value
+                        else:
+                            s = start.min().value + T0
+                            e = end.max().value + T0
 
                     # make sure that the timebin does not extend past the min/max event data time
                     if s < self.data.time.min().value or e > self.data.time.max().value:
