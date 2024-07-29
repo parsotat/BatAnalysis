@@ -631,8 +631,19 @@ class BatSkyView(object):
             output_table.add_column(cat_skycoords, name='SKYCOORD', index=2)
 
             # sort it by the SNR
-            output_table.sort(keys="SNR", reverse=True)
+            if output_table["SNR"].ndim == 1:
+                output_table.sort(keys="SNR", reverse=True)
+            else:
+                total_snr = np.sqrt((output_table["SNR"] ** 2).sum(axis=1))
 
+                # put in the total_snr
+                output_table.add_column(total_snr, name='TOT_SNR')
+
+                # sort by the total SNR
+                output_table.sort(keys="TOT_SNR", reverse=True)
+
+                # remove that column
+                output_table.remove_columns(["TOT_SNR"])
 
         else:
             snrthresh = self.src_detect_input_dict["snrthresh"]
