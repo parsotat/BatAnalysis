@@ -594,4 +594,7 @@ class DetectorPlaneHistogram(Histogram):
 
         fig.colorbar(im, cax=cax, orientation="vertical", label=plot_data.unit)
 
+        ax.set_ylabel("DETY")
+        ax.set_xlabel("DETX")
+
         return fig, ax
