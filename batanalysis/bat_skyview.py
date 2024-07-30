@@ -541,8 +541,6 @@ class BatSkyView(object):
         For the healpix/mosaic analysis, the pcode_img attribute must be set.
         An output catalog of all the sources and their information including counts, SNR, etc are created.
 
-        TODO: add support for healpix/mosaic projections of sky images with different energy bands. only works for 1 energy range
-
         :param catalog_file: None or a Path pointing to a input catalog file that will be passed to batcelldetect to
             identify any known or unknown sources. None will lead to the method using the survey catalog file that is
             included in the BatAnalysis python package.
@@ -665,8 +663,11 @@ class BatSkyView(object):
 
             # also want to get the coordinates of the healpix pixels. Need to extract the appropriate axis index values
             hp_ax = snr_image.axes["HPX"]
+            e_ax = snr_image.axes["ENERGY"]
             hp_ax_idx = snr_image.axes.label_to_index("HPX")
+            e_ax_idx = snr_image.axes.label_to_index("ENERGY")
             good_snr_skycoords = SkyCoord([hp_ax.pix2skycoord(i) for i in good_values[hp_ax_idx]])
+            good_snr_ebins = [e_ax.bounds[i] for i in good_values[e_ax_idx]]
 
             # now want to compare these to all the sources in the catalog file to determine their nearest known source
             # first read in the relevant data from the catalog
@@ -685,14 +686,22 @@ class BatSkyView(object):
             closest_catalog_coords = catalog_coords[np.argmin(all_separations, axis=1)]
 
             # now accumulate all the info into an astropy table array that is sorted by SNR
-            output_table = QTable(
+            table = QTable(
                 [good_snr_skycoords[sorted_good_snr_values_idx].icrs, good_snr_values[sorted_good_snr_values_idx],
                  closest_catalog_names[sorted_good_snr_values_idx],
                  closest_catalog_coords[sorted_good_snr_values_idx].icrs,
                  all_separations.min(axis=1)[sorted_good_snr_values_idx],
-                 psffwhm_separation[sorted_good_snr_values_idx]],
+                 psffwhm_separation[sorted_good_snr_values_idx], np.array(good_snr_ebins)[sorted_good_snr_values_idx],
+                 psffwhm_separation.max() - psffwhm_separation[sorted_good_snr_values_idx]],
                 names=["SNR_skycoord", 'SNR', 'closest_source', 'closest_source_skycoord', "separation",
-                       "psffwhm_separation"])
+                       "psffwhm_separation", "ebin", "diff_psffwhm_separation"])
+
+            # goup in the order of the largest difference from the psf separation, then the sky coordinate and then the
+            # energy bin
+            output_table = table.group_by(["diff_psffwhm_separation", "SNR_skycoord", "ebin"])
+
+            # remove the colum we just used for grouping
+            output_table.remove_column("diff_psffwhm_separation")
 
             # TODO: in the future can think about table joins here: https://docs.astropy.org/en/stable/table/operations.html#id12
 
