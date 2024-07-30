@@ -587,7 +587,7 @@ class BatSkyView(object):
 
         if input_dict is not None:
             for key in input_dict.keys():
-                if key in self.skyimg_input_dict.keys():
+                if key in self.src_detect_input_dict.keys():
                     self.src_detect_input_dict[key] = input_dict[key]
 
         # if we dont have a mosaic image or an image that is a healpix projection then use batcelldetect
