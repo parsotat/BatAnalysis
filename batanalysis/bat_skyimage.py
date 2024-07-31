@@ -309,7 +309,7 @@ class BatSkyImage(Histogram):
                     energybin_edges,
                 ],
                 contents=histogram_data,
-                labels=["TIME", "IMY", "IMX", "ENERGY"],
+                labels=["TIME", "SKYY", "SKYX", "ENERGY"],
                 sumw2=weights,
                 unit=hist_unit,
             )
@@ -361,7 +361,7 @@ class BatSkyImage(Histogram):
             for t in range(self.axes['TIME'].nbins):
                 for e in range(self.axes["ENERGY"].nbins):
                     array, footprint = reproject_to_healpix(
-                        (self.slice[t, :, :, e].project("IMY", "IMX").contents, self.wcs), coordsys,
+                        (self.slice[t, :, :, e].project("SKYY", "SKYX").contents, self.wcs), coordsys,
                         nside=nside)
                     new_array[t, :, e] = array
 
@@ -402,8 +402,8 @@ class BatSkyImage(Histogram):
             raise ValueError(
                 "Cannot convert from the sky image pixel coordinates to RA/Dec without the WCS information.")
 
-        x = np.arange(self.axes["IMX"].nbins)
-        y = np.arange(self.axes["IMY"].nbins)
+        x = np.arange(self.axes["SKYX"].nbins)
+        y = np.arange(self.axes["SKYY"].nbins)
         xx, yy = np.meshgrid(x, y)
 
         ra, dec = convert_xy2radec(xx, yy, self.wcs)
@@ -500,11 +500,11 @@ class BatSkyImage(Histogram):
         if projection is None:
             # use the default spatial axes of the histogram
             # need to determine what this is
-            if "IMX" in self.axes.labels:
+            if "SKYX" in self.axes.labels:
                 ax, mesh = BatSkyImage(image_data=self.slice[tmin_idx:tmax_idx, :, :, emin_idx:emax_idx],
                                        image_type=self.image_type,
-                                       is_mosaic_intermediate=self.is_mosaic_intermediate).project("IMX",
-                                                                                                   "IMY").plot()
+                                       is_mosaic_intermediate=self.is_mosaic_intermediate).project("SKYX",
+                                                                                                   "SKYY").plot()
                 ret = (ax, mesh)
             elif "HPX" in self.axes.labels:
                 if "galactic" in coordsys.lower():
@@ -527,7 +527,7 @@ class BatSkyImage(Histogram):
                 ret = (mesh)
             else:
                 raise ValueError("The spatial projection of the sky image is currently not accepted as a plotting "
-                                 "option. Please convert to IMX/IMY or a HEALPix map.")
+                                 "option. Please convert to SKYX/SKYY or a HEALPix map.")
         else:
             # the user has specified different options, can be ra/dec or healpix (with coordsys of galactic or icrs)
             # if we want Ra/Dec
@@ -543,8 +543,8 @@ class BatSkyImage(Histogram):
                 im = ax.imshow(
                     BatSkyImage(image_data=self.slice[tmin_idx:tmax_idx, :, :, emin_idx:emax_idx],
                                 image_type=self.image_type,
-                                is_mosaic_intermediate=self.is_mosaic_intermediate).project("IMY",
-                                                                                            "IMX").contents.value,
+                                is_mosaic_intermediate=self.is_mosaic_intermediate).project("SKYY",
+                                                                                            "SKYX").contents.value,
                     origin="lower")
                 cbar = fig.colorbar(im, cax=cax, orientation="vertical", label=self.unit, ticklocation="right",
                                     location="right")
