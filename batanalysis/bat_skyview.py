@@ -669,6 +669,15 @@ class BatSkyView(object):
             good_snr_skycoords = SkyCoord([hp_ax.pix2skycoord(i) for i in good_values[hp_ax_idx]])
             good_snr_ebins = [e_ax.bounds[i] for i in good_values[e_ax_idx]]
 
+            if e_ax.nbins > 1:
+                good_snr_tot = np.zeros_like(good_snr_values)
+                for i in np.unique(good_values[hp_ax_idx]):
+                    idx = np.where(good_values[hp_ax_idx] == i)
+                    val = np.sqrt((snr_image.contents[0, i, idx] ** 2).sum())
+                    good_snr_tot[idx] = val
+            else:
+                good_snr_tot = good_snr_values
+
             # now want to compare these to all the sources in the catalog file to determine their nearest known source
             # first read in the relevant data from the catalog
             with fits.open(catalog_file) as f:
@@ -692,16 +701,23 @@ class BatSkyView(object):
                  closest_catalog_coords[sorted_good_snr_values_idx].icrs,
                  all_separations.min(axis=1)[sorted_good_snr_values_idx],
                  psffwhm_separation[sorted_good_snr_values_idx], np.array(good_snr_ebins)[sorted_good_snr_values_idx],
-                 psffwhm_separation.max() - psffwhm_separation[sorted_good_snr_values_idx]],
+                 psffwhm_separation.max() - psffwhm_separation[sorted_good_snr_values_idx],
+                 -1 * good_snr_tot[sorted_good_snr_values_idx]],
                 names=["SNR_skycoord", 'SNR', 'closest_source', 'closest_source_skycoord', "separation",
-                       "psffwhm_separation", "ebin", "diff_psffwhm_separation"])
+                       "psffwhm_separation", "ebin", "diff_psffwhm_separation", "NEG_SNR_TOT"])
 
-            # goup in the order of the largest difference from the psf separation, then the sky coordinate and then the
-            # energy bin
-            output_table = table.group_by(["diff_psffwhm_separation", "SNR_skycoord", "ebin"])
+            if e_ax.nbins > 1:
+                # group in the order of the smallest SNR total, largest difference from the psf separation, & then the
+                # energy bin
+                # output_table = table.group_by(["SNR_TOT", "diff_psffwhm_separation", "SNR_skycoord", "ebin"])
+                output_table = table.group_by(["NEG_SNR_TOT", "diff_psffwhm_separation", "ebin"])
+
+            else:
+                output_table = table
 
             # remove the colum we just used for grouping
             output_table.remove_column("diff_psffwhm_separation")
+            output_table.remove_column("NEG_SNR_TOT")
 
             # TODO: in the future can think about table joins here: https://docs.astropy.org/en/stable/table/operations.html#id12
 
@@ -983,4 +999,5 @@ class BatSkyView(object):
         return self.__add__(other)
 
     def __iadd__(self, other):
+        # TODO: Make this be memory efficient by modifying self instead of creating a new SkyView object
         return self.__add__(other)
