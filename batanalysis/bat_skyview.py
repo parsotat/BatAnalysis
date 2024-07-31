@@ -673,7 +673,7 @@ class BatSkyView(object):
                 good_snr_tot = np.zeros_like(good_snr_values)
                 for i in np.unique(good_values[hp_ax_idx]):
                     idx = np.where(good_values[hp_ax_idx] == i)
-                    val = np.sqrt((snr_image.contents[0, i, idx] ** 2).sum())
+                    val = np.sqrt((snr_image.contents[0, i, good_values[e_ax_idx][idx]] ** 2).sum())
                     good_snr_tot[idx] = val
             else:
                 good_snr_tot = good_snr_values
