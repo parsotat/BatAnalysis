@@ -788,7 +788,7 @@ class BatSkyView(object):
         """
         If we are adding 2 skyviews we can either do
             1) a "simple" add if we want the healpix projection. Here we take the
-        partial coding, and variance weighting into account.
+                partial coding, and variance weighting into account.
             2) a reprojection onto the skyfacets taking the partial coding, the variance weighting, the off-axis
                 corrections into account
 
