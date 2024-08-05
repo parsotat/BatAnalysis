@@ -45,6 +45,7 @@ class BatEvent(BatObservation):
             recalc=False,
             verbose=False,
             load_dir=None,
+            is_guano=False
     ):
         # make sure that the observation ID is a string
         if type(obs_id) is not str:
@@ -83,17 +84,32 @@ class BatEvent(BatObservation):
         # if the user wants to recalculate things or if there is no batevent.pickle file, or if there is no
         # .batevent_complete file (meaning that the __init__ method didnt complete)
         if recalc or not load_file.exists() or not complete_file.exists():
-            if (
-                    not self.obs_dir.joinpath("bat").joinpath("event").is_dir()
-                    or not self.obs_dir.joinpath("bat").joinpath("hk").is_dir()
-                    or not self.obs_dir.joinpath("bat").joinpath("rate").is_dir()
-                    or not self.obs_dir.joinpath("tdrss").is_dir()
-                    or not self.obs_dir.joinpath("auxil").is_dir()
-            ):
-                raise ValueError(
-                    "The observation ID folder needs to contain the bat/event/, the bat/hk/, the bat/rate/, the auxil/, and tdrss/ subdirectories in order to "
-                    + "analyze BAT event data. One or many of these folders are missing."
+            if is_guano:
+                check = (
+                        not self.obs_dir.joinpath("bat").joinpath("event").is_dir()
+                        or not self.obs_dir.joinpath("bat").joinpath("hk").is_dir()
+                        or not self.obs_dir.joinpath("bat").joinpath("rate").is_dir()
+                        or not self.obs_dir.joinpath("auxil").is_dir()
                 )
+                if check:
+                    raise ValueError(
+                        "The observation ID folder needs to contain the bat/event/, the bat/hk/, the bat/rate/, and the auxil/ subdirectories in order to "
+                        + "analyze BAT guano event data. One or many of these folders are missing."
+                    )
+
+            else:
+                check = (
+                        not self.obs_dir.joinpath("bat").joinpath("event").is_dir()
+                        or not self.obs_dir.joinpath("bat").joinpath("hk").is_dir()
+                        or not self.obs_dir.joinpath("bat").joinpath("rate").is_dir()
+                        or not self.obs_dir.joinpath("tdrss").is_dir()
+                        or not self.obs_dir.joinpath("auxil").is_dir()
+                )
+                if check:
+                    raise ValueError(
+                        "The observation ID folder needs to contain the bat/event/, the bat/hk/, the bat/rate/, the auxil/, and tdrss/ subdirectories in order to "
+                        + "analyze BAT event data. One or many of these folders are missing."
+                    )
 
             # save the necessary files that we will need through the processing/analysis steps. See
             # https://swift.gsfc.nasa.gov/archive/archiveguide1_v2_2_apr2018.pdf for reference of files
@@ -601,7 +617,7 @@ class BatEvent(BatObservation):
 
         # if this attribute is None, we need to define it and create it using the standard naming convention
         if self.auxil_raytracing_file is None:
-            temp_auxil_raytracing_file = self.event_files.parent.join(
+            temp_auxil_raytracing_file = self.event_files.parent.joinpath(
                 f"sw{self.obs_id}bevtr.fits"
             )
         else:
