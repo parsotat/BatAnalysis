@@ -311,7 +311,11 @@ class BatEvent(BatObservation):
                 self.tstart_met = hdr["TSTART"]
                 self.tstop_met = hdr["TSTOP"]
                 self.telapse = hdr["TELAPSE"]
-                self.trigtime_met = hdr["TRIGTIME"]
+                if not is_guano:
+                    self.trigtime_met = hdr["TRIGTIME"]
+                else:
+                    # guano data has no trigger time
+                    self.trigtime_met = None
             if not hdr["GAINAPP"] or "FIXEDDAC" not in hdr["GAINMETH"]:
                 # need to run the energy conversion even though this should have been done by SDC
                 self.apply_energy_correction(verbose)
