@@ -87,6 +87,12 @@ class TimeTaggedEvents(object):
             for i in data.columns:
                 all_data[i.name] = u.Quantity(data[i.name], i.unit)
 
+        # this column may not exist if no mask weighting has been applied
+        if "MASK_WEIGHT" in all_data.keys():
+            mask_weight = all_data["MASK_WEIGHT"]
+        else:
+            mask_weight = None
+
         return cls(
             all_data["TIME"],
             all_data["DET_ID"],
@@ -96,5 +102,5 @@ class TimeTaggedEvents(object):
             all_data["ENERGY"],
             all_data["PHA"],
             all_data["PI"],
-            mask_weight=all_data["MASK_WEIGHT"],
+            mask_weight=mask_weight,
         )
