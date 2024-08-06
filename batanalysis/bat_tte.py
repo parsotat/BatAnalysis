@@ -154,7 +154,13 @@ class BatEvent(BatObservation):
                 {self.obs_id} located at {self.obs_dir}. This file is necessary for the remaining processing."
                 )
             else:
-                self.event_files = self.event_files[0]
+                if len(self.event_files) > 1:
+                    # merge the files and make sure all events are unique with no duplicates
+                    total_event = TimeTaggedEvents.concatenate_event(*self.event_files)
+                    self.event_files = total_event
+                else:
+                    self.event_files = self.event_files[0]
+
                 # also make sure that the file is gunzipped
                 if ".gz" in self.event_files.suffix:
                     with gzip.open(self.event_files, "rb") as f_in:
@@ -261,6 +267,12 @@ class BatEvent(BatObservation):
                 # use the event file RA/DEC
                 self.ra = event_ra
                 self.dec = event_dec
+                if is_guano:
+                    warnings.warn(
+                        f"Since this is a GUANO dataset the RA/Dec coordinates may not be valid. These are currently being set to"
+                        f"({self.ra}, {self.dec}). Please verify that these are correct for your analysis."
+                    )
+
             else:
                 if isinstance(ra, u.Quantity) and isinstance(dec, u.Quantity):
                     self.ra = ra
@@ -311,6 +323,7 @@ class BatEvent(BatObservation):
                 self.tstart_met = hdr["TSTART"]
                 self.tstop_met = hdr["TSTOP"]
                 self.telapse = hdr["TELAPSE"]
+                # TODO: make trigtime_met a property so this can be set
                 if not is_guano:
                     self.trigtime_met = hdr["TRIGTIME"]
                 else:
