@@ -1771,9 +1771,12 @@ def download_swift_trigger_data(triggers=None, triggerrange=None, triggertime=No
     without UTCF correction, while Time (use ISO8601) is corrected UTC
     '..' gives a range, ';' gives an or'd choice
     
+    If you only want TTE data, select it using
+    match = ['*bevsh*']
+
     Args:
         :param triggers (int|Iterable[int], optional): Specific trigger number. Defaults to None.
-        :param triggerrange (Tuple[int,int], optional): inclusive range of trigger nubmers. Defaults to None.
+        :param triggerrange (Tuple[int,int], optional): inclusive range of trigger numbers. Defaults to None.
         :param triggertime (datetime.datetime, optional): _description_. Defaults to None.
         :param timewindow (float, optional): Number of seconds +/- triggertime. Defaults to 300.
         :param fetch (bool, optional): copy from server to local disk, if necessary
@@ -1797,16 +1800,21 @@ def download_swift_trigger_data(triggers=None, triggerrange=None, triggertime=No
             raise RuntimeError("Do not specify both 'Time' conditions and a triggertime")
         tstart, tend = [triggertime + datetime.timedelta(seconds=minplus * timewindow)
                         for minplus in (-1, 1)]
-        query['Time'] = f"{tstart:%Y-%m-%dT%H:M:S}..{tend:%Y-%m-%dT%H:M:S}"
+        query["Time"] = f"{tstart:%Y-%m-%dT%H:%M:%S}..{tend:%Y-%m-%dT%H:%M:%S}"
     query.setdefault('fields', 'all')
 
     triggertable = from_heasarc(tablename='swifttdrss', **query)
     result = {}
-    for trigger in triggertable['TARGET_ID']:
-        result[trigger] = swtoo.Swift_Data(obsid=trigger, outdir="/tmp", tdrss=True)
-
-    raise NotImplementedError
-
+    for trigger in triggertable["TARGET_ID"]:
+        res = swtoo.Swift_Data(obsid=f"{trigger:08d}000", outdir="/tmp", tdrss=True)
+        if res.status.errors:
+            res = swtoo.Swift_Data(
+                obsid=f"{trigger:08d}000", outdir="/tmp", subthresh=True
+            )
+            if res.status.errors:
+                continue
+        result[trigger] = res
+    return result
 
 def met2mjd(met_time):
     """
