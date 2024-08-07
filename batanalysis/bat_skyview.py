@@ -853,9 +853,16 @@ class BatSkyView(object):
             tstart = []
             tstop = []
             for i, count in zip([self, other], range(2)):
-                exposure.append(i.sky_img.exposure)
-                tstart.append(i.sky_img.tbins["TIME_START"])
-                tstop.append(i.sky_img.tbins["TIME_STOP"])
+
+                # if we have a mosaic, dont calculate the sky image if we dont need to
+                if not i.is_mosaic:
+                    exposure.append(i.sky_img.exposure)
+                    tstart.append(i.sky_img.tbins["TIME_START"])
+                    tstop.append(i.sky_img.tbins["TIME_STOP"])
+                else:
+                    exposure.append(i.interim_sky_img.exposure)
+                    tstart.append(i.interim_sky_img.tbins["TIME_START"])
+                    tstop.append(i.interim_sky_img.tbins["TIME_STOP"])
 
                 # do the healpix projection calculation and get rid of time axis since it is irrelevant now
                 # also the time axis prevents us from directly adding 2 histograms together if they dont have the

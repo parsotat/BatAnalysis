@@ -161,6 +161,8 @@ class BatEvent(BatObservation):
                 else:
                     self.event_files = self.event_files[0]
 
+                # TODO: what happens with reloading a _eventresult directory? We will have an error here
+
                 # also make sure that the file is gunzipped
                 if ".gz" in self.event_files.suffix:
                     with gzip.open(self.event_files, "rb") as f_in:
