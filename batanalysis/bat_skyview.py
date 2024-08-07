@@ -283,6 +283,11 @@ class BatSkyView(object):
             self.pcode_img = pcode_img
             self.exposure_img = exposure_img
 
+            # explicitly set these to none so they can be dynamically calculated and set if needed
+            self.sky_img = None
+            self.bkg_stddev_img = None
+            self.snr_img = None
+
         # set the default attribute for projection where we can add the skyviews to be the healpix
         self.projection = "healpix"
         self.healpix_nside = 128
@@ -728,15 +733,15 @@ class BatSkyView(object):
         """
         The flux sky image. If the BatSkyView contains a mosaic sky view, this value will be calculated on the fly.
 
-        TODO: calculate this value once, if is_mosaic==True so if the user accesses this property many times we dont
-            waste time/memory recalculating.
-
         :return: BatSkyImage
         """
-        if self.is_mosaic:
-            return BatSkyImage(image_data=self.interim_sky_img / self.interim_var_img, image_type="flux")
-        else:
-            return self._sky_img
+        # calculate this value once, if is_mosaic==True and we have self._snr_img==None so if the user accesses this
+        #   property many times we dont waste time/memory recalculating.
+
+        if self.is_mosaic and self._sky_img is None:
+            self._sky_img = BatSkyImage(image_data=self.interim_sky_img / self.interim_var_img, image_type="flux")
+
+        return self._sky_img
 
     @sky_img.setter
     def sky_img(self, value):
@@ -747,18 +752,17 @@ class BatSkyView(object):
         """
         The background standard deviation sky image. If the BatSkyView contains a mosaic sky view, this value will be calculated on the fly.
 
-        TODO: calculate this value once, if is_mosaic==True so if the user accesses this property many times we dont
-            waste time/memory recalculating.
-
         :return: BatSkyImage
         """
 
-        if self.is_mosaic:
-            return BatSkyImage(
+        # calculate this value once, if is_mosaic==True and we have self._snr_img==None so if the user accesses this
+        #   property many times we dont waste time/memory recalculating.
+        if self.is_mosaic and self._bkg_stddev_img is None:
+            self._bkg_stddev_img = BatSkyImage(
                 image_data=Histogram(self.interim_var_img.axes, contents=1 / np.sqrt(self.interim_var_img),
                                      unit=np.sqrt(1 / self.interim_var_img.unit).unit), image_type="stddev")
-        else:
-            return self._bkg_stddev_img
+
+        return self._bkg_stddev_img
 
     @bkg_stddev_img.setter
     def bkg_stddev_img(self, value):
@@ -769,16 +773,15 @@ class BatSkyView(object):
         """
         The SNR sky image. If the BatSkyView contains a mosaic sky view, this value will be calculated on the fly.
 
-        TODO: calculate this value once, if is_mosaic==True so if the user accesses this property many times we dont
-            waste time/memory recalculating.
-
         :return: BatSkyImage
         """
 
-        if self.is_mosaic:
-            return BatSkyImage(image_data=self.sky_img / self.bkg_stddev_img, image_type="snr")
-        else:
-            return self._snr_img
+        # calculate this value once, if is_mosaic==True and we have self._snr_img==None so if the user accesses this
+        #   property many times we dont waste time/memory recalculating.
+        if self.is_mosaic and self._snr_img is None:
+            self._snr_img = BatSkyImage(image_data=self.sky_img / self.bkg_stddev_img, image_type="snr")
+
+        return self._snr_img
 
     @snr_img.setter
     def snr_img(self, value):
@@ -809,13 +812,20 @@ class BatSkyView(object):
                 self.sky_img.ebins["E_MAX"], other.sky_img.ebins["E_MAX"]):
             raise ValueError('Ensure that the two BatSkyView objects have the same energy ranges. ')
 
-        # make sure that both have background stddev and pcode images
-        if None in self.pcode_img or None in other.pcode_img:
-            raise ValueError('All BatSkyView objects need to have an associated partial coding image to be added')
+        # determine if any of what is passed in is a mosaiced image already
+        is_mosaic = [i.is_mosaic for i in [self, other]]
 
-        if None in self.bkg_stddev_img or None in other.bkg_stddev_img:
-            raise ValueError(
-                'All BatSkyView objects need to have an associated background standard deviation image to be added')
+        # if we have a mosaic image, we dont need to calculate these things, we know that they have been set/cal be calculated
+        for i in [self, other]:
+            if not i.is_mosaic:
+                # make sure that both have background stddev and pcode images
+                if None in i.pcode_img:
+                    raise ValueError(
+                        'All BatSkyView objects need to have an associated partial coding image to be added')
+
+                if None in i.bkg_stddev_img:
+                    raise ValueError(
+                        'All BatSkyView objects need to have an associated background standard deviation image to be added')
 
         if self.projection is not None:
             # we are using the healpix projection to add images, need to get the greater value of healpix_nside and verify that both objects arent None
@@ -828,7 +838,6 @@ class BatSkyView(object):
 
             # try to choose between a healpix projection's coord sys  incase there are 2 different one that are
             # specified. By default use the one that the potential mosaic image uses
-            is_mosaic = [i.is_mosaic for i in [self, other]]
             if np.any(is_mosaic):
                 # id the mosaic's healpix coord sys
                 if is_mosaic[0]:
@@ -948,7 +957,13 @@ class BatSkyView(object):
 
             tmin = u.Quantity(tstart).min()
             tmax = u.Quantity(tstop).max()
-            energybin_ax = self.sky_img.axes["ENERGY"]
+
+            # if we are a mosaic image, dont waste time/memory calculating the sky_image by calling that property
+            if not self.is_mosaic:
+                energybin_ax = self.sky_img.axes["ENERGY"]
+            else:
+                energybin_ax = self.interim_sky_img.axes["ENERGY"]
+
             hp_ax = HealpixAxis(nside=nsides, coordsys=coordsys, label="HPX")
             t_ax = Axis(u.Quantity([tmin, tmax]), label="TIME")
 
