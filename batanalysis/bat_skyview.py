@@ -266,6 +266,19 @@ class BatSkyView(object):
                     self.pcodeimg_file = temp_pcodeimg_file
                 else:
                     self.pcodeimg_file = None
+
+                # also need to run batcelldetect where we overwrite the SNR and background standard deviation maps
+                # created with batfftimage since batcelldetect constructs these by looking at local count deviations
+                self.detect_sources(input_dict=dict(signifmap=f"{self.snr_img_file}",
+                                                    bkgvarmap=f"{self.bkg_stddev_img_file}",
+                                                    clobber="yes"))
+
+                # NOTE: these updated, correct snr and bkg_stddev files get read in in self._parse_skyimages below
+                # NOTE: The SNR/bkg stddev maps are most valid for partial codings of >5%, also the mosacing operation
+                #   selects image pixels with pcode>_pcodethresh, where _pcodethresh is set to 0.15 currently so
+                #   mosaicing with these values, etc is valid.
+
+
             else:
                 # set defaults for different attributes
                 self.skyimg_input_dict = None
@@ -419,8 +432,15 @@ class BatSkyView(object):
             self.snr_img_file = Path(self.skyimg_input_dict["signifmap"]).expanduser().resolve()
 
         # now read in the file
+        # also want to filter out the partial coding >5% pixels for the batcelldetect produced snr and bkg stddev images
+        # batcelldetect seems to set everything with low partial coding to 0 whereas batfftimage sets it to nan
         if self.snr_img_file is not None:
             self.snr_img = BatSkyImage.from_file(self.snr_img_file)
+
+            # want to filter out the partial coding >5% pixels for the batcelldetect produced image
+            if self.pcode_img is not None:
+                idx = np.where(self.pcode_img <= 0.05)
+                self.snr_img[idx] = np.nan * self.snr_img.unit
         else:
             self.snr_img = None
 
@@ -430,6 +450,11 @@ class BatSkyView(object):
         # now read in the file
         if self.bkg_stddev_img_file is not None:
             self.bkg_stddev_img = BatSkyImage.from_file(self.bkg_stddev_img_file)
+            # want to filter out the partial coding >5% pixels for the batcelldetect produced image
+            if self.pcode_img is not None:
+                idx = np.where(self.pcode_img <= 0.05)
+                self.bkg_stddev_img[idx] = np.nan * self.bkg_stddev_img.unit
+
         else:
             self.bkg_stddev_img = None
 
