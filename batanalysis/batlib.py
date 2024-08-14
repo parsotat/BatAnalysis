@@ -955,7 +955,7 @@ def fit_TTE_spectrum(
 
 
     If no model is specfied by the user, then by default the specrum is fit with the following Xspec model:
-    cflux*(powerlaw): with Cflux E_min=14 keV (Frozen), E_max=195 keV (Frozen), flux=-12 (initial value),
+    cflux*(powerlaw): with Cflux E_min=15 keV (Frozen), E_max=150 keV (Frozen), flux=-12 (initial value),
     powerlaw Gamma=2 Free, and norm=frozen. Powerlaw norm kept frozen.
 
     :param spectrum: The Spectrum object which contains the spectrum that will be fit.
@@ -1039,8 +1039,8 @@ def fit_TTE_spectrum(
         # If User does not pass any model
 
         model = xsp.Model("cflux*po")
-        p1 = model(1)  # cflux      Emin = 14 keV
-        p2 = model(2)  # cflux      Emax = 195 keV
+        p1 = model(1)  # cflux      Emin = 15 keV
+        p2 = model(2)  # cflux      Emax = 150 keV
         p3 = model(3)  # cflux      lg10Flux
         p4 = model(4)  # Photon index Gamma
         p5 = model(5)  # Powerlaw norm
