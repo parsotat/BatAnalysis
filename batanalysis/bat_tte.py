@@ -982,14 +982,18 @@ class BatEvent(BatObservation):
                         else:
                             start += T0
                             end += T0
+                            
+                    name = Path(f"t_{start}-{end}_{nchannels}chan.pha")
+                    pha_filename.append(name)
+
             else:
                 start = "start"
                 end = "end"
                 input_tstart = np.array([None])
                 input_tstop = np.array([None])
 
-            name = Path(f"t_{start}-{end}_{nchannels}chan.pha")
-            pha_filename.append(name)
+                name = Path(f"t_{start}-{end}_{nchannels}chan.pha")
+                pha_filename.append(name)
 
             # if we want to load the upper limits, need to see if we have this file. Assume we are looking for
             # files in the OBSID/pha directory
