@@ -116,5 +116,5 @@ class Attitude(object):
             plt.axvline(0, ls='--')
 
         plt.legend()
-        plt.xlabel(f"MET-{T0}")
+        plt.xlabel(f"MET-{t_rel}")
         plt.ylabel(f"Pointing ({self.ra.unit})")
