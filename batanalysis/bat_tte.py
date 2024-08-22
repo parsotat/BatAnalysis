@@ -956,10 +956,10 @@ class BatEvent(BatObservation):
                 input_tstart = tstart.copy()
                 input_tstop = tstop.copy()
 
-            # make sure that we can iterate over the times even if the user passed in a single scalar quantity
-            if input_tstart.isscalar:
-                input_tstart = u.Quantity([input_tstart])
-                input_tstop = u.Quantity([input_tstop])
+                # make sure that we can iterate over the times even if the user passed in a single scalar quantity
+                if input_tstart.isscalar:
+                    input_tstart = u.Quantity([input_tstart])
+                    input_tstop = u.Quantity([input_tstop])
             else:
                 raise ValueError("Both tstart and tstop must have the same length.")
 
