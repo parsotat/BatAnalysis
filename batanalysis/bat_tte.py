@@ -156,12 +156,15 @@ class BatEvent(BatObservation):
             else:
                 if len(self.event_files) > 1:
                     # merge the files and make sure all events are unique with no duplicates
-                    total_event = TimeTaggedEvents.concatenate_event(*self.event_files)
-                    self.event_files = total_event
+                    concat_eventfile = self.event_files[0].parent.joinpath("total_events.evt")
+                    if not concat_eventfile.exists():
+                        total_event = TimeTaggedEvents.concatenate_event(*self.event_files,
+                                                                         output_event_file=concat_eventfile)
+                        self.event_files = total_event
+                    else:
+                        self.event_files = concat_eventfile
                 else:
                     self.event_files = self.event_files[0]
-
-                # TODO: what happens with reloading a _eventresult directory? We will have an error here
 
                 # also make sure that the file is gunzipped
                 if ".gz" in self.event_files.suffix:
@@ -982,7 +985,7 @@ class BatEvent(BatObservation):
                         else:
                             start += T0
                             end += T0
-                            
+
                     name = Path(f"t_{start}-{end}_{nchannels}chan.pha")
                     pha_filename.append(name)
 
