@@ -121,8 +121,11 @@ class BatEvent(BatObservation):
             self.detector_quality_file = list(
                 self.obs_dir.joinpath("bat").joinpath("hk").glob("*bdqcb*")
             )
+
+            # if we have previously loaded in an obsid with 1 event file, then we probably gunzipped it. This
+            # would lead us to doubly list the event files. We want to filter out all the gunzipped ones
             self.event_files = sorted(
-                list(self.obs_dir.joinpath("bat").joinpath("event").glob("*bev*_uf*"))
+                list(self.obs_dir.joinpath("bat").joinpath("event").glob("*bev*_uf*.gz"))
             )
             self.attitude_file = list(self.obs_dir.joinpath("auxil").glob("*sat.*"))
             self.tdrss_files = list(self.obs_dir.joinpath("tdrss").glob("*msb*.fits*"))
@@ -155,6 +158,7 @@ class BatEvent(BatObservation):
                 )
             else:
                 if len(self.event_files) > 1:
+
                     # merge the files and make sure all events are unique with no duplicates
                     concat_eventfile = self.event_files[0].parent.joinpath("total_events.evt")
                     if not concat_eventfile.exists():
