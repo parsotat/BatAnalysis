@@ -1795,8 +1795,8 @@ def download_swift_trigger_data(triggers=None, triggerrange=None, triggertime=No
         :param quiet (bool): When downloading, don't print anything out. Defaults to True.
         :param match (str|list[str], optional): Filename patterns to match
         :param **query (dict(parameter:terms)): Conditions on the swifttdrss table
-    Raises:
-        NotImplementedError: _description_
+    Returns:
+        dict(int:Swift_Data): Result of each trigger's download.
     """
     trigfield = 'Target_ID'
     triggerconditions = [query.pop(trigfield)] if trigfield in query else []
