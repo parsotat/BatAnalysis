@@ -1767,7 +1767,7 @@ The infixes and suffixes:
 def download_swift_trigger_data(triggers=None, triggerrange=None, triggertime=None, 
                                 timewindow=300, fetch=False, outdir=None,
                                 clobber=False, quiet=True,
-                                match=False, **query):
+                                match=None, **query):
     """Find data corresponding to trigger on remote server and local disk
 
     Looks up triggers in the 'swifttdrss' table, then downloads the selected triggers
