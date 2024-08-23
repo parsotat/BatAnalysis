@@ -118,7 +118,7 @@ def datadir(new=None, mkdir=False, makepersistent=False, tdrss=False, trend=Fals
         result = _datadir
     if bymonth is not None:
         result = result.joinpath(f'{bymonth:%Y_%m}')
-        result.mkdir(exist_ok=True) 
+        result.mkdir(exist_ok=True)
     return result
 
 
@@ -1764,7 +1764,7 @@ The infixes and suffixes:
 """
 
 
-def download_swift_trigger_data(triggers=None, triggerrange=None, triggertime=None, 
+def download_swift_trigger_data(triggers=None, triggerrange=None, triggertime=None,
                                 timewindow=300, fetch=False, outdir=None,
                                 clobber=False, quiet=True,
                                 match=None, **query):
@@ -1818,23 +1818,87 @@ def download_swift_trigger_data(triggers=None, triggerrange=None, triggertime=No
     triggertable = from_heasarc(tablename='swifttdrss', **query)
     # UNIMPLEMENTED: triggers in quicklook data are not returned
     result = {}
-    
+
     if len(triggertable):
         topdir = Path(outdir) if outdir is not None else datadir()
 
-        for trigger,triggermjd in zip(triggertable["TARGET_ID"], triggertable["TIME"]):
+        for trigger, triggermjd in zip(triggertable["TARGET_ID"], triggertable["TIME"]):
             triggeriso = np.datetime_as_string(met2utc(None, mjd_time=triggermjd))
 
-            res = swtoo.Swift_Data(obsid=f"{trigger:08d}000", outdir=str(topdir), tdrss=True, clobber=clobber, quiet=quiet, match=match)
+            res = swtoo.Swift_Data(obsid=f"{trigger:08d}000", outdir=str(topdir), tdrss=True, clobber=clobber,
+                                   quiet=quiet, match=match)
             if res.status.errors:
                 tdrssmonthdir = topdir.joinpath(f'tdrss/{triggeriso[0:4]}_{triggeriso[5:7]}')
                 res = swtoo.Swift_Data(
-                    obsid=f"{trigger:08d}000", outdir=str(tdrssmonthdir), subthresh=True, clobber=clobber, quiet=quiet, match=match
+                    obsid=f"{trigger:08d}000", outdir=str(tdrssmonthdir), subthresh=True, clobber=clobber, quiet=quiet,
+                    match=match
                 )
+                # if we have no errors (ie find the data) want to get the observation with all the attitude/gain/det on & off
+                # hk/auxil files that we will need to analyze the failed trigger TTE data
+                if not res.status.errors:
+                    tstart, tend = Time(
+                        [Time(triggermjd, format="mjd").datetime + datetime.timedelta(seconds=minplus * timewindow)
+                         for minplus in (-1, 1)])
+
+                    query = {'start_time': f"{tstart.isot}..{tend.isot}", 'fields': 'all'}
+                    nearest_obs_table = from_heasarc(**query)
+                    dt = Time(float(triggermjd), format="mjd") - Time(nearest_obs_table["START_TIME"], format="mjd")
+                    closest_obsid = nearest_obs_table["OBSID"][np.argmin(np.abs(dt))]
+                    if timewindow > np.abs(dt[np.argmin(np.abs(dt))].to("s")).value:
+                        save_dir = Path(res.entries[0].localpath).parent
+                        res = swtoo.Swift_Data(obsid=closest_obsid, bat=True, outdir=save_dir, match=match)
+
+                        if not res.status.errors:
+                            # if we have no issues, then set up the directory for us to have the usual auxil/tdrss/hk directories with respect to the
+                            # subthreshold trigger. We can create a symbolic link to keep the obid directory the same so we
+                            # have record of which obsid was used to process the subthreshold trigger event data
+                            closest_obsid_dir = save_dir.joinpath(closest_obsid)
+
+                            new_auxil = save_dir.joinpath("auxil")
+                            new_bat = save_dir.joinpath("bat")
+
+                            new_auxil.symlink_to(closest_obsid_dir.relative_to(save_dir).joinpath("auxil"),
+                                                 target_is_directory=True)
+                            new_bat.symlink_to(closest_obsid_dir.relative_to(save_dir).joinpath("bat"),
+                                               target_is_directory=True)
+
+                            # need to checck for an event folder, if there is then there are event files that will need
+                            # to have something done with them, otherwise just create the folder and copy the OG
+                            # subthreshold event file (need to copy to unzip it)
+                            event_dir = new_bat.joinpath("event")
+                            if event_dir.exists():
+                                shutil.rmtree(event_dir)
+
+                            event_dir.mkdir()
+                            event_files = sorted(save_dir.glob("*.evt*"))
+
+                            for event_file in event_files:
+                                shutil.copy(event_file, event_dir)
+
+                            # do the same for the tdrss directory
+                            tdrss_dir = new_bat.joinpath("tdrss")
+                            if tdrss_dir.exists():
+                                shutil.rmtree(tdrss_dir)
+
+                            tdrss_dir.mkdir()
+                            tdrss_files = sorted(save_dir.glob("*bal*"))
+
+                            for tdrss_file in tdrss_files:
+                                shutil.copy(tdrss_file, tdrss_dir)
+
+                        else:
+                            warnings.warn(
+                                f"Downloading the closest subthreshold trigger ObsID {closest_obsid} failed. Continuing with the next subthreshold trigger.")
+
+                    else:
+                        warnings.warn(
+                            f"The subthreshold trigger {trigger} has a nearest hk/auxil observation ID that is >{timewindow} s away. ObsID {closest_obsid} is  {np.abs(dt[np.argmin(np.abs(dt))].to('s'))} away.")
+
                 if res.status.errors:
                     continue
             result[trigger] = res
     return result
+
 
 def met2mjd(met_time):
     """
