@@ -1823,6 +1823,7 @@ def download_swift_trigger_data(triggers=None, triggerrange=None, triggertime=No
         topdir = Path(outdir) if outdir is not None else datadir()
 
         for trigger, triggermjd in zip(triggertable["TARGET_ID"], triggertable["TIME"]):
+            all_res = []
             triggeriso = np.datetime_as_string(met2utc(None, mjd_time=triggermjd))
 
             res = swtoo.Swift_Data(obsid=f"{trigger:08d}000", outdir=str(topdir), tdrss=True, clobber=clobber,
@@ -1833,6 +1834,9 @@ def download_swift_trigger_data(triggers=None, triggerrange=None, triggertime=No
                     obsid=f"{trigger:08d}000", outdir=str(tdrssmonthdir), subthresh=True, clobber=clobber, quiet=quiet,
                     match=match
                 )
+
+                all_res.append(res)
+
                 # if we have no errors (ie find the data) want to get the observation with all the attitude/gain/det on & off
                 # hk/auxil files that we will need to analyze the failed trigger TTE data
                 if not res.status.errors:
@@ -1848,6 +1852,8 @@ def download_swift_trigger_data(triggers=None, triggerrange=None, triggertime=No
                         save_dir = Path(res.entries[0].localpath).parent
                         res = swtoo.Swift_Data(obsid=closest_obsid, bat=True, outdir=save_dir, match=match)
 
+                        all_res.append(res)
+                        
                         if not res.status.errors:
                             # if we have no issues, then set up the directory for us to have the usual auxil/tdrss/hk directories with respect to the
                             # subthreshold trigger. We can create a symbolic link to keep the obid directory the same so we
@@ -1896,7 +1902,10 @@ def download_swift_trigger_data(triggers=None, triggerrange=None, triggertime=No
 
                 if res.status.errors:
                     continue
-            result[trigger] = res
+            else:
+                all_res.append(res)
+
+            result[trigger] = all_res
     return result
 
 
