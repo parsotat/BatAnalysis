@@ -63,8 +63,13 @@ def curdir():
     return cdir
 
 
-def datadir(new=None, mkdir=False, makepersistent=False, tdrss=False, trend=False) -> Path:
+def datadir(new=None, mkdir=False, makepersistent=False, tdrss=False, trend=False, bymonth=None) -> Path:
     """Return the data directory (optionally changing and creating it)
+
+    The bymonth option is used to subdivide the directories to prevent excessive directory size.
+    However, if the bymonth option is used inconsistently, it can cause lead to duplicative downloads.
+    The bymonth option creates the corresponding subdirectory even if mkdir=False as
+    long as the parent directory exists.
 
     Args:
         new (Path|str, optional): Use this as the data directory
@@ -72,6 +77,8 @@ def datadir(new=None, mkdir=False, makepersistent=False, tdrss=False, trend=Fals
         makepersistent (bool, optional): If set, stores the name in ~/.swift/swift_datadir_name and uses it as new
             default
         tdrss (bool, optional): subdirectory storing tdrss data types
+        trend (bool, optional): subdirectory storing trend data
+        bymonth (datetime.datetime, optional): add a YYYY_MM month sub-directory if set
     """
     global _datadir
     datadirnamefile = Path("~/.swift/swift_datadir_name").expanduser()
@@ -104,10 +111,15 @@ def datadir(new=None, mkdir=False, makepersistent=False, tdrss=False, trend=Fals
 
     assert isinstance(_datadir, Path)
     if tdrss:
-        return _datadir.joinpath('tdrss')
-    if trend:
-        return _datadir.joinpath('trend')
-    return _datadir
+        result = _datadir.joinpath('tdrss')
+    elif trend:
+        result = _datadir.joinpath('trend')
+    else:
+        result = _datadir
+    if bymonth is not None:
+        result = result.joinpath(f'{bymonth:%Y_%m}')
+        result.mkdir(exist_ok=True) 
+    return result
 
 
 def create_custom_catalog(
@@ -1752,18 +1764,16 @@ The infixes and suffixes:
 """
 
 
-def download_swift_trigger_data(triggers=None, triggerrange=None, triggertime=None, timewindow=300, fetch=False,
+def download_swift_trigger_data(triggers=None, triggerrange=None, triggertime=None, 
+                                timewindow=300, fetch=False, outdir=None,
+                                clobber=False, quiet=True,
                                 match=False, **query):
     """Find data corresponding to trigger on remote server and local disk
 
     Looks up triggers in the 'swifttdrss' table, then downloads the selected triggers
-    to local disk
-    https://heasarc.gsfc.nasa.gov/W3Browse/swift/swifttdrss.html
-
-    Because there are so many triggers (hundreds per day) the downloaded
-    local directory structure is split into months as is used on the Heasarc site
-
-    Currently, this only covers data delivered to HEASARC, and not quicklook data.
+    to local disk.
+    
+    Currently, this function covers only data delivered to HEASARC, and not quicklook data.
 
     **query arguments are used to restrict the entries.  For example
         Target_ID="99999..100000;1234567", Time_seconds="123456789..124000000"
@@ -1771,16 +1781,22 @@ def download_swift_trigger_data(triggers=None, triggerrange=None, triggertime=No
     without UTCF correction, while Time (use ISO8601) is corrected UTC
     '..' gives a range, ';' gives an or'd choice
     
+    If you want only TTE data, it may be selected with
+    match = ['*bevsh*']
+
     Args:
         :param triggers (int|Iterable[int], optional): Specific trigger number. Defaults to None.
-        :param triggerrange (Tuple[int,int], optional): inclusive range of trigger nubmers. Defaults to None.
-        :param triggertime (datetime.datetime, optional): _description_. Defaults to None.
+        :param triggerrange (Tuple[int,int], optional): inclusive range of trigger numbers. Defaults to None.
+        :param triggertime (datetime.datetime, optional): Time of desired trigger(s). Defaults to None.
         :param timewindow (float, optional): Number of seconds +/- triggertime. Defaults to 300.
-        :param fetch (bool, optional): copy from server to local disk, if necessary
+        :param fetch (bool, optional): Copy from server to local disk, if necessary
+        :param outdir (Path, optional): Top-level data directory for download.
+        :param clobber (bool): Overwrite local files.  Defaults to False.
+        :param quiet (bool): When downloading, don't print anything out. Defaults to True.
         :param match (str|list[str], optional): Filename patterns to match
         :param **query (dict(parameter:terms)): Conditions on the swifttdrss table
-    Raises:
-        NotImplementedError: _description_
+    Returns:
+        dict(int:Swift_Data): Result of each trigger's download.
     """
     trigfield = 'Target_ID'
     triggerconditions = [query.pop(trigfield)] if trigfield in query else []
@@ -1797,16 +1813,28 @@ def download_swift_trigger_data(triggers=None, triggerrange=None, triggertime=No
             raise RuntimeError("Do not specify both 'Time' conditions and a triggertime")
         tstart, tend = [triggertime + datetime.timedelta(seconds=minplus * timewindow)
                         for minplus in (-1, 1)]
-        query['Time'] = f"{tstart:%Y-%m-%dT%H:M:S}..{tend:%Y-%m-%dT%H:M:S}"
+        query["Time"] = f"{tstart:%Y-%m-%dT%H:%M:%S}..{tend:%Y-%m-%dT%H:%M:%S}"
     query.setdefault('fields', 'all')
-
     triggertable = from_heasarc(tablename='swifttdrss', **query)
+    # UNIMPLEMENTED: triggers in quicklook data are not returned
     result = {}
-    for trigger in triggertable['TARGET_ID']:
-        result[trigger] = swtoo.Swift_Data(obsid=trigger, outdir="/tmp", tdrss=True)
+    
+    if len(triggertable):
+        topdir = Path(outdir) if outdir is not None else datadir()
 
-    raise NotImplementedError
+        for trigger,triggermjd in zip(triggertable["TARGET_ID"], triggertable["TIME"]):
+            triggeriso = np.datetime_as_string(met2utc(None, mjd_time=triggermjd))
 
+            res = swtoo.Swift_Data(obsid=f"{trigger:08d}000", outdir=str(topdir), tdrss=True, clobber=clobber, quiet=quiet, match=match)
+            if res.status.errors:
+                tdrssmonthdir = topdir.joinpath(f'tdrss/{triggeriso[0:4]}_{triggeriso[5:7]}')
+                res = swtoo.Swift_Data(
+                    obsid=f"{trigger:08d}000", outdir=str(tdrssmonthdir), subthresh=True, clobber=clobber, quiet=quiet, match=match
+                )
+                if res.status.errors:
+                    continue
+            result[trigger] = res
+    return result
 
 def met2mjd(met_time):
     """
