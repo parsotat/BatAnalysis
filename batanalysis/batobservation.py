@@ -4,23 +4,9 @@ This file contains the batobservation class which contains information pertainin
 Tyler Parsotan Jan 24 2022
 """
 import os
-import shutil
-import sys
-from .batlib import datadir, dirtest, met2mjd, met2utc, create_gti_file, calc_response
-import glob
-from astropy.io import fits
-import numpy as np
-import subprocess
-import pickle
-import sys
-import re
 from pathlib import Path
-from astropy.time import Time
-import astropy.units as u
-from datetime import datetime, timedelta
-import re
-import warnings
-import matplotlib.pyplot as plt
+
+from .batlib import datadir
 
 # for python>3.6
 try:
@@ -28,7 +14,6 @@ try:
 except ModuleNotFoundError as err:
     # Error handling
     print(err)
-
 
 # try:
 # import xspec as xsp
@@ -124,11 +109,10 @@ class BatObservation(object):
 
         # directly calls batdetmask
         try:
-            return hsp.bathotpix(**input_dict)
+            return hsp.batdetmask(**input_dict)
         except Exception as e:
             print(e)
             raise RuntimeError(f"The call to Heasoft batdetmask failed with inputs: {input_dict}.")
-
 
     def _call_batbinevt(self, input_dict):
         """

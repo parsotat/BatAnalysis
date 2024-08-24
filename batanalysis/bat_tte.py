@@ -478,7 +478,7 @@ class BatEvent(BatObservation):
                 .joinpath("detector_quality.dpi")
             )
             input_dict = dict(
-                infile=str(self.event_files[0]),
+                infile=str(self.event_files),
                 outfile=str(output_dpi),
                 outtype="DPI",
                 timedel=0.0,

@@ -1853,7 +1853,7 @@ def download_swift_trigger_data(triggers=None, triggerrange=None, triggertime=No
                         res = swtoo.Swift_Data(obsid=closest_obsid, bat=True, outdir=save_dir, match=match)
 
                         all_res.append(res)
-                        
+
                         if not res.status.errors:
                             # if we have no issues, then set up the directory for us to have the usual auxil/tdrss/hk directories with respect to the
                             # subthreshold trigger. We can create a symbolic link to keep the obid directory the same so we
@@ -1882,7 +1882,7 @@ def download_swift_trigger_data(triggers=None, triggerrange=None, triggertime=No
                                 shutil.copy(event_file, event_dir)
 
                             # do the same for the tdrss directory
-                            tdrss_dir = new_bat.joinpath("tdrss")
+                            tdrss_dir = save_dir.joinpath("tdrss")
                             if tdrss_dir.exists():
                                 shutil.rmtree(tdrss_dir)
 
