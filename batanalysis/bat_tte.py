@@ -291,8 +291,9 @@ class BatEvent(BatObservation):
                             f"({self.ra}, {self.dec}). Please verify that these are correct for your analysis."
                         )
                 except KeyError as e:
-                    self.ra = None
-                    self.dec = None
+                    # get around the quantity_input wrapper for these properties
+                    self._ra = None
+                    self._dec = None
             else:
                 if isinstance(ra, u.Quantity) and isinstance(dec, u.Quantity):
                     self.ra = ra
@@ -346,11 +347,14 @@ class BatEvent(BatObservation):
                 self.tstop_met = hdr["TSTOP"]
                 self.telapse = hdr["TELAPSE"]
                 # TODO: make trigtime_met a property so this can be set
-                if not is_guano:
+                # if we dont have a guano TTE dataset or a failed trigger dataset then this keyword will not exist
+                # if not is_guano:
+                try:
                     self.trigtime_met = hdr["TRIGTIME"]
-                else:
-                    # guano data has no trigger time
+                except KeyError as e:
+                    # guano data/failed trigger has no trigger time
                     self.trigtime_met = None
+
             if not hdr["GAINAPP"] or "FIXEDDAC" not in hdr["GAINMETH"]:
                 # need to run the energy conversion even though this should have been done by SDC
                 self.apply_energy_correction(verbose)
