@@ -1863,10 +1863,14 @@ def download_swift_trigger_data(triggers=None, triggerrange=None, triggertime=No
                             new_auxil = save_dir.joinpath("auxil")
                             new_bat = save_dir.joinpath("bat")
 
-                            new_auxil.symlink_to(closest_obsid_dir.relative_to(save_dir).joinpath("auxil"),
-                                                 target_is_directory=True)
-                            new_bat.symlink_to(closest_obsid_dir.relative_to(save_dir).joinpath("bat"),
-                                               target_is_directory=True)
+                            # if a directory has already been downloaded previously, then these symlinks have already been set
+                            if not new_auxil.is_symlink():
+                                new_auxil.symlink_to(closest_obsid_dir.relative_to(save_dir).joinpath("auxil"),
+                                                     target_is_directory=True)
+
+                            if not new_bat.is_symlink():
+                                new_bat.symlink_to(closest_obsid_dir.relative_to(save_dir).joinpath("bat"),
+                                                   target_is_directory=True)
 
                             # need to checck for an event folder, if there is then there are event files that will need
                             # to have something done with them, otherwise just create the folder and copy the OG
