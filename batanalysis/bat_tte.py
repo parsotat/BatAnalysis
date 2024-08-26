@@ -356,6 +356,7 @@ class BatEvent(BatObservation):
                 except KeyError as e:
                     # guano data/failed trigger has no trigger time
                     self.trigtime_met = None
+                    self.trigtime = None
 
             if not hdr["GAINAPP"] or "FIXEDDAC" not in hdr["GAINMETH"]:
                 # need to run the energy conversion even though this should have been done by SDC
