@@ -15,6 +15,7 @@ from pathlib import Path
 import astropy.units as u
 import numpy as np
 from astropy.io import fits
+from swifttools.swift_too import Clock
 
 from .attitude import Attitude
 from .bat_dph import BatDPH
@@ -254,8 +255,6 @@ class BatEvent(BatObservation):
                             "The TDRSS msbce file BRA/BDEC_OBJ does not seem to be in the units of decimal degrees which is not supported.")
 
             # by default, ra/dec="event" to use the coordinates set here by SDC but can use other coordinates
-            # TODO: change logic such that we try to load these in order, but if we still have no values for ra/dec we
-            #   jsut have errors pop up in appropriate places where they are used and notify the user that ra/dec isnt set
 
             # set these by default so we can do coordinate comparison after this if-else statement
             event_ra = None
@@ -353,6 +352,7 @@ class BatEvent(BatObservation):
                 # if not is_guano:
                 try:
                     self.trigtime_met = hdr["TRIGTIME"]
+                    self.trigtime = Clock(met=hdr["TRIGTIME"])
                 except KeyError as e:
                     # guano data/failed trigger has no trigger time
                     self.trigtime_met = None
@@ -623,6 +623,25 @@ class BatEvent(BatObservation):
                 )
 
         return None
+
+    @property
+    def trigtime(self):
+        """
+        The triggertime associated with the event file. If this is specified in the event file then this is loaded in
+        as a swiftools Swift Clock object .
+
+        If the event file corresponds to a GUANO data dump or a failed trigger dataset, then this will be None, but a
+        user can set the trigtime property by setting it equal to a Swift Clock object.
+
+        """
+        return self._trigtime
+
+    @trigtime.setter
+    def trigtime(self, value):
+        if not isinstance(value, Clock) and value is not None:
+            raise ValueError("The trigtime property can only be set to a swifttools Clock object.")
+
+        self._trigtime = value
 
     @property
     def ra(self):
