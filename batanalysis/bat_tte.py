@@ -253,16 +253,13 @@ class BatEvent(BatObservation):
                         raise ValueError(
                             "The TDRSS msbce file BRA/BDEC_OBJ does not seem to be in the units of decimal degrees which is not supported.")
 
-            # get info from event file which must exist to get to this point
-            with fits.open(self.event_files) as file:
-                if "deg" in file[0].header.comments["RA_OBJ"]:
-                    event_ra = file[0].header["RA_OBJ"] * u.deg
-                    event_dec = file[0].header["DEC_OBJ"] * u.deg
-                else:
-                    raise ValueError(
-                        "The event file RA/DEC_OBJ does not seem to be in the units of decimal degrees which is not supported.")
-
             # by default, ra/dec="event" to use the coordinates set here by SDC but can use other coordinates
+            # TODO: change logic such that we try to load these in order, but if we still have no values for ra/dec we
+            #   jsut have errors pop up in appropriate places where they are used and notify the user that ra/dec isnt set
+
+            # set these by default so we can do coordinate comparison after this if-else statement
+            event_ra = None
+            event_dec = None
             if "tdrss" in ra or "tdrss" in dec:
                 if len(tdrss_centroid_file) > 0:
                     # use the TDRSS message value
@@ -273,15 +270,29 @@ class BatEvent(BatObservation):
                         "There is no TDRSS message coordinate. Please create a TDRSS file to use this option."
                     )
             elif "event" in ra or "event" in dec:
-                # use the event file RA/DEC
-                self.ra = event_ra
-                self.dec = event_dec
-                if is_guano:
-                    warnings.warn(
-                        f"Since this is a GUANO dataset the RA/Dec coordinates may not be valid. These are currently being set to"
-                        f"({self.ra}, {self.dec}). Please verify that these are correct for your analysis."
-                    )
+                # get info from event file which must exist to get to this point,
+                # for failed trigger TTE data, there is no RA_OBJ/DEC_OBJ keywords in the file so put this in a try except
+                # and set self.ra/dec to None.
+                try:
+                    with fits.open(self.event_files) as file:
+                        if "deg" in file[0].header.comments["RA_OBJ"]:
+                            event_ra = file[0].header["RA_OBJ"] * u.deg
+                            event_dec = file[0].header["DEC_OBJ"] * u.deg
+                        else:
+                            raise ValueError(
+                                "The event file RA/DEC_OBJ does not seem to be in the units of decimal degrees which is not supported.")
 
+                    # use the event file RA/DEC
+                    self.ra = event_ra
+                    self.dec = event_dec
+                    if is_guano:
+                        warnings.warn(
+                            f"Since this is a GUANO dataset the RA/Dec coordinates may not be valid. These are currently being set to"
+                            f"({self.ra}, {self.dec}). Please verify that these are correct for your analysis."
+                        )
+                except KeyError as e:
+                    self.ra = None
+                    self.dec = None
             else:
                 if isinstance(ra, u.Quantity) and isinstance(dec, u.Quantity):
                     self.ra = ra
@@ -293,31 +304,33 @@ class BatEvent(BatObservation):
                     )
 
             # see if the RA/DEC that the user wants to use is what is in the event file
-            # if not, then we need to do the mask weighting again
-            coord_match = (self.ra == event_ra) and (self.dec == event_dec)
+            # if not, then we need to do the mask weighting again. If self.ra/dec is None, then lets just skip this
+            # since the user is most likely using failed trigger TTE data
+            if self.ra is not None and self.dec is not None:
+                coord_match = (self.ra == event_ra) and (self.dec == event_dec)
 
-            # make sure that we have our auxiliary ray tracing file in order to do spectral fitting of the burst
-            # also need to check of the coordinates we want are what is in the event file.
-            if len(self.auxil_raytracing_file) < 1 or not coord_match:
-                if verbose:
-                    print(
-                        f"There seem to be no auxiliary ray tracing file for this trigger with observation ID "
-                        f"{self.obs_id} located at {self.obs_dir}. This file is necessary for the remaining "
-                        f"processing."
+                # make sure that we have our auxiliary ray tracing file in order to do spectral fitting of the burst
+                # also need to check of the coordinates we want are what is in the event file.
+                if len(self.auxil_raytracing_file) < 1 or not coord_match:
+                    if verbose:
+                        print(
+                            f"There seem to be no auxiliary ray tracing file for this trigger with observation ID "
+                            f"{self.obs_id} located at {self.obs_dir}. This file is necessary for the remaining "
+                            f"processing."
+                        )
+
+                    # set the default auxil ray tracing attribute to None for recreation in the apply_mask_weighting method
+                    self.auxil_raytracing_file = None
+
+                    # need to create this map can get to this if necessary,
+                    self.apply_mask_weighting(self.ra, self.dec)
+                elif len(self.auxil_raytracing_file) > 1:
+                    raise ValueError(
+                        f"There seem to be more than one auxiliary ray tracing file for this trigger with observation ID "
+                        f"{self.obs_id} located at {self.obs_dir}. This file is necessary for the remaining processing."
                     )
-
-                # set the default auxil ray tracing attribute to None for recreation in the apply_mask_weighting method
-                self.auxil_raytracing_file = None
-
-                # need to create this map can get to this if necessary,
-                self.apply_mask_weighting(self.ra, self.dec)
-            elif len(self.auxil_raytracing_file) > 1:
-                raise ValueError(
-                    f"There seem to be more than one auxiliary ray tracing file for this trigger with observation ID "
-                    f"{self.obs_id} located at {self.obs_dir}. This file is necessary for the remaining processing."
-                )
-            else:
-                self.auxil_raytracing_file = self.auxil_raytracing_file[0]
+                else:
+                    self.auxil_raytracing_file = self.auxil_raytracing_file[0]
 
             # see if the event data has been energy calibrated
             if verbose:
@@ -634,6 +647,9 @@ class BatEvent(BatObservation):
 
         # batmaskwtevt infile=bat/event/sw01116441000bevshsp_uf.evt attitude=auxil/sw01116441000sat.fits.gz detmask=grb.mask ra= dec=
         if ra is None and dec is None:
+            if self.ra is None or self.dec is None:
+                raise ValueError("The supplied RA/Dec cannot be None since there is not a default Ra/Dec already set.")
+
             ra = self.ra.to(u.deg)
             dec = self.dec.to(u.deg)
         else:
@@ -789,6 +805,10 @@ class BatEvent(BatObservation):
 
         lc_dir = self.result_dir.joinpath("lc")
 
+        if self.ra is None and self.dec is None and mask_weighting:
+            raise ValueError(
+                "Mask weighted lightcurves cannot be created unless an ra/dec is specified. Please use the apply_mask_weighting method to do so.")
+
         if lc_file is None:
             # contruct the template name from the other inputs
             if timebins is not None or tstart is not None or tstop is not None:
@@ -935,6 +955,10 @@ class BatEvent(BatObservation):
         # detmask=../hk/sw00145675000bcbdq.hk.gz clobber=YES
 
         pha_dir = self.result_dir.joinpath("pha")
+
+        if self.ra is None and self.dec is None and mask_weighting:
+            raise ValueError(
+                "spectra cannot be created unless an ra/dec is specified. Please use the apply_mask_weighting method to do so.")
 
         input_tstart = None
         input_tstop = None
