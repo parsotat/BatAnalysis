@@ -332,6 +332,8 @@ class BatEvent(BatObservation):
                     )
                 else:
                     self.auxil_raytracing_file = self.auxil_raytracing_file[0]
+            else:
+                self.auxil_raytracing_file = None
 
             # see if the event data has been energy calibrated
             if verbose:
@@ -384,7 +386,9 @@ class BatEvent(BatObservation):
 
             # copy the necessary files over, eg the event file, the quality mask, the attitude file, etc
             shutil.copy(self.event_files, event_dir)
-            shutil.copy(self.auxil_raytracing_file, event_dir)
+
+            if self.auxil_raytracing_file is not None:
+                shutil.copy(self.auxil_raytracing_file, event_dir)
 
             shutil.copy(self.enable_disable_file, auxil_dir)
             shutil.copy(self.detector_quality_file, auxil_dir)
@@ -397,9 +401,11 @@ class BatEvent(BatObservation):
 
             # save the new location of the files as attributes
             self.event_files = event_dir.joinpath(self.event_files.name)
-            self.auxil_raytracing_file = event_dir.joinpath(
-                self.auxil_raytracing_file.name
-            )
+
+            if self.auxil_raytracing_file is not None:
+                self.auxil_raytracing_file = event_dir.joinpath(
+                    self.auxil_raytracing_file.name
+                )
             self.enable_disable_file = auxil_dir.joinpath(self.enable_disable_file.name)
             self.detector_quality_file = auxil_dir.joinpath(
                 self.detector_quality_file.name

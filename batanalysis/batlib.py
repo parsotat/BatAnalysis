@@ -1807,7 +1807,7 @@ def download_swift_trigger_data(triggers=None, triggerrange=None, triggertime=No
     if triggerrange is not None:
         triggerconditions.append(f"{triggerrange[0]}..{triggerrange[1]}")
     if triggerconditions:
-        query[trigfield] = ";".join()
+        query[trigfield] = ";".join(triggerconditions)
     if triggertime:
         if 'Time' in query:
             raise RuntimeError("Do not specify both 'Time' conditions and a triggertime")
