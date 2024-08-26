@@ -572,8 +572,13 @@ class BatEvent(BatObservation):
         :return:
         """
 
+        if type(self.gain_offset_file) is not list:
+            go_file = [self.gain_offset_file]
+        else:
+            go_file = self.gain_offset_file
+
         # see if we have a gain/offset map
-        if len(self.gain_offset_file) < 1:
+        if len(go_file) < 1:
             if verbose:
                 print(
                     f"There seem to be no gain/offset file for this trigger with observation ID \
@@ -588,7 +593,7 @@ class BatEvent(BatObservation):
                 {self.obs_id} located at {self.obs_dir}. This file is necessary for the remaining processing since an"
                 f"energy calibration needs to be applied."
             )
-        elif len(self.gain_offset_file) > 1:
+        elif len(self.go_file) > 1:
             raise AttributeError(
                 f"The event file {self.event_files} has not had the energy calibration applied and there are too many gain/offset "
                 f"files for this trigger with observation ID \
@@ -596,10 +601,10 @@ class BatEvent(BatObservation):
                 f"energy calibration needs to be applied."
             )
         else:
-            # if we have the file, then we need to call bateconvert
+            # if we have the single file, then we need to call bateconvert
             input_dict = dict(
                 infile=str(self.event_files),
-                calfile=str(self.gain_offset_file),
+                calfile=str(go_file[0]),
                 residfile="CALDB",
                 pulserfile="CALDB",
                 fltpulserfile="CALDB",
