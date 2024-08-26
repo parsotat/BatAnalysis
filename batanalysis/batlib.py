@@ -1765,7 +1765,7 @@ The infixes and suffixes:
 
 
 def download_swift_trigger_data(triggers=None, triggerrange=None, triggertime=None,
-                                timewindow=300, fetch=False, outdir=None,
+                                timewindow=300, fetch=True, outdir=None,
                                 clobber=False, quiet=True,
                                 match=None, **query):
     """Find data corresponding to trigger on remote server and local disk
@@ -1827,12 +1827,12 @@ def download_swift_trigger_data(triggers=None, triggerrange=None, triggertime=No
             triggeriso = np.datetime_as_string(met2utc(None, mjd_time=triggermjd))
 
             res = swtoo.Swift_Data(obsid=f"{trigger:08d}000", outdir=str(topdir), tdrss=True, clobber=clobber,
-                                   quiet=quiet, match=match)
+                                   quiet=quiet, match=match, fetch=fetch)
             if res.status.errors:
                 tdrssmonthdir = topdir.joinpath(f'tdrss/{triggeriso[0:4]}_{triggeriso[5:7]}')
                 res = swtoo.Swift_Data(
                     obsid=f"{trigger:08d}000", outdir=str(tdrssmonthdir), subthresh=True, clobber=clobber, quiet=quiet,
-                    match=match
+                    match=match, fetch=fetch
                 )
 
                 all_res.append(res)
@@ -1850,7 +1850,7 @@ def download_swift_trigger_data(triggers=None, triggerrange=None, triggertime=No
                     closest_obsid = nearest_obs_table["OBSID"][np.argmin(np.abs(dt))]
                     if timewindow > np.abs(dt[np.argmin(np.abs(dt))].to("s")).value:
                         save_dir = Path(res.entries[0].localpath).parent
-                        res = swtoo.Swift_Data(obsid=closest_obsid, bat=True, outdir=save_dir, match=match)
+                        res = swtoo.Swift_Data(obsid=closest_obsid, bat=True, outdir=save_dir, match=match, fetch=fetch)
 
                         all_res.append(res)
 
