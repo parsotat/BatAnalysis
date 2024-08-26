@@ -593,7 +593,7 @@ class BatEvent(BatObservation):
                 {self.obs_id} located at {self.obs_dir}. This file is necessary for the remaining processing since an"
                 f"energy calibration needs to be applied."
             )
-        elif len(self.go_file) > 1:
+        elif len(go_file) > 1:
             raise AttributeError(
                 f"The event file {self.event_files} has not had the energy calibration applied and there are too many gain/offset "
                 f"files for this trigger with observation ID \
