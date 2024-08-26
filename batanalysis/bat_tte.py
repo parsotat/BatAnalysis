@@ -698,23 +698,28 @@ class BatEvent(BatObservation):
 
         # modify the event file header with the RA/DEC of the weights that were applied, if they are different
         with fits.open(self.event_files, mode="update") as file:
-            if "deg" in file[0].header.comments["RA_OBJ"]:
-                event_ra = file[0].header["RA_OBJ"] * u.deg
-                event_dec = file[0].header["DEC_OBJ"] * u.deg
-            else:
-                raise ValueError(
-                    "The event file RA/DEC_OBJ does not seem to be in the units of decimal degrees which is not supported.")
+            try:
+                if "deg" in file[0].header.comments["RA_OBJ"]:
+                    event_ra = file[0].header["RA_OBJ"] * u.deg
+                    event_dec = file[0].header["DEC_OBJ"] * u.deg
+                else:
+                    raise ValueError(
+                        "The event file RA/DEC_OBJ does not seem to be in the units of decimal degrees which is not supported.")
+            except KeyError as e:
+                # we may have a failled trigger  event file and the keyword doesnt exist
+                event_dec = None
+                event_ra = None
 
             if event_ra != self.ra or event_dec != self.dec:
                 # update the event file RA/DEC_OBJ values everywhere
                 for i in file:
-                    i.header["RA_OBJ"] = self.ra.to(u.deg).value
-                    i.header["DEC_OBJ"] = self.dec.to(u.deg).value
+                    i.header["RA_OBJ"] = (self.ra.to(u.deg).value, "[deg] R.A. Object")
+                    i.header["DEC_OBJ"] = (self.dec.to(u.deg).value, "[deg] Dec Object")
 
                     # the BAT_RA/BAT_DEC keys have to updated too since this is something
                     # that the software manual points out should be updated
-                    i.header["BAT_RA"] = self.ra.to(u.deg).value
-                    i.header["BAT_DEC"] = self.dec.to(u.deg).value
+                    i.header["BAT_RA"] = (self.ra.to(u.deg).value, "[deg] Right ascension of source")
+                    i.header["BAT_DEC"] = (self.dec.to(u.deg).value, "[deg] Declination of source")
 
             file.flush()
 
