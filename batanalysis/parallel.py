@@ -790,9 +790,9 @@ def create_event_pha(batevent, nprocs=1, **kwargs):
     :param batevent: the BatEvent object that the user would like to construct PHA files for
     :param nprocs: int, the number of procs that the user would like to use to create PHA files
     :param kwargs: parameters that will be passed to the BatEvent.create_pha method. See documentation for appropriate
-        key/values
+        parameters and their values
     :return: list of created BatSpectrum objects which contain the created PHA files.
-        These BatSpectrum objects are also appended to the batevent object's spectra property. 
+        These BatSpectrum objects are also appended to the batevent object's spectra property.
     """
 
     def _single_pha_calc(batevent, *args, **kwargs):
@@ -826,3 +826,48 @@ def create_event_pha(batevent, nprocs=1, **kwargs):
         batevent.spectra = i
 
     return all_pha
+
+
+def create_event_dpi(batevent, nprocs=1, **kwargs):
+    """
+    This convenience functon allows DPIs to be created in parallel for event data.
+
+    :param batevent: the BatEvent object that the user would like to construct DPIs for
+    :param nprocs: int, the number of procs that the user would like to use to create DPIs
+    :param kwargs: parameters that will be passed to the BatEvent.create_dpi method. See documentation for appropriate
+        parameters and their values
+    :return: list of created BatDPI objects which contain the created PHA files.
+        These BatDPI objects are also appended to the batevent object's dpis property.
+    """
+
+    def _single_dpi_calc(batevent, *args, **kwargs):
+        with hsp_util.local_pfiles_context():
+            pha = batevent.create_dpi(*args, **kwargs)
+        return pha
+
+    # go through the keys for timebins or tstart/tstop, use the same priority ordering as the create_pha method
+    if "tstart" in kwargs or "tstop" in kwargs:
+        # make sure that we have both
+        if "tstart" not in kwargs or "tstop" not in kwargs:
+            raise ValueError("Both tstart and tstop need to be passed in. One is currently missing")
+
+        start_t = kwargs.pop("tstart")
+        end_t = kwargs.pop("tstop")
+    elif "timebins" in kwargs:
+        timebins = kwargs.pop("timebins")
+        start_t = timebins[:-1]
+        end_t = timebins[1:]
+    else:
+        raise ValueError("No time information has been passed in to create pha files in parallel. ")
+
+    all_dpi = Parallel(n_jobs=nprocs)(
+        delayed(_single_dpi_calc)(
+            batevent, tstart=start, tstop=end, **kwargs
+        )
+        for start, end in zip(start_t, end_t)
+    )
+
+    for i in all_dpi:
+        batevent.dpis = i
+
+    return all_dpi
