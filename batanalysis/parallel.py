@@ -796,7 +796,7 @@ def create_event_pha(batevent, nprocs=1, **kwargs):
     # go through the keys for timebins or tstart/tstop, use the same priority ordering as the create_pha method
     if "tstart" in kwargs or "tstop" in kwargs:
         # make sure that we have both
-        if "tstart" in kwargs or "tstop" in kwargs:
+        if "tstart" not in kwargs or "tstop" not in kwargs:
             raise ValueError("Both tstart and tstop need to be passed in. One is currently missing")
 
         start_t = kwargs.pop("tstart")
@@ -814,3 +814,5 @@ def create_event_pha(batevent, nprocs=1, **kwargs):
         )
         for start, end in zip(start_t, end_t)
     )
+
+    return all_pha
