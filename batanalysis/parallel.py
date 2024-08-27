@@ -30,6 +30,15 @@ from .mosaic import (
     read_skygrids,
 )
 
+# for python>3.6
+try:
+    import heasoftpy as hsp
+    import heasoftpy.utils as hsp_util
+
+except ModuleNotFoundError as err:
+    # Error handling
+    print(err)
+
 
 def _remove_pfiles():
     """
@@ -772,3 +781,36 @@ def combine_survey_lc(survey_obsid_list, output_dir=None, clean_dir=True, nprocs
         shutil.rmtree(i)
 
     return lc_dir
+
+
+def create_event_pha(batevent, nprocs=1, **kwargs):
+    """
+    This convenience funciton allows pha files to be created in parallel for event data.
+    """
+
+    def _single_pha_calc(batevent, *args, **kwargs):
+        with hsp_util.local_pfiles_context():
+            pha = batevent.create_pha(*args, **kwargs)
+        return pha
+
+    # go through the keys for timebins or tstart/tstop, use the same priority ordering as the create_pha method
+    if "tstart" in kwargs or "tstop" in kwargs:
+        # make sure that we have both
+        if "tstart" in kwargs or "tstop" in kwargs:
+            raise ValueError("Both tstart and tstop need to be passed in. One is currently missing")
+
+        start_t = kwargs.pop("tstart")
+        end_t = kwargs.pop("tstop")
+    elif "timebins" in kwargs:
+        timebins = kwargs.pop("timebins")
+        start_t = timebins[:-1]
+        end_t = timebins[1:]
+    else:
+        raise ValueError("No time information has been passed in to create pha files in parallel. ")
+
+    all_pha = Parallel(n_jobs=nprocs)(
+        delayed(_single_pha_calc)(
+            batevent, tstart=start, tstop=end, **kwargs
+        )
+        for start, end in zip(start_t, end_t)
+    )
