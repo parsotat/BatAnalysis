@@ -894,8 +894,15 @@ def create_event_skyview(batevent, nprocs=1, **kwargs):
 
     def _single_skyview_calc(batevent, *args, **kwargs):
         with hsp_util.local_pfiles_context():
-            dpi = batevent.create_skyview(*args, **kwargs)
-        return dpi
+            skyview = batevent.create_skyview(*args, **kwargs)
+
+            # set all images to None to save memory
+            skyview.pcode_img = None
+            skyview.sky_img = None
+            skyview.snr_img = None
+            skyview.bkg_stddev_img = None
+
+        return skyview
 
     if not isinstance(batevent, BatEvent):
         raise ValueError("A BatEvent object needs to be passed in. ")
@@ -935,7 +942,9 @@ def create_event_skyview(batevent, nprocs=1, **kwargs):
             for i in dpis
         )
 
+    # need to reload all images within skyview and set the skyviews batevent property
     for i in all_skyviews:
+        i._parse_skyimages()
         batevent.skyviews = i
 
     return all_skyviews
