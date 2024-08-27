@@ -347,15 +347,12 @@ class BatEvent(BatObservation):
                 self.tstart_met = hdr["TSTART"]
                 self.tstop_met = hdr["TSTOP"]
                 self.telapse = hdr["TELAPSE"]
-                # TODO: make trigtime_met a property so this can be set
                 # if we dont have a guano TTE dataset or a failed trigger dataset then this keyword will not exist
                 # if not is_guano:
                 try:
-                    self.trigtime_met = hdr["TRIGTIME"]
                     self.trigtime = Clock(met=hdr["TRIGTIME"])
                 except KeyError as e:
                     # guano data/failed trigger has no trigger time
-                    self.trigtime_met = None
                     self.trigtime = None
 
             if not hdr["GAINAPP"] or "FIXEDDAC" not in hdr["GAINMETH"]:
