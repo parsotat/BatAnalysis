@@ -890,8 +890,8 @@ def create_event_skyview(batevent, nprocs=1, **kwargs):
         return dpi
 
     # go through the keys for timebins or tstart/tstop, use the same priority ordering as the create_pha method
-    # the user can pass in dpis here as well, so we need to see if this is the case and use these instead of assuming that
-    # the user will need to also create DPIs
+    # the user can pass in dpis here as well, so we need to see if this is the case and use these instead of assuming
+    # that the user will need to also create DPIs
     dpis = None
     if "dpis" in kwargs:
         dpis = kwargs.pop("dpis")
