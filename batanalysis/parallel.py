@@ -785,7 +785,14 @@ def combine_survey_lc(survey_obsid_list, output_dir=None, clean_dir=True, nprocs
 
 def create_event_pha(batevent, nprocs=1, **kwargs):
     """
-    This convenience funciton allows pha files to be created in parallel for event data.
+    This convenience functon allows pha files to be created in parallel for event data.
+
+    :param batevent: the BatEvent object that the user would like to construct PHA files for
+    :param nprocs: int, the number of procs that the user would like to use to create PHA files
+    :param kwargs: parameters that will be passed to the BatEvent.create_pha method. See documentation for appropriate
+        key/values
+    :return: list of created BatSpectrum objects which contain the created PHA files.
+        These BatSpectrum objects are also appended to the batevent object's spectra property. 
     """
 
     def _single_pha_calc(batevent, *args, **kwargs):
@@ -814,5 +821,8 @@ def create_event_pha(batevent, nprocs=1, **kwargs):
         )
         for start, end in zip(start_t, end_t)
     )
+
+    for i in all_pha:
+        batevent.spectra = i
 
     return all_pha
