@@ -11,7 +11,9 @@ from astropy.table import Table, vstack
 from astropy.time import Time
 from joblib import Parallel, delayed
 
+from .bat_skyview import BatSkyView
 from .bat_survey import MosaicBatSurvey, BatSurvey
+from .bat_tte import BatEvent
 from .batlib import combine_survey_lc as serial_combine_survey_lc
 from .batlib import (
     dirtest,
@@ -800,6 +802,9 @@ def create_event_pha(batevent, nprocs=1, **kwargs):
             pha = batevent.create_pha(*args, **kwargs)
         return pha
 
+    if not isinstance(batevent, BatEvent):
+        raise ValueError("A BatEvent object needs to be passed in. ")
+
     # go through the keys for timebins or tstart/tstop, use the same priority ordering as the create_pha method
     if "tstart" in kwargs or "tstop" in kwargs:
         # make sure that we have both
@@ -845,6 +850,9 @@ def create_event_dpi(batevent, nprocs=1, **kwargs):
             dpi = batevent.create_dpi(*args, **kwargs)
         return dpi
 
+    if not isinstance(batevent, BatEvent):
+        raise ValueError("A BatEvent object needs to be passed in. ")
+
     # go through the keys for timebins or tstart/tstop, use the same priority ordering as the create_pha method
     if "tstart" in kwargs or "tstop" in kwargs:
         # make sure that we have both
@@ -889,6 +897,9 @@ def create_event_skyview(batevent, nprocs=1, **kwargs):
             dpi = batevent.create_skyview(*args, **kwargs)
         return dpi
 
+    if not isinstance(batevent, BatEvent):
+        raise ValueError("A BatEvent object needs to be passed in. ")
+
     # go through the keys for timebins or tstart/tstop, use the same priority ordering as the create_pha method
     # the user can pass in dpis here as well, so we need to see if this is the case and use these instead of assuming
     # that the user will need to also create DPIs
@@ -928,3 +939,38 @@ def create_event_skyview(batevent, nprocs=1, **kwargs):
         batevent.skyviews = i
 
     return all_skyviews
+
+
+def mosaic_skyview(skyview_list, healpix_nside=512, projection="healpix", healpix_coordsys="galactic", nprocs=1):
+    def _add_two_skyviews(skyview1, skyview2):
+        # this will do inplace modification of skyview1 if both skyviews are mosaic skyviews otherwise, we will ID the
+        # on that is a mosaic skyview and do inplace modification. If none are mosaics, then we create a new skyview
+        # using the + operator
+        if skyview1.is_mosaic and skyview2.is_mosaic:
+            skyview1 += skyview2
+            return skyview1
+        else:
+            if skyview1.is_mosaic:
+                skyview1 += skyview2
+                return skyview1
+            elif skyview2.is_mosaic:
+                skyview2 += skyview1
+                return skyview2
+            else:
+                skyview = skyview1 + skyview2
+                return skyview
+
+    if type(skyview_list) is not list:
+        raise ValueError("A list of BatSkyView objects need to be passed in.")
+    else:
+        if np.any([not isinstance(i, BatSkyView) for i in skyview_list]):
+            raise ValueError(
+                "Every element of the list that is passed in for skyview_list needs to be a BatSkyView object.")
+
+    for i in skyview_list:
+        i.healpix_nside = healpix_nside
+        i.projection = projection
+        i.healpix_coordsys = healpix_coordsys
+
+    # the number of iterations to reduce the list of
+    n_iter = len(skyview_list) - 1
