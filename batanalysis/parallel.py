@@ -842,8 +842,8 @@ def create_event_dpi(batevent, nprocs=1, **kwargs):
 
     def _single_dpi_calc(batevent, *args, **kwargs):
         with hsp_util.local_pfiles_context():
-            pha = batevent.create_dpi(*args, **kwargs)
-        return pha
+            dpi = batevent.create_dpi(*args, **kwargs)
+        return dpi
 
     # go through the keys for timebins or tstart/tstop, use the same priority ordering as the create_pha method
     if "tstart" in kwargs or "tstop" in kwargs:
@@ -871,3 +871,60 @@ def create_event_dpi(batevent, nprocs=1, **kwargs):
         batevent.dpis = i
 
     return all_dpi
+
+
+def create_event_skyview(batevent, nprocs=1, **kwargs):
+    """
+    This convenience functon allows BatSkyViews to be created in parallel for event data.
+
+    :param batevent: the BatEvent object that the user would like to construct BatSkyViews for
+    :param nprocs: int, the number of procs that the user would like to use to create BatSkyViews
+    :param kwargs: parameters that will be passed to the BatEvent.create_skyview method. See documentation for appropriate
+        parameters and their values
+    :return: list of created BatSkyViews objects. These BatSkyViews objects are also appended to the batevent object's skyviews property.
+    """
+
+    def _single_skyview_calc(batevent, *args, **kwargs):
+        with hsp_util.local_pfiles_context():
+            dpi = batevent.create_skyview(*args, **kwargs)
+        return dpi
+
+    # go through the keys for timebins or tstart/tstop, use the same priority ordering as the create_pha method
+    # the user can pass in dpis here as well, so we need to see if this is the case and use these instead of assuming that
+    # the user will need to also create DPIs
+    dpis = None
+    if "dpis" in kwargs:
+        dpis = kwargs.pop("dpis")
+    elif "tstart" in kwargs or "tstop" in kwargs:
+        # make sure that we have both
+        if "tstart" not in kwargs or "tstop" not in kwargs:
+            raise ValueError("Both tstart and tstop need to be passed in. One is currently missing")
+
+        start_t = kwargs.pop("tstart")
+        end_t = kwargs.pop("tstop")
+    elif "timebins" in kwargs:
+        timebins = kwargs.pop("timebins")
+        start_t = timebins[:-1]
+        end_t = timebins[1:]
+    else:
+        raise ValueError("No time information has been passed in to create pha files in parallel. ")
+
+    if dpis is None:
+        all_skyviews = Parallel(n_jobs=nprocs)(
+            delayed(_single_skyview_calc)(
+                batevent, tstart=start, tstop=end, **kwargs
+            )
+            for start, end in zip(start_t, end_t)
+        )
+    else:
+        all_skyviews = Parallel(n_jobs=nprocs)(
+            delayed(_single_skyview_calc)(
+                batevent, dpis=i, **kwargs
+            )
+            for i in dpis
+        )
+
+    for i in all_skyviews:
+        batevent.skyviews = i
+
+    return all_skyviews
