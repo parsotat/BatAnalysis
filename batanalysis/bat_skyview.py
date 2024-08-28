@@ -904,7 +904,7 @@ class BatSkyView(object):
                 bkg_stddev /= e
 
             # construct the quality map for each energy and for the total energy images
-            energy_quality_mask = np.zeros_like(flux)
+            energy_quality_mask = np.zeros_like(flux.value)
             good_idx = np.where(
                 # (pcode.contents > _pcodethresh)
                 (np.repeat(
@@ -912,14 +912,14 @@ class BatSkyView(object):
                     bkg_stddev.shape[-1],
                     axis=1,
                 ) > _pcodethresh)
-                & (bkg_stddev.contents > 0)
+                & (bkg_stddev > 0)
                 & np.isfinite(flux)
                 & np.isfinite(bkg_stddev)
             )
             energy_quality_mask[good_idx] = 1
 
-            tot_exposure = exposure * energy_quality_mask
-            interim_pcode = pcode * tot_exposure
+            tot_exposure = exposure[:, np.newaxis] * energy_quality_mask
+            interim_pcode = pcode[:, np.newaxis] * tot_exposure
             interim_inv_var = (1 / (bkg_stddev * bkg_stddev)) * energy_quality_mask
             interim_flux = flux * interim_inv_var
 
@@ -1123,7 +1123,6 @@ class BatSkyView(object):
         return self.__add__(other)
 
     def __iadd__(self, other):
-        # TODO: Make this be memory efficient by modifying self instead of creating a new SkyView object
 
         self._addition_checks(other)
 
@@ -1153,7 +1152,10 @@ class BatSkyView(object):
                 tstart.append(other.sky_img.tbins["TIME_START"])
                 tstop.append(other.sky_img.tbins["TIME_STOP"])
 
-                interim_flux, interim_inv_var, interim_pcode, tot_exposure = self._skyimage_addition_extractor(other)
+                interim_flux, interim_inv_var, interim_pcode, tot_exposure = self._skyimage_addition_extractor(other,
+                                                                                                               projection=self.projection,
+                                                                                                               nsides=nsides,
+                                                                                                               coordsys=coordsys)
 
             # now do self and modify various things with self eg set is_mosac to be True
             if self.is_mosaic:
@@ -1162,12 +1164,12 @@ class BatSkyView(object):
                 tstop.append(self.interim_sky_img.tbins["TIME_STOP"])
 
                 # can just directly add quantity/numpy array to the SkyImage if we have the same coord sys and nsides
-                # add new axis for time for flux and bkg, also add new axis for energy for pcode/exposure
+                # add new axis for time, will refine the time axis vvalues later on
                 if self.healpix_coordsys == coordsys and self.healpix_nside == nsides:
-                    self.interim_sky_img += interim_flux[np.newaxis, :, np.newaxis]
-                    self.interim_var_img += interim_inv_var[np.newaxis, :, np.newaxis]
-                    self.pcode_img += interim_pcode[np.newaxis, :, np.newaxis]
-                    self.exposure_img += tot_exposure[np.newaxis, :, np.newaxis]
+                    self.interim_sky_img += interim_flux[np.newaxis]
+                    self.interim_var_img += interim_inv_var[np.newaxis]
+                    self.pcode_img += interim_pcode[np.newaxis]
+                    self.exposure_img += tot_exposure[np.newaxis]
                 else:
                     # otherwise we need to calculate the proper projections
                     self.interim_sky_img = self.interim_sky_img.healpix_projection(coordsys=coordsys,
@@ -1178,13 +1180,10 @@ class BatSkyView(object):
                                                                                                          "ENERGY") + interim_inv_var
                     self.pcode_img = self.pcode_img.healpix_projection(coordsys=coordsys,
                                                                        nside=nsides).project("HPX",
-                                                                                             "ENERGY") + interim_pcode[
-                                                                                                         :, np.newaxis]
+                                                                                             "ENERGY") + interim_pcode
                     self.exposure_img = self.exposure_img.healpix_projection(coordsys=coordsys,
                                                                              nside=nsides).project("HPX",
-                                                                                                   "ENERGY") + tot_exposure[
-                                                                                                               :,
-                                                                                                               np.newaxis]
+                                                                                                   "ENERGY") + tot_exposure
             else:
                 # exposure.append(self.sky_img.exposure)
                 tstart.append(self.sky_img.tbins["TIME_START"])
@@ -1193,7 +1192,10 @@ class BatSkyView(object):
                 # get the energybins before we set things to be None
                 energybin_ax = self.sky_img.axes["ENERGY"]
 
-                interim_flux2, interim_inv_var2, interim_pcode2, tot_exposure2 = self._skyimage_addition_extractor(self)
+                interim_flux2, interim_inv_var2, interim_pcode2, tot_exposure2 = self._skyimage_addition_extractor(self,
+                                                                                                                   projection=self.projection,
+                                                                                                                   nsides=nsides,
+                                                                                                                   coordsys=coordsys)
 
                 # set image attributes to None now that we dont need them and set that self is a mosaic
                 self.is_mosaic = True
@@ -1205,29 +1207,27 @@ class BatSkyView(object):
                 # create the healpix axis
                 hp_ax = HealpixAxis(nside=nsides, coordsys=coordsys, label="HPX")
 
+                # create a mock time axis
+                t_ax = Axis([0, 1] * u.s, label="TIME")
+
                 # set all the interim sky images and pcode/exposure images
                 self.interim_sky_img = BatSkyImage(
-                    image_data=Histogram([hp_ax, energybin_ax], contents=interim_flux2.value,
+                    image_data=Histogram([t_ax, hp_ax, energybin_ax], contents=interim_flux2.value[np.newaxis],
                                          unit=interim_flux2.unit), is_mosaic_intermediate=True,
-                    image_type="flux") + interim_flux
+                    image_type="flux") + interim_flux[np.newaxis]
                 self.interim_var_img = BatSkyImage(
-                    image_data=Histogram([hp_ax, energybin_ax], contents=interim_inv_var2.value,
+                    image_data=Histogram([t_ax, hp_ax, energybin_ax], contents=interim_inv_var2.value[np.newaxis],
                                          unit=interim_inv_var2.unit), is_mosaic_intermediate=True,
-                    image_type=None) + interim_inv_var
+                    image_type=None) + interim_inv_var[np.newaxis]
 
                 self.exposure_img = BatSkyImage(
-                    image_data=Histogram([hp_ax, energybin_ax],
-                                         contents=np.repeat(tot_exposure2.value[:, np.newaxis],
-                                                            energybin_ax.nbins,
-                                                            axis=1,
-                                                            ),
-                                         unit=tot_exposure2.unit), image_type="exposure") + tot_exposure[:, np.newaxis]
+                    image_data=Histogram([t_ax, hp_ax, energybin_ax],
+                                         contents=tot_exposure2.value[np.newaxis],
+                                         unit=tot_exposure2.unit), image_type="exposure") + tot_exposure[np.newaxis]
                 self.pcode_img = BatSkyImage(
-                    image_data=Histogram([hp_ax, energybin_ax],
-                                         contents=np.repeat(interim_pcode2.value[:, np.newaxis],
-                                                            energybin_ax.nbins,
-                                                            axis=1),
-                                         unit=interim_pcode2.unit), image_type="pcode") + interim_pcode[:, np.newaxis]
+                    image_data=Histogram([t_ax, hp_ax, energybin_ax],
+                                         contents=interim_pcode2.value[np.newaxis],
+                                         unit=interim_pcode2.unit), image_type="pcode") + interim_pcode[np.newaxis]
 
             # make sure we have the proper time axis
             # lets see if we have a TIME axis, if so we get rid of it
