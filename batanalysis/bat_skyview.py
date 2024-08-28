@@ -1241,10 +1241,20 @@ class BatSkyView(object):
             tmin = u.Quantity(tstart).min()
             tmax = u.Quantity(tstop).max()
 
-            self.interim_sky_img = Histogram.concatenate(u.Quantity([tmin, tmax]), [self.interim_sky_img], label="TIME")
-            self.interim_var_img = Histogram.concatenate(u.Quantity([tmin, tmax]), [self.interim_var_img], label="TIME")
-            self.pcode_img = Histogram.concatenate(u.Quantity([tmin, tmax]), [self.pcode_img], label="TIME")
-            self.exposure_img = Histogram.concatenate(u.Quantity([tmin, tmax]), [self.exposure_img], label="TIME")
+            self.interim_sky_img = BatSkyImage(
+                image_data=Histogram.concatenate(u.Quantity([tmin, tmax]), [self.interim_sky_img], label="TIME"),
+                is_mosaic_intermediate=True,
+                image_type="flux")
+            self.interim_var_img = BatSkyImage(
+                image_data=Histogram.concatenate(u.Quantity([tmin, tmax]), [self.interim_var_img], label="TIME"),
+                is_mosaic_intermediate=True,
+                image_type=None)
+            self.pcode_img = BatSkyImage(
+                image_data=Histogram.concatenate(u.Quantity([tmin, tmax]), [self.pcode_img], label="TIME"),
+                image_type="pcode")
+            self.exposure_img = BatSkyImage(
+                image_data=Histogram.concatenate(u.Quantity([tmin, tmax]), [self.exposure_img], label="TIME"),
+                image_type="exposure")
 
             # make sure that these attributes are set correctly for the mosaic skyview
             self.healpix_nside = nsides

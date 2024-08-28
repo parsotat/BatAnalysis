@@ -3,6 +3,7 @@ This file holds convience functions for conveniently analyzing batches of observ
 """
 import os
 import shutil
+from copy import deepcopy
 from multiprocessing.pool import ThreadPool
 from pathlib import Path
 
@@ -1006,7 +1007,7 @@ def mosaic_skyview(skyview_list, healpix_nside=512, projection="healpix", healpi
     else:
         for count, i in enumerate(skyview_list):
             if count == 0:
-                mosaic_skyview = i
+                mosaic_skyview = deepcopy(i)
             else:
                 mosaic_skyview += i
 
