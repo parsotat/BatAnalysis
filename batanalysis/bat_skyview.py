@@ -829,9 +829,6 @@ class BatSkyView(object):
                 self.sky_img.ebins["E_MAX"], other.sky_img.ebins["E_MAX"]):
             raise ValueError('Ensure that the two BatSkyView objects have the same energy ranges. ')
 
-        # determine if any of what is passed in is a mosaiced image already
-        is_mosaic = [i.is_mosaic for i in [self, other]]
-
         # if we have a mosaic image, we dont need to calculate these things, we know that they have been set/cal be calculated
         for i in [self, other]:
             if not i.is_mosaic:
@@ -876,6 +873,60 @@ class BatSkyView(object):
             coordsys = self.healpix_coordsys
 
         return nsides, coordsys
+
+    @staticmethod
+    def _skyimage_addition_extractor(skyview, projection=None, nsides=128, coordsys="galactic"):
+        """
+        This helper method extracts the skyview's images for mosaicing if it is not a mosaic skyview. It returns
+        the images as numpy arrays that have been converted to their interim values that can be directly summed
+
+        :param skyview:
+        :return:
+        """
+
+        rate_unit = u.count / u.s
+
+        if projection is not None:
+            flux = skyview.sky_img.healpix_projection(coordsys=coordsys,
+                                                      nside=nsides).project("HPX", "ENERGY").contents
+            pcode = skyview.pcode_img.healpix_projection(coordsys=coordsys,
+                                                         nside=nsides).project("HPX").contents
+            bkg_stddev = skyview.bkg_stddev_img.healpix_projection(coordsys=coordsys,
+                                                                   nside=nsides).project("HPX",
+                                                                                         "ENERGY").contents
+            e = skyview.sky_img.exposure
+            exposure = np.ones_like(pcode) * e
+
+            # correct the units
+            if skyview.sky_img.unit != rate_unit:
+                flux /= e
+            if skyview.bkg_stddev_img.unit != rate_unit:
+                bkg_stddev /= e
+
+            # construct the quality map for each energy and for the total energy images
+            energy_quality_mask = np.zeros_like(flux)
+            good_idx = np.where(
+                # (pcode.contents > _pcodethresh)
+                (np.repeat(
+                    pcode[:, np.newaxis],
+                    bkg_stddev.shape[-1],
+                    axis=1,
+                ) > _pcodethresh)
+                & (bkg_stddev.contents > 0)
+                & np.isfinite(flux)
+                & np.isfinite(bkg_stddev)
+            )
+            energy_quality_mask[good_idx] = 1
+
+            tot_exposure = exposure * energy_quality_mask
+            interim_pcode = pcode * tot_exposure
+            interim_inv_var = (1 / (bkg_stddev * bkg_stddev)) * energy_quality_mask
+            interim_flux = flux * interim_inv_var
+
+        else:
+            raise NotImplementedError("Adding Sky Images with the template sky facets is not yet implemented.")
+
+        return interim_flux, interim_inv_var, interim_pcode, tot_exposure
 
     def __add__(self, other):
         """
@@ -1073,4 +1124,133 @@ class BatSkyView(object):
 
     def __iadd__(self, other):
         # TODO: Make this be memory efficient by modifying self instead of creating a new SkyView object
-        return self.__add__(other)
+
+        self._addition_checks(other)
+
+        if self.projection is not None:
+            nsides, coordsys = self._healpix_addition_coordinator(other)
+
+            # save the exposure, tstart/tstop for creating SkyImage Axes later
+            # define the rate unit for use later on
+            # exposure = [] #useless now
+            tstart = []
+            tstop = []
+
+            # start with other and determine what if it is a mosaic or not. Also get the values that we need to do the
+            # mosaic calculation. Note that pcode and exposure arrays are energy independent here to save memory
+            if other.is_mosaic:
+                # exposure.append(other.interim_sky_img.exposure)
+                tstart.append(other.interim_sky_img.tbins["TIME_START"])
+                tstop.append(other.interim_sky_img.tbins["TIME_STOP"])
+
+                tot_exposure = other.exposure_img.project("HPX").contents
+                interim_pcode = other.pcode_img.project("HPX").contents
+                interim_inv_var = other.interim_var_img.project("HPX", "ENERGY").contents
+                interim_flux = other.interim_sky_img.project("HPX", "ENERGY").contents
+
+            else:
+                # exposure.append(other.sky_img.exposure)
+                tstart.append(other.sky_img.tbins["TIME_START"])
+                tstop.append(other.sky_img.tbins["TIME_STOP"])
+
+                interim_flux, interim_inv_var, interim_pcode, tot_exposure = self._skyimage_addition_extractor(other)
+
+            # now do self and modify various things with self eg set is_mosac to be True
+            if self.is_mosaic:
+                # exposure.append(self.interim_sky_img.exposure)
+                tstart.append(self.interim_sky_img.tbins["TIME_START"])
+                tstop.append(self.interim_sky_img.tbins["TIME_STOP"])
+
+                # can just directly add quantity/numpy array to the SkyImage if we have the same coord sys and nsides
+                # add new axis for time for flux and bkg, also add new axis for energy for pcode/exposure
+                if self.healpix_coordsys == coordsys and self.healpix_nside == nsides:
+                    self.interim_sky_img += interim_flux[np.newaxis, :, np.newaxis]
+                    self.interim_var_img += interim_inv_var[np.newaxis, :, np.newaxis]
+                    self.pcode_img += interim_pcode[np.newaxis, :, np.newaxis]
+                    self.exposure_img += tot_exposure[np.newaxis, :, np.newaxis]
+                else:
+                    # otherwise we need to calculate the proper projections
+                    self.interim_sky_img = self.interim_sky_img.healpix_projection(coordsys=coordsys,
+                                                                                   nside=nsides).project("HPX",
+                                                                                                         "ENERGY") + interim_flux
+                    self.interim_var_img = self.interim_var_img.healpix_projection(coordsys=coordsys,
+                                                                                   nside=nsides).project("HPX",
+                                                                                                         "ENERGY") + interim_inv_var
+                    self.pcode_img = self.pcode_img.healpix_projection(coordsys=coordsys,
+                                                                       nside=nsides).project("HPX",
+                                                                                             "ENERGY") + interim_pcode[
+                                                                                                         :, np.newaxis]
+                    self.exposure_img = self.exposure_img.healpix_projection(coordsys=coordsys,
+                                                                             nside=nsides).project("HPX",
+                                                                                                   "ENERGY") + tot_exposure[
+                                                                                                               :,
+                                                                                                               np.newaxis]
+            else:
+                # exposure.append(self.sky_img.exposure)
+                tstart.append(self.sky_img.tbins["TIME_START"])
+                tstop.append(self.sky_img.tbins["TIME_STOP"])
+
+                # get the energybins before we set things to be None
+                energybin_ax = self.sky_img.axes["ENERGY"]
+
+                interim_flux2, interim_inv_var2, interim_pcode2, tot_exposure2 = self._skyimage_addition_extractor(self)
+
+                # set image attributes to None now that we dont need them and set that self is a mosaic
+                self.is_mosaic = True
+                self.sky_img = None
+                self.bkg_stddev_img = None
+                self.pcode_img = None
+                self.exposure_img = None
+
+                # create the healpix axis
+                hp_ax = HealpixAxis(nside=nsides, coordsys=coordsys, label="HPX")
+
+                # set all the interim sky images and pcode/exposure images
+                self.interim_sky_img = BatSkyImage(
+                    image_data=Histogram([hp_ax, energybin_ax], contents=interim_flux2.value,
+                                         unit=interim_flux2.unit), is_mosaic_intermediate=True,
+                    image_type="flux") + interim_flux
+                self.interim_var_img = BatSkyImage(
+                    image_data=Histogram([hp_ax, energybin_ax], contents=interim_inv_var2.value,
+                                         unit=interim_inv_var2.unit), is_mosaic_intermediate=True,
+                    image_type=None) + interim_inv_var
+
+                self.exposure_img = BatSkyImage(
+                    image_data=Histogram([hp_ax, energybin_ax],
+                                         contents=np.repeat(tot_exposure2.value[:, np.newaxis],
+                                                            energybin_ax.nbins,
+                                                            axis=1,
+                                                            ),
+                                         unit=tot_exposure2.unit), image_type="exposure") + tot_exposure[:, np.newaxis]
+                self.pcode_img = BatSkyImage(
+                    image_data=Histogram([hp_ax, energybin_ax],
+                                         contents=np.repeat(interim_pcode2.value[:, np.newaxis],
+                                                            energybin_ax.nbins,
+                                                            axis=1),
+                                         unit=interim_pcode2.unit), image_type="pcode") + interim_pcode[:, np.newaxis]
+
+            # make sure we have the proper time axis
+            # lets see if we have a TIME axis, if so we get rid of it
+            if "TIME" in self.interim_sky_img.axes.labels:
+                self.interim_sky_img = self.interim_sky_img.project("HPX", "ENERGY")
+                self.interim_var_img = self.interim_var_img.project("HPX", "ENERGY")
+                self.pcode_img = self.pcode_img.project("HPX", "ENERGY")
+                self.exposure_img = self.exposure_img.project("HPX", "ENERGY")
+
+            # now we add the proper time axis
+            tmin = u.Quantity(tstart).min()
+            tmax = u.Quantity(tstop).max()
+
+            self.interim_sky_img = Histogram.concatenate(u.Quantity([tmin, tmax]), [self.interim_sky_img], label="TIME")
+            self.interim_var_img = Histogram.concatenate(u.Quantity([tmin, tmax]), [self.interim_var_img], label="TIME")
+            self.pcode_img = Histogram.concatenate(u.Quantity([tmin, tmax]), [self.pcode_img], label="TIME")
+            self.exposure_img = Histogram.concatenate(u.Quantity([tmin, tmax]), [self.exposure_img], label="TIME")
+
+            # make sure that these attributes are set correctly for the mosaic skyview
+            self.healpix_nside = nsides
+            self.healpix_coordsys = coordsys
+
+        else:
+            raise NotImplementedError("Adding Sky Images with the template sky facets is not yet implemented.")
+
+        return self
