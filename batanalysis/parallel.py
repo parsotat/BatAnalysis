@@ -942,7 +942,8 @@ def create_event_skyview(batevent, nprocs=1, **kwargs):
             for i in dpis
         )
 
-    # need to reload all images within skyview and set the skyviews batevent property
+    # need to reload all images within skyview and set the skyviews batevent property,
+    # this can take 11 minutes for 74 skyviews
     for i in all_skyviews:
         i._parse_skyimages()
         batevent.skyviews = i
@@ -986,7 +987,7 @@ def mosaic_skyview(skyview_list, healpix_nside=512, projection="healpix", healpi
     n_iter = len(skyview_list) - 1
 
     if nprocs != 1:
-        for i in n_iter:
+        for i in range(n_iter):
             if i == 0:
                 mosaic_skyview = Parallel(n_jobs=nprocs)(
                     delayed(_add_two_skyviews)(
