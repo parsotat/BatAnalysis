@@ -919,7 +919,7 @@ class BatSkyView(object):
             energy_quality_mask[good_idx] = 1
 
             tot_exposure = exposure[:, np.newaxis] * energy_quality_mask
-            interim_pcode = pcode[:, np.newaxis] * tot_exposure
+            interim_pcode = pcode[:, np.newaxis] * tot_exposure.value
             interim_inv_var = (1 / (bkg_stddev * bkg_stddev)) * energy_quality_mask
             interim_flux = flux * interim_inv_var
 
@@ -1259,6 +1259,12 @@ class BatSkyView(object):
             # make sure that these attributes are set correctly for the mosaic skyview
             self.healpix_nside = nsides
             self.healpix_coordsys = coordsys
+
+            # set all snr/sky/bkgvar images to None so they get calculated appropriately
+            self.sky_img = None
+            self.bkg_stddev_img = None
+            self.snr_img = None
+
 
         else:
             raise NotImplementedError("Adding Sky Images with the template sky facets is not yet implemented.")
