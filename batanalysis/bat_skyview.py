@@ -812,22 +812,14 @@ class BatSkyView(object):
     def snr_img(self, value):
         self._snr_img = value
 
-    def __add__(self, other):
+    def _addition_checks(self, other):
         """
-        If we are adding 2 skyviews we can either do
-            1) a "simple" add if we want the healpix projection. Here we take the
-                partial coding, and variance weighting into account.
-            2) a reprojection onto the skyfacets taking the partial coding, the variance weighting, the off-axis
-                corrections into account
+        Helper method to do input checks for adding two skyviews
 
-        We verified the mosaicing by doing the mosaicing over the preslew time period and comparing the healpix SNR to
-        that of the normal DPI and sky image for the preconstructed preslew image projected into a healpix map. We found
-        approximately the same value. When we increase the mosaiced healpix_nsides to 512, we get the SNR of the mosaic to be
-        about the same as the sky image from the dpi, without it being projected to healpix.
-
-        :param other: BatSkyView
-        :return: BaSkyView
+        :param other:
+        :return:
         """
+
         # make sure that we are adding 2 skyviews
         if not isinstance(other, type(self)):
             return NotImplemented
@@ -844,40 +836,74 @@ class BatSkyView(object):
         for i in [self, other]:
             if not i.is_mosaic:
                 # make sure that both have background stddev and pcode images
-                if None in i.pcode_img:
+                if i.pcode_img is None:
                     raise ValueError(
                         'All BatSkyView objects need to have an associated partial coding image to be added')
 
-                if None in i.bkg_stddev_img:
+                if i.bkg_stddev_img is None:
                     raise ValueError(
                         'All BatSkyView objects need to have an associated background standard deviation image to be added')
 
-        if self.projection is not None:
-            # we are using the healpix projection to add images, need to get the greater value of healpix_nside and verify that both objects arent None
-            nsides = [self.healpix_nside, other.healpix_nside]
-            if np.all(None in nsides):
-                nsides = 128
-            else:
-                # need to id the max when we can have None as one of the values in the array
-                nsides = int(np.nanmax(np.array(nsides, dtype=np.float64)))
+    def _healpix_addition_coordinator(self, other):
+        """
+        This helper method goes through each object when adding to determine the nsides, the coordsys
 
-            # try to choose between a healpix projection's coord sys  incase there are 2 different one that are
-            # specified. By default use the one that the potential mosaic image uses
-            if np.any(is_mosaic):
-                # id the mosaic's healpix coord sys
-                if is_mosaic[0]:
-                    coordsys = self.healpix_coordsys
-                else:
-                    coordsys = other.healpix_coordsys
-            else:
-                # choose the first one, seof
+        :param other:
+        :return:
+        """
+
+        # determine if any of what is passed in is a mosaiced image already
+        is_mosaic = [i.is_mosaic for i in [self, other]]
+
+        # we are using the healpix projection to add images, need to get the greater value of healpix_nside and verify that both objects arent None
+        nsides = [self.healpix_nside, other.healpix_nside]
+        if np.all(None in nsides):
+            nsides = 128
+        else:
+            # need to id the max when we can have None as one of the values in the array
+            nsides = int(np.nanmax(np.array(nsides, dtype=np.float64)))
+
+        # try to choose between a healpix projection's coord sys  incase there are 2 different one that are
+        # specified. By default use the one that the potential mosaic image uses
+        if np.any(is_mosaic):
+            # id the mosaic's healpix coord sys
+            if is_mosaic[0]:
                 coordsys = self.healpix_coordsys
+            else:
+                coordsys = other.healpix_coordsys
+        else:
+            # choose the first one, seof
+            coordsys = self.healpix_coordsys
+
+        return nsides, coordsys
+
+    def __add__(self, other):
+        """
+        If we are adding 2 skyviews we can either do
+            1) a "simple" add if we want the healpix projection. Here we take the
+                partial coding, and variance weighting into account.
+            2) a reprojection onto the skyfacets taking the partial coding, the variance weighting, the off-axis
+                corrections into account
+
+        We verified the mosaicing by doing the mosaicing over the preslew time period and comparing the healpix SNR to
+        that of the normal DPI and sky image for the preconstructed preslew image projected into a healpix map. We found
+        approximately the same value. When we increase the mosaiced healpix_nsides to 512, we get the SNR of the mosaic to be
+        about the same as the sky image from the dpi, without it being projected to healpix.
+
+        :param other: BatSkyView
+        :return: BaSkyView
+        """
+
+        self._addition_checks(other)
+
+        if self.projection is not None:
+            nsides, coordsys = self._healpix_addition_coordinator(other)
 
             # now create the histograms that we need to do the calculations, need flux and std dev to be in units of cts/s
             exposure = []
             tstart = []
             tstop = []
-            for i, count in zip([self, other], range(2)):
+            for count, i in enumerate([self, other]):
 
                 # if we have a mosaic, dont calculate the sky image if we dont need to
                 if not i.is_mosaic:
