@@ -955,6 +955,8 @@ def mosaic_skyview(skyview_list, healpix_nside=512, projection="healpix", healpi
         # this will do inplace modification of skyview1 if both skyviews are mosaic skyviews otherwise, we will ID the
         # on that is a mosaic skyview and do inplace modification. If none are mosaics, then we create a new skyview
         # using the + operator
+
+        # to also try and save memory, if we have a
         if skyview1.is_mosaic and skyview2.is_mosaic:
             skyview1 += skyview2
             return skyview1
@@ -966,8 +968,7 @@ def mosaic_skyview(skyview_list, healpix_nside=512, projection="healpix", healpi
                 skyview2 += skyview1
                 return skyview2
             else:
-                skyview = skyview1 + skyview2
-                return skyview
+                return skyview1 + skyview2
 
     if type(skyview_list) is not list:
         raise ValueError("A list of BatSkyView objects need to be passed in.")
@@ -981,5 +982,38 @@ def mosaic_skyview(skyview_list, healpix_nside=512, projection="healpix", healpi
         i.projection = projection
         i.healpix_coordsys = healpix_coordsys
 
-    # the number of iterations to reduce the list of
+    # the number of iterations to reduce the list of skyviews to a single mosaic
     n_iter = len(skyview_list) - 1
+
+    if nprocs != 1:
+        for i in n_iter:
+            if i == 0:
+                mosaic_skyview = Parallel(n_jobs=nprocs)(
+                    delayed(_add_two_skyviews)(
+                        skyview1, skyview2
+                    )
+                    for skyview1, skyview2 in zip(skyview_list[::2], skyview_list[1::2])
+                )
+            else:
+                mosaic_skyview = Parallel(n_jobs=nprocs)(
+                    delayed(_add_two_skyviews)(
+                        skyview1, skyview2
+                    )
+                    for skyview1, skyview2 in zip(mosaic_skyview[::2], mosaic_skyview[1::2])
+                )
+
+    else:
+        for count, i in enumerate(skyview_list):
+            if count == 0:
+                mosaic_skyview = i
+            else:
+                mosaic_skyview += i
+
+    # depending on the nprocs we can have a list or not, if we have a list get the 0th element and ake sure that it is the
+    # only element
+    if type(mosaic_skyview) is list:
+        if len(mosaic_skyview) != 1:
+            raise ValueError("There should only be 1 element in the returned calculation of the mosaic.")
+        return mosaic_skyview[0]
+    else:
+        return mosaic_skyview
