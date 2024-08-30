@@ -593,7 +593,8 @@ class BatSkyView(object):
             batcelldetect when it is run on a "normal" BatSkyView or if the BatSkyView object contains a mosaic image or
             a healpix sky image a QTable with the measured SNR peaks, their coordinates, their nearest source in the
             input source catalog, with the angular separation, and the angular separation normalized by the BAT PSF
-            (0.37413 deg)
+            (0.37413 deg).
+            If there are no sources detected (based on the input criteria) then None is returned
         """
 
         # use the default catalog is none is specified
@@ -686,68 +687,75 @@ class BatSkyView(object):
             good_values = np.where(
                 np.isfinite(snr_image.contents) & np.isfinite(pcode_image.contents) & (
                         snr_image.contents > snrthresh) & (pcode_image.contents > pcodethresh))
+            n_good_val = np.size(good_values)
 
-            # now that we have the good snr values, we need to get the snr values and sort them from largest to smallest
-            good_snr_values = snr_image.contents[good_values]
-            sorted_good_snr_values_idx = np.argsort(good_snr_values)[::-1]
+            # if we have found SNR values that meet the conditions then do the full analysis otherwise output empty table
+            if n_good_val != 0:
+                # now that we have the good snr values, we need to get the snr values and sort them from largest to smallest
+                good_snr_values = snr_image.contents[good_values]
+                sorted_good_snr_values_idx = np.argsort(good_snr_values)[::-1]
 
-            # also want to get the coordinates of the healpix pixels. Need to extract the appropriate axis index values
-            hp_ax = snr_image.axes["HPX"]
-            e_ax = snr_image.axes["ENERGY"]
-            hp_ax_idx = snr_image.axes.label_to_index("HPX")
-            e_ax_idx = snr_image.axes.label_to_index("ENERGY")
-            good_snr_skycoords = SkyCoord([hp_ax.pix2skycoord(i) for i in good_values[hp_ax_idx]])
-            good_snr_ebins = [e_ax.bounds[i] for i in good_values[e_ax_idx]]
+                # also want to get the coordinates of the healpix pixels. Need to extract the appropriate axis index values
+                hp_ax = snr_image.axes["HPX"]
+                e_ax = snr_image.axes["ENERGY"]
+                hp_ax_idx = snr_image.axes.label_to_index("HPX")
+                e_ax_idx = snr_image.axes.label_to_index("ENERGY")
+                good_snr_skycoords = SkyCoord([hp_ax.pix2skycoord(i) for i in good_values[hp_ax_idx]])
+                good_snr_ebins = [e_ax.bounds[i] for i in good_values[e_ax_idx]]
 
-            if e_ax.nbins > 1:
-                good_snr_tot = np.zeros_like(good_snr_values)
-                for i in np.unique(good_values[hp_ax_idx]):
-                    idx = np.where(good_values[hp_ax_idx] == i)
-                    val = np.sqrt((snr_image.contents[0, i, good_values[e_ax_idx][idx]] ** 2).sum())
-                    good_snr_tot[idx] = val
+                if e_ax.nbins > 1:
+                    good_snr_tot = np.zeros_like(good_snr_values)
+                    for i in np.unique(good_values[hp_ax_idx]):
+                        idx = np.where(good_values[hp_ax_idx] == i)
+                        val = np.sqrt((snr_image.contents[0, i, good_values[e_ax_idx][idx]] ** 2).sum())
+                        good_snr_tot[idx] = val
+                else:
+                    good_snr_tot = good_snr_values
+
+                # now want to compare these to all the sources in the catalog file to determine their nearest known source
+                # first read in the relevant data from the catalog
+                with fits.open(catalog_file) as f:
+                    catalog_names = f[1].data["NAME"]
+                    catalog_coords = SkyCoord(ra=f[1].data["RA_OBJ"], dec=f[1].data["DEC_OBJ"], unit="deg",
+                                              frame="icrs")
+
+                # calculate the separations, need the np.newaxis for broadcasting
+                all_separations = good_snr_skycoords[:, np.newaxis].separation(catalog_coords)
+
+                # get the minima and their indexes, also want the number of psf fwhm that each source is from the location
+                # of the SNR maximum that we are interested in
+                psffwhm = 0.37413 * u.deg
+                psffwhm_separation = all_separations.min(axis=1) / psffwhm
+                closest_catalog_names = catalog_names[np.argmin(all_separations, axis=1)]
+                closest_catalog_coords = catalog_coords[np.argmin(all_separations, axis=1)]
+
+                # now accumulate all the info into an astropy table array that is sorted by SNR
+                table = QTable(
+                    [good_snr_skycoords[sorted_good_snr_values_idx].icrs, good_snr_values[sorted_good_snr_values_idx],
+                     closest_catalog_names[sorted_good_snr_values_idx],
+                     closest_catalog_coords[sorted_good_snr_values_idx].icrs,
+                     all_separations.min(axis=1)[sorted_good_snr_values_idx],
+                     psffwhm_separation[sorted_good_snr_values_idx],
+                     np.array(good_snr_ebins)[sorted_good_snr_values_idx],
+                     psffwhm_separation.max() - psffwhm_separation[sorted_good_snr_values_idx],
+                     -1 * good_snr_tot[sorted_good_snr_values_idx]],
+                    names=["SNR_skycoord", 'SNR', 'closest_source', 'closest_source_skycoord', "separation",
+                           "psffwhm_separation", "ebin", "diff_psffwhm_separation", "NEG_SNR_TOT"])
+
+                if e_ax.nbins > 1:
+                    # group in the order of the smallest SNR total, largest difference from the psf separation, & then the
+                    # energy bin
+                    # output_table = table.group_by(["SNR_TOT", "diff_psffwhm_separation", "SNR_skycoord", "ebin"])
+                    output_table = table.group_by(["NEG_SNR_TOT", "diff_psffwhm_separation", "ebin"])
+
+                else:
+                    output_table = table
+
+                # remove the colum we just used for grouping
+                output_table.remove_column("diff_psffwhm_separation")
+                output_table.remove_column("NEG_SNR_TOT")
             else:
-                good_snr_tot = good_snr_values
-
-            # now want to compare these to all the sources in the catalog file to determine their nearest known source
-            # first read in the relevant data from the catalog
-            with fits.open(catalog_file) as f:
-                catalog_names = f[1].data["NAME"]
-                catalog_coords = SkyCoord(ra=f[1].data["RA_OBJ"], dec=f[1].data["DEC_OBJ"], unit="deg", frame="icrs")
-
-            # calculate the separations, need the np.newaxis for broadcasting
-            all_separations = good_snr_skycoords[:, np.newaxis].separation(catalog_coords)
-
-            # get the minima and their indexes, also want the number of psf fwhm that each source is from the location
-            # of the SNR maximum that we are interested in
-            psffwhm = 0.37413 * u.deg
-            psffwhm_separation = all_separations.min(axis=1) / psffwhm
-            closest_catalog_names = catalog_names[np.argmin(all_separations, axis=1)]
-            closest_catalog_coords = catalog_coords[np.argmin(all_separations, axis=1)]
-
-            # now accumulate all the info into an astropy table array that is sorted by SNR
-            table = QTable(
-                [good_snr_skycoords[sorted_good_snr_values_idx].icrs, good_snr_values[sorted_good_snr_values_idx],
-                 closest_catalog_names[sorted_good_snr_values_idx],
-                 closest_catalog_coords[sorted_good_snr_values_idx].icrs,
-                 all_separations.min(axis=1)[sorted_good_snr_values_idx],
-                 psffwhm_separation[sorted_good_snr_values_idx], np.array(good_snr_ebins)[sorted_good_snr_values_idx],
-                 psffwhm_separation.max() - psffwhm_separation[sorted_good_snr_values_idx],
-                 -1 * good_snr_tot[sorted_good_snr_values_idx]],
-                names=["SNR_skycoord", 'SNR', 'closest_source', 'closest_source_skycoord', "separation",
-                       "psffwhm_separation", "ebin", "diff_psffwhm_separation", "NEG_SNR_TOT"])
-
-            if e_ax.nbins > 1:
-                # group in the order of the smallest SNR total, largest difference from the psf separation, & then the
-                # energy bin
-                # output_table = table.group_by(["SNR_TOT", "diff_psffwhm_separation", "SNR_skycoord", "ebin"])
-                output_table = table.group_by(["NEG_SNR_TOT", "diff_psffwhm_separation", "ebin"])
-
-            else:
-                output_table = table
-
-            # remove the colum we just used for grouping
-            output_table.remove_column("diff_psffwhm_separation")
-            output_table.remove_column("NEG_SNR_TOT")
+                output_table = None
 
             # TODO: in the future can think about table joins here: https://docs.astropy.org/en/stable/table/operations.html#id12
 
