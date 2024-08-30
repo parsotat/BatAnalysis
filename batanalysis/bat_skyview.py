@@ -984,8 +984,8 @@ class BatSkyView(object):
                 tstart.append(other.interim_sky_img.tbins["TIME_START"])
                 tstop.append(other.interim_sky_img.tbins["TIME_STOP"])
 
-                tot_exposure = other.exposure_img.project("HPX").contents
-                interim_pcode = other.pcode_img.project("HPX").contents
+                tot_exposure = other.exposure_img.project("HPX", "ENERGY").contents
+                interim_pcode = other.pcode_img.project("HPX", "ENERGY").contents
                 interim_inv_var = other.interim_var_img.project("HPX", "ENERGY").contents
                 interim_flux = other.interim_sky_img.project("HPX", "ENERGY").contents
 

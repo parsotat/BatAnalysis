@@ -4,6 +4,7 @@ This file holds convience functions for conveniently analyzing batches of observ
 import os
 import shutil
 from copy import deepcopy
+from multiprocessing import Pool
 from multiprocessing.pool import ThreadPool
 from pathlib import Path
 
@@ -952,26 +953,37 @@ def create_event_skyview(batevent, nprocs=1, **kwargs):
     return all_skyviews
 
 
-def mosaic_skyview(skyview_list, healpix_nside=512, projection="healpix", healpix_coordsys="galactic", nprocs=1):
-    def _add_two_skyviews(skyview1, skyview2):
-        # this will do inplace modification of skyview1 if both skyviews are mosaic skyviews otherwise, we will ID the
-        # on that is a mosaic skyview and do inplace modification. If none are mosaics, then we create a new skyview
-        # using the + operator
+def _add_skyviews(skyviews):
+    for count, i in enumerate(skyviews):
+        if count == 0:
+            new_skyview = deepcopy(i)
+        else:
+            new_skyview += i
 
-        # to also try and save memory, if we have a
-        if skyview1.is_mosaic and skyview2.is_mosaic:
+    return new_skyview
+
+
+def _add_two_skyviews(skyview1, skyview2):
+    # this will do inplace modification of skyview1 if both skyviews are mosaic skyviews otherwise, we will ID the
+    # on that is a mosaic skyview and do inplace modification. If none are mosaics, then we create a new skyview
+    # using the + operator
+
+    # to also try and save memory, if we have a
+    if skyview1.is_mosaic and skyview2.is_mosaic:
+        skyview1 += skyview2
+        return skyview1
+    else:
+        if skyview1.is_mosaic:
             skyview1 += skyview2
             return skyview1
+        elif skyview2.is_mosaic:
+            skyview2 += skyview1
+            return skyview2
         else:
-            if skyview1.is_mosaic:
-                skyview1 += skyview2
-                return skyview1
-            elif skyview2.is_mosaic:
-                skyview2 += skyview1
-                return skyview2
-            else:
-                return skyview1 + skyview2
+            return skyview1 + skyview2
 
+
+def mosaic_skyview(skyview_list, healpix_nside=512, projection="healpix", healpix_coordsys="galactic", nprocs=1):
     if type(skyview_list) is not list:
         raise ValueError("A list of BatSkyView objects need to be passed in.")
     else:
@@ -984,10 +996,23 @@ def mosaic_skyview(skyview_list, healpix_nside=512, projection="healpix", healpi
         i.projection = projection
         i.healpix_coordsys = healpix_coordsys
 
-    # the number of iterations to reduce the list of skyviews to a single mosaic
-    n_iter = len(skyview_list) - 1
-
     if nprocs != 1:
+
+        chunk_size = int(len(skyview_list) / nprocs)
+        chunks = [skyview_list[i:i + chunk_size] for i in range(0, len(skyview_list), chunk_size)]
+        results = np.arange(len(skyview_list))
+        count = 0
+
+        with Pool(processes=nprocs) as pool:
+            results = pool.map(_add_skyviews, chunks)
+
+        # after, we expect results to be nprocs in size
+        mosaic_skyview = results[0] + results[1]
+
+        """
+        # the number of iterations to reduce the list of skyviews to a single mosaic
+        n_iter = len(skyview_list) - 1
+
         for i in range(n_iter):
             if i == 0:
                 mosaic_skyview = Parallel(n_jobs=nprocs)(
@@ -1003,7 +1028,7 @@ def mosaic_skyview(skyview_list, healpix_nside=512, projection="healpix", healpi
                     )
                     for skyview1, skyview2 in zip(mosaic_skyview[::2], mosaic_skyview[1::2])
                 )
-
+        """
     else:
         for count, i in enumerate(skyview_list):
             if count == 0:
