@@ -968,19 +968,31 @@ def _add_two_skyviews(skyview1, skyview2):
     # on that is a mosaic skyview and do inplace modification. If none are mosaics, then we create a new skyview
     # using the + operator
 
-    # to also try and save memory, if we have a
-    if skyview1.is_mosaic and skyview2.is_mosaic:
-        skyview1 += skyview2
-        return skyview1
-    else:
-        if skyview1.is_mosaic:
+    if None not in [skyview1, skyview2]:
+        # to also try and save memory, if we have a
+        if skyview1.is_mosaic and skyview2.is_mosaic:
             skyview1 += skyview2
             return skyview1
-        elif skyview2.is_mosaic:
-            skyview2 += skyview1
-            return skyview2
         else:
-            return skyview1 + skyview2
+            if skyview1.is_mosaic:
+                skyview1 += skyview2
+                return skyview1
+            elif skyview2.is_mosaic:
+                skyview2 += skyview1
+                return skyview2
+            else:
+                return skyview1 + skyview2
+    else:
+        ret = [i for i in [skyview1, skyview2] if i is not None]
+        return ret[0]
+
+
+def _add_two_nums(skyview1, skyview2):
+    if None not in [skyview1, skyview2]:
+        return skyview1 + skyview2
+    else:
+        ret = [i for i in [skyview1, skyview2] if i is not None]
+        return ret[0]
 
 
 def mosaic_skyview(skyview_list, healpix_nside=512, projection="healpix", healpix_coordsys="galactic", nprocs=1):
@@ -997,17 +1009,36 @@ def mosaic_skyview(skyview_list, healpix_nside=512, projection="healpix", healpi
         i.healpix_coordsys = healpix_coordsys
 
     if nprocs != 1:
+        raise NotImplementedError("Adding BatSkyViews in parallel is not yet implemented, please set nprocs=1.")
+        # chunk_size = int(len(skyview_list) / nprocs)
+        # chunks = [skyview_list[i:i + chunk_size] for i in range(0, len(skyview_list), chunk_size)]
+        # results = np.arange(len(skyview_list))
+        # count = 0
 
-        chunk_size = int(len(skyview_list) / nprocs)
-        chunks = [skyview_list[i:i + chunk_size] for i in range(0, len(skyview_list), chunk_size)]
-        results = np.arange(len(skyview_list))
-        count = 0
+        TASKS = [(skyview_list[i], skyview_list[i + 1]) for i in range(0, len(skyview_list), 2)]
 
-        with Pool(processes=nprocs) as pool:
-            results = pool.map(_add_skyviews, chunks)
+        with Pool(processes=nprocs, maxtasksperchild=4) as pool:
+
+            while len(TASKS) > 0:
+                results = [pool.apply_async(_add_two_skyviews, t) for t in TASKS]
+                # results = pool.map(_add_skyviews, chunks)
+
+                new_list = [r.get() for r in results]
+
+                if len(new_list) % 2 != 0:
+                    new_list.append(None)
+
+                if len(results) > 1:
+                    TASKS = [(new_list[i], new_list[i + 1]) for i in range(0, len(new_list), 2)]
+                else:
+                    TASKS = []
+                    mosaic_skyview = new_list[0]
+
+                print(len(TASKS), results, new_list)
 
         # after, we expect results to be nprocs in size
-        mosaic_skyview = results[0] + results[1]
+        # mosaic_skyview = results[0] + results[1]
+        # stop
 
         """
         # the number of iterations to reduce the list of skyviews to a single mosaic

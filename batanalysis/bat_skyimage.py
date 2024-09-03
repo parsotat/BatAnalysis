@@ -358,6 +358,8 @@ class BatSkyImage(Histogram):
             new_array = np.zeros((self.axes['TIME'].nbins, hp_ax.nbins, self.axes["ENERGY"].nbins))
 
             # for each time/energybin do the projection (ie linear interpolation)
+            # reproject_to_healpix does not support passing in a multidimensional array where the coordinates in the
+            # extra dimension is assumed to be the same (as of 2024)
             for t in range(self.axes['TIME'].nbins):
                 for e in range(self.axes["ENERGY"].nbins):
                     array, footprint = reproject_to_healpix(
