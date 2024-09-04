@@ -31,6 +31,7 @@ from .batproducts import *
 from .attitude import *
 from .bat_survey import *
 from .bat_tte import *
+from .bat_drm import *
 from .bat_dph import *
 from .bat_dpi import *
 from .bat_skyimage import *

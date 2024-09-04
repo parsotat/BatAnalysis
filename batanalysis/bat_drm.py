@@ -128,6 +128,19 @@ class BatDRM(Histogram):
         timebin_edges[:-1] = self.tbins["TIME_START"]
         timebin_edges[-1] = self.tbins["TIME_STOP"][-1]
 
+        # get the energybin edges
+        input_energybin_edges = (
+                np.zeros(self.input_ebins["E_MIN"].size + 1) * self.input_ebins["E_MIN"].unit
+        )
+        input_energybin_edges[:-1] = self.input_ebins["E_MIN"]
+        input_energybin_edges[-1] = self.input_ebins["E_MAX"][-1]
+
+        output_energybin_edges = (
+                np.zeros(self.output_ebins["E_MIN"].size + 1) * self.output_ebins["E_MIN"].unit
+        )
+        output_energybin_edges[:-1] = self.output_ebins["E_MIN"]
+        output_energybin_edges[-1] = self.output_ebins["E_MAX"][-1]
+
         # create our histogrammed data
         if isinstance(histogram_data, u.Quantity):
             hist_unit = histogram_data.unit
@@ -141,8 +154,8 @@ class BatDRM(Histogram):
                 super().__init__(
                     [
                         timebin_edges,
-                        self.input_energybins,
-                        self.output_energybins,
+                        input_energybin_edges,
+                        output_energybin_edges,
                     ],
                     contents=histogram_data,
                     labels=["TIME", "E_IN", "E_OUT"],
@@ -153,8 +166,8 @@ class BatDRM(Histogram):
                 super().__init__(
                     [
                         timebin_edges,
-                        self.input_energybins,
-                        self.output_energybins,
+                        input_energybin_edges,
+                        output_energybin_edges,
                     ],
                     contents=histogram_data[np.newaxis],
                     labels=["TIME", "E_IN", "E_OUT"],
@@ -307,5 +320,5 @@ class BatDRM(Histogram):
                 for count, mat in enumerate(f[1].data["MATRIX"]):
                     rsp[count, :] = mat
 
-        return cls(drm_data=mat, input_energybins=in_ebins * energy_unit, output_energybins=out_ebins * energy_unit,
+        return cls(drm_data=rsp, input_energybins=in_ebins * energy_unit, output_energybins=out_ebins * energy_unit,
                    timebins=timebin)
