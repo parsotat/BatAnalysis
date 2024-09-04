@@ -51,6 +51,125 @@ class BatDRM(Histogram):
 
         """
 
+        # do some error checking
+        if not isinstance(drm_data, np.ndarray) and not isinstance(drm_data, Histogram):
+            raise ValueError("The input DRM data has to be a numpy array or a Histogram object.")
+
+        if not isinstance(drm_data, Histogram):
+            if timebins is None and tmin is None and tmax is None:
+                raise ValueError(
+                    "The timebin for the DRM needs to specified using the timebins or the tmin/tmax parameters.")
+
+            if input_energybins is None and input_emin is None and input_emax is None:
+                raise ValueError(
+                    "The input photon energybins for the DRM needs to specified using the input_energybins or the input_emin/input_emax parameters.")
+
+            if output_energybins is None and output_emin is None and output_emax is None:
+                raise ValueError(
+                    "The output/measured photon energybins for the DRM needs to specified using the output_energybins or the output_emin/output_emax parameters.")
+        else:
+            # get the timebin/energy edges from the Histogram
+            timebins = drm_data.axes["TIME"].edges
+            input_energybins = drm_data.axes["E_IN"].edges
+            output_energybins = drm_data.axes["E_OUT"].edges
+
+        # see if we have the timebins to use otherwise use tmin/tmax in that order of preference
+        self.tbins = {}
+        if timebins is not None:
+            self.tbins["TIME_START"] = timebins[:-1]
+            self.tbins["TIME_STOP"] = timebins[1:]
+        else:
+            self.tbins["TIME_START"] = tmin
+            self.tbins["TIME_STOP"] = tmax
+
+        self.tbins["TIME_CENT"] = 0.5 * (
+                self.tbins["TIME_START"] + self.tbins["TIME_STOP"]
+        )
+
+        self.input_ebins = {}
+        if input_energybins is not None:
+            self.input_ebins["INDEX"] = np.arange(input_energybins.size - 1) + 1
+            self.input_ebins["E_MIN"] = input_energybins[:-1]
+            self.input_ebins["E_MAX"] = input_energybins[1:]
+        else:
+            self.input_ebins["INDEX"] = np.arange(input_emin.size) + 1
+            self.input_ebins["E_MIN"] = input_emin
+            self.input_ebins["E_MAX"] = input_emax
+
+        self.output_ebins = {}
+        if output_energybins is not None:
+            self.output_ebins["INDEX"] = np.arange(output_energybins.size - 1) + 1
+            self.output_ebins["E_MIN"] = output_energybins[:-1]
+            self.output_ebins["E_MAX"] = output_energybins[1:]
+        else:
+            self.output_ebins["INDEX"] = np.arange(output_emin.size) + 1
+            self.output_ebins["E_MIN"] = output_emin
+            self.output_ebins["E_MAX"] = output_emax
+
+        self._set_histogram(histogram_data=drm_data)
+
+    def _set_histogram(self, histogram_data):
+        """
+        This method properly initalizes the Histogram parent class. it uses the self.tbins and self.ebins information
+        to define the time and energy binning for the histogram that is initalized.
+
+        :param histogram_data: None or histpy Histogram or a numpy array of N dimensions. Thsi should be formatted
+            such that it has the following dimensions: (T,Ny,Nx,E) where T is the number of timebins, Ny is the
+            number of detectors in the y direction see the det_x_edges class attribute, Nx represents an identical
+            quantity in the x direction, and E is the number of energy bins. These should be the appropriate sizes for
+            the tbins and ebins attributes. If None is passed in
+        :return: None
+        """
+
+        # get the timebin edges
+        timebin_edges = (
+                np.zeros(self.tbins["TIME_START"].size + 1) * self.tbins["TIME_START"].unit
+        )
+        timebin_edges[:-1] = self.tbins["TIME_START"]
+        timebin_edges[-1] = self.tbins["TIME_STOP"][-1]
+
+        # create our histogrammed data
+        if isinstance(histogram_data, u.Quantity):
+            hist_unit = histogram_data.unit
+        else:
+            hist_unit = u.cm * u.cm
+
+        if not isinstance(histogram_data, Histogram):
+            # if the historgram has the appropriate number of dimensions we are good otherwise we most  likely
+            # ened to add a new axis for time
+            if np.ndim(histogram_data) == 3:
+                super().__init__(
+                    [
+                        timebin_edges,
+                        self.input_energybins,
+                        self.output_energybins,
+                    ],
+                    contents=histogram_data,
+                    labels=["TIME", "E_IN", "E_OUT"],
+                    sumw2=None,
+                    unit=hist_unit,
+                )
+            else:
+                super().__init__(
+                    [
+                        timebin_edges,
+                        self.input_energybins,
+                        self.output_energybins,
+                    ],
+                    contents=histogram_data[np.newaxis],
+                    labels=["TIME", "E_IN", "E_OUT"],
+                    sumw2=None,
+                    unit=hist_unit,
+                )
+
+        else:
+            super().__init__(
+                [i.edges for i in histogram_data.axes],
+                contents=histogram_data.contents,
+                labels=histogram_data.axes.labels,
+                unit=hist_unit,
+            )
+
     @staticmethod
     def calc_drm(pha_file):
         """
