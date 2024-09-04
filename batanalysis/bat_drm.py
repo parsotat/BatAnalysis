@@ -365,7 +365,7 @@ class BatDRM(Histogram):
             if np.sum(weights) != 1:
                 raise ValueError("The weights should be normalized. Currently the weights do not add up to 1.")
         else:
-            weights = np.ones_like(drm_list)
+            weights = np.ones(len(drm_list))
 
         if len(weights) != len(drm_list):
             raise ValueError(
@@ -375,6 +375,6 @@ class BatDRM(Histogram):
         times = [i.axes["TIME"].edges for i in drm_list]
         time_unit = drm_list[0].axes["TIME"].edges.unit
 
-        output_drm = super().concatenate([np.min(times), np.max(times)] * time_unit, input_drm_list, label="TIME")
+        output_drm = Histogram.concatenate([np.min(times), np.max(times)] * time_unit, input_drm_list, label="TIME")
 
-        return output_drm
+        return cls(output_drm)
