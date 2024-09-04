@@ -344,3 +344,37 @@ class BatDRM(Histogram):
 
         return cls(drm_data=rsp, input_energybins=in_ebins * energy_unit, output_energybins=out_ebins * energy_unit,
                    timebins=timebin)
+
+    @classmethod
+    def concatenate(cls, drm_list, weights=None):
+        """
+        This class method takes a list of BatDRM objects and combines them with weighting factors if they are provided.
+
+        :param drm_list: list of BatDRM objects that will be combined
+        :param weights: None, or a list of normalized weightings for the drm_list objects
+        :return: a BatDRM object
+        """
+
+        # want to verify that all inputs are BatDRMs and that weights are normalized
+        if np.any([not isinstance(i, cls) for i in drm_list]):
+            raise ValueError(
+                "All elements of the list that is passed in need to be BatDRM objects.")
+
+        # if weights are passed in, then they need to be normalized otherwise we just set the weights to 1 and add things
+        if weights is not None:
+            if np.sum(weights) != 1:
+                raise ValueError("The weights should be normalized. Currently the weights do not add up to 1.")
+        else:
+            weights = np.ones_like(drm_list)
+
+        if len(weights) != len(drm_list):
+            raise ValueError(
+                "The number of drm_list elements do not match the number of weights that have been passed in")
+
+        input_drm_list = [i.project("E_IN", "E_OUT") * j for i, j in zip(drm_list, weights)]
+        times = [i.axes["TIME"].edges for i in drm_list]
+        time_unit = drm_list[0].axes["TIME"].edges.unit
+
+        output_drm = super().concatenate([np.min(times), np.max(times)] * time_unit, input_drm_list, label="TIME")
+
+        return output_drm
