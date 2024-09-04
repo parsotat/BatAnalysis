@@ -8,6 +8,7 @@ import os
 from pathlib import Path
 
 import astropy.units as u
+import matplotlib.colors as colors
 import numpy as np
 from astropy.io import fits
 from histpy import Histogram
@@ -246,6 +247,27 @@ class BatDRM(Histogram):
             return drm_file
         else:
             return drm_file[0]
+
+    def plot(self):
+
+        plot_data = self.project("E_IN", "E_OUT").contents
+        vmax = plot_data.max().value
+        vmin = plot_data[plot_data > 0].min().value
+
+        t = colors.LogNorm(vmin=vmin, vmax=vmax)
+
+        ax, mesh = self.project("E_IN", "E_OUT").plot(norm=t)
+        ax.set_xscale("log")
+        ax.set_yscale("log")
+
+        ax.set_ylim([1, self.axes["E_OUT"].edges.max().value])
+        ax.set_xlim([self.axes["E_IN"].edges.min().value, self.axes["E_IN"].edges.max().value])
+
+        # set the 0 DRM values to black
+        cm = mesh.get_cmap()
+        cm.set_bad((0, 0, 0))
+
+        return ax, mesh
 
     @classmethod
     def from_file(cls, pha_file=None, drm_file=None):
