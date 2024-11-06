@@ -134,7 +134,7 @@ class TimeTaggedEvents(object):
         # copy the first one to the new file, include primary, event, and GTI HDUs
         pri_hdr = getheader(input_event_files[0])
         data, hdr = getdata(input_event_files[0], ext=1, header=True)
-        fits.append(output_event_file, [], pri_hdr)
+        fits.append(output_event_file, None, pri_hdr)
         fits.append(output_event_file, data, hdr)
         data, hdr = getdata(input_event_files[0], ext=2, header=True)
         fits.append(output_event_file, data, hdr)

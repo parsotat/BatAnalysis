@@ -50,6 +50,7 @@ class BatDRM(Histogram):
         This constructor can either:
             3) create a BatDRM object based on an input DRM numpy array or a Histogram object
 
+        
         """
 
         # do some error checking
