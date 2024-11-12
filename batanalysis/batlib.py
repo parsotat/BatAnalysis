@@ -1849,12 +1849,15 @@ def download_swift_trigger_data(triggers=None, triggerrange=None, triggertime=No
                     dt = Time(float(triggermjd), format="mjd") - Time(nearest_obs_table["START_TIME"], format="mjd")
                     closest_obsid = nearest_obs_table["OBSID"][np.argmin(np.abs(dt))]
                     if timewindow > np.abs(dt[np.argmin(np.abs(dt))].to("s")).value:
-                        save_dir = Path(res.entries[0].localpath).parent
+                        # if the local path is None, then we dont want to download the nearest obsid data so just set
+                        # this to None
+                        save_dir = None if not fetch else Path(res.entries[0].localpath).parent
                         res = swtoo.Swift_Data(obsid=closest_obsid, bat=True, outdir=save_dir, match=match, fetch=fetch)
 
                         all_res.append(res)
 
-                        if not res.status.errors:
+                        # if we dont care about downloading the data, then we dont need to do this reorganization
+                        if not res.status.errors and fetch:
                             # if we have no issues, then set up the directory for us to have the usual auxil/tdrss/hk directories with respect to the
                             # subthreshold trigger. We can create a symbolic link to keep the obid directory the same so we
                             # have record of which obsid was used to process the subthreshold trigger event data
@@ -1897,8 +1900,9 @@ def download_swift_trigger_data(triggers=None, triggerrange=None, triggertime=No
                                 shutil.copy(tdrss_file, tdrss_dir)
 
                         else:
-                            warnings.warn(
-                                f"Downloading the closest subthreshold trigger ObsID {closest_obsid} failed. Continuing with the next subthreshold trigger.")
+                            if fetch:
+                                warnings.warn(
+                                    f"Downloading the closest subthreshold trigger ObsID {closest_obsid} failed. Continuing with the next subthreshold trigger.")
 
                     else:
                         warnings.warn(
