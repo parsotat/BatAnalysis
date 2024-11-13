@@ -660,10 +660,10 @@ class BatSkyView(object):
             output_table.add_column(cat_skycoords, name='SKYCOORD', index=2)
 
             # sort it by the SNR
-            if output_table["SNR"].ndim == 1:
-                output_table.sort(keys="SNR", reverse=True)
+            if output_table["CENT_SNR"].ndim == 1:
+                output_table.sort(keys="CENT_SNR", reverse=True)
             else:
-                total_snr = np.sqrt((output_table["SNR"] ** 2).sum(axis=1))
+                total_snr = np.sqrt((output_table["CENT_SNR"] ** 2).sum(axis=1))
 
                 # put in the total_snr
                 output_table.add_column(total_snr, name='TOT_SNR')
