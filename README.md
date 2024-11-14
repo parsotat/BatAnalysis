@@ -135,8 +135,9 @@ The following software are necessary for the BatAnalysis python module.
    - The installation is included with HEASoft but there may be additional steps to take if you have changed your anaconda 
 version after building HEASoft. More information can be found here: [https://heasarc.gsfc.nasa.gov/xanadu/xspec/python/html/buildinstall.html](https://heasarc.gsfc.nasa.gov/xanadu/xspec/python/html/buildinstall.html)
 6. Swift BAT Pattern Noise Maps (necessary for the analysis of survey data)
-   - The pattern maps used by the BAT team are available at: [https://zenodo.org/record/7595904#.Y9q7pS-B3T8](https://zenodo.org/record/7595904#.Y9q7pS-B3T8) for download. These maps shoud be downloaded and placed into a place where the BatAnalysis code will be able to access them. 
-
+   - The pattern maps used by the BAT team are available on [zenodo](https://zenodo.org/record/7595904#.Y9q7pS-B3T8) for download. 
+   These maps shoud be downloaded and placed into a place where the BatAnalysis code will be able to access them. 
+        - _This data is most easily downloaded using the [zenodo_get](https://github.com/dvolgyes/zenodo_get) utility, especially for installation on remote servers_
 
 Using the SciServer interface it is easier to start using BatAnalysis since HEASoftpy and pyXspec are already installed. 
 
@@ -151,7 +152,7 @@ to get an account set up and get a container up and running.
     pip install BatAnalysis
   ```
 3. The Pattern Noise Maps can easily be downloaded into the `/home/idies/workspace/Temporary/<username>/scratch/` directory with the use of the 
-[zenodo_get](https://github.com/dvolgyes/zenodo_get) utility. If no analyses with mosaicing survey data will be done then this step can be skipped.
+[zenodo_get](https://github.com/dvolgyes/zenodo_get) utility. If the analyses that will be conducted will not involve survey data being mosaiced then this step can be skipped.
 
 ### Getting Started on a Local Computer
 To get up and running on a local computer once the prerequisites met is very simple. 
