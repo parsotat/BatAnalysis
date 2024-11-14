@@ -117,7 +117,7 @@ David Palmer, Sibasish Laha, Amy Lien, and Craig Markwardt.
 <!-- GETTING STARTED -->
 ## Getting Started
 
-To get a local copy up and running follow these simple steps.
+It is easy to get started on your local computer or on [SciServer](https://heasarc.gsfc.nasa.gov/docs/sciserver/#getting-started)
 
 ### Prerequisites
 
@@ -137,14 +137,33 @@ version after building HEASoft. More information can be found here: [https://hea
 6. Swift BAT Pattern Noise Maps (necessary for the analysis of survey data)
    - The pattern maps used by the BAT team are available at: [https://zenodo.org/record/7595904#.Y9q7pS-B3T8](https://zenodo.org/record/7595904#.Y9q7pS-B3T8) for download. These maps shoud be downloaded and placed into a place where the BatAnalysis code will be able to access them. 
 
-### Installation
 
-1a. Install the BatAnalysis package with Pip
-   ```sh
-   pip install BatAnalysis
-   ```
+Using the SciServer interface it is easier to start using BatAnalysis since HEASoftpy and pyXspec are already installed. 
 
-1b. Clone the repo and install 
+### Getting Started on SciServer
+1. To get started on Sciserver, first follow the instructions outlined [here](https://heasarc.gsfc.nasa.gov/docs/sciserver/#getting-started)
+to get an account set up and get a container up and running. 
+
+***Be sure that the container that is created has a compatible python and HEASoft version***
+
+2. With the container created, the user can install BatAnalysis through pip:
+```sh
+    pip install BatAnalysis
+  ```
+3. The Pattern Noise Maps can easily be downloaded into the `/home/idies/workspace/Temporary/<username>/scratch/` directory with the use of the 
+[zenodo_get](https://github.com/dvolgyes/zenodo_get) utility. If no analyses with mosaicing survey data will be done then this step can be skipped.
+
+### Getting Started on a Local Computer
+To get up and running on a local computer once the prerequisites met is very simple. 
+All that is needed to install the package is either:
+
+A. Pip install the BatAnalysis package:
+```sh
+    pip install BatAnalysis
+  ```
+    
+
+B. Clone the repo and install 
    ```sh
    git clone https://github.com/parsotat/BatAnalysis.git
    cd BatAnalysis/
