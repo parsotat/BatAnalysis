@@ -92,7 +92,7 @@ steps to upload a distribution to PyPi is at: https://stackoverflow.com/question
 
 <!-- [![Product Name Screen Shot][product-screenshot]](https://example.com) -->
 
-BatAnalysis is a python package that allows for the convenient analysis of BAT Survey and TTE data. 
+BatAnalysis is a python package that allows for the convenient analysis of BAT Survey and Time-tagged Event (TTE) data. 
 This code allows users to: 
 * easily download BAT data, 
 * batch process the observations,
@@ -229,7 +229,7 @@ ba.plot_survey_lc(mosaic_list, id_list=catalog_name, calc_lc=True)
 
 ```
 
-### a) TTE Data
+### b) TTE Data
 
 The typical BatAnalysis workflow for analyzing TTE data is as follows:
 
