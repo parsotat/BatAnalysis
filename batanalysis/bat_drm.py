@@ -378,4 +378,11 @@ class BatDRM(Histogram):
 
         output_drm = Histogram.concatenate([np.min(times), np.max(times)] * time_unit, input_drm_list, label="TIME")
 
+        # to save the output drm to a file, we need to also make sure that at least 1 drm in the drm list has the drm.
+
         return cls(output_drm)
+
+    def save(self):
+        """
+        This method saves a DRM object to a detector response file which can be used for spectral fitting.
+        """

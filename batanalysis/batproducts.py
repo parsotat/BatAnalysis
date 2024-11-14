@@ -2104,6 +2104,8 @@ class Spectrum(BatObservation):
         if value is not None and not value.exists():
             raise ValueError(f"The file {value} does not seem to exist")
 
+        # TODO: if a drm_file is set and it exists, will also need to potentially modify the header value for "RESPFILE"
+
         self._drm_file = value
 
     @property
