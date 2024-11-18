@@ -384,9 +384,52 @@ class BatDRM(Histogram):
 
         return cls(output_drm)
 
-    def save(self):
+    def _save(self, drm_file):
         """
         This method saves a DRM object to a detector response file which can be used for spectral fitting.
         """
 
+        if not isinstance(drm_file, Path):
+            raise ValueError("The drm_file that has been passed in needs to be a pathlib Path object.")
+
+        drm_file = Path(drm_file).expanduser().resolve()
+
+        # get the default headers
         rsp = RspHeaders()
+
+        hdulist = fits.HDUList()
+
+        primary_hdu = fits.PrimaryHDU(header=rsp[0])
+
+        hdulist.append(primary_hdu)
+
+        # modify them based on what we have in this object
+        ehi_col = fits.Column(name='ENERG_HI', format='E',
+                              array=self.input_ebins["E_MAX"], unit=self.input_ebins["E_MAX"].unit.name
+                              )
+        elo_col = fits.Column(name='ENERG_LO', format='E',
+                              array=self.input_ebins["E_MIN"], unit=self.input_ebins["E_MIN"].unit.name
+                              )
+        nchan_col = fits.Column(name='N_CHAN', format='I',
+                                array=np.ones_like(self.input_ebins["E_MAX"].value) * self.output_ebins["INDEX"][-1])
+        ngrp_col = fits.Column(name='N_GRP', format='I', array=np.ones_like(self.input_ebins["E_MAX"].value))
+        fchan_col = fits.Column(name='F_CHAN', format='I', array=np.zeros_like(self.input_ebins["E_MAX"].value))
+
+        matrix_col = fits.Column(name='MATRIX', array=self.contents[0, :, :].value,
+                                 format='{}E'.format(self.output_ebins["INDEX"][-1]))
+
+        hdu = fits.BinTableHDU.from_columns([elo_col, ehi_col, ngrp_col,
+                                             fchan_col, nchan_col, matrix_col],
+                                            header=rsp[1])
+        hdulist.append(hdu)
+
+        # get the out energy card
+        chan_col = fits.Column(name='CHANNEL', format='I', array=self.output_ebins["INDEX"] - 1)
+        emin_col = fits.Column(name='E_MIN', format='E', array=self.output_ebins["E_MIN"],
+                               unit=self.output_ebins["E_MIN"].unit.name)
+        emax_col = fits.Column(name='E_MAX', format='E', array=self.output_ebins["E_MAX"],
+                               unit=self.output_ebins["E_MAX"].unit.name)
+        hdu = fits.BinTableHDU.from_columns([chan_col, emin_col, emax_col], header=rsp[2])
+        hdulist.append(hdu)
+
+        hdulist.writeto(drm_file)
