@@ -89,7 +89,7 @@ class BatEvent(BatObservation):
                 check = (
                         not self.obs_dir.joinpath("bat").joinpath("event").is_dir()
                         or not self.obs_dir.joinpath("bat").joinpath("hk").is_dir()
-                        or not self.obs_dir.joinpath("bat").joinpath("rate").is_dir()
+                        # or not self.obs_dir.joinpath("bat").joinpath("rate").is_dir()  # this may not really be needed
                         or not self.obs_dir.joinpath("auxil").is_dir()
                 )
                 if check:

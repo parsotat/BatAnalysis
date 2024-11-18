@@ -19,6 +19,8 @@ except ModuleNotFoundError as err:
     # Error handling
     print(err)
 
+from gdt.missions.swift.bat.headers import RspHeaders
+
 
 class BatDRM(Histogram):
 
@@ -386,3 +388,5 @@ class BatDRM(Histogram):
         """
         This method saves a DRM object to a detector response file which can be used for spectral fitting.
         """
+
+        rsp = RspHeaders()
