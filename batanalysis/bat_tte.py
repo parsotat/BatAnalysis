@@ -1453,6 +1453,7 @@ class BatEvent(BatObservation):
                        T0=None,
                        is_relative=False,
                        energybins=[15, 350] * u.keV,
+                       input_dict=None,
                        recalc=False,
                        ):
         """
@@ -1490,6 +1491,11 @@ class BatEvent(BatObservation):
             timebins/tstart/tstop that were passed in.
         :param energybins: astropy.units.Quantity denoting the energy bin edges for the DPH that will be produced. None
             sets the default energy binning to be 14-195 keV
+        :param input_dict: None or dict of key/value pairs that will be passed to BatSkyView (and then batfftimage).
+            If this is set to None, the default batfftimage parameter values will be used. If a dictionary is passed in,
+            it will overwrite the default values for the keys that are specified.
+            eg input_dict=dict(aperture="CALDB:DETECTION") would cause batfftimg to use the CALDB detection-optimized
+            aperture map to construct the sky view
         :param recalc: Boolean to denote if the DPH specified by dph_file should be recalculated with the
             specified time/energy binning. See the BatDPH class for a list of these defaults.
         :return: BatSkyView object or a list of BatSkyView objects
@@ -1533,7 +1539,7 @@ class BatEvent(BatObservation):
 
             skyview = BatSkyView(skyimg_file=skyview_file, bat_dpi=dpi, attitude_file=self.attitude_file,
                                  create_bkg_stddev_img=True,
-                                 create_snr_img=True, recalc=recalc)
+                                 create_snr_img=True, input_dict=input_dict, recalc=recalc)
 
             if save_property:
                 self.skyviews = skyview
