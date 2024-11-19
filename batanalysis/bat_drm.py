@@ -354,7 +354,8 @@ class BatDRM(Histogram):
         This class method takes a list of BatDRM objects and combines them with weighting factors if they are provided.
 
         :param drm_list: list of BatDRM objects that will be combined
-        :param weights: None, or a list of normalized weightings for the drm_list objects
+        :param weights: None, or a list of normalized weightings for the drm_list objects. NOne defaults to weights
+            being 1/N, where N is the length of the drm_list that is passed in
         :return: a BatDRM object
         """
 
@@ -368,7 +369,7 @@ class BatDRM(Histogram):
             if np.sum(weights) != 1:
                 raise ValueError("The weights should be normalized. Currently the weights do not add up to 1.")
         else:
-            weights = np.ones(len(drm_list))
+            weights = np.ones(len(drm_list)) / len(drm_list)
 
         if len(weights) != len(drm_list):
             raise ValueError(
