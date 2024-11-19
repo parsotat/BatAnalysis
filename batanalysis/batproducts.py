@@ -2133,15 +2133,14 @@ class Spectrum(BatObservation):
     @property
     def drm(self):
         """
-        The detector response object associated with the drm_file that is specified
+        The BAT detector response object associated with the drm_file that is specified
         """
-
         return self._drm
 
     @drm.setter
     def drm(self, value):
-        if not isinstance(BatDRM, value):
-            raise ValueError("The drm attribute needs to be set to a BatDRM object")
+        if not isinstance(value, BatDRM) and value is not None:
+            raise ValueError("The drm attribute needs to be set to a BatDRM object or None")
         else:
             self._drm = value
 
