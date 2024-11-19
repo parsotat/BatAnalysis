@@ -37,15 +37,15 @@ class BatDRM(Histogram):
     )
     def __init__(self,
                  drm_data,
-                 timebins=None,
                  tmin=None,
                  tmax=None,
-                 input_energybins=None,
+                 timebins=None,
                  input_emin=None,
                  input_emax=None,
-                 output_energybins=None,
+                 input_energybins=None,
                  output_emin=None,
                  output_emax=None,
+                 output_energybins=None,
                  ):
         """
         Create a BatDRM object based on an input DRM numpy array or a pre-constructed Histogram object.
@@ -53,16 +53,33 @@ class BatDRM(Histogram):
         :param drm_data: a numpy array with 3 axis correspondent to the timebins, input/output energybins below
             OR
             a Histogram object that has the detector response matrix with the appropriate "TIME", "E_IN", "E_OUT" axes
+        :param tmin: astropy.units.Quantity denoting the minimum values of the timebin edges that the DRM corresponds
+            to. Units will usually be in seconds for this.
+            NOTE: if tmin/tmax are specified then anything passed to the timebins parameter is ignored.
+        :param tmax: astropy.units.Quantity denoting the maximum values of the timebin edges that the DRM corresponds
+            to. Units will usually be in seconds for this.
+            NOTE: if tmin/tmax are specified then anything passed to the timebins parameter is ignored.
         :param timebins: astropy.units.Quantity denoting the array of time bin edges. Units will usually be in seconds
             for this. If tmin/tmax is specified, this parameter is ignored.
-        :param tmin:
-        :param tmax:
-        :param input_energybins:
-        :param input_emin:
-        :param input_emax:
-        :param output_energybins:
-        :param output_emin:
-        :param output_emax:
+        :param input_emin: an astropy.unit.Quantity object of 1 or more elements. These are the minimum edges of the
+            DRM "input" photon energy bins. NOTE: If input_emin/emax are specified, the input_energybins parameter is
+            ignored.
+        :param input_emax: an astropy.unit.Quantity object of 1 or more elements. These are the maximum edges of the
+            DRM "input" photon energy bins. NOTE: If input_emin/emax are specified, the input_energybins parameter is
+            ignored.
+        :param input_energybins: an astropy.unit.Quantity object of 2 or more elements with the "input" photon energy
+            bin edges that the DRM has been binned into. None of the energy ranges should overlap.
+            If input_emin/emax is specified this parameter is ignored.
+        :param output_emin: an astropy.unit.Quantity object of 1 or more elements. These are the minimum edges of the
+            DRM "output", or dispersed, photon energy bins.
+            NOTE: If output_emin/emax are specified, the output_energybins parameter is ignored.
+        :param output_emax: an astropy.unit.Quantity object of 1 or more elements. These are the maximum edges of the
+            DRM "output", or dispersed, photon energy bins.
+            NOTE: If output_emin/emax are specified, the output_energybins parameter is ignored.
+        :param output_energybins: an astropy.unit.Quantity object of 2 or more elements with the "output", dispersed,
+            photon energy bin edges that the DRM has been binned into. None of the energy ranges should overlap.
+            If output_emin/emax is specified this parameter is ignored.
+
         """
 
         # do some error checking

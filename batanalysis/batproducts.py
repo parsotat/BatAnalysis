@@ -1548,9 +1548,9 @@ class Spectrum(BatObservation):
         :param energybins: single string "CALDB" denoting that the 80 channel default spectrum should be constructed or
           an astropy.unit.Quantity object of 2 or more elements with the energy bin edges in keV that the pha should be
           binned into. None of the energy ranges should overlap.
-        :param emin: a list or a astropy.unit.Quantity object of 1 or more elements. These are the minimum edges of the
+        :param emin: an astropy.unit.Quantity object of 1 or more elements. These are the minimum edges of the
             energy bins that the user would like. NOTE: If emin/emax are specified, the energybins parameter is ignored.
-        :param emax: a list or a astropy.unit.Quantity object of 1 or more elements. These are the maximum edges of the
+        :param emax: an astropy.unit.Quantity object of 1 or more elements. These are the maximum edges of the
             energy bins that the user would like. It shoudl have the same number of elements as emin.
             NOTE: If emin/emax are specified, the energybins parameter is ignored.
         :return: None.
