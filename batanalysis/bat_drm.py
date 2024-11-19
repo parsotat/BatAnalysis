@@ -294,8 +294,6 @@ class BatDRM(Histogram):
             raise ValueError("Please only specify either a pha file or a drm file.")
 
         if pha_file is not None:
-            if not isinstance(pha_file, Path):
-                raise ValueError("The pha_file that has been passed in needs to be a pathlib Path object.")
 
             pha_file = Path(pha_file).expanduser().resolve()
             if not pha_file.exists():
@@ -303,8 +301,6 @@ class BatDRM(Histogram):
                                  f"Please double check that it does.")
 
         if drm_file is not None:
-            if not isinstance(drm_file, Path):
-                raise ValueError("The drm_file that has been passed in needs to be a pathlib Path object.")
 
             drm_file = Path(drm_file).expanduser().resolve()
             if not drm_file.exists():
@@ -389,9 +385,6 @@ class BatDRM(Histogram):
         """
         This method saves a DRM object to a detector response file which can be used for spectral fitting.
         """
-
-        if not isinstance(drm_file, Path):
-            raise ValueError("The drm_file that has been passed in needs to be a pathlib Path object.")
 
         drm_file = Path(drm_file).expanduser().resolve()
 
