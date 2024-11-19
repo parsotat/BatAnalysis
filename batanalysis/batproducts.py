@@ -2104,7 +2104,23 @@ class Spectrum(BatObservation):
         if value is not None and not value.exists():
             raise ValueError(f"The file {value} does not seem to exist")
 
-        # TODO: if a drm_file is set and it exists, will also need to potentially modify the header value for "RESPFILE"
+        # f a drm_file is set and it exists, will also need to potentially modify the header value for "RESPFILE"
+        # need to ensure that it is in the same directory as the pha file, put a check here
+        if value is not None and not self.pha_file.is_relative_to(value.parent):
+            raise ValueError(
+                f"The response file {value} needs to be in the same directory as the pha file {self.pha_file}")
+
+        # not setting the _drm_file to None, also dont want to modify the header keyword if they are the same file
+        with fits.open(self.pha_file) as pha_hdulist:
+            rsp_file = pha_hdulist[1].header["RESPFILE"]
+
+        if value is not None and rsp_file.lower() != value.name.lower():
+            # if it is in the same directory, then modify the header value
+            with fits.open(self.pha_file, mode="update") as pha_hdulist:
+                header = pha_hdulist[1].header
+
+                header["RESPFILE"] = value.name
+                pha_hdulist.flush()
 
         self._drm_file = value
 
