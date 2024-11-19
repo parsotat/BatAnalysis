@@ -14,6 +14,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from astropy.io import fits
 
+from .bat_drm import BatDRM
 from .batlib import met2mjd, met2utc, create_gti_file, calc_response
 from .batobservation import BatObservation
 
@@ -1300,6 +1301,7 @@ class Spectrum(BatObservation):
                           "be able to be modified either by rebinning in energy or time.", stacklevel=2)
 
         self.drm_file = None
+        self.drm = None
         self.spectral_model = None
 
         # need to see if we have to construct the lightcurve if the file doesnt exist
@@ -2062,7 +2064,8 @@ class Spectrum(BatObservation):
         :return: heasoftpy result object for the batdrmgen heasoft call
         """
 
-        return self._call_batdrmgen()
+        # return self._call_batdrmgen()
+        return BatDRM.calc_drm(self.pha_file)
 
     @property
     def ra(self):
@@ -2093,6 +2096,7 @@ class Spectrum(BatObservation):
         """
         if self._drm_file is None:
             self._drm_file = self.calculate_drm()
+            self.drm = BatDRM.from_file(drm_file=self._drm_file)
 
         return self._drm_file
 
@@ -2104,7 +2108,7 @@ class Spectrum(BatObservation):
         if value is not None and not value.exists():
             raise ValueError(f"The file {value} does not seem to exist")
 
-        # f a drm_file is set and it exists, will also need to potentially modify the header value for "RESPFILE"
+        # if a drm_file is set and it exists, will also need to potentially modify the header value for "RESPFILE"
         # need to ensure that it is in the same directory as the pha file, put a check here
         if value is not None and not self.pha_file.is_relative_to(value.parent):
             raise ValueError(
@@ -2123,6 +2127,23 @@ class Spectrum(BatObservation):
                 pha_hdulist.flush()
 
         self._drm_file = value
+        if value is not None:
+            self.drm = BatDRM.from_file(drm_file=value)
+
+    @property
+    def drm(self):
+        """
+        The detector response object associated with the drm_file that is specified
+        """
+
+        return self._drm
+
+    @drm.setter
+    def drm(self, value):
+        if not isinstance(BatDRM, value):
+            raise ValueError("The drm attribute needs to be set to a BatDRM object")
+        else:
+            self._drm = value
 
     @property
     def pha_file(self):
