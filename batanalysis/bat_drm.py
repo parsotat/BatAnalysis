@@ -433,4 +433,9 @@ class BatDRM(Histogram):
         hdu = fits.BinTableHDU.from_columns([chan_col, emin_col, emax_col], header=rsp[2])
         hdulist.append(hdu)
 
+        # add time header keywords
+        hdulist[1].header["TSTART"] = self.tbins["TIME_START"].min().value
+        hdulist[1].header["TSTOP"] = self.tbins["TIME_STOP"].max().value
+        hdulist[1].header["TIMEUNIT"] = self.tbins["TIME_STOP"].unit.name
+
         hdulist.writeto(drm_file)
