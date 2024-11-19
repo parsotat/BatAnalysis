@@ -47,12 +47,22 @@ class BatDRM(Histogram):
                  output_emin=None,
                  output_emax=None,
                  ):
+        """
+        Create a BatDRM object based on an input DRM numpy array or a pre-constructed Histogram object.
 
-        """"
-        This constructor can either:
-            3) create a BatDRM object based on an input DRM numpy array or a Histogram object
-
-        
+        :param drm_data: a numpy array with 3 axis correspondent to the timebins, input/output energybins below
+            OR
+            a Histogram object that has the detector response matrix with the appropriate "TIME", "E_IN", "E_OUT" axes
+        :param timebins: astropy.units.Quantity denoting the array of time bin edges. Units will usually be in seconds
+            for this. If tmin/tmax is specified, this parameter is ignored.
+        :param tmin:
+        :param tmax:
+        :param input_energybins:
+        :param input_emin:
+        :param input_emax:
+        :param output_energybins:
+        :param output_emin:
+        :param output_emax:
         """
 
         # do some error checking
@@ -77,38 +87,51 @@ class BatDRM(Histogram):
             input_energybins = drm_data.axes["E_IN"].edges
             output_energybins = drm_data.axes["E_OUT"].edges
 
-        # see if we have the timebins to use otherwise use tmin/tmax in that order of preference
+        # see if we have thetmin/tmax otherwise use timebins  in that order of preference
         self.tbins = {}
-        if timebins is not None:
-            self.tbins["TIME_START"] = timebins[:-1]
-            self.tbins["TIME_STOP"] = timebins[1:]
-        else:
+        if tmin is not None or tmax is not None:
+            # make sure that both tmin and tmax are defined and have the same number of elements
+            if (tmin is None and tmax is not None) or (tmax is None and tmin is not None):
+                raise ValueError('Both tmin and tmax must be defined.')
+
             self.tbins["TIME_START"] = tmin
             self.tbins["TIME_STOP"] = tmax
+
+        else:
+            self.tbins["TIME_START"] = timebins[:-1]
+            self.tbins["TIME_STOP"] = timebins[1:]
 
         self.tbins["TIME_CENT"] = 0.5 * (
                 self.tbins["TIME_START"] + self.tbins["TIME_STOP"]
         )
 
         self.input_ebins = {}
-        if input_energybins is not None:
-            self.input_ebins["INDEX"] = np.arange(input_energybins.size - 1) + 1
-            self.input_ebins["E_MIN"] = input_energybins[:-1]
-            self.input_ebins["E_MAX"] = input_energybins[1:]
-        else:
+        if input_emin is not None or input_emax is not None:
+            # make sure that both input_emin and input_emax are defined and have the same number of elements
+            if (input_emin is None and input_emax is not None) or (input_emax is None and input_emin is not None):
+                raise ValueError('Both input_emin and input_emax must be defined.')
+
             self.input_ebins["INDEX"] = np.arange(input_emin.size) + 1
             self.input_ebins["E_MIN"] = input_emin
             self.input_ebins["E_MAX"] = input_emax
+        else:
+            self.input_ebins["INDEX"] = np.arange(input_energybins.size - 1) + 1
+            self.input_ebins["E_MIN"] = input_energybins[:-1]
+            self.input_ebins["E_MAX"] = input_energybins[1:]
 
         self.output_ebins = {}
-        if output_energybins is not None:
-            self.output_ebins["INDEX"] = np.arange(output_energybins.size - 1) + 1
-            self.output_ebins["E_MIN"] = output_energybins[:-1]
-            self.output_ebins["E_MAX"] = output_energybins[1:]
-        else:
+        if output_emin is not None or output_emax is not None:
+            # make sure that both output_emin and output_emax are defined and have the same number of elements
+            if (output_emin is None and output_emax is not None) or (output_emax is None and output_emin is not None):
+                raise ValueError('Both output_emin and output_emax must be defined.')
+
             self.output_ebins["INDEX"] = np.arange(output_emin.size) + 1
             self.output_ebins["E_MIN"] = output_emin
             self.output_ebins["E_MAX"] = output_emax
+        else:
+            self.output_ebins["INDEX"] = np.arange(output_energybins.size - 1) + 1
+            self.output_ebins["E_MIN"] = output_energybins[:-1]
+            self.output_ebins["E_MAX"] = output_energybins[1:]
 
         self._set_histogram(histogram_data=drm_data)
 
