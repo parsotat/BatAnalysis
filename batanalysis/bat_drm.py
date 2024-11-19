@@ -154,14 +154,14 @@ class BatDRM(Histogram):
 
     def _set_histogram(self, histogram_data):
         """
-        This method properly initalizes the Histogram parent class. it uses the self.tbins and self.ebins information
-        to define the time and energy binning for the histogram that is initalized.
+        This method properly initalizes the Histogram parent class. it uses the self.tbins and self.input_ebins,
+        self.output_ebins information
+        to define the time and input/output energy binning for the histogram that is initalized.
 
-        :param histogram_data: None or histpy Histogram or a numpy array of N dimensions. Thsi should be formatted
-            such that it has the following dimensions: (T,Ny,Nx,E) where T is the number of timebins, Ny is the
-            number of detectors in the y direction see the det_x_edges class attribute, Nx represents an identical
-            quantity in the x direction, and E is the number of energy bins. These should be the appropriate sizes for
-            the tbins and ebins attributes. If None is passed in
+        :param histogram_data: None or histpy Histogram or a numpy array of N dimensions. This should be formatted
+            such that it has the following dimensions: (T,NE_IN,NE_OUT) where T is the number of timebins, NE_IN is the
+            number of binned input photon energies, NE_OUT represents the number of output/dispersed energy bins.
+            These should be the appropriate sizes for the tbins, input_ebins and output_ebins attributes.
         :return: None
         """
 
@@ -292,6 +292,11 @@ class BatDRM(Histogram):
             return drm_file[0]
 
     def plot(self):
+        """
+        This method plots the DRM object.
+
+        :return: matplotlib axis and mesh handles
+        """
 
         plot_data = self.project("E_IN", "E_OUT").contents
         vmax = plot_data.max().value
@@ -317,11 +322,12 @@ class BatDRM(Histogram):
         """
         This class method takes either a pha file of a drm file and either:
             1) create a drm file based on an input PHA file and load that into a BatDRM object
-            2) create a BatDRM object from a preconstructed BatDRM file
+            2) create a BatDRM object from a preconstructed DRM file
 
-        :param pha_file:
-        :param drm_file:
-        :return:
+        :param pha_file: a string or a Path object to a pha file that will be used to calculate an associated DRM file.
+        :param drm_file: a string or a Path object to a DRM file that has already been created, which will then be
+            loaded into a BatDRM object
+        :return: BatDRM object
         """
 
         # make sure something is specified
@@ -424,6 +430,10 @@ class BatDRM(Histogram):
     def _save(self, drm_file):
         """
         This method saves a DRM object to a detector response file which can be used for spectral fitting.
+
+        :param drm_file: string or a Path object denoting the location and name of the detector response file that will
+            be saved.
+        :return: None
         """
 
         drm_file = Path(drm_file).expanduser().resolve()
