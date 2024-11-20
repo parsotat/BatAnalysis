@@ -88,6 +88,8 @@ class BatSkyView(object):
         :param input_dict: None or dict of key/value pairs that will be passed to batfftimage. If this is set to None,
             the default batfftimage parameter values will be used. If a dictionary is passed in, it will overwrite the
             default values
+            eg input_dict=dict(aperture="CALDB:DETECTION") would cause batfftimg to use the CALDB detection-optimized
+            aperture map to construct the sky view
         :param recalc: boolean to denote if the sky image and associated images should be loaded or completely
             recalculated
         :param load_dir: Not implemented yet

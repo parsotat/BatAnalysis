@@ -4,7 +4,6 @@ This file holds convience functions for conveniently analyzing batches of observ
 import os
 import shutil
 from copy import deepcopy
-from multiprocessing import Pool
 from multiprocessing.pool import ThreadPool
 from pathlib import Path
 
@@ -883,7 +882,7 @@ def create_event_dpi(batevent, nprocs=1, **kwargs):
     return all_dpi
 
 
-def create_event_skyview(batevent, nprocs=1, **kwargs):
+def create_event_skyview(batevent, nprocs=1, parse_images=False, **kwargs):
     """
     This convenience functon allows BatSkyViews to be created in parallel for event data.
 
@@ -946,9 +945,10 @@ def create_event_skyview(batevent, nprocs=1, **kwargs):
 
     # need to reload all images within skyview and set the skyviews batevent property,
     # this can take 11 minutes for 74 skyviews
-    for i in all_skyviews:
-        i._parse_skyimages()
-        batevent.skyviews = i
+    if parse_images:
+        for i in all_skyviews:
+            i._parse_skyimages()
+            batevent.skyviews = i
 
     return all_skyviews
 
@@ -958,7 +958,22 @@ def _add_skyviews(skyviews):
         if count == 0:
             new_skyview = deepcopy(i)
         else:
+            reset = False
+            if not i.is_mosaic and i.sky_img is None:
+                i._parse_skyimages()
+                reset = True
+
+            if not new_skyview.is_mosaic and new_skyview.sky_img is None:
+                new_skyview._parse_skyimages()
+
             new_skyview += i
+
+            if reset:
+                # set all images to None to save memory
+                i.pcode_img = None
+                i.sky_img = None
+                i.snr_img = None
+                i.bkg_stddev_img = None
 
     return new_skyview
 
@@ -974,14 +989,65 @@ def _add_two_skyviews(skyview1, skyview2):
             skyview1 += skyview2
             return skyview1
         else:
+            reset = False
+            reset1 = False
+            reset2 = False
             if skyview1.is_mosaic:
+                if not skyview2.is_mosaic and skyview2.sky_img is None:
+                    skyview2._parse_skyimages()
+                    reset = True
+
                 skyview1 += skyview2
+
+                if reset:
+                    # set all images to None to save memory
+                    skyview2.pcode_img = None
+                    skyview2.sky_img = None
+                    skyview2.snr_img = None
+                    skyview2.bkg_stddev_img = None
+
                 return skyview1
             elif skyview2.is_mosaic:
+                if not skyview1.is_mosaic and skyview1.sky_img is None:
+                    skyview1._parse_skyimages()
+                    reset = True
+
                 skyview2 += skyview1
+
+                if reset:
+                    # set all images to None to save memory
+                    skyview1.pcode_img = None
+                    skyview1.sky_img = None
+                    skyview1.snr_img = None
+                    skyview1.bkg_stddev_img = None
+
                 return skyview2
             else:
-                return skyview1 + skyview2
+                if skyview1.sky_img is None:
+                    skyview1._parse_skyimages()
+                    reset1 = True
+
+                if skyview2.sky_img is None:
+                    skyview2._parse_skyimages()
+                    reset2 = True
+
+                mosaic = skyview1 + skyview2
+
+                if reset1:
+                    # set all images to None to save memory
+                    skyview1.pcode_img = None
+                    skyview1.sky_img = None
+                    skyview1.snr_img = None
+                    skyview1.bkg_stddev_img = None
+
+                if reset2:
+                    # set all images to None to save memory
+                    skyview2.pcode_img = None
+                    skyview2.sky_img = None
+                    skyview2.snr_img = None
+                    skyview2.bkg_stddev_img = None
+
+                return mosaic
     else:
         ret = [i for i in [skyview1, skyview2] if i is not None]
         return ret[0]
@@ -996,6 +1062,7 @@ def _add_two_nums(skyview1, skyview2):
 
 
 def mosaic_skyview(skyview_list, healpix_nside=512, projection="healpix", healpix_coordsys="galactic", nprocs=1):
+    from multiprocessing import Pool
     if type(skyview_list) is not list:
         raise ValueError("A list of BatSkyView objects need to be passed in.")
     else:
@@ -1009,12 +1076,13 @@ def mosaic_skyview(skyview_list, healpix_nside=512, projection="healpix", healpi
         i.healpix_coordsys = healpix_coordsys
 
     if nprocs != 1:
-        raise NotImplementedError("Adding BatSkyViews in parallel is not yet implemented, please set nprocs=1.")
+        # raise NotImplementedError("Adding BatSkyViews in parallel is not yet implemented, please set nprocs=1.")
         # chunk_size = int(len(skyview_list) / nprocs)
         # chunks = [skyview_list[i:i + chunk_size] for i in range(0, len(skyview_list), chunk_size)]
         # results = np.arange(len(skyview_list))
         # count = 0
 
+        """
         TASKS = [(skyview_list[i], skyview_list[i + 1]) for i in range(0, len(skyview_list), 2)]
 
         with Pool(processes=nprocs, maxtasksperchild=4) as pool:
@@ -1039,33 +1107,62 @@ def mosaic_skyview(skyview_list, healpix_nside=512, projection="healpix", healpi
         # after, we expect results to be nprocs in size
         # mosaic_skyview = results[0] + results[1]
         # stop
-
         """
-        # the number of iterations to reduce the list of skyviews to a single mosaic
-        n_iter = len(skyview_list) - 1
-
-        for i in range(n_iter):
-            if i == 0:
-                mosaic_skyview = Parallel(n_jobs=nprocs)(
-                    delayed(_add_two_skyviews)(
-                        skyview1, skyview2
-                    )
-                    for skyview1, skyview2 in zip(skyview_list[::2], skyview_list[1::2])
-                )
-            else:
-                mosaic_skyview = Parallel(n_jobs=nprocs)(
-                    delayed(_add_two_skyviews)(
-                        skyview1, skyview2
-                    )
-                    for skyview1, skyview2 in zip(mosaic_skyview[::2], mosaic_skyview[1::2])
-                )
         """
+        # with Parallel(n_jobs=nprocs, return_as="generator_unordered") as parallel:
+        with Parallel(n_jobs=nprocs) as parallel:
+
+            # the number of iterations to reduce the list of skyviews to a single mosaic
+            n_iter = len(skyview_list) - 1
+
+            if len(skyview_list) % 2 != 0:
+                skyview_list.append(None)
+
+            for i in range(n_iter):
+                if i != 0:
+                    mosaic_skyview = parallel(
+                        delayed(_add_two_skyviews)(
+                            skyview1, skyview2
+                        )
+                        for skyview1, skyview2 in zip(mosaic_skyview[::2], mosaic_skyview[1::2])
+                    )
+                else:
+                    mosaic_skyview = parallel(
+                        delayed(_add_two_skyviews)(
+                            skyview1, skyview2
+                        )
+                        for skyview1, skyview2 in zip(skyview_list[::2], skyview_list[1::2])
+                    )
+
+                if len(mosaic_skyview) % 2 != 0:
+                    mosaic_skyview.append(None)
+            """
+
+        niter = int(np.floor(np.log2(len(skyview_list))))
+
+        with Pool(processes=nprocs) as pool:
+
+            if len(skyview_list) % 2 != 0:
+                skyview_list.append(None)
+            mosaic_skyview = pool.starmap(_add_two_skyviews, zip(skyview_list[::2], skyview_list[1::2]))
+            print("init", len(mosaic_skyview))
+
+            for i in range(niter):
+                if len(mosaic_skyview) % 2 != 0:
+                    mosaic_skyview.append(None)
+                mosaic_skyview = pool.starmap(_add_two_skyviews, zip(mosaic_skyview[::2], mosaic_skyview[1::2]))
+
+                print(i, len(mosaic_skyview))
+
     else:
+        """
         for count, i in enumerate(skyview_list):
             if count == 0:
                 mosaic_skyview = deepcopy(i)
             else:
                 mosaic_skyview += i
+        """
+        mosaic_skyview = _add_skyviews(skyview_list)
 
     # depending on the nprocs we can have a list or not, if we have a list get the 0th element and ake sure that it is the
     # only element
