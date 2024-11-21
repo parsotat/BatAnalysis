@@ -1053,14 +1053,6 @@ def _add_two_skyviews(skyview1, skyview2):
         return ret[0]
 
 
-def _add_two_nums(skyview1, skyview2):
-    if None not in [skyview1, skyview2]:
-        return skyview1 + skyview2
-    else:
-        ret = [i for i in [skyview1, skyview2] if i is not None]
-        return ret[0]
-
-
 def mosaic_skyview(skyview_list, healpix_nside=512, projection="healpix", healpix_coordsys="galactic", nprocs=1):
     from multiprocessing import Pool
     if type(skyview_list) is not list:
