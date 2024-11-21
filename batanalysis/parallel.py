@@ -882,12 +882,15 @@ def create_event_dpi(batevent, nprocs=1, **kwargs):
     return all_dpi
 
 
-def create_event_skyview(batevent, nprocs=1, parse_images=False, **kwargs):
+def create_event_skyview(batevent, nprocs=1, parse_images=True, **kwargs):
     """
     This convenience functon allows BatSkyViews to be created in parallel for event data.
 
     :param batevent: the BatEvent object that the user would like to construct BatSkyViews for
     :param nprocs: int, the number of procs that the user would like to use to create BatSkyViews
+    :param parse_images: boolean to denote if the different images in the skyview should be loaded into each SkyView
+        object or not. If this is set to False, it helps save memory and is especially useful if the user only
+         cares about the mosaiced image and not the skyviews themselves.
     :param kwargs: parameters that will be passed to the BatEvent.create_skyview method. See documentation for appropriate
         parameters and their values
     :return: list of created BatSkyViews objects. These BatSkyViews objects are also appended to the batevent object's skyviews property.
