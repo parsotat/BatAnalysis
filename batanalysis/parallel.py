@@ -992,7 +992,7 @@ def _add_skyviews(skyviews):
 def _add_two_skyviews(skyview1, skyview2):
     """
     this will do inplace modification of skyview1 if both skyviews are mosaic skyviews otherwise, we will ID the
-    one that is a mosaic skyview and do inplace modification. If none are mosaics, then we create a new skyview
+    one that is a mosaic skyview and do inplace modification. If none are mosaics, then we create a new mosaic skyview
     using the + operator
 
     :param skyview1:
@@ -1066,6 +1066,9 @@ def _add_two_skyviews(skyview1, skyview2):
                     skyview1.bkg_stddev_img = None
 
                 return skyview2
+            else:
+                raise RuntimeError("The passed in skyviews cannot be determined to be a mosaic or not which is not "
+                                   "typical.")
     else:
         ret = [i for i in [skyview1, skyview2] if i is not None]
         return ret[0]
