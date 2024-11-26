@@ -989,7 +989,7 @@ def _add_two_skyviews(skyview1, skyview2):
     # on that is a mosaic skyview and do inplace modification. If none are mosaics, then we create a new skyview
     # using the + operator
 
-    print("_add_two_skyviews is called")
+    # print("_add_two_skyviews is called")
 
     if None not in [skyview1, skyview2]:
         # to also try and save memory, if we have a
@@ -1032,8 +1032,8 @@ def _add_two_skyviews(skyview1, skyview2):
                     skyview2._parse_skyimages()
                     reset = True
 
-                # skyview1 += skyview2
-                skyview1 = skyview1 + skyview2
+                skyview1 += skyview2
+                # skyview1 = skyview1 + skyview2
 
                 if reset:
                     # set all images to None to save memory
@@ -1048,8 +1048,8 @@ def _add_two_skyviews(skyview1, skyview2):
                     skyview1._parse_skyimages()
                     reset = True
 
-                # skyview2 += skyview1
-                skyview2 = skyview1 + skyview2
+                skyview2 += skyview1
+                # skyview2 = skyview1 + skyview2
 
                 if reset:
                     # set all images to None to save memory
@@ -1080,8 +1080,6 @@ def mosaic_skyview(skyview_list, healpix_nside=512, projection="healpix", healpi
     if nprocs != 1:
         warnings.warn("This parallel image addition can be memory intensive. Allocate ~10 GB of memory per process.",
                       stacklevel=2)
-
-        niter = int(np.floor(np.log2(len(skyview_list))))
 
         with Pool(processes=nprocs) as pool:
 
