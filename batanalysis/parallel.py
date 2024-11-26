@@ -960,6 +960,11 @@ def create_event_skyview(batevent, nprocs=1, parse_images=True, **kwargs):
 
 
 def _add_skyviews(skyviews):
+    """
+
+    :param skyviews:
+    :return:
+    """
     for count, i in enumerate(skyviews):
         if count == 0:
             new_skyview = deepcopy(i)
@@ -985,11 +990,15 @@ def _add_skyviews(skyviews):
 
 
 def _add_two_skyviews(skyview1, skyview2):
-    # this will do inplace modification of skyview1 if both skyviews are mosaic skyviews otherwise, we will ID the
-    # on that is a mosaic skyview and do inplace modification. If none are mosaics, then we create a new skyview
-    # using the + operator
+    """
+    this will do inplace modification of skyview1 if both skyviews are mosaic skyviews otherwise, we will ID the
+    one that is a mosaic skyview and do inplace modification. If none are mosaics, then we create a new skyview
+    using the + operator
 
-    # print("_add_two_skyviews is called")
+    :param skyview1:
+    :param skyview2:
+    :return:
+    """
 
     if None not in [skyview1, skyview2]:
         # to also try and save memory, if we have a
@@ -1033,7 +1042,6 @@ def _add_two_skyviews(skyview1, skyview2):
                     reset = True
 
                 skyview1 += skyview2
-                # skyview1 = skyview1 + skyview2
 
                 if reset:
                     # set all images to None to save memory
@@ -1049,7 +1057,6 @@ def _add_two_skyviews(skyview1, skyview2):
                     reset = True
 
                 skyview2 += skyview1
-                # skyview2 = skyview1 + skyview2
 
                 if reset:
                     # set all images to None to save memory
@@ -1065,6 +1072,15 @@ def _add_two_skyviews(skyview1, skyview2):
 
 
 def mosaic_skyview(skyview_list, healpix_nside=512, projection="healpix", healpix_coordsys="galactic", nprocs=1):
+    """
+
+    :param skyview_list:
+    :param healpix_nside:
+    :param projection:
+    :param healpix_coordsys:
+    :param nprocs:
+    :return:
+    """
     if type(skyview_list) is not list:
         raise ValueError("A list of BatSkyView objects need to be passed in.")
     else:
@@ -1078,7 +1094,7 @@ def mosaic_skyview(skyview_list, healpix_nside=512, projection="healpix", healpi
         i.healpix_coordsys = healpix_coordsys
 
     if nprocs != 1:
-        warnings.warn("This parallel image addition can be memory intensive. Allocate ~10 GB of memory per process.",
+        warnings.warn("This parallel image addition can be memory intensive. Allocate ~10-15 GB of memory per process.",
                       stacklevel=2)
 
         with Pool(processes=nprocs) as pool:
