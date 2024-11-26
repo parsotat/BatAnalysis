@@ -949,7 +949,8 @@ def create_event_skyview(batevent, nprocs=1, parse_images=True, **kwargs):
         )
 
     # need to reload all images within skyview and set the skyviews batevent property,
-    # this can take 11 minutes for 74 skyviews
+    # this can take 11 minutes for 74 skyviews. This is better since if we did this in the Parallel portion, lots of
+    # memory would be needed to copy everything from the threads
     if parse_images:
         for i in all_skyviews:
             i._parse_skyimages()
@@ -988,6 +989,8 @@ def _add_two_skyviews(skyview1, skyview2):
     # on that is a mosaic skyview and do inplace modification. If none are mosaics, then we create a new skyview
     # using the + operator
 
+    print("_add_two_skyviews is called")
+
     if None not in [skyview1, skyview2]:
         # to also try and save memory, if we have a
         if skyview1.is_mosaic and skyview2.is_mosaic:
@@ -997,37 +1000,7 @@ def _add_two_skyviews(skyview1, skyview2):
             reset = False
             reset1 = False
             reset2 = False
-            if skyview1.is_mosaic:
-                if not skyview2.is_mosaic and skyview2.sky_img is None:
-                    skyview2._parse_skyimages()
-                    reset = True
-
-                skyview1 += skyview2
-
-                if reset:
-                    # set all images to None to save memory
-                    skyview2.pcode_img = None
-                    skyview2.sky_img = None
-                    skyview2.snr_img = None
-                    skyview2.bkg_stddev_img = None
-
-                return skyview1
-            elif skyview2.is_mosaic:
-                if not skyview1.is_mosaic and skyview1.sky_img is None:
-                    skyview1._parse_skyimages()
-                    reset = True
-
-                skyview2 += skyview1
-
-                if reset:
-                    # set all images to None to save memory
-                    skyview1.pcode_img = None
-                    skyview1.sky_img = None
-                    skyview1.snr_img = None
-                    skyview1.bkg_stddev_img = None
-
-                return skyview2
-            else:
+            if not skyview1.is_mosaic and not skyview2.is_mosaic:
                 if skyview1.sky_img is None:
                     skyview1._parse_skyimages()
                     reset1 = True
@@ -1053,6 +1026,39 @@ def _add_two_skyviews(skyview1, skyview2):
                     skyview2.bkg_stddev_img = None
 
                 return mosaic
+
+            elif skyview1.is_mosaic:
+                if skyview2.sky_img is None:
+                    skyview2._parse_skyimages()
+                    reset = True
+
+                # skyview1 += skyview2
+                skyview1 = skyview1 + skyview2
+
+                if reset:
+                    # set all images to None to save memory
+                    skyview2.pcode_img = None
+                    skyview2.sky_img = None
+                    skyview2.snr_img = None
+                    skyview2.bkg_stddev_img = None
+
+                return skyview1
+            elif skyview2.is_mosaic:
+                if skyview1.sky_img is None:
+                    skyview1._parse_skyimages()
+                    reset = True
+
+                # skyview2 += skyview1
+                skyview2 = skyview1 + skyview2
+
+                if reset:
+                    # set all images to None to save memory
+                    skyview1.pcode_img = None
+                    skyview1.sky_img = None
+                    skyview1.snr_img = None
+                    skyview1.bkg_stddev_img = None
+
+                return skyview2
     else:
         ret = [i for i in [skyview1, skyview2] if i is not None]
         return ret[0]
@@ -1081,15 +1087,9 @@ def mosaic_skyview(skyview_list, healpix_nside=512, projection="healpix", healpi
 
             if len(skyview_list) % 2 != 0:
                 skyview_list.append(None)
-            mosaic_skyview = pool.starmap(_add_two_skyviews, zip(skyview_list[::2], skyview_list[1::2]))
-            print("init", len(mosaic_skyview))
+            output = pool.starmap(_add_two_skyviews, zip(skyview_list[::2], skyview_list[1::2]))
 
-            for i in range(niter):
-                if len(mosaic_skyview) % 2 != 0:
-                    mosaic_skyview.append(None)
-                mosaic_skyview = pool.starmap(_add_two_skyviews, zip(mosaic_skyview[::2], mosaic_skyview[1::2]))
-
-                # print(i, len(mosaic_skyview))
+        mosaic_skyview = _add_skyviews(output)
 
     else:
         mosaic_skyview = _add_skyviews(skyview_list)
