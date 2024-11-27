@@ -961,9 +961,11 @@ def create_event_skyview(batevent, nprocs=1, parse_images=True, **kwargs):
 
 def _add_skyviews(skyviews):
     """
+    This function loops over a list of BatSkyViews and mosaics them together. It attempts to save memory by only
+    loading in the sky images associated with each BatSkyView that is being added at the given point in the loop.
 
-    :param skyviews:
-    :return:
+    :param skyviews: list of BatSkyViews
+    :return: BatSkyView mosaic
     """
     for count, i in enumerate(skyviews):
         if count == 0:
@@ -991,13 +993,13 @@ def _add_skyviews(skyviews):
 
 def _add_two_skyviews(skyview1, skyview2):
     """
-    this will do inplace modification of skyview1 if both skyviews are mosaic skyviews otherwise, we will ID the
+    This will do inplace modification of skyview1 if both skyviews are mosaic skyviews otherwise, we will ID the
     one that is a mosaic skyview and do inplace modification. If none are mosaics, then we create a new mosaic skyview
-    using the + operator
+    using the + operator. This function also loads in the sky images associated with the BatSkyViews if necessary.
 
-    :param skyview1:
-    :param skyview2:
-    :return:
+    :param skyview1: BatSkyView object
+    :param skyview2: BatskyView object
+    :return: BatSkyView mosaic of the two BatSkyViews added together.
     """
 
     if None not in [skyview1, skyview2]:
@@ -1076,13 +1078,17 @@ def _add_two_skyviews(skyview1, skyview2):
 
 def mosaic_skyview(skyview_list, healpix_nside=512, projection="healpix", healpix_coordsys="galactic", nprocs=1):
     """
+    Mosaic skyviews together in parallel by projecting them into a healpix map with a resolution set by healpix_nside
+    and the coordinate system defined in healpix_coordsys
 
-    :param skyview_list:
-    :param healpix_nside:
-    :param projection:
-    :param healpix_coordsys:
-    :param nprocs:
-    :return:
+    :param skyview_list: list of BatSkyViews that will be mosaiced
+    :param healpix_nside: int representing the healpix map resolution
+    :param projection: str representing the type of projection that is done to mosaic the images together. Currently
+        only healpix is the only string that is allowed.
+    :param healpix_coordsys: str representing the healpix map coordinate system. Can be "galactic" or "icrs"
+    :param nprocs: int, the number of processes that the user would like to use to create the mosaic.
+        THIS FUNCTION CAN BE MEMORY INTENSIVE. ENSURE THAT ~10-15 GB OF MEMORY PER PROCESS IS AVAILABLE.
+    :return: BatSkyView mosaic 
     """
     if type(skyview_list) is not list:
         raise ValueError("A list of BatSkyView objects need to be passed in.")
