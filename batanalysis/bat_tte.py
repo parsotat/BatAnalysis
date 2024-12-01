@@ -1436,7 +1436,7 @@ class BatEvent(BatObservation):
                 if energybins is not None:
                     dpi.set_energybins(energybins=energybins)
 
-                self.dpis = dpi
+            self.dpis = dpi
 
             dpi_list.append(dpi)
 
