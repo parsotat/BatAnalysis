@@ -37,7 +37,7 @@ from .mosaic import (
 
 # for python>3.6
 try:
-    import heasoftpy as hsp
+    import heasoftpy.swift as hsp
     import heasoftpy.utils as hsp_util
 
 except ModuleNotFoundError as err:
@@ -1088,7 +1088,7 @@ def mosaic_skyview(skyview_list, healpix_nside=512, projection="healpix", healpi
     :param healpix_coordsys: str representing the healpix map coordinate system. Can be "galactic" or "icrs"
     :param nprocs: int, the number of processes that the user would like to use to create the mosaic.
         THIS FUNCTION CAN BE MEMORY INTENSIVE. ENSURE THAT ~10-15 GB OF MEMORY PER PROCESS IS AVAILABLE.
-    :return: BatSkyView mosaic 
+    :return: BatSkyView mosaic
     """
     if type(skyview_list) is not list:
         raise ValueError("A list of BatSkyView objects need to be passed in.")

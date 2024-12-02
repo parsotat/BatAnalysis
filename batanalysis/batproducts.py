@@ -20,7 +20,7 @@ from .batobservation import BatObservation
 
 # for python>3.6
 try:
-    import heasoftpy as hsp
+    import heasoftpy.swift as hsp
 except ModuleNotFoundError as err:
     # Error handling
     print(err)

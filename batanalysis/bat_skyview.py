@@ -20,7 +20,7 @@ from .bat_skyimage import BatSkyImage
 from .mosaic import _pcodethresh
 
 try:
-    import heasoftpy as hsp
+    import heasoftpy.swift as hsp
 except ModuleNotFoundError as err:
     # Error handling
     print(err)

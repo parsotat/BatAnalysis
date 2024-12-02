@@ -1,29 +1,30 @@
-from matplotlib import pyplot as plt
-import numpy as np
 from pathlib import Path
-from .batlib import met2utc, met2mjd, concatenate_data, concatenate_spectrum_data
-from astropy.time import Time, TimeDelta
-from .batproducts import Spectrum, Lightcurve
+
 import astropy.units as u
-import dpath
+import numpy as np
+from astropy.time import Time, TimeDelta
+from matplotlib import pyplot as plt
+
+from .batlib import met2utc, met2mjd, concatenate_data, concatenate_spectrum_data
+from .batproducts import Spectrum, Lightcurve
 
 # for python>3.6
 try:
-    import heasoftpy as hsp
+    import heasoftpy.swift as hsp
 except ModuleNotFoundError as err:
     # Error handling
     print(err)
 
 
 def plot_survey_lc(
-    survey_obsid_list,
-    id_list,
-    energy_range=[14, 195],
-    savedir=None,
-    time_unit="MET",
-    values=["rate", "snr"],
-    T0=None,
-    same_figure=False,
+        survey_obsid_list,
+        id_list,
+        energy_range=[14, 195],
+        savedir=None,
+        time_unit="MET",
+        values=["rate", "snr"],
+        T0=None,
+        same_figure=False,
 ):
     """
     Convenience function to plot light curves for a number of sources.
@@ -262,8 +263,10 @@ def plot_survey_lc(
 
     return fig, axes
 
-@u.quantity_input(energy_range=[None,'energy'])
-def plot_TTE_lightcurve(lightcurves, spectra, values=["flux", "phoindex"], T0=None, time_unit="MET", plot_relative=False, energy_range=[15,350]*u.keV):
+
+@u.quantity_input(energy_range=[None, 'energy'])
+def plot_TTE_lightcurve(lightcurves, spectra, values=["flux", "phoindex"], T0=None, time_unit="MET",
+                        plot_relative=False, energy_range=[15, 350] * u.keV):
     """
     This convenience function allows for plotting multiple lightcurves/spectra. If multiple lightcurves are passed in
     they should be in the form of a list. If multiple spectra are passed in, they should be in the form of a list as
@@ -288,44 +291,44 @@ def plot_TTE_lightcurve(lightcurves, spectra, values=["flux", "phoindex"], T0=No
     :return: matplotlib figure, axes
     """
 
-
-    #first see how many lightcurves we need to plot
+    # first see how many lightcurves we need to plot
     if type(lightcurves) is not list:
-        lcs=[lightcurves]
+        lcs = [lightcurves]
     else:
-        lcs=lightcurves
+        lcs = lightcurves
 
     if type(spectra) is not list:
-        spect=[spectra]
+        spect = [spectra]
     else:
-        spect=spectra
+        spect = spectra
 
-    #do some error checking for types
+    # do some error checking for types
     if np.any([not isinstance(i, Lightcurve) for i in lcs]):
-        raise ValueError("Not all the elements of the values passed in to the lightcurves variable are Lightcurve objects.")
+        raise ValueError(
+            "Not all the elements of the values passed in to the lightcurves variable are Lightcurve objects.")
 
     if np.any([not isinstance(i, Spectrum) for i in spect]):
         raise ValueError("Not all the elements of the values passed in to the spectra variable are Spectrum objects.")
 
-    #if the user has passed in explicit values to plot we want to check for these, otherwise plot everything
+    # if the user has passed in explicit values to plot we want to check for these, otherwise plot everything
     if values is None:
-        template=None
+        template = None
     else:
-        #if values has flux in it, change it to lg10flux isnce this is what xspec provides
+        # if values has flux in it, change it to lg10flux isnce this is what xspec provides
         if "flux" in values:
-            values[values.index("flux")]="lg10Flux"
+            values[values.index("flux")] = "lg10Flux"
         if "phoindex" in values:
             values[values.index("phoindex")] = "PhoIndex"
         if "index" in values:
             values[values.index("index")] = "PhoIndex"
 
-        template=values #[i.lower() for i in values]
+        template = values  # [i.lower() for i in values]
 
     # accumulate spectral info data here
     # this function also makes sure all the spectra have been fitted with a model and that all the models are the same
-    spect_data=concatenate_spectrum_data(spectra, values)
+    spect_data = concatenate_spectrum_data(spectra, values)
 
-    #potentially set the T0 to the correct u.Quantity object
+    # potentially set the T0 to the correct u.Quantity object
     if plot_relative:
         if T0 is None:
             raise ValueError('The plot_relative value is set to True however there is no T0 that is defined ' +
@@ -335,22 +338,22 @@ def plot_TTE_lightcurve(lightcurves, spectra, values=["flux", "phoindex"], T0=No
             if type(T0) is not u.Quantity:
                 T0 *= u.s
 
-    #then see how many figure axes we need
+    # then see how many figure axes we need
     # one for LC and some number for the spectral ligthcurve parameters we want to plot
-    num_ax=1+len(template)
+    num_ax = 1 + len(template)
     fig, axes = plt.subplots(num_ax, sharex=True)
 
-    if len(lcs)>1 and energy_range.size>2:
-        #we can only plot a single energy range for each LC otherwise we get plots that are too cluttered
+    if len(lcs) > 1 and energy_range.size > 2:
+        # we can only plot a single energy range for each LC otherwise we get plots that are too cluttered
         raise ValueError("There can only be a single energy range plotted when there are multiple lightcurves to plot")
 
-    #plot the ligthcurves on the first axis
-    #if a single lc is passed in and energy range is None, we want to plot all the energy bins of the Lightcurve object
-    lc_keys=None
-    all_lc_lines=[]
-    all_lc_labels=[]
+    # plot the ligthcurves on the first axis
+    # if a single lc is passed in and energy range is None, we want to plot all the energy bins of the Lightcurve object
+    lc_keys = None
+    all_lc_lines = []
+    all_lc_labels = []
     for lc in lcs:
-        #need to get the times here for the LC
+        # need to get the times here for the LC
         if "MET" in time_unit:
             start_times = lc.tbins["TIME_START"]
             end_times = lc.tbins["TIME_STOP"]
@@ -388,23 +391,22 @@ def plot_TTE_lightcurve(lightcurves, spectra, values=["flux", "phoindex"], T0=No
                 else:
                     raise ValueError("plot_relative with UTC time unit is not a permitted combination.")
 
-        #make sure that all the LCs have rates/counts/same data keys
-        new_lc_keys=lc._get_count_related_keys()
+        # make sure that all the LCs have rates/counts/same data keys
+        new_lc_keys = lc._get_count_related_keys()
         if lc_keys is None:
             lc_keys = new_lc_keys
         else:
-            if set(lc_keys)!=set(new_lc_keys):
+            if set(lc_keys) != set(new_lc_keys):
                 raise ValueError("Not all the lightcurves have the same data quantities.")
 
-
-        #see if we should be using rates or counts for the lightcurve
+        # see if we should be using rates or counts for the lightcurve
         if "RATE" in lc_keys:
-            data_key="RATE"
+            data_key = "RATE"
         else:
-            data_key="COUNTS"
+            data_key = "COUNTS"
 
         for e_idx, emin, emax in zip(lc.ebins["INDEX"], lc.ebins["E_MIN"], lc.ebins["E_MAX"]):
-            plotting=True
+            plotting = True
             if energy_range is not None:
                 # need to see if the energy range is what the user wants
                 if emin == energy_range.min() and emax == energy_range.max():
@@ -429,21 +431,22 @@ def plot_TTE_lightcurve(lightcurves, spectra, values=["flux", "phoindex"], T0=No
                 all_lc_labels.append(l)
                 axes[0].errorbar(mid_times, rate, yerr=rate_error, ls='None', color=line[-1].get_color())
 
-    #add the axis labels
-    axes[0].legend()#(handles=all_lines[:num_e], labels=all_labels[:num_e], bbox_to_anchor=(0, 1.02, 1, 0.2), loc="lower left", mode="expand", ncol=3)
+    # add the axis labels
+    axes[
+        0].legend()  # (handles=all_lines[:num_e], labels=all_labels[:num_e], bbox_to_anchor=(0, 1.02, 1, 0.2), loc="lower left", mode="expand", ncol=3)
 
     axes[0].set_ylabel(data_key + f" ({rate.unit})")
 
-    #now move onto to plotting the different spectral model parameters
-    tbin_cent=0.5*(spect_data["TIME_START"]+spect_data["TIME_STOP"])
-    tbin_err=0.5*(spect_data["TIME_STOP"]-spect_data["TIME_START"])
+    # now move onto to plotting the different spectral model parameters
+    tbin_cent = 0.5 * (spect_data["TIME_START"] + spect_data["TIME_STOP"])
+    tbin_err = 0.5 * (spect_data["TIME_STOP"] - spect_data["TIME_START"])
 
-    #modify the time if we want to plot relative times
+    # modify the time if we want to plot relative times
     if plot_relative:
         tbin_cent -= T0
 
     for ax, spec_param in zip(axes[1:], template):
-        y=spect_data[spec_param]
+        y = spect_data[spec_param]
 
         # get the errors
         lolim = spect_data[f"{spec_param}_lolim"]
@@ -470,13 +473,11 @@ def plot_TTE_lightcurve(lightcurves, spectra, values=["flux", "phoindex"], T0=No
 
         if "flux" in spec_param.lower():
             ax.set_yscale("log")
-            label="flux"
+            label = "flux"
         else:
-            label=spec_param
+            label = spec_param
 
         ax.set_ylabel(label)
-
-
 
     if T0 is not None and not plot_relative:
         # plot the trigger time for all panels if we dont want the plotted times to be relative

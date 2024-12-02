@@ -16,7 +16,7 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 from .tte_data import TimeTaggedEvents
 
 try:
-    import heasoftpy as hsp
+    import heasoftpy.swift as hsp
 except ModuleNotFoundError as err:
     # Error handling
     print(err)

@@ -18,7 +18,7 @@ from .batlib import create_gti_file
 from .detectorplanehist import DetectorPlaneHistogram
 
 try:
-    import heasoftpy as hsp
+    import heasoftpy.swift as hsp
 except ModuleNotFoundError as err:
     # Error handling
     print(err)
