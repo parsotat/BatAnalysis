@@ -19,6 +19,7 @@ from .detectorplanehist import DetectorPlaneHistogram
 
 try:
     import heasoftpy.swift as hsp
+    import heasoftpy as hsp_core
 except ModuleNotFoundError as err:
     # Error handling
     print(err)
@@ -306,7 +307,7 @@ class BatDPH(DetectorPlaneHistogram):
 
         if self.dph_input_dict is None:
             # get the default names of the parameters for batbinevt including its name 9which should never change)
-            test = hsp.HSPTask("batbinevt")
+            test = hsp_core.HSPTask("batbinevt")
             default_params_dict = test.default_params.copy()
             taskname = test.taskname
             start_processing = None
@@ -745,7 +746,7 @@ class BatDPH(DetectorPlaneHistogram):
         :return:
         """
 
-        baterebin = hsp.HSPTask("baterebin")
+        baterebin = hsp_core.HSPTask("baterebin")
 
         if input_dict is None:
             # get the default names of the parameters for batbinevt including its name 9which should never change)
@@ -811,7 +812,7 @@ class BatDPH(DetectorPlaneHistogram):
         :param input_dict:
         :return:
         """
-        batsurvey_gti = hsp.HSPTask("batsurvey-gti")
+        batsurvey_gti = hsp_core.HSPTask("batsurvey-gti")
 
         if input_dict is None:
             input_dict = batsurvey_gti.default_params.copy()

@@ -21,6 +21,7 @@ from .batobservation import BatObservation
 # for python>3.6
 try:
     import heasoftpy.swift as hsp
+    import heasoftpy as hsp_core
 except ModuleNotFoundError as err:
     # Error handling
     print(err)
@@ -616,7 +617,7 @@ class Lightcurve(BatObservation):
 
         if "event" in header["DATAMODE"].lower() and self.lc_input_dict is None:
             # get the default names of the parameters for batbinevt including its name 9which should never change)
-            test = hsp.HSPTask('batbinevt')
+            test = hsp_core.HSPTask('batbinevt')
             default_params_dict = test.default_params.copy()
             taskname = test.taskname
             start_processing = None
@@ -1046,7 +1047,7 @@ class Lightcurve(BatObservation):
 
         # get the set of default values which we will modify
         # stop
-        test = hsp.HSPTask('battblocks')
+        test = hsp_core.HSPTask('battblocks')
         input_dict = test.default_params.copy()
 
         if output_file is None:
@@ -1927,7 +1928,7 @@ class Spectrum(BatObservation):
 
         if self.pha_input_dict is None:
             # get the default names of the parameters for batbinevt including its name 9which should never change)
-            test = hsp.HSPTask('batbinevt')
+            test = hsp_core.HSPTask('batbinevt')
             default_params_dict = test.default_params.copy()
             taskname = test.taskname
             start_processing = None

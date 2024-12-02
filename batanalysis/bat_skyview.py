@@ -21,6 +21,7 @@ from .mosaic import _pcodethresh
 
 try:
     import heasoftpy.swift as hsp
+    import heasoftpy as hsp_core
 except ModuleNotFoundError as err:
     # Error handling
     print(err)
@@ -202,7 +203,7 @@ class BatSkyView(object):
                     raise ValueError("Please specify an attitude file associated with the DPI.")
 
             # get the default names of the parameters for batfftimage including its name (which should never change)
-            test = hsp.HSPTask("batfftimage")
+            test = hsp_core.HSPTask("batfftimage")
             default_params_dict = test.default_params.copy()
 
             if not self.skyimg_file.exists() or recalc:
@@ -373,7 +374,7 @@ class BatSkyView(object):
 
         if self.skyimg_input_dict is None:
             # get the default names of the parameters for batbinevt including its name 9which should never change)
-            test = hsp.HSPTask("batfftimage")
+            test = hsp_core.HSPTask("batfftimage")
             default_params_dict = test.default_params.copy()
             taskname = test.taskname
             start_processing = None
@@ -608,7 +609,7 @@ class BatSkyView(object):
             catalog_file = Path(catalog_file).expanduser().resolve()
 
         # get the default names of the parameters for batcelldetect including its name (which should never change)
-        test = hsp.HSPTask("batcelldetect")
+        test = hsp_core.HSPTask("batcelldetect")
         default_params_dict = test.default_params.copy()
 
         # fill in defaults, which can be overwritten if values are passed into the input_dict parameter
