@@ -18,6 +18,7 @@ from .detectorplanehist import DetectorPlaneHistogram
 
 try:
     import heasoftpy.swift as hsp
+    import heasoftpy as hsp_core
 except ModuleNotFoundError as err:
     # Error handling
     print(err)
@@ -368,7 +369,7 @@ class BatDPI(DetectorPlaneHistogram):
 
         if self.dpi_input_dict is None:
             # get the default names of the parameters for batbinevt including its name 9which should never change)
-            test = hsp.HSPTask("batbinevt")
+            test = hsp_core.HSPTask("batbinevt")
             default_params_dict = test.default_params.copy()
             taskname = test.taskname
             start_processing = None
