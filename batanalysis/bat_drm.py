@@ -284,7 +284,7 @@ class BatDRM(Histogram):
             if str(pha_dir) != str(current_dir):
                 os.chdir(current_dir)
 
-        drm_file = [i.parent.joinpath(f"{pha_file.stem}.rsp") for i in pha_file]
+        drm_file = [i.parent.joinpath(f"{i.stem}.rsp") for i in phafilename]
 
         if len(drm_file) > 1:
             return drm_file

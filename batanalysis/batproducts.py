@@ -1300,10 +1300,6 @@ class Spectrum(BatObservation):
             warnings.warn("No auxiliary ray tracing file has been specified. The resulting spectrum object will not "
                           "be able to be modified either by rebinning in energy or time.", stacklevel=2)
 
-        self.drm_file = None
-        self.drm = None
-        self.spectral_model = None
-
         # need to see if we have to construct the lightcurve if the file doesnt exist
         if not self.pha_file.exists() or recalc:
             # see if the input dict is None so we can set these defaults, otherwise save the requested inputs for use
@@ -1332,6 +1328,11 @@ class Spectrum(BatObservation):
             # parameters passed into batbinevt to create the pha file
             # try to parse the existing pha file to see what parameters were passed to batbinevt to construct the file
             self.pha_input_dict = None
+
+        # set default DRM info
+        self.drm_file = None
+        self.drm = None
+        self.spectral_model = None
 
         # set default RA/DEC coordinates correcpondent to the pha file which will be filled in later if it is set to None
         self.ra = ra
