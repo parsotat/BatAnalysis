@@ -18,6 +18,7 @@ from .batlib import dirtest, met2utc
 # for python>3.6
 try:
     import heasoftpy.swift as hsp
+    import heasoftpy.utils as hsp_util
 except ModuleNotFoundError as err:
     # Error handling
     print(err)
@@ -229,7 +230,7 @@ def merge_outventory(survey_list, savedir=None):
     # try:
     #    hsp.local_pfiles(pfiles_dir=str(local_pfile_dir))
     # except AttributeError:
-    #    hsp.utils.local_pfiles(par_dir=str(local_pfile_dir))
+    #    hsp_util.local_pfiles(par_dir=str(local_pfile_dir))
 
     # output_file = savedir.joinpath(
     #    "outventory_all_unsrt.fits"

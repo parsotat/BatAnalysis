@@ -26,6 +26,7 @@ from astroquery.heasarc import Heasarc
 # for python>3.6
 try:
     import heasoftpy.swift as hsp
+    import heasoftpy.utils as hsp_util
 except ModuleNotFoundError as err:
     # Error handling
     print(err)
@@ -277,7 +278,7 @@ def combine_survey_lc(survey_obsid_list, output_dir=None, clean_dir=True):
     try:
         hsp.local_pfiles(pfiles_dir=str(_local_pfile_dir))
     except AttributeError:
-        hsp.utils.local_pfiles(par_dir=str(_local_pfile_dir))
+        hsp_util.local_pfiles(par_dir=str(_local_pfile_dir))
 
     ret = []
     for obs in survey_obsid_list:
@@ -396,7 +397,7 @@ def calc_response(phafilename):
     try:
         hsp.local_pfiles(pfiles_dir=str(_local_pfile_dir))
     except AttributeError:
-        hsp.utils.local_pfiles(par_dir=str(_local_pfile_dir))
+        hsp_util.local_pfiles(par_dir=str(_local_pfile_dir))
 
     # Check if the phafilename is a string and if it has an extension .pha. If NOT then exit
     for filename in phafilename:
@@ -1994,7 +1995,7 @@ def set_pdir(pdir):
     try:
         hsp.local_pfiles(pfiles_dir=pdir)
     except AttributeError:
-        hsp.utils.local_pfiles(par_dir=pdir)
+        hsp_util.local_pfiles(par_dir=pdir)
 
 
 def reset_pdir():

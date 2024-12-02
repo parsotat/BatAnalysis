@@ -11,6 +11,7 @@ from .batlib import datadir
 # for python>3.6
 try:
     import heasoftpy.swift as hsp
+    import heasoftpy.utils as hsp_util
 except ModuleNotFoundError as err:
     # Error handling
     print(err)
@@ -73,7 +74,7 @@ class BatObservation(object):
         try:
             hsp.local_pfiles(pfiles_dir=str(self._local_pfile_dir))
         except AttributeError:
-            hsp.utils.local_pfiles(par_dir=str(self._local_pfile_dir))
+            hsp_util.local_pfiles(par_dir=str(self._local_pfile_dir))
 
     def _get_local_pfile_dir(self):
         """
