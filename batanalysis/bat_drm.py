@@ -391,13 +391,15 @@ class BatDRM(Histogram):
                    timebins=timebin)
 
     @classmethod
-    def concatenate(cls, drm_list, weights=None):
+    def concatenate(cls, drm_list, weights=None, drm_save_file=None):
         """
         This class method takes a list of BatDRM objects and combines them with weighting factors if they are provided.
 
         :param drm_list: list of BatDRM objects that will be combined
-        :param weights: None, or a list of normalized weightings for the drm_list objects. NOne defaults to weights
+        :param weights: None, or a list of weightings for the drm_list objects. if the weights don't sum to 1, then the
+            input weights will be divided by the sum of the weights. None defaults to weights
             being 1/N, where N is the length of the drm_list that is passed in
+        :param drm_save_file: a Path object containing the location and name of where the constructed DRM will be saved
         :return: a BatDRM object
         """
 
@@ -409,7 +411,7 @@ class BatDRM(Histogram):
         # if weights are passed in, then they need to be normalized otherwise we just set the weights to 1 and add things
         if weights is not None:
             if np.sum(weights) != 1:
-                raise ValueError("The weights should be normalized. Currently the weights do not add up to 1.")
+                weights = weights / np.sum(weights)
         else:
             weights = np.ones(len(drm_list)) / len(drm_list)
 
@@ -421,11 +423,15 @@ class BatDRM(Histogram):
         times = [i.axes["TIME"].edges for i in drm_list]
         time_unit = drm_list[0].axes["TIME"].edges.unit
 
-        output_drm = Histogram.concatenate([np.min(times), np.max(times)] * time_unit, input_drm_list, label="TIME")
+        output_drm = Histogram.concatenate(np.unique(times) * time_unit, input_drm_list, label="TIME")
+
+        output_drm = cls(output_drm.rebin([np.unique(times).size - 1, 1, 1]))
 
         # to save the output drm to a file, we need to also make sure that at least 1 drm in the drm list has the drm.
+        if drm_save_file is not None:
+            output_drm._save(drm_save_file)
 
-        return cls(output_drm)
+        return output_drm
 
     def _save(self, drm_file):
         """
