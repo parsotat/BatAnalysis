@@ -13,3 +13,4 @@ histpy>=1.1.2
 reproject>=0.13.1
 healpy>=1.16.6
 astro-gdt-swift>=1.0.1
+ligo.skymap>=2.1.2
