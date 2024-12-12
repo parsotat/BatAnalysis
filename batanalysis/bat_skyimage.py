@@ -348,6 +348,21 @@ class BatSkyImage(Histogram):
         :param nside: int representing the resolution of the healpix map
         :return: a BatSkyImage object with the healpix projection of the original sky image
         """
+
+        """
+        Note for converting image(s) to mhealpy. only works for a single time/energybin
+        eg:
+        from mhealpy import HealpixMap, HealpixBase
+        snr_hpx=skyview.snr_img.healpix_projection(nside=512)
+        snr_hpx_map=HealpixMap(data=snr_hpx.contents[0,:,0], coordsys="G")
+        fov_pix = np.nonzero(np.logical_not(np.isnan(snr_hpx_map)))[0]
+        m_moc = HealpixMap.moc_from_pixels(nside = snr_hpx_map.nside, 
+                                   nest = snr_hpx_map.is_nested, 
+                                   pixels = fov_pix, coordsys="G")
+        m_moc[:] = 1
+        m_moc*=snr_hpx_map
+        """
+
         if "HPX" not in self.axes.labels:
 
             # create our new healpix axis
