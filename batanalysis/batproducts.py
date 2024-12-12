@@ -1700,7 +1700,6 @@ class Spectrum(BatObservation):
     def _call_batdrmgen(self):
         """
         This calls heasoftpy's batdrmgen which produces the associated drm for fitting the PHA file.
-        TODO: Create a response object that can be manipulated
 
         :return: None
         """
@@ -1866,7 +1865,6 @@ class Spectrum(BatObservation):
             self.tbins["TIME_CENT"] = 0.5 * (self.tbins[f"TIME_START"] + self.tbins[f"TIME_STOP"])
 
         # see if there is a response file associated with this and that it exists
-        # TODO: create a DRM object to hold this info
         if "RESPFILE" in header.keys():
             drm_file = header["RESPFILE"]
             if drm_file.lower() == "none":

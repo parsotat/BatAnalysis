@@ -15,7 +15,7 @@ class Attitude(object):
     """
     This class encapsulates the Swift attitude data contained in a *.sat or *.mkf file that is obtained by Swift
 
-    TODO: add methods to add/concatenate attitude data, plot attitude data, etc
+    TODO: add methods to add/concatenate attitude data etc
     """
 
     def __init__(self, time, ra, dec, roll, quarternion=None, is_10arcmin_settled=None, is_settled=None,

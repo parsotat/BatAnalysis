@@ -19,7 +19,6 @@ class TimeTaggedEvents(object):
     """
     This class encapsulates the event data that is obtained by the BAT instrument.
 
-    TODO: add methods to add/concatenate event data, plot event data, etc
     """
 
     def __init__(
