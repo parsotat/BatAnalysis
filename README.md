@@ -87,22 +87,23 @@ steps to upload a distribution to PyPi is at: https://stackoverflow.com/question
 </details>
 
 
-
 <!-- ABOUT THE PROJECT -->
 ## About The Project
 
 <!-- [![Product Name Screen Shot][product-screenshot]](https://example.com) -->
 
-BatAnalysis is a python package that allows for the convenient analysis of BAT Survey data. 
+BatAnalysis is a python package that allows for the convenient analysis of BAT Survey and Time-tagged Event (TTE) data. 
 This code allows users to: 
-* easily download BAT survey data, 
-* batch process the survey observations,
-* extract light curves and spectra for each survey observation for a given source,
+* easily download BAT data, 
+* batch process the observations,
+* extract light curves and spectra for each  observation for a given source
+
+For survey data in particular it allows users to:
 * create mosaiced images at different time bins, and
 * extract light curves and spectra from the mosaiced images for a given source. 
 
 This project was developed in collaboration with the members of the BAT Team including:
-Sibasish Laha, David Palmer, Amy Lien and Craig Markwardt.
+David Palmer, Sibasish Laha, Amy Lien, and Craig Markwardt.
 
 ### Built With
 
@@ -116,34 +117,54 @@ Sibasish Laha, David Palmer, Amy Lien and Craig Markwardt.
 <!-- GETTING STARTED -->
 ## Getting Started
 
-To get a local copy up and running follow these simple steps.
+It is easy to get started on your local computer or on [SciServer](https://heasarc.gsfc.nasa.gov/docs/sciserver/#getting-started)
 
 ### Prerequisites
 
 The following software are necessary for the BatAnalysis python module. 
 
-1. Python 3.8 or larger
+1. Python 3.9 or greater
     - We recommend installing via Anaconda
 2. swiftbat_python 
-   - This can be easily installed via pip
+   - This will be installed via the pip command below
 3. Swifttools
-   - This can also be easily installed via pip
-4. HEASoftPy >= v1.2.1 (HEASoft >= v6.31.1)
+   - This will also installed via the pip command below
+4. HEASoftPy >= v1.4.1 (HEASoft >= v6.33.2)
    - The installation is included with HEASoft and the steps can be found here: [https://heasarc.gsfc.nasa.gov/lheasoft/install.html](https://heasarc.gsfc.nasa.gov/lheasoft/install.html)
 5. PyXspec
    - The installation is included with HEASoft but there may be additional steps to take if you have changed your anaconda 
 version after building HEASoft. More information can be found here: [https://heasarc.gsfc.nasa.gov/xanadu/xspec/python/html/buildinstall.html](https://heasarc.gsfc.nasa.gov/xanadu/xspec/python/html/buildinstall.html)
-6. Swift BAT Pattern Noise Maps
-   - The pattern maps used by the BAT team are available at: [https://zenodo.org/record/7595904#.Y9q7pS-B3T8](https://zenodo.org/record/7595904#.Y9q7pS-B3T8) for download. These maps shoud be downloaded and placed into a place where the BatAnalysis code will be able to access them. 
+6. Swift BAT Pattern Noise Maps (necessary for the analysis of survey data)
+   - The pattern maps used by the BAT team are available on [zenodo](https://zenodo.org/record/7595904#.Y9q7pS-B3T8) for download. 
+   These maps shoud be downloaded and placed into a place where the BatAnalysis code will be able to access them. 
+        - _This data is most easily downloaded using the [zenodo_get](https://github.com/dvolgyes/zenodo_get) utility, especially for installation on remote servers_
 
-### Installation
+Using the SciServer interface it is easier to start using BatAnalysis since HEASoftpy and pyXspec are already installed. 
 
-1a. Install the BatAnalysis package with Pip
-   ```sh
-   pip install BatAnalysis
-   ```
+### Getting Started on SciServer
+1. To get started on Sciserver, first follow the instructions outlined [here](https://heasarc.gsfc.nasa.gov/docs/sciserver/#getting-started)
+to get an account set up and get a container up and running. 
 
-1b. Clone the repo and install 
+***Be sure that the container that is created has a compatible python and HEASoft version***
+
+2. With the container created, the user can install BatAnalysis through pip:
+```sh
+    pip install BatAnalysis
+  ```
+3. The Pattern Noise Maps can easily be downloaded into the `/home/idies/workspace/Temporary/<username>/scratch/` directory with the use of the 
+[zenodo_get](https://github.com/dvolgyes/zenodo_get) utility. If the analyses that will be conducted will not involve survey data being mosaiced then this step can be skipped.
+
+### Getting Started on a Local Computer
+To get up and running on a local computer once the prerequisites met is very simple. 
+All that is needed to install the package is either:
+
+A. Pip install the BatAnalysis package:
+```sh
+    pip install BatAnalysis
+  ```
+    
+
+B. Clone the repo and install 
    ```sh
    git clone https://github.com/parsotat/BatAnalysis.git
    cd BatAnalysis/
@@ -154,7 +175,9 @@ version after building HEASoft. More information can be found here: [https://hea
 <!-- USAGE EXAMPLES -->
 ## Usage
 
-The typical BatAnalysis workflow is as follows:
+### a) Survey Data
+
+The typical BatAnalysis workflow for analyzing survey data is as follows:
 
 1. Use astroquery to queue HEASARC for obervations within a given date range for an RA/DEC coordinate corresponding to a source of interest
 2. Download the data 
@@ -206,13 +229,28 @@ ba.plot_survey_lc(mosaic_list, id_list=catalog_name, calc_lc=True)
 
 ```
 
+### b) TTE Data
+
+The typical BatAnalysis workflow for analyzing TTE data is as follows:
+
+1. Query TTE data based on different criteria
+2. Download the data 
+3. Load the data with BatEvent
+4. Calculate sky images with the data to identify a source
+5. Mask-weight the data based on the source of interest
+4. Calculate lightcurves arbitarily binned in time and energy with the mask-weighted data
+5. Calculate spectra and the detector response matrices for a given time interval
+6. Fit the spectra to obtain spectral information
+7. Plot the light curve/spectral information
+
+
 _For more details and additional examples please refer to the [Notebooks](https://github.com/parsotat/BatAnalysis/tree/main/notebooks) directory_
 
 
 <!-- ROADMAP -->
 ## Roadmap
 
-This package will soon be modified to include analysis of BAT event data. 
+Next, this package will be modified to include analysis of BAT scaled map data. 
 
 See the [open issues](https://github.com/parsotat/BatAnalysis/issues) for a list of proposed features (and known issues).
 
@@ -250,8 +288,10 @@ Project Link: [https://github.com/parsotat/BatAnalysis.git](https://github.com/p
 <!-- ACKNOWLEDGEMENTS -->
 ## Acknowledgements
 
-* In using the BatAnalysis code, we ask that you cite the following paper: 
-    * [Parsotan et. al. 2023 (submitted to ApJ)](https://arxiv.org/abs/2303.06255)
+* In using the BatAnalysis code, we ask that you cite the following papers and software:
+  * [https://doi.org/10.5281/zenodo.7916508](https://doi.org/10.5281/zenodo.7916508)
+  * [Parsotan et. al. 2023](https://arxiv.org/abs/2303.06255)
+  * Parsotan et. al. 2024 in Prep
 * [README Template from: othneildrew/Best-README-Template](https://github.com/othneildrew/Best-README-Template)
 
 

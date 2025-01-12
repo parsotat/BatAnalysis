@@ -20,7 +20,8 @@ from .batobservation import BatObservation
 
 # for python>3.6
 try:
-    import heasoftpy as hsp
+    import heasoftpy.swift as hsp
+    import heasoftpy.utils as hsp_util
 except ModuleNotFoundError as err:
     # Error handling
     print(err)
@@ -177,7 +178,7 @@ class BatSurvey(BatObservation):
         try:
             hsp.local_pfiles(pfiles_dir=str(self._local_pfile_dir))
         except AttributeError:
-            hsp.utils.local_pfiles(par_dir=str(self._local_pfile_dir))
+            hsp_util.local_pfiles(par_dir=str(self._local_pfile_dir))
         # print(os.getenv("PFILES"))
 
         # if load_file is None:
@@ -402,7 +403,7 @@ class BatSurvey(BatObservation):
             try:
                 hsp.local_pfiles(pfiles_dir=str(self._local_pfile_dir))
             except AttributeError:
-                hsp.utils.local_pfiles(par_dir=str(self._local_pfile_dir))
+                hsp_util.local_pfiles(par_dir=str(self._local_pfile_dir))
 
             complete_file = self.result_dir.joinpath(".batsurvey_complete")
 
@@ -549,7 +550,7 @@ class BatSurvey(BatObservation):
         try:
             hsp.local_pfiles(pfiles_dir=str(self._local_pfile_dir))
         except AttributeError:
-            hsp.utils.local_pfiles(par_dir=str(self._local_pfile_dir))
+            hsp_util.local_pfiles(par_dir=str(self._local_pfile_dir))
 
         # directly calls batsurvey
         try:
@@ -602,7 +603,7 @@ class BatSurvey(BatObservation):
         try:
             hsp.local_pfiles(pfiles_dir=str(self._local_pfile_dir))
         except AttributeError:
-            hsp.utils.local_pfiles(par_dir=str(self._local_pfile_dir))
+            hsp_util.local_pfiles(par_dir=str(self._local_pfile_dir))
 
         # calls batsurvey_catmux to merge pointings, outputs to the survey result directory
         # there is a bug in the heasoftpy code so try to explicitly call it for now
@@ -684,7 +685,7 @@ class BatSurvey(BatObservation):
         try:
             hsp.local_pfiles(pfiles_dir=str(self._local_pfile_dir))
         except AttributeError:
-            hsp.utils.local_pfiles(par_dir=str(self._local_pfile_dir))
+            hsp_util.local_pfiles(par_dir=str(self._local_pfile_dir))
 
         if calc_upper_lim and bkg_nsigma is None:
             raise ValueError(
@@ -1641,7 +1642,7 @@ class MosaicBatSurvey(BatSurvey):
         try:
             hsp.local_pfiles(pfiles_dir=str(self._local_pfile_dir))
         except AttributeError:
-            hsp.utils.local_pfiles(par_dir=str(self._local_pfile_dir))
+            hsp_util.local_pfiles(par_dir=str(self._local_pfile_dir))
 
         # See if a loadfile exists, if we dont want to recalcualte everything, otherwise remove any load file and
         # .batsurveycomplete file (this is produced only if the batsurvey calculation was completely finished, and thus
@@ -1734,7 +1735,7 @@ class MosaicBatSurvey(BatSurvey):
         try:
             hsp.local_pfiles(pfiles_dir=str(self._local_pfile_dir))
         except AttributeError:
-            hsp.utils.local_pfiles(par_dir=str(self._local_pfile_dir))
+            hsp_util.local_pfiles(par_dir=str(self._local_pfile_dir))
 
         out = hsp.batcelldetect(**input_dict)
 
@@ -1755,7 +1756,7 @@ class MosaicBatSurvey(BatSurvey):
         try:
             hsp.local_pfiles(pfiles_dir=str(self._local_pfile_dir))
         except AttributeError:
-            hsp.utils.local_pfiles(par_dir=str(self._local_pfile_dir))
+            hsp_util.local_pfiles(par_dir=str(self._local_pfile_dir))
 
         # need to iterate through all the facets and detect the sources, then we merge the output catalogs
         if catalog_file is None:
