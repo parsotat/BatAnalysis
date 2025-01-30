@@ -14,6 +14,7 @@ from pathlib import Path
 
 import astropy.units as u
 import numpy as np
+import requests
 from astropy.io import fits
 from swifttools.swift_too import Clock
 
@@ -347,13 +348,18 @@ class BatEvent(BatObservation):
                 self.tstart_met = hdr["TSTART"]
                 self.tstop_met = hdr["TSTOP"]
                 self.telapse = hdr["TELAPSE"]
-                # if we dont have a guano TTE dataset or a failed trigger dataset then this keyword will not exist
+                # if we dont have a guano TTE dataset or a failed trigger dataset then this keyword should not exist,
+                # though it is possible that it does. We can also have swifttime issues with connecting with the server
+                # to do the conversion so still want to set self.trigtime as None and warn about the lack of connection
                 # if not is_guano:
                 try:
                     self.trigtime = Clock(met=hdr["TRIGTIME"])
                 except KeyError as e:
                     # guano data/failed trigger has no trigger time
                     self.trigtime = None
+                except requests.exceptions.ConnectionError as e:
+                    self.trigtime = None
+                    warnings.warn(f"Clock conversion was not possible: {e}")
 
             if not hdr["GAINAPP"] or "FIXEDDAC" not in hdr["GAINMETH"]:
                 # need to run the energy conversion even though this should have been done by SDC
