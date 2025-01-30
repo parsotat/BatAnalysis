@@ -47,7 +47,7 @@ steps to upload a distribution to PyPi is at: https://stackoverflow.com/question
   <p align="center">
     The BatAnalysis python pipeline is brings the analysis of BAT data to the convenience offered by Python. 
     <br />
-    <a href="https://github.com/parsotat/BatAnalysis/tree/master/Doc"><strong>Explore the docs »</strong></a>
+    <a href="https://github.com/parsotat/BatAnalysis/tree/master/notebooks"><strong>Explore the docs »</strong></a>
     <br />
     <br />
     <!-- <a href="https://github.com/parsotat/BatAnalysis">View Demo</a>
@@ -130,7 +130,7 @@ The following software are necessary for the BatAnalysis python module.
 3. Swifttools
    - This will also installed via the pip command below
 4. HEASoftPy >= v1.4.1 (HEASoft >= v6.33.2)
-   - The installation is included with HEASoft and the steps can be found here: [https://heasarc.gsfc.nasa.gov/lheasoft/install.html](https://heasarc.gsfc.nasa.gov/lheasoft/install.html)
+   - The installation is included with HEASoft and the steps can be found here: [https://heasarc.gsfc.nasa.gov/docs/software/lheasoft/](https://heasarc.gsfc.nasa.gov/docs/software/lheasoft/)
 5. PyXspec
    - The installation is included with HEASoft but there may be additional steps to take if you have changed your anaconda 
 version after building HEASoft. More information can be found here: [https://heasarc.gsfc.nasa.gov/xanadu/xspec/python/html/buildinstall.html](https://heasarc.gsfc.nasa.gov/xanadu/xspec/python/html/buildinstall.html)
