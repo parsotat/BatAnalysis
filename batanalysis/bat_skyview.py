@@ -432,7 +432,8 @@ class BatSkyView(object):
         # this can be defined in the history of the batfftimage call or in the constructor method
         # we prioritize anything that was set in the constructor
         if self.snr_img_file is None and self.skyimg_input_dict["signifmap"] != "NONE":
-            self.snr_img_file = Path(self.skyimg_input_dict["signifmap"]).expanduser().resolve()
+            self.snr_img_file = self._header_history_file_check(
+                Path(self.skyimg_input_dict["signifmap"]).expanduser().resolve())
 
         # now read in the file
         # also want to filter out the partial coding >5% pixels for the batcelldetect produced snr and bkg stddev images
@@ -448,7 +449,8 @@ class BatSkyView(object):
             self.snr_img = None
 
         if self.bkg_stddev_img_file is None and self.skyimg_input_dict["bkgvarmap"] != "NONE":
-            self.bkg_stddev_img_file = Path(self.skyimg_input_dict["bkgvarmap"]).expanduser().resolve()
+            self.bkg_stddev_img_file = self._header_history_file_check(
+                Path(self.skyimg_input_dict["bkgvarmap"]).expanduser().resolve())
 
         # now read in the file
         if self.bkg_stddev_img_file is not None:
@@ -460,6 +462,24 @@ class BatSkyView(object):
 
         else:
             self.bkg_stddev_img = None
+
+    def _header_history_file_check(self, file):
+        """
+        The file names that are read from the history part of the sky image file header outlining the batfftimage call
+        can be parsed and be missing part of the name. We try to be robust to this by looking for the file based on the
+        parent directory and the filename that may remain. If we find something, then we return the correct full
+        filename otherwise we raise an error that the file isnt found.
+
+        """
+
+        test = list(file.parent.glob(f"{file.name}*"))
+        if len(test) == 1:
+            return test[0]
+        elif len(test) == 0:
+            raise ValueError(f"The specified file {file} from parsing the batfftimage header does not seem to exist. "
+                             f"Please double check that it does.")
+        else:
+            raise ValueError(f"There are multiple files found in the glob for {file}*")
 
     @property
     def pcodeimg_file(self):
