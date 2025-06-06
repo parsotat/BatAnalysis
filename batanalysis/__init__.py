@@ -40,3 +40,10 @@ from .batlib import *
 from .plotting import *
 from .mosaic import *
 from . import parallel
+
+try:
+    import threeml
+    import astromodels
+    from .threeml import SwiftBATLike
+except ModuleNotFoundError as err:
+    print("threeML or astromodels is not importable. The Swift BAT plugin for threeML is disabled.") 
