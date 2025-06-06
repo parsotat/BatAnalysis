@@ -8,6 +8,7 @@ __all__ = [
     "batlib",
     "plotting",
     "mosaic",
+    "threeml",
 ]
 
 # first want to check if caldb is initalized/installed
@@ -42,8 +43,9 @@ from .mosaic import *
 from . import parallel
 
 try:
-    import threeml
+    import threeML
     import astromodels
     from .threeml import SwiftBATLike
 except ModuleNotFoundError as err:
-    print("threeML or astromodels is not importable. The Swift BAT plugin for threeML is disabled.") 
+    print(err)
+    print("threeML or astromodels is not importable. The Swift BAT plugin for threeML is disabled.")

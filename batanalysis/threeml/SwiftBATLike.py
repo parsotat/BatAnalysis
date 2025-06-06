@@ -19,12 +19,8 @@ from threeML.utils.OGIP.pha import PHAII, PHAWrite
 import logging
 logger = logging.getLogger(__name__)
 
-#try to import BatAnalysis for object comparison later on
-try:
-    import batanalysis as ba
-    has_batanalysis=True
-except ModuleNotFoundError as err:
-    has_batanalysis=False
+#try to import BatAnalysis objects for object comparison later on
+
 
 __instrument_name = "Swift BAT"
 
@@ -34,17 +30,17 @@ class SwiftBATLike(PluginPrototype):
     Plugin for Swift BAT data analysis in the 3ML framework
     """
     
-        def __init__(
-            self,
-            name: str,
-            observation: Union[str, Path, PHASpectrum, PHAII],
-            background: Optional[
-                Union[str, Path, PHASpectrum, PHAII, SpectrumLike, XYLike]
-            ] = None,
-            response: Optional[str] = None,
-            nuisance_params: Optional[list[Parameter]]=None,
-            is_weighted=True,
-        ):
+    def __init__(
+        self,
+        name: str,
+        observation: Union[str, Path, PHASpectrum, PHAII],
+        background: Optional[
+            Union[str, Path, PHASpectrum, PHAII, SpectrumLike, XYLike]
+        ] = None,
+        response: Optional[str] = None,
+        nuisance_params: Optional[list[Parameter]]=None,
+        is_weighted=True,
+    ):
         """
         Initialize the Swift BAT plugin.
         
