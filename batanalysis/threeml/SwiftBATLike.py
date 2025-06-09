@@ -14,18 +14,173 @@ from threeML.plugins.SpectrumLike import SpectrumLike
 from threeML.plugins.XYLike import XYLike
 from threeML.utils.spectrum.pha_spectrum import PHASpectrum
 from threeML.utils.OGIP.pha import PHAII, PHAWrite
+from threeML.plugins.OGIPLike import OGIPLike
 
 
 import logging
 logger = logging.getLogger(__name__)
 
 #try to import BatAnalysis objects for object comparison later on
-
+from batanalysis.bat_tte import BatEvent
+from batanalysis.batproducts import Spectrum as ba_spectrum
+from batanalysis.bat_drm import BatDRM
 
 __instrument_name = "Swift BAT"
 
+class SwiftBATLike(OGIPLike):
+    """
+    Plugin for Swift BAT data analysis in the 3ML framework
+    """
+    def __init__(
+        self,
+        name: str,
+        observation: Union[str, Path, PHASpectrum, PHAII, BatEvent, ba_spectrum],
+        background: Optional[
+            Union[str, Path, PHASpectrum, PHAII, SpectrumLike, XYLike]
+        ] = None,
+        response: Optional[str] = None,
+        nuisance_params: Optional[Union[Parameter, list[Parameter]]]=None,
+        spectrum_number: Optional[int] = None,
+        verbose: bool = True,
+    ):
+        """
+        Initialize the Swift BAT plugin.
 
-class SwiftBATLike(PluginPrototype):
+        Parameters:
+        -----------
+        name : str
+            Name for this instance
+        observation : str or numpy.ndarray
+            Either the BAT data file path or a pre-loaded spectrum array
+        background : str or numpy.ndarray, optional
+            Background spectrum file or array
+        response : str, optional
+            Path to the response (RSP) file
+        nuisance_params : astromodels.core.parameter.Parameter or list[astromodels.core.parameter.Parameter], optional
+            list of nuisance parameters relevant for the Swift BAT instrument.
+            Examples could include:
+            - 'bkg_norm': Background normalization factor
+            - 'sys_error': Systematic error percentage
+            - 'gain_shift': Gain shift correction factor
+        is_weighted : bool, optional
+            If True, use Gaussian likelihood (weighted least squares) for fitting.
+            If False, use Poisson likelihood. Default is True.
+        """
+
+        # create the hash for the nuisance parameters. We have none for now.
+        self._nuisance_parameters = collections.OrderedDict()
+
+        # Initialize internal variables
+        self._fit_nuisance_params = False
+        self._verbose = verbose
+
+        # Set the likelihood type based on is_weighted
+        #TODO: have self._is_weighted be set when the pha file is passed to _load_bat_data and determine it from the file
+        self._is_weighted = False
+        if self._is_weighted:
+            self._likelihood_type = "Gaussian"
+        else:
+            self._likelihood_type = "Poisson"
+
+        # Process nuisance parameters
+        self._setup_nuisance_parameters(nuisance_params)
+
+        # Load the observation/response/background data
+        self._load_bat_data(name, observation=observation, response=response, background=background)
+
+
+    def _setup_nuisance_parameters(self, nuisance_params):
+        """
+        Set up nuisance parameters for the Swift BAT instrument
+
+        Parameters
+        ----------
+        nuisance_params : dict or None
+            Dictionary with nuisance parameters and their initial values/bounds
+        """
+        # Default nuisance parameters if None provided
+        if nuisance_params is None:
+            self.set_inner_minimization(False)
+        elif isinstance(nuisance_param, Parameter):
+            self.set_inner_minimization(True)
+            self._nuisance_parameters[self.nuisance_param.name] = self.nuisance_param
+            self._nuisance_parameters[self.nuisance_param.name].free = self._fit_nuisance_params
+        elif isinstance(nuisance_param, list):
+            self.set_inner_minimization(True)
+            test = [isinstance(i, Parameter) for i in nuisance_param]
+            if np.any(test):
+                raise RuntimeError(
+                    "Nuisance parameter must be astromodels.core.parameter.Parameter object or a list of astromodels.core.parameter.Parameter objects")
+
+            for i in nuisance_param:
+                self._nuisance_parameters[i.name] = i
+                self._nuisance_parameters[i.name].free = self._fit_nuisance_params
+        else:
+            raise RuntimeError(
+                "Nuisance parameter must be astromodels.core.parameter.Parameter object or a list of astromodels.core.parameter.Parameter objects")
+
+    def set_inner_minimization(self, flag):
+        """
+        Turn on the minimization of the internal BAT (nuisance) parameters.
+
+        Parameters
+        ----------
+        flag : bool
+            Turns on and off the minimization  of the internal parameters
+        """
+
+        self._fit_nuisance_params: bool = bool(flag)
+
+        for parameter in self._nuisance_parameters:
+            self._nuisance_parameters[parameter].free = self._fit_nuisance_params
+
+    def _load_bat_data(self,
+           name: str,
+           observation: Union[str, Path, PHASpectrum, PHAII, BatEvent, ba_spectrum],
+           background: Optional[
+               Union[str, Path, PHASpectrum, PHAII, SpectrumLike, XYLike]
+           ] = None,
+           response: Optional[str] = None,
+           nuisance_params: Optional[Union[Parameter, list[Parameter]]] = None,
+           ):
+
+        if isinstance(observation, BatEvent):
+            raise NotImplementedError("The use of BatEvent data with the Swift-BAT plugin is not yet implemented.")
+
+        if background is not None:
+            raise NotImplementedError("The inclusion of backgrounds with Swift BAT data, assuming that the data is not "
+                                      "mask-weighted, is not yet implemented.")
+
+        #if we have a BatSpectrum object, its easiest to extract the path to the pha file. We should also do this for
+        # the response file since the OGIPLike class will attempt to read the response file from the PHA file and will
+        # not be able to actually find it
+
+        # TODO: in the future if one wants to do non-mask weighted analyses then a response can be generated on the fly,
+        #   especially if the astromodels model is being fitted for a position. this is only relevant for TTE data
+
+        if isinstance(observation, ba_spectrum):
+            observation=ba_spectrum.pha_file
+
+            if response is None:
+                response=ba_spectrum.drm_file
+
+        if response is None:
+            raise ValueError("A response has not been specified for the SwiftBATLike plugin to use.")
+
+        # cant have mask weighted pha file and a background file too
+        if self._is_weighted and background is not None:
+            raise RuntimeError("It is not possible to have a mask weighted observation and include background.")
+
+        # Initialize base class
+        super(SwiftBATLike, self).__init__(name, observation=observation, background=background, response=response,
+                                           verbose=self._verbose)
+
+        #make sure that we have a response
+
+
+
+
+class SwiftBATLike2(PluginPrototype):
     """
     Plugin for Swift BAT data analysis in the 3ML framework
     """
@@ -33,12 +188,12 @@ class SwiftBATLike(PluginPrototype):
     def __init__(
         self,
         name: str,
-        observation: Union[str, Path, PHASpectrum, PHAII],
+        observation: Union[str, Path, PHASpectrum, PHAII, BatEvent, ba_spectrum],
         background: Optional[
             Union[str, Path, PHASpectrum, PHAII, SpectrumLike, XYLike]
         ] = None,
-        response: Optional[str] = None,
-        nuisance_params: Optional[list[Parameter]]=None,
+        response: Optional[Union[str, BatDRM]] = None,
+        nuisance_params: Optional[Union[Parameter, list[Parameter]]]=None,
         is_weighted=True,
     ):
         """
@@ -93,23 +248,22 @@ class SwiftBATLike(PluginPrototype):
         self._setup_nuisance_parameters(nuisance_params)
         
         # Load the observation data
-        if isinstance(observation, str):
-            self._load_bat_data(observation)
-        else:
-            self._observation_spectrum = observation
-            
+        self._load_bat_data(observation)
+
         # Load the background if provided
-        if background is not None:
-            if isinstance(background, str):
-                self._load_bat_background(background)
-            else:
-                self._background_spectrum = background
-                
-        # Load the response matrix
-        if response is not None:
-            self._response_matrix = OGIPResponse(response)
-        else:
-            raise ValueError("Response file must be provided for Swift BAT analysis")
+        if self._is_weighted and background is not None:
+            raise RuntimeError("It is not possible to have a mask weighted observation and include background.")
+
+        self._load_bat_background(background)
+
+        # Load the response matrix otherwise throw an error.
+        # TODO: put the error in the _load_response_matrix method
+        # TODO: in the future if one wants to do non-mask weighted analyses then a response can be generated on the fly,
+        #   especially if the astromodels model is being fitted for a position. this is only relevant for TTE data
+        #if response is not None:
+        self._load_response_matrix(response)
+        #else:
+        #    raise ValueError("Response file must be provided for Swift BAT analysis")
             
         # Set energy boundaries
         self._energies = np.array(self._response_matrix.ebounds)

@@ -1,4 +1,5 @@
 import os
+import importlib
 
 __all__ = [
     "batobservation",
@@ -42,10 +43,13 @@ from .plotting import *
 from .mosaic import *
 from . import parallel
 
-try:
-    import threeML
-    import astromodels
+if importlib.util.find_spec("threeML") is not None and importlib.util.find_spec("astromodels") is not None:
     from .threeml import SwiftBATLike
-except ModuleNotFoundError as err:
-    print(err)
+else:
     print("threeML or astromodels is not importable. The Swift BAT plugin for threeML is disabled.")
+
+#try:
+#    import threeML
+#    import astromodels
+#except ModuleNotFoundError as err:
+#    print(err)
