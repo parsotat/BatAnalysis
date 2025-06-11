@@ -6,7 +6,7 @@ import collections
 import numpy as np
 import astropy.io.fits as fits
 
-from astromodels import Parameter
+from astromodels import Parameter, Model
 
 from threeML.plugin_prototype import PluginPrototype
 from threeML.utils.OGIP.response import OGIPResponse
@@ -87,6 +87,9 @@ class SwiftBATLike(OGIPLike):
 
         # Load the observation/response/background data
         self._load_bat_data(name, observation=observation, response=response, background=background)
+
+        #setup a dictionary to hold source model values
+        self._source_location = {}
 
 
     def _setup_nuisance_parameters(self, nuisance_params):
@@ -175,9 +178,58 @@ class SwiftBATLike(OGIPLike):
         super(SwiftBATLike, self).__init__(name, observation=observation, background=background, response=response,
                                            verbose=self._verbose)
 
-        #make sure that we have a response
+    def set_model(self, likelihoodmodel: Model):
 
+        #for now we call the OGIPLike set_model method, which by default doesnt handle extended sources.
+        #TODO: in the future can attempt to incorporate extended source models to this
 
+        # Get point sources and extended sources from model:
+        point_sources = likelihoodmodel.point_sources
+        extended_sources = likelihoodmodel.extended_sources
+
+        # Source counter for models with multiple sources:
+        self.src_counter = 0
+
+        #check that we only have a single point source model since we are only dealing with the mask weighted spectrum,
+        # also catches the case of no point sources specified.
+        if len(point_sources) != 1:
+            raise NotImplementedError("Dealing with non-mask weighted spectra with more than one astromodels model is "
+                                      "not yet implemented.")
+
+        # Initialization
+        # should only be applicable if we are starting off new or changing the number of point sources we have.
+        # Currently, we only accept a single point source for the mask weighted spectrum
+        if len(point_sources) != 0:
+
+            if len(self._source_location) == 0 or len(point_sources) != len(self._source_location):
+
+                for name, source in point_sources.items():
+                    coord = source.position.sky_coord
+
+                    self._source_location[name] = coord.copy()  # to avoid same memory issue
+
+                    logger.info(f"saved source name : {name})")
+
+                logger.info(f"Done saving the model information")
+
+        #check to make sure that the location of the source hasnt changed since we arent supporting that yet
+        # TODO: to support this, we need to be able to recalculate the response on the fly
+        if np.any([source.position.sky_coord != self._source_location[name] for name, source in point_sources.items()]):
+            raise NotImplementedError("It is not possible to change the position of the source model in the likelihood calculation.")
+
+        super(SwiftBATLike,self).set_model(likelihoodmodel)
+
+    def get_log_like(self):
+        # for now just call the parent class method
+        #TODO: can have changes for different statistics for mask weighted versus non-mask weighted spectra
+        return super(SwiftBATLike,self).get_log_like()
+
+    def inner_fit(self) -> float:
+        #TODO: add capability to integrate likelihood over nusiance parameters
+        if self._fit_nuisance_params:
+            raise NotImplementedError("Tt is not possible to consider the nuisance paramters in the calculation of the loglikelihood.")
+
+        return self.get_log_like()
 
 
 class SwiftBATLike2(PluginPrototype):
