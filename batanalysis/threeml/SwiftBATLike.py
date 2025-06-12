@@ -139,9 +139,9 @@ class SwiftBATLike(OGIPLike):
 
     def _load_bat_data(self,
            name: str,
-           observation: Union[str, Path, PHASpectrum, PHAII, BatEvent, ba_spectrum],
+           observation: Union[str, Path, PHASpectrum, BatEvent, ba_spectrum],
            background: Optional[
-               Union[str, Path, PHASpectrum, PHAII, SpectrumLike, XYLike]
+               Union[str, Path, PHASpectrum, SpectrumLike, XYLike]
            ] = None,
            response: Optional[str] = None,
            nuisance_params: Optional[Union[Parameter, list[Parameter]]] = None,
@@ -166,6 +166,21 @@ class SwiftBATLike(OGIPLike):
 
             if response is None:
                 response=ba_spectrum.drm_file
+
+        #if we have a string or path for the PHA file and no response file is specified
+        # then assume that the response file is the same base name as the pha file with ".rsp" instead of ".pha"
+        if (isinstance(observation, Path) or isinstance(observation, str)) and response is None:
+            if isinstance(observation, str):
+                observation=Path(observation)
+
+            # in the future can do below, but right now the Spectrum object is only compatible with TTE data and not
+            # survey data, so fo rnow just construct the response name manually
+            #spectrum=ba_spectrum.from_file(pha_file=observation)
+            #response=ba_spectrum.drm_file
+            response = observation.parent.joinpath(f"{observation.stem}.rsp")
+
+        if isinstance(observation, PHASpectrum) and response is None:
+            response=observation.response_file
 
         if response is None:
             raise ValueError("A response has not been specified for the SwiftBATLike plugin to use.")
