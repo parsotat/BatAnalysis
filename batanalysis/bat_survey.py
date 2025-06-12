@@ -2083,6 +2083,9 @@ class MosaicBatSurvey(BatSurvey):
                 pha_spec_hdr["HDUCLAS3"] = ("RATE", "Spectrum is count/s")
                 pha_spec_hdr["PHAVERSN"] = ("1992a", "Version of spectrum format")
                 pha_spec_hdr["HDUVERS"] = ("1.2.0", "Version of spectrum header")
+                pha_spec_hdr["RA_OBJ"] = (raobj_array[0], "[deg] R.A. Object")
+                pha_spec_hdr["DEC_OBJ"] = (decobj_array[0], "[deg] Dec Object")
+
 
                 pha_spec_hdr["DATE-OBS"] = (
                     "2004-11-20T12:16:00",
