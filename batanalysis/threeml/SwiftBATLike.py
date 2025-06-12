@@ -34,7 +34,7 @@ class SwiftBATLike(OGIPLike):
     def __init__(
         self,
         name: str,
-        observation: Union[str, Path, PHASpectrum, PHAII, BatEvent, ba_spectrum],
+        observation: Union[str, Path, PHASpectrum, BatEvent, ba_spectrum],
         background: Optional[
             Union[str, Path, PHASpectrum, PHAII, SpectrumLike, XYLike]
         ] = None,
