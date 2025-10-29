@@ -1,6 +1,7 @@
 """
 This file holds various functions that users can call to interface with bat observation objects
 """
+
 import datetime
 import functools
 import os
@@ -65,7 +66,9 @@ def curdir():
     return cdir
 
 
-def datadir(new=None, mkdir=False, makepersistent=False, tdrss=False, trend=False, bymonth=None) -> Path:
+def datadir(
+    new=None, mkdir=False, makepersistent=False, tdrss=False, trend=False, bymonth=None
+) -> Path:
     """Return the data directory (optionally changing and creating it)
 
     The bymonth option is used to subdivide the directories to prevent excessive directory size.
@@ -90,8 +93,8 @@ def datadir(new=None, mkdir=False, makepersistent=False, tdrss=False, trend=Fals
 
         if mkdir:
             newdir.mkdir(parents=True, exist_ok=True)
-            newdir.joinpath('tdrss').mkdir(exist_ok=True)
-            newdir.joinpath('trend').mkdir(exist_ok=True)
+            newdir.joinpath("tdrss").mkdir(exist_ok=True)
+            newdir.joinpath("trend").mkdir(exist_ok=True)
         if makepersistent:
             persistfile = datadirnamefile
             persistfile.parent.mkdir(exist_ok=True)  # make ~/.swift if necessary
@@ -113,26 +116,26 @@ def datadir(new=None, mkdir=False, makepersistent=False, tdrss=False, trend=Fals
 
     assert isinstance(_datadir, Path)
     if tdrss:
-        result = _datadir.joinpath('tdrss')
+        result = _datadir.joinpath("tdrss")
     elif trend:
-        result = _datadir.joinpath('trend')
+        result = _datadir.joinpath("trend")
     else:
         result = _datadir
     if bymonth is not None:
-        result = result.joinpath(f'{bymonth:%Y_%m}')
+        result = result.joinpath(f"{bymonth:%Y_%m}")
         result.mkdir(exist_ok=True)
     return result
 
 
 def create_custom_catalog(
-        src_name_list,
-        src_ra_list,
-        src_dec_list,
-        src_glon_list,
-        src_glat_list,
-        catalog_name="custom_catalog.cat",
-        catalog_dir=None,
-        catnum_init=32767,
+    src_name_list,
+    src_ra_list,
+    src_dec_list,
+    src_glon_list,
+    src_glat_list,
+    catalog_name="custom_catalog.cat",
+    catalog_dir=None,
+    catnum_init=32767,
 ):
     """
     This creates a catalog file for a number of sources that the user is interested in. Merges the created catalog with
@@ -154,11 +157,11 @@ def create_custom_catalog(
 
     # Add check to make sure that input is not tuple
     if (
-            type(src_name_list) is tuple
-            or type(src_ra_list) is tuple
-            or type(src_dec_list) is tuple
-            or type(src_glon_list) is tuple
-            or type(src_glat_list) is tuple
+        type(src_name_list) is tuple
+        or type(src_ra_list) is tuple
+        or type(src_dec_list) is tuple
+        or type(src_glon_list) is tuple
+        or type(src_glat_list) is tuple
     ):
         raise ValueError(
             "The inputs cannot be tuples, either single values or lists are accepted."
@@ -187,12 +190,8 @@ def create_custom_catalog(
         catalog_dir = Path(catalog_dir)
 
     prev_name = catalog_name.stem
-    cat = catalog_dir.joinpath(
-        prev_name + "_prev.cat"
-    )
-    final_cat = catalog_dir.joinpath(
-        catalog_name
-    )
+    cat = catalog_dir.joinpath(prev_name + "_prev.cat")
+    final_cat = catalog_dir.joinpath(catalog_name)
 
     # create the columns of file
     c1 = fits.Column(
@@ -239,7 +238,7 @@ def create_custom_catalog(
     dir = Path(__file__[::-1].partition("/")[-1][::-1])
     heatools.ftmerge(
         infile="%s %s"
-               % (str(dir.joinpath("data").joinpath("survey6b_2.cat")), str(cat)),
+        % (str(dir.joinpath("data").joinpath("survey6b_2.cat")), str(cat)),
         outfile=str(final_cat),
     )
 
@@ -370,13 +369,13 @@ def read_lc_data(filename, energy_band_index=None, T0=0):
 
 def calc_response(phafilename):
     """
-        This function generates the response matrix for a given pha file by calling batdrmgen
-        (this is a HEASOFT function).
+    This function generates the response matrix for a given pha file by calling batdrmgen
+    (this is a HEASOFT function).
 
-        :param phafilename: String that denotes the location and name of the PHA file that the user would like to
-            calculate the response matrix for.
-        :return: Heasoftpy "Result" object obtained from calling heasoftpy batdrmgen. The "Result" object is the entire
-            output, which helps to debug in case of an error.
+    :param phafilename: String that denotes the location and name of the PHA file that the user would like to
+        calculate the response matrix for.
+    :return: Heasoftpy "Result" object obtained from calling heasoftpy batdrmgen. The "Result" object is the entire
+        output, which helps to debug in case of an error.
     """
 
     if type(phafilename) is not list:
@@ -391,9 +390,7 @@ def calc_response(phafilename):
 
     # we are passing in a whole filepath or
     # we are already located in the PHA directory and are mabe calculating the upperlimit bkg spectrum
-    _local_pfile_dir = (
-        phafilename[0].resolve().parents[1].joinpath(".local_pfile")
-    )
+    _local_pfile_dir = phafilename[0].resolve().parents[1].joinpath(".local_pfile")
     _local_pfile_dir.mkdir(parents=True, exist_ok=True)
     try:
         hsp.local_pfiles(pfiles_dir=str(_local_pfile_dir))
@@ -421,9 +418,7 @@ def calc_response(phafilename):
 
         # Split the filename by extension, so as to remove the .pha and replace it with .rsp
         # this is necessary since sources can have '.' in name
-        out = (
-                filename.stem + ".rsp"
-        )
+        out = filename.stem + ".rsp"
 
         # create drm
         output = hsp.batdrmgen(
@@ -455,8 +450,10 @@ def fit_spectrum(*args, **kwargs):
         # we are passing in a phafilename for
         fit_survey_spectrum(*args, **kwargs)
     else:
-        raise ValueError("The inputs cannot be parsed appropriately. Please consult the documentation for "
-                         "fit_TTE_spectrum or fit_survey_spectrum for the values that should be passed in.")
+        raise ValueError(
+            "The inputs cannot be parsed appropriately. Please consult the documentation for "
+            "fit_TTE_spectrum or fit_survey_spectrum for the values that should be passed in."
+        )
 
     return None
 
@@ -482,21 +479,23 @@ def calculate_detection(*args, **kwargs):
         # then we are passing in the survey spectrum
         val = calculate_survey_detection(*args, **kwargs)
     else:
-        raise ValueError("The inputs cannot be parsed appropriately. Please consult the documentation for "
-                         "calculate_TTE_detection or calculate_survey_detection for the values that should be passed in.")
+        raise ValueError(
+            "The inputs cannot be parsed appropriately. Please consult the documentation for "
+            "calculate_TTE_detection or calculate_survey_detection for the values that should be passed in."
+        )
 
     return val
 
 
 def fit_survey_spectrum(
-        phafilename,
-        surveyobservation,
-        plotting=True,
-        generic_model=None,
-        setPars=None,
-        use_cstat=True,
-        fit_iterations=1000,
-        verbose=True,
+    phafilename,
+    surveyobservation,
+    plotting=True,
+    generic_model=None,
+    setPars=None,
+    use_cstat=True,
+    fit_iterations=1000,
+    verbose=True,
 ):
     """
     Fits a spectrum that is loaded in from a BAT pha file. The header of the PHA file must have the associated
@@ -580,13 +579,11 @@ def fit_survey_spectrum(
         os.chdir(pha_dir)
 
     xsp.AllData -= "*"
-    s = xsp.Spectrum(
-        pha_file
-    )
+    s = xsp.Spectrum(pha_file)
 
     # Define model
     if (
-            generic_model is not None
+        generic_model is not None
     ):  # User provides a string of model, and a Dictionary for the initial values
         if type(generic_model) is str:
             if "cflux" in generic_model:
@@ -668,9 +665,7 @@ def fit_survey_spectrum(
         ax.set_ylabel("counts/cm^2/sec/keV")
         ax.set_xscale("log")
         ax.set_yscale("log")
-        f.savefig(
-            phafilename.parent.joinpath(phafilename.stem + ".pdf")
-        )
+        f.savefig(phafilename.parent.joinpath(phafilename.stem + ".pdf"))
         if plotting:
             plt.show()
 
@@ -711,9 +706,7 @@ def fit_survey_spectrum(
 
     # Incorporating the model names, parameters, errors into the BatSurvey object.
     xsp.Xset.save(phafilename.stem + ".xcm")
-    xspec_savefile = phafilename.parent.joinpath(
-        phafilename.stem + ".xcm"
-    )
+    xspec_savefile = phafilename.parent.joinpath(phafilename.stem + ".xcm")
     surveyobservation.set_pointing_info(
         pointing_id, "xspec_model", xspec_savefile, source_id=source_id
     )
@@ -726,13 +719,13 @@ def fit_survey_spectrum(
 
 
 def calculate_survey_detection(
-        surveyobservation,
-        source_id,
-        pl_index=2,
-        nsigma=3,
-        bkg_nsigma=5,
-        plot_fit=False,
-        verbose=True,
+    surveyobservation,
+    source_id,
+    pl_index=2,
+    nsigma=3,
+    bkg_nsigma=5,
+    plot_fit=False,
+    verbose=True,
 ):
     """
     This function uses the fitting function and statistically checks if there is any significant detection (at a specfied confidence).
@@ -818,16 +811,15 @@ def calculate_survey_detection(
             fluxerr_uplim = model["hilim"]  # .cflux.lg10Flux.error[1]
 
             avg_flux_err = 0.5 * (
-                    ((10 ** fluxerr_uplim) - (10 ** flux))
-                    + ((10 ** flux) - (10 ** fluxerr_lolim))
+                ((10**fluxerr_uplim) - (10**flux)) + ((10**flux) - (10**fluxerr_lolim))
             )
             print(
                 "The condition here is",
                 10 ** (flux),
-                [10 ** fluxerr_lolim, 10 ** fluxerr_uplim],
+                [10**fluxerr_lolim, 10**fluxerr_uplim],
                 nsigma,
                 avg_flux_err,
-                ((10 ** flux) - nsigma * avg_flux_err),
+                ((10**flux) - nsigma * avg_flux_err),
             )
 
             # check the errors for any issues:
@@ -843,10 +835,10 @@ def calculate_survey_detection(
             avg_flux_err = 1
 
         if (
-                fluxerr_lolim == 0
-                or (((10 ** flux) - nsigma * avg_flux_err) <= 0)
-                or np.isnan(flux)
-                or error_issues
+            fluxerr_lolim == 0
+            or (((10**flux) - nsigma * avg_flux_err) <= 0)
+            or np.isnan(flux)
+            or error_issues
         ):
             print("No detection, just upperlimits for the spectrum:", pha_file)
             # Here redo the PHA calculation with 5*BKG_VAR
@@ -944,14 +936,14 @@ def calculate_survey_detection(
 
 
 def fit_TTE_spectrum(
-        spectrum,
-        plotting=True,
-        generic_model=None,
-        setPars=None,
-        use_cstat=True,
-        fit_iterations=1000,
-        verbose=True,
-        get_upperlim=False
+    spectrum,
+    plotting=True,
+    generic_model=None,
+    setPars=None,
+    use_cstat=True,
+    fit_iterations=1000,
+    verbose=True,
+    get_upperlim=False,
 ):
     """
     This is an extension of the fit_spectrum function which allows for the use of the Spectrum object to
@@ -998,8 +990,10 @@ def fit_TTE_spectrum(
         )
 
     if not isinstance(spectrum, Spectrum):
-        raise ValueError("The input spectrum must be a BatAnalysis Spectrum object. "
-                         "Please create this object to be passed in.")
+        raise ValueError(
+            "The input spectrum must be a BatAnalysis Spectrum object. "
+            "Please create this object to be passed in."
+        )
 
     # In the next few steps we will get into the directory where the PHA files and rsp files are located
     # Do the fitting and then get out to our current directory: current_dir
@@ -1023,13 +1017,11 @@ def fit_TTE_spectrum(
         os.chdir(pha_dir)
 
     xsp.AllData -= "*"
-    s = xsp.Spectrum(
-        pha_file
-    )
+    s = xsp.Spectrum(pha_file)
 
     # Define model
     if (
-            generic_model is not None
+        generic_model is not None
     ):  # User provides a string of model, and a Dictionary for the initial values
         if type(generic_model) is str:
             if "cflux" in generic_model or get_upperlim:
@@ -1121,7 +1113,9 @@ def fit_TTE_spectrum(
             model_unit /= u.keV
 
         if model_unit is u.dimensionless_unscaled:
-            raise ValueError(f"The unit of the xspec model {dataLabels[1]} cannot be parsed")
+            raise ValueError(
+                f"The unit of the xspec model {dataLabels[1]} cannot be parsed"
+            )
 
         foldedmodel = u.Quantity(foldedmodel, unit=model_unit)
 
@@ -1129,9 +1123,11 @@ def fit_TTE_spectrum(
             # need to get rid of the 1/keV unit of the xspec folded model
             foldedmodel *= energybin_delta
         elif foldedmodel.unit != spectrum.data["RATE"].unit:
-            raise NotImplementedError(f'The conversion between the xpsec units: {foldedmodel.unit} of the folded model '
-                                      f'and the units of the spectrum objects data: {spectrum.data["RATE"].unit} is not '
-                                      f'implemented.')
+            raise NotImplementedError(
+                f"The conversion between the xpsec units: {foldedmodel.unit} of the folded model "
+                f'and the units of the spectrum objects data: {spectrum.data["RATE"].unit} is not '
+                f"implemented."
+            )
 
         # Capturing the Flux and its error. saved to the model object, can be obtained by calling model(1).error,
         # model(2).error
@@ -1155,9 +1151,11 @@ def fit_TTE_spectrum(
 
         # also save the folded model values/energybins, although they shoudl be the same
         model_dict["data"] = {"model_spectrum": foldedmodel}
-        model_dict["ebins"] = {'INDEX': np.arange(xspec_energy_min.size),
-                               'E_MIN': xspec_energy_min,
-                               'E_MAX': xspec_energy_max}
+        model_dict["ebins"] = {
+            "INDEX": np.arange(xspec_energy_min.size),
+            "E_MIN": xspec_energy_min,
+            "E_MAX": xspec_energy_max,
+        }
         if get_upperlim:
             xsp.AllModels.calcFlux("15.0 150.0")
             model_dict["nsigma_lg10flux_upperlim"] = np.log10(s.flux[0])
@@ -1185,9 +1183,11 @@ def fit_TTE_spectrum(
 
         foldedmodel = u.Quantity([np.nan], unit=spectrum.data["RATE"].unit)
         model_dict["data"] = {"model_spectrum": foldedmodel}
-        model_dict["ebins"] = {'INDEX': np.arange(foldedmodel.size),
-                               'E_MIN': u.Quantity([np.nan], unit=u.keV),
-                               'E_MAX': u.Quantity([np.nan], unit=u.keV)}
+        model_dict["ebins"] = {
+            "INDEX": np.arange(foldedmodel.size),
+            "E_MIN": u.Quantity([np.nan], unit=u.keV),
+            "E_MAX": u.Quantity([np.nan], unit=u.keV),
+        }
 
         spectrum.spectral_model = model_dict
 
@@ -1198,9 +1198,7 @@ def fit_TTE_spectrum(
         xcm_file.unlink()
 
     xsp.Xset.save(phafilename.stem + ".xcm")
-    xspec_savefile = phafilename.parent.joinpath(
-        phafilename.stem + ".xcm"
-    )
+    xspec_savefile = phafilename.parent.joinpath(phafilename.stem + ".xcm")
     spectrum.spectral_model["xspec_session"] = xspec_savefile
 
     # cd back
@@ -1214,12 +1212,12 @@ def fit_TTE_spectrum(
 
 
 def calculate_TTE_detection(
-        spectrum,
-        pl_index=2,
-        nsigma=3,
-        bkg_nsigma=5,
-        plotting=False,
-        verbose=True,
+    spectrum,
+    pl_index=2,
+    nsigma=3,
+    bkg_nsigma=5,
+    plotting=False,
+    verbose=True,
 ):
     """
     This function uses the fitting function and statistically checks if there is any significant detection (at a
@@ -1267,8 +1265,10 @@ def calculate_TTE_detection(
         )
 
     if not isinstance(spectrum, Spectrum):
-        raise ValueError("The input spectrum must be a BatAnalysis Spectrum object. "
-                         "Please create this object to be passed in.")
+        raise ValueError(
+            "The input spectrum must be a BatAnalysis Spectrum object. "
+            "Please create this object to be passed in."
+        )
 
     # In the next few steps we will get into the directory where the PHA files and rsp files are located
     # Do the fitting and then get out to our current directory: current_dir
@@ -1286,8 +1286,10 @@ def calculate_TTE_detection(
 
     # Within the spectrum object we have the attribute spectral_model which has all the data for us to extract
     if spectrum.spectral_model is None:
-        raise ValueError("The spectrum has not been fitted with a model. A detection cannot be determined until a model"
-                         "has been fit to the spectrum and the spectral_model attribute has a model saved.")
+        raise ValueError(
+            "The spectrum has not been fitted with a model. A detection cannot be determined until a model"
+            "has been fit to the spectrum and the spectral_model attribute has a model saved."
+        )
 
     error_issues = False  # preset this here
     try:
@@ -1297,16 +1299,15 @@ def calculate_TTE_detection(
         fluxerr_uplim = model_parameter_flux["hilim"]
 
         avg_flux_err = 0.5 * (
-                ((10 ** fluxerr_uplim) - (10 ** flux))
-                + ((10 ** flux) - (10 ** fluxerr_lolim))
+            ((10**fluxerr_uplim) - (10**flux)) + ((10**flux) - (10**fluxerr_lolim))
         )
         print(
             "The condition here is",
             10 ** (flux),
-            [10 ** fluxerr_lolim, 10 ** fluxerr_uplim],
+            [10**fluxerr_lolim, 10**fluxerr_uplim],
             nsigma,
             avg_flux_err,
-            ((10 ** flux) - nsigma * avg_flux_err),
+            ((10**flux) - nsigma * avg_flux_err),
         )
 
         # check the errors for any issues:
@@ -1321,18 +1322,23 @@ def calculate_TTE_detection(
         avg_flux_err = 1
 
     if (
-            fluxerr_lolim == 0
-            or (((10 ** flux) - nsigma * avg_flux_err) <= 0)
-            or np.isnan(flux)
-            or error_issues
+        fluxerr_lolim == 0
+        or (((10**flux) - nsigma * avg_flux_err) <= 0)
+        or np.isnan(flux)
+        or error_issues
     ):
         print("No detection, just upperlimits for the spectrum:", pha_file)
         # Here redo the PHA calculation with 5*BKG_VAR and calc the associated drm file
         upper_lim_spect = spectrum.calc_upper_limit(bkg_nsigma)
 
         # fit the spectrum
-        fit_TTE_spectrum(upper_lim_spect, generic_model="po", setPars={1: f"{pl_index},-1", 2: "0.001"},
-                         get_upperlim=True, plotting=plotting)
+        fit_TTE_spectrum(
+            upper_lim_spect,
+            generic_model="po",
+            setPars={1: f"{pl_index},-1", 2: "0.001"},
+            get_upperlim=True,
+            plotting=plotting,
+        )
 
     else:  # Detection
         if verbose:
@@ -1348,15 +1354,15 @@ def calculate_TTE_detection(
 
 
 def print_parameters(
-        obs_list,
-        source_id,
-        values=["met_time", "utc_time", "exposure"],
-        energy_range=[14, 195],
-        latex_table=False,
-        savetable=False,
-        save_file="output.txt",
-        overwrite=True,
-        add_obs_id=True,
+    obs_list,
+    source_id,
+    values=["met_time", "utc_time", "exposure"],
+    energy_range=[14, 195],
+    latex_table=False,
+    savetable=False,
+    save_file="output.txt",
+    overwrite=True,
+    add_obs_id=True,
 ):
     """
     Convenience function to plot various survey data pieces of information in a formatted file/table
@@ -1463,7 +1469,7 @@ def print_parameters(
                             print_val += "$"
 
                         print_val += (
-                                f"{val[i]:-.3}" + f"^{{{hilim :+.2}}}_{{{-1 * lolim :+.2}}}"
+                            f"{val[i]:-.3}" + f"^{{{hilim :+.2}}}_{{{-1 * lolim :+.2}}}"
                         )
 
                         if latex_table:
@@ -1515,18 +1521,18 @@ def print_parameters(
 
 
 def download_swiftdata(
-        observations,
-        reload=False,
-        fetch=True,
-        jobs=10,
-        bat=True,
-        auxil=True,
-        log=False,
-        uvot=False,
-        xrt=False,
-        tdrss=True,
-        save_dir=None,
-        **kwargs,
+    observations,
+    reload=False,
+    fetch=True,
+    jobs=10,
+    bat=True,
+    auxil=True,
+    log=False,
+    uvot=False,
+    xrt=False,
+    tdrss=True,
+    save_dir=None,
+    **kwargs,
 ) -> dict:
     """
     Download Swift data from HEASARC or quicklook sites to a local mirror directory.
@@ -1625,7 +1631,7 @@ def download_swiftdata(
 
 
 def _download_single_observation(
-        obsid, *, reload, bat, auxil, log, uvot, xrt, tdrss, save_dir, nowts, **kwargs
+    obsid, *, reload, bat, auxil, log, uvot, xrt, tdrss, save_dir, nowts, **kwargs
 ):
     """Helper function--not for general use
 
@@ -1674,9 +1680,9 @@ def _download_single_observation(
             for stalefile in obsoutdir.glob("**/*"):
                 # Any file older than the time before the data was downloaded
                 if (
-                        stalefile.is_file()
-                        and stalefile.stat().st_mtime < nowts
-                        and not stalefile.name.startswith(".")
+                    stalefile.is_file()
+                    and stalefile.stat().st_mtime < nowts
+                    and not stalefile.name.startswith(".")
                 ):
                     stalefile.replace(oldqlookdir.joinpath(stalefile.name))
             quicklookfile.unlink()
@@ -1701,68 +1707,68 @@ def test_remote_URL(url):
 
 def from_heasarc(tablename="swiftmastr", time_range=None, columns=None, query=None, return_query=False):
     """
-    This function creates the basic TAP query for querying a table and extracting the data based on time ranges. The user can specify which columns are returned if necessary, otherwise all columns of the specified table are returned from the query. If no time_range is specified, the entire table is returned. 
-    
+    This function creates the basic TAP query for querying a table and extracting the data based on time ranges. The user can specify which columns are returned if necessary, otherwise all columns of the specified table are returned from the query. If no time_range is specified, the entire table is returned.
+
     While this function is fairly simple, the user can construct more advanced TAP queries that get passed to astroquery.Heasarc.query_tap.
     """
     heasarc = Heasarc()
-    
+
     #check that we are looking for a real table
     if tablename not in heasarc.list_catalogs()["name"]:
         raise ValueError(f"The specified table {tablename} is not one of the catalogs available to query in Heasarc.")
-    
+
     #check that we have astropy.Time objects in the time_range variable if that is passed in
     if time_range is not None:
         if len(time_range) != 2:
             raise ValueError("The length of the time_range array must be 2. It must be an array of 2 astropy Time objects that specify the start/stop times to search for data in the {tablename} table.")
-        
+
         for i in time_range:
             if not isinstance(i, Time):
                 raise ValueError("The time_range parameter must be composed of 2 astropy time objects.")
-    
-    
+
+
     #check that the requested columns are actually in the table
     if columns is not None:
         #check that the columns is a list of string
         if not isinstance(columns, list):
             raise ValueError("The columns parameter must be a list of strings.")
-        
+
         table_columns=heasarc.list_columns(tablename, full=True)
 
         for i in columns:
             if not isinstance(i, str):
                 raise ValueError("All entries in the list that is passed into the columns parameter must be a string.")
-            
+
             if i not in table_columns["name"]:
                 raise ValueError(f"The requested column {i} is not a valid column in the {tablename} table.")
     else:
         #otherwise assume that we want all columns
         columns=heasarc.list_columns(tablename, full=True)["name"]
-        
-        
+
+
     if query is None:
         #then we construct the tap query based on the input
         query= f"SELECT TOP 9999999 {','.join(columns)} FROM {tablename} "
-        
+
         if time_range is not None:
             #extract the time related columns that we will query from. first get all time related info. This is meant to allow us to see if the table format has changed for whatever reason.
             time_columns=[i for i in Heasarc.list_columns(tablename, full=True) if "time" in i["name"]]
-            
+
             #then select the correct column
             if "tdrss" in tablename:
                 time_column_info=[i for i in time_columns if '"time"'==i["name"]][0]
             else:
                 time_column_info=[i for i in time_columns if "start" in i["name"]][0]
-            
+
             #make sure that thetimes are converted to the correct format
             time_range=Time([i.to_value(time_column_info["unit"]) for i in time_range], format=time_column_info["unit"])
             query += f"WHERE {time_column_info['name']} BETWEEN {time_range.min()} AND {time_range.max()}"
-                
+
     try:
         table = heasarc.query_tap(query).to_table()
     except Exception as e:
         raise RuntimeError(f"The Heasarc TAP query {query} failed with the following message: {e}")
-        
+
     if return_query:
         return table, query
     else:
@@ -1828,7 +1834,7 @@ The infixes and suffixes:
 def query_swift_trigger_data(filter_type="time", return_query=False, query=None, **kwargs):
     """
     Query Swift subthreshold trigger data with filtering options and closest-time calibration matching.
-    
+
     Parameters:
     -----------
     filter_type : str
@@ -1838,30 +1844,30 @@ def query_swift_trigger_data(filter_type="time", return_query=False, query=None,
     query : str, optional
         Custom ADQL query that will override all other parameters.
         If provided, this exact query will be executed.
-    
+
     kwargs:
         For filter_type="time":
             - start_time: Start time (string in any Astropy-compatible format)
             - stop_time: End time (string in any Astropy-compatible format)
-        
+
         For filter_type="target_range":
             - min_target_id: Minimum target ID
             - max_target_id: Maximum target ID
-            
+
         For filter_type="target_list":
             - target_ids: List of target IDs
-    
+
     Returns:
     --------
-    astropy.table.Table: Result of the query with proper units. When using any of the kwarg parameter options, the returned Table has the following columns: 
+    astropy.table.Table: Result of the query with proper units. When using any of the kwarg parameter options, the returned Table has the following columns:
             target_id, obsid, time, time_seconds, calibration_obsid, calibration_start_time, calibration_abs_dt, mastr_obsid
     """
     heasarc = Heasarc()
-    
+
     # Check if a custom query was provided
     if query is None:
         input_parameters=kwargs.keys()
-            
+
         # Apply filtering condition
         filter_condition = ""
         if filter_type == "time":
@@ -1872,7 +1878,7 @@ def query_swift_trigger_data(filter_type="time", return_query=False, query=None,
                 filter_condition = f"WHERE time BETWEEN {start_time} AND {stop_time}"
             else:
                 raise ValueError(f"When filter_type is set to time, both the start_time and stop_time parameters must be passed in.")
-            
+
         elif filter_type == "target_range":
             if 'min_target_id' in input_parameters and 'max_target_id' in input_parameters:
                 min_id = kwargs.get('min_target_id')
@@ -1881,17 +1887,17 @@ def query_swift_trigger_data(filter_type="time", return_query=False, query=None,
             else:
                 raise ValueError(f"When filter_type is set to target_range, both the min_target_id and max_target_id parameters must be passed in.")
 
-            
+
         elif filter_type == "target_list":
             target_ids = kwargs.get('target_ids', [])
             if not target_ids:
                 raise ValueError("No target IDs provided")
-                
+
             target_list_str = ','.join(str(tid) for tid in target_ids)
             filter_condition = f"WHERE target_id IN ({target_list_str})"
-        
-        
-        
+
+
+
         # Build the optimized query with time-filtered swiftmastr plus and minus 1 day to find the closest calibration
         query = f"""
         WITH filtered_swifttdrss AS (
@@ -1933,31 +1939,31 @@ def query_swift_trigger_data(filter_type="time", return_query=False, query=None,
         LEFT JOIN closest_calibration cc ON (s1.target_id = cc.target_id)
         ORDER BY s1.target_id, s1.time
         """
-        
+
     else:
         if any(key in kwargs for key in ['start_time', 'stop_time', 'min_target_id', 'max_target_id', 'target_ids']):
             warnings.warn("Custom query provided - ignoring all filtering parameters")
 
-    
+
     # Execute the query
     result = heasarc.query_tap(query)
     table = result.to_table()
-            
+
     # Add units to appropriate columns (for both custom and standard queries)
     time_columns = ['time', 'start_time', 'stop_time', 'calibration_start_time']
     for col in time_columns:
         if col in table.colnames:
             table[col].unit = u.d  # MJD is in days
-    
+
     if 'time_seconds' in table.colnames:
         table['time_seconds'].unit = u.s  # Time in seconds
-    
+
     if 'calibration_abs_dt' in table.colnames:
         table['calibration_abs_dt'].unit = u.d  # Time difference in days
-        
+
     #now search for the obsid that contains the snapshot/attitude information for the time that each trigger data was collected
     afst_obs=swtoo.ObsQuery(begin=Time(table["time"].min(), format="mjd"), end=Time(table["time"].max(), format="mjd")+TimeDelta(1, "d"))
-    
+
     #iterate over to find the associated obsids of the observations that have snapshots that occur when the trigger data was taken
     snapshot_observations=[]
     for row in table:
@@ -1965,12 +1971,12 @@ def query_swift_trigger_data(filter_type="time", return_query=False, query=None,
         for afst_entry in afst_obs.entries:
             if (trigger_time > Time(afst_entry.begin)) and (trigger_time < Time(afst_entry.end)):
                 snapshot_observations.append(afst_entry.obsid)
-    
+
     #now create a new column and add it to the astropy Table, make it an object dtype since str prevents us from passing it in directly to swift_too
     col=table.Column(data=snapshot_observations, name="mastr_obsid", description="swiftmastr obsid with the attitude data associated with the trigger of interest", dtype=table["obsid"].dtype)
     table.add_column(col)
 
-    
+
     if return_query:
         return table, query
     else:
@@ -1986,18 +1992,17 @@ def download_swift_trigger_data(triggers=None, triggerrange=None, triggertime=No
     Find data corresponding to trigger on remote server and local disk
 
     Looks up triggers in the 'swifttdrss' table, then downloads the selected triggers
-    to local disk. If return_table is True, the queried HEASARC swifttdrss table is also returned. If return_query is True, the constructed ADQL query that is sent to HEASARC is also returned.
-    
+    to local disk. If return_table is True, the queried HEASARC swifttdrss table is also returned.If return_query is True, the constructed ADQL query that is sent to HEASARC is also returned.
     Currently, this function covers only data delivered to HEASARC, and not quicklook data.
 
-    
+
     If you want only TTE data, it may be selected with
     match = ['*bevsh*']
 
     Args:
         :param triggers (int|Iterable[int], optional): Specific trigger number. Defaults to None.
         :param triggerrange (Tuple[int,int], optional): inclusive range of trigger numbers. Defaults to None.
-        :param triggertime (datetime.datetime|Iterable[datetime.datetime|astropy.time.Time], optional): UTC Time of desired trigger(s) or a list/array that defines the times to obtain triggers within (the timebin edges are not inclusive). The passed values can be an astropy Time object, a datetime object, or an iterable of a datetime object, an astropy Time object, or any string in any Astropy-compatible format. Defaults to None. 
+        :param triggertime (datetime.datetime|Iterable[datetime.datetime|astropy.time.Time], optional): UTC Time of desired trigger(s) or a list/array that defines the times to obtain triggers within (the timebin edges are not inclusive). The passed values can be an astropy Time object, a datetime object, or an iterable of a datetime object, an astropy Time object, or any string in any Astropy-compatible format. Defaults to None.
         :param timewindow (float, optional): Number of seconds +/- to the triggertime to get a range of UTC times to search for TTE data. Defaults to 300.
         :param fetch (bool, optional): Copy from server to local disk, if necessary
         :param outdir (Path, optional): Top-level data directory for download.
@@ -2027,8 +2032,8 @@ def download_swift_trigger_data(triggers=None, triggerrange=None, triggertime=No
             triggertable, query = query_swift_trigger_data(filter_type="time", start_time=tstart, stop_time=tend, return_query=True)
     else:
         triggertable, query = query_swift_trigger_data(query=query, return_query=True)
-    
-    
+
+
     # UNIMPLEMENTED: triggers in quicklook data are not returned
     result = {}
 
@@ -2036,23 +2041,37 @@ def download_swift_trigger_data(triggers=None, triggerrange=None, triggertime=No
         topdir = Path(outdir) if outdir is not None else datadir()
 
         for row in triggertable:
-            
+
             trigger=row["target_id"]
             triggermjd=row["time"]
             calibration_obsid=row["calibration_obsid"]
             att_obsid=row["mastr_obsid"]
-            
-            
+
+
             all_res = []
             triggeriso = np.datetime_as_string(met2utc(None, mjd_time=triggermjd))
 
-            res = swtoo.Swift_Data(obsid=f"{trigger:08d}000", outdir=str(topdir), tdrss=True, clobber=clobber,
-                                   quiet=quiet, match=match, fetch=fetch)
+            res = swtoo.Swift_Data(
+                obsid=f"{trigger:08d}000",
+                outdir=str(topdir),
+                tdrss=True,
+                clobber=clobber,
+                quiet=quiet,
+                match=match,
+                fetch=fetch,
+            )
             if res.status.errors:
-                tdrssmonthdir = topdir.joinpath(f'tdrss/{triggeriso[0:4]}_{triggeriso[5:7]}')
+                tdrssmonthdir = topdir.joinpath(
+                    f"tdrss/{triggeriso[0:4]}_{triggeriso[5:7]}"
+                )
                 res = swtoo.Swift_Data(
-                    obsid=f"{trigger:08d}000", outdir=str(tdrssmonthdir), subthresh=True, clobber=clobber, quiet=quiet,
-                    match=match, fetch=fetch
+                    obsid=f"{trigger:08d}000",
+                    outdir=str(tdrssmonthdir),
+                    subthresh=True,
+                    clobber=clobber,
+                    quiet=quiet,
+                    match=match,
+                    fetch=fetch,
                 )
 
                 all_res.append(res)
@@ -2064,11 +2083,11 @@ def download_swift_trigger_data(triggers=None, triggerrange=None, triggertime=No
                     local_download_path=res.entries[0].localpath
                     download_bat=False
                     download_auxil=False
-                
+
                     #download the calibration file and the attitude file, from potentially different obsids and organize them for the analysis of a subthreshold trigger
                     try:
                         for obsid, obs_type in zip([calibration_obsid, att_obsid], ["calibration", "attitude"]):
-                        
+
                             # if the local path is None, then we dont want to download the nearest obsid data so just set
                             # this to None
                             save_dir = None if not fetch else Path(local_download_path).parent
@@ -2079,7 +2098,7 @@ def download_swift_trigger_data(triggers=None, triggerrange=None, triggertime=No
                                 download_bat=False
                                 download_auxil=True
 
-                                
+
                             res = swtoo.Swift_Data(obsid=obsid, bat=download_bat, auxil=download_auxil, outdir=save_dir, match=match, fetch=fetch)
 
                             all_res.append(res)
@@ -2092,11 +2111,11 @@ def download_swift_trigger_data(triggers=None, triggerrange=None, triggertime=No
 
                                 if "calibration" in obs_type:
                                     new_bat = save_dir.joinpath("bat")
-                                    
+
                                     if not new_bat.is_symlink():
                                         new_bat.symlink_to(closest_obsid_dir.relative_to(save_dir).joinpath("bat"),
                                                            target_is_directory=True)
-                                                           
+
                                     # need to checck for an event folder, if there is then there are event files that will need
                                     # to have something done with them, otherwise just create the folder and copy the OG
                                     # subthreshold event file (need to copy to unzip it)
@@ -2136,7 +2155,8 @@ def download_swift_trigger_data(triggers=None, triggerrange=None, triggertime=No
                     except Exception as e:
                         if fetch:
                             warnings.warn(
-                                    f"Downloading the {obs_type} data from obsid {obsid} for subthreshold trigger {trigger} failed with message {e}. Continuing with the next subthreshold trigger.")
+                                    f"Downloading the {obs_type} data from obsid {obsid} for subthreshold trigger {trigger} failed with message {e}. Continuing with the next subthreshold trigger."
+                                )
 
 
                 #if res.status.errors:
@@ -2145,7 +2165,7 @@ def download_swift_trigger_data(triggers=None, triggerrange=None, triggertime=No
                 all_res.append(res)
 
             result[trigger] = all_res
-            
+
     if return_table:
         if return_query:
             return result, triggertable, query
@@ -2248,7 +2268,7 @@ def reset_pdir():
 
 
 def concatenate_data(
-        bat_observation, source_ids, keys, energy_range=[14, 195], chronological_order=True
+    bat_observation, source_ids, keys, energy_range=[14, 195], chronological_order=True
 ):
     """
     This convenience function collects the data that was requested by the user as passed into the keys variable. The
@@ -2357,19 +2377,19 @@ def concatenate_data(
                             obs.get_pointing_info(pointings, source_id=source),
                         ]:
                             if (
-                                    continue_search
-                                    and np.isnan(save_val)
-                                    and len(
-                                dpath.search(
-                                    obs.get_pointing_info(
-                                        pointings, source_id=source
-                                    )["model_params"],
-                                    user_key,
+                                continue_search
+                                and np.isnan(save_val)
+                                and len(
+                                    dpath.search(
+                                        obs.get_pointing_info(
+                                            pointings, source_id=source
+                                        )["model_params"],
+                                        user_key,
+                                    )
                                 )
-                            )
-                                    == 0
-                                    and ("flux" not in user_key.lower())
-                                    and ("index" not in user_key.lower())
+                                == 0
+                                and ("flux" not in user_key.lower())
+                                and ("index" not in user_key.lower())
                             ):
                                 try:
                                     # if this is a rate/rate_err/snr need to calcualate these quantities based on the
@@ -2402,10 +2422,10 @@ def concatenate_data(
 
                         # see if the values are for the model fit
                         if (
-                                continue_search
-                                and np.sum(np.isnan(save_val)) > 0
-                                and "model_params"
-                                in obs.get_pointing_info(pointings, source_id=source).keys()
+                            continue_search
+                            and np.sum(np.isnan(save_val)) > 0
+                            and "model_params"
+                            in obs.get_pointing_info(pointings, source_id=source).keys()
                         ):
                             # can have obs.get_pointing_info(pointings, source_id=source)["model_params"]
                             # but it can be None if the source isn't detected
@@ -2446,7 +2466,7 @@ def concatenate_data(
                             # need to calculate the error on the value
                             # first do the case of flux upper limit
                             if real_user_key == "nsigma_lg10flux_upperlim":
-                                save_value = 10 ** save_val
+                                save_value = 10**save_val
                                 # there is no upper/lower error since we have an upper limit
                                 error = np.ones(2) * np.nan
                                 is_upper_lim = True
@@ -2512,9 +2532,7 @@ def concatenate_data(
     return concat_data
 
 
-def concatenate_spectrum_data(
-        spectra, keys, chronological_order=True
-):
+def concatenate_spectrum_data(spectra, keys, chronological_order=True):
     """
     This convenience function collects the spectra data that was requested by the user as passed into the keys variable.
     The data is returned in the form of a dictionary with the same keys and numpy/astropy.Quantity arrays of all the
@@ -2544,7 +2562,9 @@ def concatenate_spectrum_data(
         spect = spectra
 
     if np.any([not isinstance(i, Spectrum) for i in spect]):
-        raise ValueError("Not all the elements of the values passed in to the spectra variable are Spectrum objects.")
+        raise ValueError(
+            "Not all the elements of the values passed in to the spectra variable are Spectrum objects."
+        )
 
     # create a dict from the keys for soure and what the user is interested in
     concat_data = dict().fromkeys(keys)
@@ -2553,20 +2573,14 @@ def concatenate_spectrum_data(
 
     if chronological_order:
         # sort the info by central time bin of each spectrum
-        all_cent_met = u.Quantity([
-            i.tbins["TIME_CENT"][0] for i in spect
-        ])
+        all_cent_met = u.Quantity([i.tbins["TIME_CENT"][0] for i in spect])
         sorted_obs_idx = np.argsort(all_cent_met)
     else:
         sorted_obs_idx = np.arange(len(spect))
 
     # get the start/stop time when the spectra were binned
-    all_start_met = u.Quantity([
-        i.tbins["TIME_START"][0] for i in spect
-    ])
-    all_stop_met = u.Quantity([
-        i.tbins["TIME_STOP"][0] for i in spect
-    ])
+    all_start_met = u.Quantity([i.tbins["TIME_START"][0] for i in spect])
+    all_stop_met = u.Quantity([i.tbins["TIME_STOP"][0] for i in spect])
 
     # save the times to the data dictionary
     concat_data["TIME_START"] = all_start_met[sorted_obs_idx]
@@ -2581,7 +2595,9 @@ def concatenate_spectrum_data(
         try:
             spect_model = spectrum.spectral_model
         except AttributeError as e:
-            raise AttributeError("Not all of the spectra that have been passed in have been fit with a spectral model")
+            raise AttributeError(
+                "Not all of the spectra that have been passed in have been fit with a spectral model"
+            )
 
         # check that all spectra have the same spectral model fit to them, except for models which were used for
         # getting flux upper limits
@@ -2593,8 +2609,10 @@ def concatenate_spectrum_data(
             else:
                 # check to see if the spectrum model parameters matches those that were saved
                 if set(check_model) != set(spect_model["parameters"].keys()):
-                    raise ValueError("The input Spectrum objects do not have the same model parameters. Please ensure"
-                                     "that the same model was used to fit the non flux upper limit spectra.")
+                    raise ValueError(
+                        "The input Spectrum objects do not have the same model parameters. Please ensure"
+                        "that the same model was used to fit the non flux upper limit spectra."
+                    )
 
         # iterate over the keys of interest
         for user_key in keys:
@@ -2603,10 +2621,7 @@ def concatenate_spectrum_data(
             # search in all
             continue_search = True
             # see if the values are for the model fit
-            if (
-                    continue_search
-                    and np.sum(np.isnan(save_val)) > 0
-            ):
+            if continue_search and np.sum(np.isnan(save_val)) > 0:
                 # can have obs.get_pointing_info(pointings, source_id=source)["model_params"]
                 # but it can be None if the source isn't detected
                 # if obs.get_pointing_info(pointings, source_id=source)["model_params"] is not None:
@@ -2621,9 +2636,7 @@ def concatenate_spectrum_data(
                 # try to access the dictionary key
                 try:
                     save_val = dpath.get(
-                        spect_model[
-                            "parameters"
-                        ],
+                        spect_model["parameters"],
                         real_user_key,
                     )
                 except KeyError:
@@ -2646,7 +2659,7 @@ def concatenate_spectrum_data(
                 # need to calculate the error on the value
                 # first do the case of flux upper limit
                 if real_user_key == "nsigma_lg10flux_upperlim":
-                    save_value = 10 ** save_val
+                    save_value = 10**save_val
                     # there is no upper/lower error since we have an upper limit
                     error = np.ones(2) * np.nan
                     is_upper_lim = True
@@ -2664,9 +2677,7 @@ def concatenate_spectrum_data(
                     else:
                         try:
                             save_value = save_val["val"]
-                            error = np.array(
-                                [save_val["lolim"], save_val["hilim"]]
-                            )
+                            error = np.array([save_val["lolim"], save_val["hilim"]])
 
                             if "T" in save_val["errflag"]:
                                 error = np.ones(2) * np.nan
@@ -2690,9 +2701,7 @@ def concatenate_spectrum_data(
                 try:
                     concat_data[user_key_lolim].append(error[0])
                     concat_data[user_key_hilim].append(error[1])
-                    concat_data[user_key_upperlim].append(
-                        is_upper_lim
-                    )
+                    concat_data[user_key_upperlim].append(is_upper_lim)
                 except KeyError:
                     concat_data[user_key_lolim] = []
                     concat_data[user_key_hilim] = []
@@ -2700,9 +2709,7 @@ def concatenate_spectrum_data(
 
                     concat_data[user_key_lolim].append(error[0])
                     concat_data[user_key_hilim].append(error[1])
-                    concat_data[user_key_upperlim].append(
-                        is_upper_lim
-                    )
+                    concat_data[user_key_upperlim].append(is_upper_lim)
 
     # turn things into numpy array for easier handling, except for times which should be astropy quantity objects
     for key, val in concat_data.items():
@@ -2713,7 +2720,7 @@ def concatenate_spectrum_data(
 
 
 def make_fake_tdrss_message(
-        obs_id, trig_time, trig_stop, ra_obj, dec_obj, obs_dir=None
+    obs_id, trig_time, trig_stop, ra_obj, dec_obj, obs_dir=None
 ):
     """
     This function creates a fake TDRSS message file that specifies a few important pieces of information which can be
@@ -2764,7 +2771,9 @@ def make_fake_tdrss_message(
     return tdrss_file
 
 
-def create_gti_file(timebin_edges, output_filename, T0=None, is_relative=False, overwrite=True):
+def create_gti_file(
+    timebin_edges, output_filename, T0=None, is_relative=False, overwrite=True
+):
     """
     This convenience function creates a gti file from a set of timebin edges.
 
@@ -2792,8 +2801,10 @@ def create_gti_file(timebin_edges, output_filename, T0=None, is_relative=False, 
 
     # test if is_relative is false and make sure that T0 is defined
     if is_relative and T0 is None:
-        raise ValueError('The is_relative value is set to True however there is no T0 that is defined ' +
-                         '(ie the time from which the time bins are defined relative to is not specified).')
+        raise ValueError(
+            "The is_relative value is set to True however there is no T0 that is defined "
+            + "(ie the time from which the time bins are defined relative to is not specified)."
+        )
 
     # See if we need to add T0 to everything
     if is_relative:
@@ -2815,8 +2826,8 @@ def create_gti_file(timebin_edges, output_filename, T0=None, is_relative=False, 
     pha_primary = fits.PrimaryHDU()
 
     # create real gti info
-    gti_tmin = fits.Column(name='START', format='1D', unit='s', array=tmin)
-    gti_tmax = fits.Column(name='STOP', format='1D', unit='s', array=tmax)
+    gti_tmin = fits.Column(name="START", format="1D", unit="s", array=tmin)
+    gti_tmax = fits.Column(name="STOP", format="1D", unit="s", array=tmax)
 
     gti_cols = fits.ColDefs([gti_tmin, gti_tmax])
 
@@ -2829,7 +2840,7 @@ def create_gti_file(timebin_edges, output_filename, T0=None, is_relative=False, 
     gti_thdulist.writeto(str(output_filename), overwrite=overwrite)
 
     # open it in update mode to add header info
-    with fits.open(str(output_filename), mode='update') as gti_hdulist:
+    with fits.open(str(output_filename), mode="update") as gti_hdulist:
         for i in gti_hdulist:
             hdr = i.header
             hdr["MJDREFI"] = (51910, "Swift reference epoch: days")
@@ -2869,3 +2880,67 @@ def decompose_det_id(detector_id):
 
     return block, dm, side, channel
 
+
+def find_sources(sky_image, input_dict=None):
+    """Generic function to run batcelldetect on an image.
+
+    :param sky_image: Path object or string to the sky image file to run source detection on.
+    :param input_dict: A custom input dictionary with key/value pairs that will be passed to batcelldetect.
+    """
+    # detect the sources, then we merge the output catalogs
+    # Try to read in user defined parameters
+
+    # First make a genric parameter dictionary
+    outfile = (
+        Path(sky_image)
+        .as_posix()
+        .replace(".fits", "_sources.fits")
+        .replace(".img", "_sources.fits")
+    )
+    catalog_file = Path(__file__).parent.joinpath("data").joinpath("survey6b_2.cat")
+    default_input_dict = dict(
+        infile=f"{sky_image}",
+        outfile=str(outfile),
+        incatalog=catalog_file.as_posix(),
+        snrthresh=4.0,
+        psfshape="GAUSSIAN",
+        psffwhm="0.325",
+        srcfit="YES",
+        posfit="NO",
+        posfitwindow=0.0,
+        bkgwindowtype="SMOOTH_CIRCLE",
+        srcdetect="NO",
+        nadjpix=1,
+        srcradius=15,
+        bkgradius=100,
+        bkgfit="no",
+        keepbits="ALL",
+        hduclasses="NONE",
+        chatter=2,
+        clobber="YES",
+        distfile="NONE",
+        nullborder="NO",
+        vectorflux="YES",
+        vectorposmeth="MAX_SNR",
+        keepkeywords="FACET,CRVAL1,CRVAL2,*VER",
+    )
+
+    # Then respect user defined parameters
+    if input_dict is not None:
+        for key in list(default_input_dict.keys()):
+            if key not in input_dict:
+                input_dict[key] = default_input_dict[key]
+
+    batcelldetect_output = hsp.batcelldetect(**input_dict)
+    # get the coordinates from galactic to RA/DEC
+    heatools.ftcoco(
+        infile=str(input_dict["outfile"]),
+        outfile=str(input_dict["outfile"]),
+        incoord="G",
+        outcoord="R",
+        lon1="GLON_OBJ",
+        lat1="GLAT_OBJ",
+        lon2="RA_OBJ",
+        lat2="DEC_OBJ",
+        clobber="YES",
+    )

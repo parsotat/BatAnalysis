@@ -1,7 +1,9 @@
 """
 This file is meant to hold the functions that allow users to create mosaic-ed images for survey data
 """
+
 import shutil
+import h5py
 from pathlib import Path
 
 import numpy as np
@@ -9,11 +11,16 @@ import pkg_resources
 import scipy.spatial.qhull as qhull
 from astropy.coordinates import SkyCoord
 from astropy.io import fits
-from astropy.time import Time
+from astropy.time import Time, TimeDelta
 from astropy.wcs import WCS
+from reproject import reproject_to_healpix, reproject_from_healpix
+from astropy.table import Table
+from joblib import Parallel, delayed
+import healpy as hp
 
-from .bat_survey import MosaicBatSurvey
+from .bat_survey import MosaicBatSurvey, BatSurvey
 from .batlib import dirtest, met2utc
+from .skyproject import ReprojectSurvey, MosaicSummary
 
 # for python>3.6
 try:
@@ -37,6 +44,8 @@ _minexpo = 150  # Minimum image exposure
 _nskyimg = 6  # Number of facets to sky image
 _nebands = 8  # Number of energy bands to process
 _proj = "ZEA"  # projection from idl code that is used
+_order = 10  # Healpix order parameter
+_nside = 2**_order  # Healpix nside parameter
 
 # also information to create the skygrids if the user wants
 _gcenters = np.array(
@@ -93,8 +102,40 @@ def interpolate(values, vtx, wts, fill_value=np.nan):
     return ret
 
 
+def convert_time_to_decimal_day(times):
+    """
+    Converts an array of astropy Time objects to decimal days
+
+    :param times: an array of astropy Time objects
+    :return: an array of decimal days corresponding to the input times
+    """
+    # get the ymdhms values for each time object
+    # First decode the object shape
+    nelements = len(times.shape)
+    if nelements == 0:
+        times = Time([times])
+    ymdhms = times.ymdhms
+
+    # calculate the decimal day values
+    year = ymdhms["year"].astype(str)
+    month = [str(i).zfill(2) for i in ymdhms["month"]]
+    # day = [str(i).zfill(2) for i in ymdhms["day"]]
+    decimal_day = np.round(
+        ymdhms["day"]
+        + ymdhms["hour"] / 24
+        + ymdhms["minute"] / 1440
+        + ymdhms["second"] / 86400,
+        3,
+    ).astype(str)
+    output_str = [f"{y}_{m}_{d}" for y, m, d in zip(year, month, decimal_day)]
+    if nelements == 0:
+        return output_str[0]
+    else:
+        return output_str
+
+
 def make_skygrids(
-        center_resolution=2.8, galactic_boundaries=[48, 48], savedirectory=None
+    center_resolution=2.8, galactic_boundaries=[48, 48], savedirectory=None
 ):
     """
     Creates a skygrid based on galactic coordinates being split up into 6 facets. The skygrids are created using the
@@ -197,6 +238,149 @@ def make_skygrids(
     return 0
 
 
+def make_all_sky_stg_grids(resolution=2.8, savedirectory=None):
+    """Helper function to save WCS to a FITS file. This 2D sky projection uses the
+    Stereographic (STG) projection in Galactic coordinates. The tile centers are
+    hardcoded for an 8-tile configuration covering the sky. The centers are at
+    (l, b) = (0°, 0°), (90°, 0°), (180°, 0°), (270°, 0°), (45°, 50°), (135°, 50°),
+    (225°, -50°), and (315°, -50°).
+
+    Parameters
+    ----------
+    resolution : float
+        Pixel scale in arcminutes per pixel. Default is 2.8 arcmin/pixel.
+    savedirectory : str
+        Directory to which the output FITS filename is written.
+    """
+    # Format: (longitude, latitude) in Galactic coordinates
+    TILE_CENTERS = [
+        # 4 equatorial tiles (full longitude coverage)
+        (0, 0),
+        (90, 0),
+        (180, 0),
+        (270, 0),
+        # 2 polar caps
+        (0, 90),
+        (0, -90),
+    ]
+
+    # Configuration
+    PIXEL_SCALE = resolution / 60  # degrees per pixel (2.8 arcmin)
+    TILE_SIZE = 95.0  # degrees
+    NPIX = int(TILE_SIZE / PIXEL_SCALE)  # ~2000 pixels
+
+    # set up the save directory
+    if savedirectory is None:
+        savedirectory = Path(__file__).parent.joinpath("data")
+    else:
+        savedirectory = Path(savedirectory)
+
+    all_sky_wcs_grids = {}
+
+    for i, (l, b) in enumerate(TILE_CENTERS):
+        # Create WCS
+        # Save to FITS file
+        # Print summary
+        filename = f"sky_grid_{i+1:02d}_l_{l:03.0f}_b_{b:+03.0f}_STG.fits"
+
+        """Create a WCS object for a tile centered at (l_center, b_center)."""
+        """Save WCS to a FITS header file."""
+
+        # Create a minimal FITS HDU with the WCS
+        wcs = WCS(naxis=2)
+        wcs.wcs.crval = [l, b]  # Reference sky position
+        wcs.wcs.crpix = [NPIX / 2 + 0.5, NPIX / 2 + 0.5]  # Reference pixel
+        wcs.wcs.cdelt = [-PIXEL_SCALE, PIXEL_SCALE]  # Pixel scale
+        wcs.wcs.ctype = ["GLON-STG", "GLAT-STG"]  # Stereographic projection
+        wcs.wcs.cunit = ["deg", "deg"]
+        wcs.pixel_shape = (NPIX, NPIX)
+
+        # save them
+        all_sky_wcs_grids[filename] = wcs
+    return all_sky_wcs_grids
+
+
+def make_healpix_grids():
+    """Helper function that creates the healpix grids that will be used for mosaicing.
+    By defualt it uses _nside parameter to decide the resolution of the grid. The morale is to
+    project the image onto a healpix map so that storage can be efficient
+    """
+    pix_ids = np.arange(hp.nside2npix(_nside)).astype(int)
+    theta, phi = hp.pix2ang(_nside, pix_ids)
+    ra = np.rad2deg(phi)
+    dec = 90 - np.rad2deg(theta)
+    return ra, dec
+
+
+def divide_with_respect(a, b):
+    """Helper function that divides two arrays but takes care of divide by zero errors
+
+    Args:
+        a (np.ndarray): The numerator array
+        b (np.ndarray): The denominator array
+
+    Returns:
+        np.ndarray: The result of the division with divide by zero handled
+    """
+    result = np.divide(a, b, out=np.zeros_like(b), where=b != 0)
+    return result
+
+
+def get_common_healpix_grid(hdr):
+    """By defualt the healpiz grid is all sky, but we dont want that. We want what is common
+    to the image, so given a header file, make a WCS and get the common area.
+
+    Args:
+        hdr (astropy.io.fits.header.Header): The header file
+    """
+    wcs = WCS(hdr)
+    ra_hp, dec_hp = make_healpix_grids()
+    coords = SkyCoord(ra_hp, dec_hp, unit="deg")
+    mask = wcs.footprint_contains(coord=coords)
+    commom_coords = coords[mask]
+
+    # get common pixels
+    phi = commom_coords.ra.rad
+    theta = np.pi / 2 - commom_coords.dec.rad
+    pix_ids = hp.ang2pix(_nside, theta, phi)
+
+    # Instantiate values
+    vals = np.zeros(len(ra_hp))
+    return commom_coords, pix_ids, vals
+
+
+def convert_time_to_decimal_day(times):
+    """
+    Converts an array of astropy Time objects to decimal days
+
+    :param times: an array of astropy Time objects
+    :return: an array of decimal days corresponding to the input times
+    """
+    # get the ymdhms values for each time object
+    # First decode the object shape
+    nelements = len(times.shape)
+    if nelements == 0:
+        times = Time([times])
+    ymdhms = times.ymdhms
+
+    # calculate the decimal day values
+    year = ymdhms["year"].astype(str)
+    month = [str(i).zfill(2) for i in ymdhms["month"]]
+    # day = [str(i).zfill(2) for i in ymdhms["day"]]
+    decimal_day = np.round(
+        ymdhms["day"]
+        + ymdhms["hour"] / 24
+        + ymdhms["minute"] / 1440
+        + ymdhms["second"] / 86400,
+        3,
+    ).astype(str)
+    output_str = [f"{y}_{m}_{d}" for y, m, d in zip(year, month, decimal_day)]
+    if nelements == 0:
+        return output_str[0]
+    else:
+        return output_str
+
+
 def merge_outventory(survey_list, savedir=None):
     """
     Creates a merged outventory file in the savedir parameter which lists all the BAT surveys that will be
@@ -267,9 +451,7 @@ def merge_outventory(survey_list, savedir=None):
     # input_filename.unlink()
     # Above IS HEASOFT STUFF
 
-    output_file = savedir.joinpath(
-        "outventory_all.fits"
-    )
+    output_file = savedir.joinpath("outventory_all.fits")
 
     shutil.copy(survey_list[0].result_dir.joinpath("stats_point.fits"), output_file)
     for i in survey_list[1:]:
@@ -286,7 +468,7 @@ def merge_outventory(survey_list, savedir=None):
     # now sort the file by time
     with fits.open(output_file, mode="update") as hdul:
         hdu = hdul[1]
-        idx = np.argsort(hdu.data['TSTART'])
+        idx = np.argsort(hdu.data["TSTART"])
         hdu.data = hdu.data[idx]
         hdul.flush()
 
@@ -311,8 +493,10 @@ def select_outventory(outventory_file, start_met, end_met):
     with fits.open(outventory_file) as f:
         # identify the lines with the times of interest/images that are good and have the comparison be broadcastable
         idx = np.where(
-            (f[1].data["TSTART"][..., None] >= start_met) & (f[1].data["TSTART"][..., None] < end_met) &
-            (f[1].data["IMAGE_STATUS"][..., None] == True))
+            (f[1].data["TSTART"][..., None] >= start_met)
+            & (f[1].data["TSTART"][..., None] < end_met)
+            & (f[1].data["IMAGE_STATUS"][..., None] == True)
+        )
 
         # save the headers of the original outventory file and then copy them to the new output file
         hdu = f[1]
@@ -321,14 +505,14 @@ def select_outventory(outventory_file, start_met, end_met):
 
 
 def group_outventory(
-        outventory_file,
-        binning_timedelta=None,
-        start_datetime=None,
-        end_datetime=None,
-        recalc=False,
-        mjd_savedir=False,
-        custom_timebins=None,
-        save_group_outventory=True
+    outventory_file,
+    binning_timedelta=None,
+    start_datetime=None,
+    end_datetime=None,
+    recalc=False,
+    custom_timebins=None,
+    subdirs=False,
+    save_group_outventory=True,
 ):
     """
     This function groups the observations listed in an outventory file together based on time bins that each observation
@@ -340,9 +524,6 @@ def group_outventory(
     :param start_datetime: An astropy Time object that denotes the start date to start binning the observations
     :param end_datetime: An astropy Time object that denotes the end date to stop binning the observations
     :param recalc: Boolean to denote if the directoruy at is created or not. Also denotes if the
-    :param mjd_savedir: Boolean to denote if the directory of the created directory has the datetime64 with the start
-        date of the beginning of the timebin of interest or if the directory name is formatted with mjd time
-        (which is useful for mosaicing with timebins shorter than a day)
     :param custom_timebins: None OR
         an array of astropy Time values denoting the timebin edges for which mosaicing will take place.
             ie if custom_timebins=astropy.Time(["2022-10-08","2022-10-10", "2022-10-12"]) then there will be 2 grouped
@@ -362,6 +543,9 @@ def group_outventory(
                 then there will be 2 mosaics created. Mosaic 1 will combine observations from 2022-10-08 to 2022-10-10
                 AND observations from 2022-10-11 to 2022-10-12.
                 While mosaic 2 will combine observations from 2022-10-10 to 022-10-11.
+    :param subdirs: a Boolean that denotes whether each time bin will have its own subdirectory created to hold the
+        grouped outventory file and eventually the mosaiced results. Deafults to False. This would mean that all 1 day mosaics
+        will be saved under a folder called 1_day_mosaics
     :param save_group_outventory: a Boolean that denotes whether the grouped outventory files for each time bin and the
         associated directories to hold the mosaic results for the time bins will be created. If this is set to False,
         these will not be created but the calculated time_bins will be returned
@@ -397,7 +581,6 @@ def group_outventory(
                     "The end_datetime variable needs to be an astropy Time object."
                 )
 
-
     else:
         if type(custom_timebins) is not Time and type(custom_timebins) is not list:
             raise ValueError(
@@ -427,7 +610,10 @@ def group_outventory(
             # launch_time = Time("2004-12-01")
             # start_datetime=launch_time
             with fits.open(str(outventory_file)) as file:
-                t = [Time(i, format="isot", scale="utc") for i in file[1].data["DATE_OBS"]]
+                t = [
+                    Time(i, format="isot", scale="utc")
+                    for i in file[1].data["DATE_OBS"]
+                ]
 
             # get the min date and get the ymdhms to modify
             t = Time(t).min()
@@ -444,8 +630,9 @@ def group_outventory(
             with fits.open(outventory_file) as f:
                 end_datetime = Time(met2utc(f[1].data["TSTART"].max()))
 
-        if np.dtype(binning_timedelta) == np.dtype(np.timedelta64(1, 'M')) and binning_timedelta == np.timedelta64(1,
-                                                                                                                   'M'):
+        if np.dtype(binning_timedelta) == np.dtype(
+            np.timedelta64(1, "M")
+        ) and binning_timedelta == np.timedelta64(1, "M"):
             # if the user wants months, need to specify each year, month and the number of days
             years = [
                 i
@@ -459,25 +646,25 @@ def group_outventory(
                 for m in months:
                     if start_datetime.ymdhms["year"] == end_datetime.ymdhms["year"]:
                         if (
-                                m >= start_datetime.ymdhms["month"]
-                                and m <= end_datetime.ymdhms["month"] + 1
-                                and y == start_datetime.ymdhms["year"]
+                            m >= start_datetime.ymdhms["month"]
+                            and m <= end_datetime.ymdhms["month"] + 1
+                            and y == start_datetime.ymdhms["year"]
                         ):
                             months_list.append("%d-%02d" % (y, m))
                     else:
                         if (
-                                m >= start_datetime.ymdhms["month"]
-                                and y == start_datetime.ymdhms["year"]
+                            m >= start_datetime.ymdhms["month"]
+                            and y == start_datetime.ymdhms["year"]
                         ):
                             months_list.append("%d-%02d" % (y, m))
                         elif (
-                                m <= end_datetime.ymdhms["month"] + 1
-                                and y == end_datetime.ymdhms["year"]
+                            m <= end_datetime.ymdhms["month"] + 1
+                            and y == end_datetime.ymdhms["year"]
                         ):
                             months_list.append("%d-%02d" % (y, m))  # for the edge case
                         elif (
-                                y > start_datetime.ymdhms["year"]
-                                and y < end_datetime.ymdhms["year"]
+                            y > start_datetime.ymdhms["year"]
+                            and y < end_datetime.ymdhms["year"]
                         ):
                             months_list.append("%d-%02d" % (y, m))
 
@@ -508,9 +695,7 @@ def group_outventory(
     # return the time_bins for the user to check them
     if save_group_outventory:
         # create the folder that will hold the outventory files for each time range of interest
-        savedir = outventory_file.parent.joinpath(
-            "grouped_outventory"
-        )
+        savedir = outventory_file.parent.joinpath("grouped_outventory")
 
         # see if the savedir exists, if it does, then we dont have to do all of these calculations again
         if not savedir.exists() or recalc:
@@ -526,6 +711,22 @@ def group_outventory(
                 loop_iters = len(time_bins)
 
             # loop over time bins to select the appropriate outventory enteries
+            # And add in placeholder directories
+            # if subdir=True, make a global subdirectory to hold all mosaics
+            if subdirs:
+                subdir_dt = np.round(
+                    TimeDelta(
+                        binning_timedelta.astype("timedelta64[s]"), format="sec"
+                    ).jd,
+                    1,
+                )
+                if subdir_dt % 1 == 0:
+                    subdir_dt = int(subdir_dt)
+                subdir_name = outventory_file.parent.joinpath(
+                    f"{subdir_dt}_day_mosaics"
+                )
+                if not subdir_name.exists():
+                    subdir_name.mkdir(parents=True, exist_ok=True)
             for i in range(loop_iters):
                 # print(i)
                 if not time_bins_is_list:
@@ -541,10 +742,16 @@ def group_outventory(
                     end = time_bins[i][1, 0]
 
                     # convert the start time bins edges to met times
-                    start_met = [sbu.datetime2met(j.datetime, correct=True) for j in time_bins[i][0, :]]
+                    start_met = [
+                        sbu.datetime2met(j.datetime, correct=True)
+                        for j in time_bins[i][0, :]
+                    ]
 
                     # convert the end time bins edges to met times
-                    end_met = [sbu.datetime2met(j.datetime, correct=True) for j in time_bins[i][1, :]]
+                    end_met = [
+                        sbu.datetime2met(j.datetime, correct=True)
+                        for j in time_bins[i][1, :]
+                    ]
 
                 select_outventory(outventory_file, start_met, end_met)
 
@@ -556,18 +763,14 @@ def group_outventory(
 
                 # move the outventory file to the folder where we will keep them
                 output_file = Path(str(outventory_file).replace(".fits", "_sel.fits"))
-                if not mjd_savedir:
-                    savefile = savedir.joinpath(
-                        output_file.name.replace(
-                            "_sel.fits", f"_{start.datetime64.astype('datetime64[D]')}.fits"
-                        )
+
+                start_time_str = convert_time_to_decimal_day(start)
+                end_time_str = convert_time_to_decimal_day(end)
+                savefile = savedir.joinpath(
+                    output_file.name.replace(
+                        "_sel.fits", f"_{start_time_str}_{end_time_str}.fits"
                     )
-                else:
-                    savefile = savedir.joinpath(
-                        output_file.name.replace(
-                            "_sel.fits", f"_{start.mjd}.fits"
-                        )
-                    )
+                )
 
                 output_file.rename(savefile)
 
@@ -583,16 +786,17 @@ def group_outventory(
                     file.flush()
 
                 # create the directories that will hold all the mosaiced images within a given time bin
-                if not mjd_savedir:
-                    binned_savedir = outventory_file.parent.joinpath(
-                        f"mosaic_{start.datetime64.astype('datetime64[D]')}"
+                if subdirs:
+                    binned_savedir = subdir_name.joinpath(
+                        f"mosaic_{start_time_str}_{end_time_str}"
                     )
+                    dirtest(binned_savedir)
                 else:
                     binned_savedir = outventory_file.parent.joinpath(
-                        f"mosaic_{start.mjd}"
+                        f"mosaic_{start_time_str}_{end_time_str}"
                     )
 
-                dirtest(binned_savedir)
+                    dirtest(binned_savedir)
 
     return time_bins
 
@@ -633,12 +837,8 @@ def read_skygrids(savedirectory=None):
         ra_string = "ra_" + string + ".img"
         dec_string = "dec_" + string + ".img"
 
-        ra_file = dir.joinpath("data").joinpath(
-            ra_string
-        )
-        dec_file = dir.joinpath("data").joinpath(
-            dec_string
-        )
+        ra_file = dir.joinpath("data").joinpath(ra_string)
+        dec_file = dir.joinpath("data").joinpath(dec_string)
 
         file = fits.open(str(ra_file))
         ra_skygrid[:, :, i] = file[0].data
@@ -726,9 +926,7 @@ def read_correctionsmap():
     # get the directory that the data directory is located in
     dir = Path(__file__).parent
 
-    file_string = dir.joinpath("data").joinpath(
-        _cimgfile
-    )
+    file_string = dir.joinpath("data").joinpath(_cimgfile)
 
     # create array to hold data, already know sizes of grids from looking at file
     corrections_map = np.zeros((954, 1760, _nebands))
@@ -796,11 +994,11 @@ def compute_statistics_map(chi_sq, nbatdet, ra_pnt, dec_pnt, pa_pnt, tstart):
     for i in range(_nebands):
         if i == 0:
             mask = (red_chi2[:, i] < fudge * sco_xtra_chi2) & (
-                    red_chi2[:, i] > _chilothresh
+                red_chi2[:, i] > _chilothresh
             )
         else:
             mask = (
-                    mask & (red_chi2[:, i] > _chilothresh) & (red_chi2[:, i] < _chihithresh)
+                mask & (red_chi2[:, i] > _chilothresh) & (red_chi2[:, i] < _chihithresh)
             )
 
     # include whether Sco is the object corresponding to the pointing. If it is, we want to exclude this pointing ID,
@@ -820,11 +1018,11 @@ def compute_statistics_map(chi_sq, nbatdet, ra_pnt, dec_pnt, pa_pnt, tstart):
 
 
 def write_mosaic(
-        img,
-        header,
-        filename_base,
-        emin=[14.0, 20.0, 24.0, 35.0, 50.0, 75.0, 100.0, 150.0, 14.0],
-        emax=[20.0, 24.0, 35.0, 50.0, 75.0, 100.0, 150.0, 195.0, 195.0],
+    img,
+    header,
+    filename_base,
+    emin=[14.0, 20.0, 24.0, 35.0, 50.0, 75.0, 100.0, 150.0, 14.0],
+    emax=[20.0, 24.0, 35.0, 50.0, 75.0, 100.0, 150.0, 195.0, 195.0],
 ):
     """
     Write out the intermediate mosaic images to fits files.
@@ -1066,13 +1264,13 @@ def finalize_mosaic(intermediate_mosaic_directory):
 
 
 def create_mosaics(
-        outventory_file,
-        time_bins,
-        survey_list,
-        catalog_file=None,
-        total_mosaic_savedir=None,
-        recalc=False,
-        verbose=True,
+    outventory_file,
+    time_bins,
+    survey_list,
+    catalog_file=None,
+    total_mosaic_savedir=None,
+    recalc=False,
+    verbose=True,
 ):
     """
     Creates the mosaiced images for specified time bins and a total mosaic image that is "time-integrated" across all
@@ -1180,15 +1378,15 @@ def create_mosaics(
 
 
 def _mosaic_loop(
-        outventory_file,
-        start,
-        end,
-        corrections_map,
-        ra_skygrid,
-        dec_skygrid,
-        survey_list,
-        recalc=False,
-        verbose=True,
+    outventory_file,
+    start,
+    end,
+    corrections_map,
+    ra_skygrid,
+    dec_skygrid,
+    survey_list,
+    recalc=False,
+    verbose=True,
 ):
     """
     The loop that computes the mosaiced images for a time bin of interest. It sums up all the BAT survey observations
@@ -1223,11 +1421,11 @@ def _mosaic_loop(
         print(f"Working on time bins from {start} to {end}.\n")
 
     # get the name of the file with binned outventory info and where its saved
-    savedir = outventory_file.parent.joinpath(
-        "grouped_outventory"
-    )
+    savedir = outventory_file.parent.joinpath("grouped_outventory")
     output_file = savedir.joinpath(
-        outventory_file.name.replace(".fits", f"_{start.datetime64.astype('datetime64[D]')}.fits")
+        outventory_file.name.replace(
+            ".fits", f"_{start.datetime64.astype('datetime64[D]')}.fits"
+        )
     )
     # see if we need to use the mjd time format
     if not output_file.exists():
@@ -1240,9 +1438,7 @@ def _mosaic_loop(
         f"mosaic_{start.datetime64.astype('datetime64[D]')}"
     )
     if not img_dir.exists():
-        img_dir = outventory_file.parent.joinpath(
-            f"mosaic_{start.mjd}"
-        )
+        img_dir = outventory_file.parent.joinpath(f"mosaic_{start.mjd}")
 
     # see if there is a .batsurvey file, if it doesnt exist or if we want to recalc things then go through the full loop
     if not img_dir.joinpath("batsurvey.pickle").exists() or recalc:
@@ -1295,10 +1491,10 @@ def _mosaic_loop(
 
             # test that we have good image statistics
             if (
-                    (chi_mask[j] == 0)
-                    or (grouped_outventory_data["NBATDETS"][j] <= 0)
-                    or (grouped_outventory_data["IMAGE_STATUS"][j] == False)
-                    or (grouped_outventory_data["EXPOSURE"][j] <= 0)
+                (chi_mask[j] == 0)
+                or (grouped_outventory_data["NBATDETS"][j] <= 0)
+                or (grouped_outventory_data["IMAGE_STATUS"][j] == False)
+                or (grouped_outventory_data["EXPOSURE"][j] <= 0)
             ):
                 if verbose:
                     print(
@@ -1321,9 +1517,7 @@ def _mosaic_loop(
                     # get the directory of the observation ID where the survey result lives
                     batsurvey_result_dir = survey_list[surveylist_idx].result_dir
 
-                    data_directory = batsurvey_result_dir.joinpath(
-                        pointing_id
-                    )
+                    data_directory = batsurvey_result_dir.joinpath(pointing_id)
 
                     ncleaniter = survey_list[surveylist_idx].batsurvey_result.params[
                         "ncleaniter"
@@ -1372,16 +1566,16 @@ def _mosaic_loop(
                         pointing_vimg_corr = np.zeros_like(pointing_vimg)
                         pointing_simg_corr = np.zeros_like(pointing_vimg)
                         pointing_vimg_corr[:, :, :-1] = (
-                                pointing_vimg[:, :, :-1] / corrections_map
+                            pointing_vimg[:, :, :-1] / corrections_map
                         )
                         pointing_simg_corr[:, :, :-1] = (
-                                pointing_simg[:, :, :-1] / corrections_map
+                            pointing_simg[:, :, :-1] / corrections_map
                         )
 
                         # construct the total energy images for variance and flux, the zeros in last array dont affect
                         # calculations of the total values
                         pointing_vimg_corr[:, :, -1] = np.sqrt(
-                            np.sum(pointing_vimg_corr ** 2, axis=2)
+                            np.sum(pointing_vimg_corr**2, axis=2)
                         )
                         pointing_simg_corr[:, :, -1] = pointing_simg_corr.sum(axis=2)
 
@@ -1389,12 +1583,12 @@ def _mosaic_loop(
                         energy_quality_mask = np.zeros_like(pointing_vimg_corr)
                         good_idx = np.where(
                             (
-                                    np.repeat(
-                                        pointing_pimg[:, :, np.newaxis],
-                                        pointing_vimg_corr.shape[-1],
-                                        axis=2,
-                                    )
-                                    > _pcodethresh
+                                np.repeat(
+                                    pointing_pimg[:, :, np.newaxis],
+                                    pointing_vimg_corr.shape[-1],
+                                    axis=2,
+                                )
+                                > _pcodethresh
                             )
                             & (pointing_vimg_corr > 0)
                             & np.isfinite(pointing_simg_corr)
@@ -1404,20 +1598,20 @@ def _mosaic_loop(
 
                         # make the intermediate maps for each energy and for the total energy
                         interm_pointing_eimg = (
-                                energy_quality_mask * pointing_exposure
+                            energy_quality_mask * pointing_exposure
                         )  # Exposure map
                         interm_pointing_pimg = (
-                                pointing_pimg[:, :, np.newaxis]
-                                * energy_quality_mask
-                                * pointing_exposure
+                            pointing_pimg[:, :, np.newaxis]
+                            * energy_quality_mask
+                            * pointing_exposure
                         )  # partial coding map
                         interm_pointing_vimg = (
-                                energy_quality_mask / (pointing_vimg_corr + 1e-10) ** 2
+                            energy_quality_mask / (pointing_vimg_corr + 1e-10) ** 2
                         )  # Convert to 1 / variance
                         interm_pointing_simg = (
-                                pointing_simg_corr
-                                * energy_quality_mask
-                                * interm_pointing_vimg
+                            pointing_simg_corr
+                            * energy_quality_mask
+                            * interm_pointing_vimg
                         )  # variance weighted sky flux
 
                         # need to compute the x/y position for each RA/DEC point in the sky map using the new
@@ -1443,8 +1637,8 @@ def _mosaic_loop(
                         # need to verify that the eimg and pimg maps are energy independent, in idl code only does this
                         # for te first energy iteration
                         grid_x, grid_y = np.mgrid[
-                                         0: pointing_pimg.shape[0], 0: pointing_pimg.shape[1]
-                                         ]
+                            0 : pointing_pimg.shape[0], 0 : pointing_pimg.shape[1]
+                        ]
                         points = np.array([grid_x.flatten(), grid_y.flatten()])
                         values = interm_pointing_eimg[:, :, 0]
                         values[np.isnan(values)] = 0
@@ -1466,9 +1660,9 @@ def _mosaic_loop(
                         # found that it took 3247.2622033880034 s versus 722.239518339 s
 
                         values = interm_pointing_pimg[:, :, 0]
-                        values[
-                            np.isnan(values)
-                        ] = 0  # if there are nan values in the images, this can mess up the interpolation
+                        values[np.isnan(values)] = (
+                            0  # if there are nan values in the images, this can mess up the interpolation
+                        )
 
                         test = interpolate(values.flatten(), vtx, wts, fill_value=0)
                         pimg[pixel_idx] += test
@@ -1619,6 +1813,566 @@ def _mosaic_loop(
     return mosaic_survey
 
 
+def _add_hpx_mosaics(hpx_file_list, verbose=True, altname=False, ebins=8):
+    """
+    Helper function to add healpix mosaics together.
+
+    :param hpx_file_list: list of Path objects that provide the healpix mosaic files to be added together.
+    :param verbose: Boolean True by default. Tells the code to print progress/diagnostic information.
+    :param altname: Boolean False by default. If True, use alternative naming convention for energy bands.
+        By default they are names e0 to e8. with e8 being total energy, if alternate naming convention is used
+        they will be names e1 to e8, with e_tot being total energy band.
+    :param ebins: Number of energy bins. In case it is missing from header, this will be used.
+    :return: a h5py file
+    """
+
+    # Now read each file and add them
+    # Instatiate an empty healpix grid
+    # To do this read a sample h5py file
+    dummy_hpx_data = h5py.File(hpx_file_list[0], "r")
+    metadata = dict(dummy_hpx_data["mosaic"].attrs)
+    dummy_hpx_data.close()
+
+    npix = hp.nside2npix(nside=metadata["nside"])
+    try:
+        en_chans = metadata["EBINS"]
+    except KeyError:
+        en_chans = ebins
+        metadata["EBINS"] = en_chans
+
+    # Make empty sky images and variance maps
+    sky_images = np.zeros((en_chans + 1, npix))  # +1 for total energy band
+    var_images = np.zeros_like(sky_images)
+
+    sky_exposure = np.zeros(npix)
+    for i in range(len(hpx_file_list)):
+        if verbose:
+            print(f"Adding pointing {i+1} of {len(hpx_file_list)}")
+        ind_pointing_obj = h5py.File(hpx_file_list[i], "r")
+        ind_pointing_data = ind_pointing_obj["mosaic"][()]
+
+        # Sky images are named sky_e1 and so on
+
+        if not altname:
+            for ein in range(en_chans + 1):
+                sky_images[ein, :] = np.nansum(
+                    [
+                        sky_images[ein, :],
+                        divide_with_respect(
+                            ind_pointing_data[f"sky_e{ein}"],
+                            ind_pointing_data[f"var_e{ein}"] ** 2,
+                        ),
+                    ],
+                    axis=0,
+                )
+                var_images[ein, :] = np.nansum(
+                    [
+                        var_images[ein, :],
+                        divide_with_respect(1, ind_pointing_data[f"var_e{ein}"] ** 2),
+                    ],
+                    axis=0,
+                )
+        else:
+            for ein in range(en_chans):
+                sky_images[ein, :] = np.nansum(
+                    [
+                        sky_images[ein, :],
+                        divide_with_respect(
+                            ind_pointing_data[f"sky_e{ein+1}"],
+                            ind_pointing_data[f"var_e{ein+1}"] ** 2,
+                        ),
+                    ],
+                    axis=0,
+                )
+                var_images[ein, :] = np.nansum(
+                    [
+                        var_images[ein, :],
+                        divide_with_respect(1, ind_pointing_data[f"var_e{ein+1}"] ** 2),
+                    ],
+                    axis=0,
+                )
+
+            # Once this is done, do the total energy band
+            sky_images[-1, :] = np.nansum(
+                [
+                    sky_images[-1, :],
+                    divide_with_respect(
+                        ind_pointing_data["sky_etot"],
+                        ind_pointing_data["var_etot"] ** 2,
+                    ),
+                ],
+                axis=0,
+            )
+            var_images[-1, :] = np.nansum(
+                [
+                    var_images[-1, :],
+                    divide_with_respect(1, ind_pointing_data["var_etot"] ** 2),
+                ],
+                axis=0,
+            )
+
+        # Next get the net exposure
+        sky_exposure = np.nansum([sky_exposure, ind_pointing_data["exposure"]], axis=0)
+
+    if verbose:
+        print("Mosaicking them")
+    # Now conver them all to proper units
+    sky_images = divide_with_respect(sky_images, var_images)
+    var_images = np.sqrt(divide_with_respect(1, var_images))
+
+    # Normalize the net exposure
+    # sky_exposure *= 1 / np.nanmax(sky_exposure)
+
+    if verbose:
+        print("Creating final healpix mosaic table")
+
+    # Next is to make the final table
+    healpix_mosaic_table = Table(
+        sky_images.T,
+        names=[f"sky_e{i+1}" for i in range(en_chans)] + ["sky_etot"],
+    )
+    healpix_mosaic_table.add_columns(
+        var_images,
+        names=[f"var_e{i+1}" for i in range(en_chans)] + ["var_etot"],
+    )
+    healpix_mosaic_table.add_column(sky_exposure, name="exposure")
+    healpix_mosaic_table.add_column(np.arange(npix), name="hpix_ind", index=0)
+
+    return healpix_mosaic_table, metadata
+
+
+def make_healpix_mosaics(
+    outventory_file,
+    start,
+    end,
+    dt=None,
+    datadir=None,
+    recalc=False,
+    make_image=False,
+    wcs=None,
+    use_intermediate=False,
+    parallel_grids=False,
+    verbose=True,
+):
+    """
+    Helper function to create mosaiced images on a healpix grid.
+    The results are stored based on the requested time binning, so all 1 day mosaics are stored in
+    a directory called 1_day_mosaics, and so on.
+    It sums up all the BAT survey observations
+    where:
+     the partial coding images are multiplied by the exposure time of each image and summed
+     the exposure images are directly summed
+     the flux images are weighted by the inverse variance of the image and summed
+     and the inverse variance images are summed together.
+
+    :param outventory_file: Path object that provides the full outventory file of the BAT survey observations that will
+        be used to calculate the mosaiced images.
+    :param start: astropy Time of the start time of the time bin that survey observations need to be made to be included
+        in that time bin's mosaiced image.
+    :param end: astropy Time of the end time of the time bin that survey observations need to be made to be included
+        in that time bin's mosaiced image.
+    :param dt: number of days (in float) for which the mosaic is made, if None is given, it will calculate it from the
+        start and end times. This will decide which folder to save the mosaics in.
+    :param recalc: Boolean False by default. If this calculation was done previously, do not try to load the results of
+        prior calculations. Instead recalculate the mosaiced images. The default, will cause the function to try to load
+        a save file to save on computational time.
+    :param make_image: Convert the healpix mosaics to image files (FITS) after making the mosaics on healpix grid.
+        Default is False. If False, need to run convert_healpix_to_image separately.
+    :param wcs: WCS object. Required if make_image is True. The WCS object provides the world coordinate system
+    :param use_intermediate: Boolean False by default. If True, will use the exisitng mosaiced images if the existing
+        mosaiced images are on a timescale that is integral multiple of the requested time bin. For example, if the user
+        requests a 3 day mosaic, and there are existing 1 day mosaics, then those will be used to create the 3 day.
+    :param parallel_grids: Boolean False by default. If True, will use parallel processing to convert healpix mosaics
+        and project them onto multiple 2D sky images.
+    :param verbose: Boolean True by default. Tells the code to print progress/diagnostic information.
+    """
+
+    if verbose:
+        print(f"Working on time bins from {start} to {end}.\n")
+
+    # get the name of the file with binned outventory info and where its saved
+
+    start_time_str = convert_time_to_decimal_day(start)
+    end_time_str = convert_time_to_decimal_day(end)
+
+    savedir = outventory_file.parent.joinpath("grouped_outventory")
+    output_file = savedir.joinpath(
+        outventory_file.name.replace(".fits", f"_{start_time_str}_{end_time_str}.fits")
+    )
+
+    # Decide the directory where to store
+    if dt is None:
+        dt = np.round(end.mjd - start.mjd, 1)
+        if dt % 1 == 0:
+            dt = int(dt)
+
+    # And look for this directory
+    img_base_path = outventory_file.parent.joinpath(f"{dt}_day_mosaics")
+    if not img_base_path.exists():
+        img_base_path.mkdir(parents=True, exist_ok=True)
+
+    # Now add day specific folder to this
+    # this is the directory of the time bin where the images will be saved
+    img_dir = img_base_path.joinpath(f"mosaic_{start_time_str}_{end_time_str}")
+    if not img_dir.exists():
+        img_dir.mkdir(parents=True, exist_ok=True)
+
+    # see if there is a .batreproject file, if it doesnt exist or if we want to recalc things then go through the full loop
+    if not img_dir.joinpath(".batreproject").exists() or recalc:
+
+        if not use_intermediate:
+            # Build mosaic images from scratch, i.e using 300s BAT exposures
+
+            # Get all the obsids and pointing IDs that fall within the time bin
+            grouped_outventory_data = Table.read(output_file)
+            obsids = np.unique(grouped_outventory_data["OBS_ID"]).astype(
+                str
+            )  # But this is numpy str (unicode)
+            # So convert them to python strings
+            obsids = [str(i) for i in obsids]
+            pointing_ids = [
+                i.replace("point_", "") for i in grouped_outventory_data["IMAGE_ID"]
+            ]
+
+            # Get some meta data information
+            tstart = np.min(grouped_outventory_data["TSTART"].data)
+            tstop = np.max(grouped_outventory_data["TSTOP"].data)
+
+            dateobs_start = Time(
+                np.min(Time(grouped_outventory_data["DATE_OBS"]).mjd), format="mjd"
+            ).isot
+            dateobs_end = Time(
+                np.max(Time(grouped_outventory_data["DATE_END"]).mjd), format="mjd"
+            ).isot
+
+            net_hdr_exposure = tstop - tstart
+            # For each obsids, get the reprojected image
+            # Which entails making a ReprojectSurvey object
+            reproj_obj_list = [
+                ReprojectSurvey(obsid, obs_dir=datadir) for obsid in obsids
+            ]
+
+            # Get the number of pointings
+            # Only select those pointings that fall in the time bin
+            reproj_pointings = []
+            reproj_images = []
+            for i in range(len(reproj_obj_list)):
+                point_mask = np.isin(
+                    reproj_obj_list[i].reprojected_pointings, pointing_ids
+                )
+                reproj_pointings = np.concatenate(
+                    (
+                        reproj_pointings,
+                        np.array(reproj_obj_list[i].reprojected_pointings)[point_mask],
+                    )
+                )
+                reproj_images = np.concatenate(
+                    (
+                        reproj_images,
+                        np.array(reproj_obj_list[i].reprojected_images)[point_mask],
+                    )
+                )
+
+            if verbose:
+                print(
+                    f"Found {len(reproj_pointings)} reprojected pointings, mosaicking them\n"
+                )
+            healpix_mosaic_table, metadata = _add_hpx_mosaics(
+                reproj_images, verbose=verbose
+            )
+            # Now save the file
+            outfile = img_dir.joinpath(
+                f"mosaic_{start_time_str}_{end_time_str}_hybrid_healpix_projected.h5"
+            )
+            with h5py.File(outfile, "w") as f:
+                # Store data
+                if verbose:
+                    print(f"Writing reprojected data to {outfile}")
+                f.create_dataset(
+                    "mosaic",
+                    data=healpix_mosaic_table,
+                    compression="gzip",
+                    compression_opts=4,
+                )
+
+                # Store header as attributes
+                f["mosaic"].attrs["nside"] = _nside
+                f["mosaic"].attrs["TSTART"] = tstart
+                f["mosaic"].attrs["TSTOP"] = tstop
+                f["mosaic"].attrs["DATE-OBS"] = dateobs_start
+                f["mosaic"].attrs["DATE-END"] = dateobs_end
+                f["mosaic"].attrs["EXPOSURE"] = net_hdr_exposure
+                f["mosaic"].attrs["EBINS"] = metadata["EBINS"]
+                f.close()
+
+        else:
+            # Use existing intermediate mosaics to make the healpix mosaic
+            if verbose:
+                print("Using existing intermediate mosaics to make the healpix mosaic")
+            existing_mosiac_dir = [
+                i
+                for i in img_base_path.parent.glob(f"*day_mosaics")
+                if f"{dt}_day_mosaics" not in i.name
+            ]
+            existing_mosiac_dts = np.array(
+                [d.name.split("_")[0] for d in existing_mosiac_dir]
+            )
+            if np.any(dt % existing_mosiac_dts.astype(float) == 0):
+
+                dt_index = np.max(
+                    np.where(dt % existing_mosiac_dts.astype(float) == 0)[0]
+                )
+                # Find the largest factor dt
+                intermediate_dt = existing_mosiac_dts[dt_index]
+                intermediate_mosaic_dir = existing_mosiac_dir[dt_index]
+                if verbose:
+                    print(
+                        f"Using existing {intermediate_dt} day mosaics to make the {dt} day mosaic"
+                    )
+                # Select all the mosaics in this directory that fall within the time bin
+                all_intermediate_mosaics = [
+                    i
+                    for i in intermediate_mosaic_dir.glob(
+                        f"mosaic_*/mosaic*sky_image.fits"
+                    )
+                ]
+                all_intermediate_mosaic_hdrs = [
+                    fits.getheader(i, 1) for i in all_intermediate_mosaics
+                ]
+                all_intermediate_mosaic_tstarts = Time(
+                    [h["DATE-OBS"] for h in all_intermediate_mosaic_hdrs], scale="tai"
+                )
+                all_intermediate_mosaic_tstops = Time(
+                    [h["DATE-END"] for h in all_intermediate_mosaic_hdrs]
+                )
+                # Now select the ones that fall within the time bin
+                mask = (all_intermediate_mosaic_tstarts >= start) & (
+                    all_intermediate_mosaic_tstops <= end
+                )
+
+                intermediate_mosaics_to_use = np.array(all_intermediate_mosaics)[mask]
+
+                # Only process these mosaics
+                # intermediate_mosaic_hpx_files = [
+                #     i.as_posix().replace(
+                #         "_sky_image.fits", "_hybrid_healpix_projected.h5"
+                #     )
+                #     for i in intermediate_mosaics_to_use
+                # ]
+                intermediate_mosaic_hpx_files = []
+                for i in intermediate_mosaics_to_use:
+                    basename = i.as_posix()[: i.as_posix().index("_sky_grid_")]
+                    intermediate_mosaic_hpx_files.append(
+                        f"{basename}_hybrid_healpix_projected.h5"
+                    )
+
+                # Now start adding these intermediate mosaics
+                final_mosaic_table, metadata = _add_hpx_mosaics(
+                    intermediate_mosaic_hpx_files, verbose=verbose, altname=True
+                )
+                # Now save the file
+                outfile = img_dir.joinpath(
+                    f"mosaic_{start_time_str}_{end_time_str}_hybrid_healpix_projected.h5"
+                )
+                with h5py.File(outfile, "w") as f:
+                    # Store data
+                    if verbose:
+                        print(f"Writing reprojected data to {outfile}")
+                    f.create_dataset(
+                        "mosaic",
+                        data=final_mosaic_table,
+                        compression="gzip",
+                        compression_opts=4,
+                    )
+
+                    # Store header as attributes
+                    f["mosaic"].attrs["nside"] = _nside
+                    f["mosaic"].attrs["DATE-OBS"] = np.min(
+                        all_intermediate_mosaic_tstarts[mask]
+                    ).isot
+                    f["mosaic"].attrs["DATE-END"] = np.max(
+                        all_intermediate_mosaic_tstops[mask]
+                    ).isot
+                    f["mosaic"].attrs["EBINS"] = metadata["EBINS"]
+                    f.close()
+            else:
+                raise ValueError(
+                    "No existing intermediate mosaics found that are integral factors of the requested time bin"
+                )
+
+        # Then decide whether to make the final sky image
+        if make_image:
+            if wcs is None:
+                raise ValueError("WCS object must be provided if make_image is True")
+            else:
+                convert_mosaic_to_sky_image_loop(
+                    hpx_file=outfile, wcs=wcs, parallel=parallel_grids
+                )
+
+        img_dir.joinpath(".batreproject").touch()
+    else:
+        if verbose:
+            print(f"Reprojected mosaic already exists in {img_dir}, not recalculating")
+
+
+def convert_mosaic_to_sky_image(hpx_data, w, basepath, meta=None):
+    """Helper function to convert the healpix map to a WCS sky image. The WCS
+    need to have a defined coordinate system (equitorial/galactic), a defined projection
+    sysmtem (TAN/ZEA/SIN), defined reference pixel and value and define projection matrix
+
+    Args:
+        hpx_data (h5py.file.File): The healpix map data that was created by sky projection.
+        w (astropy.wcs.WCS): WCS object defining the target projection.
+        basepath (str): The output file path where the sky image will be saved (this is just the basename)
+        meta (dict, optional): Header keywords to be used for the output images.
+
+    Returns:
+        tuple: A tuple containing three astropy.io.fits.HDUList objects:
+            - The first HDUList contains the sky images for each energy band and total energy.
+            - The second HDUList contains the variance images for each energy band and total energy.
+            - The third HDUList contains the normalized exposure image.
+    """
+
+    # Create an empyty primary header
+    # Add all the key words back
+    hdr = w.to_header()
+    ebins = meta["EBINS"]
+    # Next get the mean exposure for the sky map
+    mean_exp = np.nanmedian(hpx_data["exposure"])
+
+    for i in meta.keys():
+        if i != "EBINS":
+            hdr[i] = meta[i]
+    hdr["EXPOSURE"] = (mean_exp, "Mean Exposure of the Healpix Mosaic [s]")
+
+    sky_hdul = []
+    var_hdul = []
+
+    pri_hdu = fits.PrimaryHDU()
+    sky_hdul.append(pri_hdu)
+    var_hdul.append(pri_hdu)
+
+    for i in range(ebins):
+        # Make sky image for each band
+        sky_image, _ = reproject_from_healpix(
+            (hpx_data[f"sky_e{i+1}"], "icrs"), w, nested=False
+        )
+        sky_image_hdu = fits.ImageHDU(data=sky_image, header=hdr, name=f"BATIMAGE{i+1}")
+        sky_hdul.append(sky_image_hdu)
+
+        # Similarly make variance images
+        var_image, _ = reproject_from_healpix(
+            (hpx_data[f"var_e{i+1}"], "icrs"), w, nested=False
+        )
+        var_image_hdu = fits.ImageHDU(data=var_image, header=hdr, name=f"BATIMAGE{i+1}")
+        var_hdul.append(var_image_hdu)
+
+    # Make one for total energy
+    sky_image, _ = reproject_from_healpix(
+        (hpx_data["sky_etot"], "icrs"), w, nested=False
+    )
+    sky_image_hdu = fits.ImageHDU(data=sky_image, header=hdr, name=f"BATIMAGE_TOT")
+    sky_hdul.append(sky_image_hdu)
+
+    var_image, _ = reproject_from_healpix(
+        (hpx_data[f"var_etot"], "icrs"), w, nested=False
+    )
+    var_image_hdu = fits.ImageHDU(data=var_image, header=hdr, name=f"BATIMAGE_TOT")
+    var_hdul.append(var_image_hdu)
+
+    # Next make one for exposure, but normalize it so that it can be used as a mask for
+    # cell detections
+    exp_image, _ = reproject_from_healpix(
+        (hpx_data["exposure"] / np.nanmax(hpx_data["exposure"]), "icrs"),
+        w,
+        nested=False,
+    )
+    exp_hdul = [fits.PrimaryHDU(header=hdr, data=exp_image)]
+
+    # Save sky images
+    fits.HDUList(sky_hdul).writeto(
+        basepath + "_sky_image.fits",
+        overwrite=True,
+    )
+
+    # Save variance images
+    fits.HDUList(var_hdul).writeto(
+        basepath + "_var_image.fits",
+        overwrite=True,
+    )
+
+    # Save exposure map
+    fits.HDUList(exp_hdul).writeto(
+        basepath + "_exp_image.fits",
+        overwrite=True,
+    )
+
+
+def convert_mosaic_to_sky_image_loop(hpx_file, wcs, parallel=False):
+    """Helper function to convert the healpix map to a WCS sky image. The WCS
+    need to have a defined coordinate system (equitorial/galactic), a defined projection
+    sysmtem (TAN/ZEA/SIN), defined reference pixel and value and define projection matrix
+
+    Args:
+        hpx_file (str): The healpix map that was created by sky projection.
+        wcs (astropy.wcs.WCS): WCS object defining the target projection.
+        parallel (bool, optional): Whether to use parallel processing. Defaults to False.
+
+    Returns:
+        numpy.ndarray: 2D array representing the projected sky image.
+    """
+    f = h5py.File(hpx_file, "r")
+    data = f["mosaic"][()]
+
+    meta = dict(f["mosaic"].attrs)
+
+    # Now start reprojecting
+    if type(wcs) == WCS:
+        # Only a single wcs is passed
+        # If not this means multiple sky wcs objects are passed, so we want to
+        # reproject to each of them and save separate files
+        # If this is the case, it should be a dict, with name that can identify
+        # the grid and corresposnding wcs object
+        wcs = {"global": wcs}
+    # Make sky image, variance image, and exposure image for each wcs
+
+    ngrids = len(wcs)
+
+    # Make output file names
+    if ngrids == 1:
+        # dont worry about name, this is a global skygrid
+        # Save all these files
+        basepath = Path(hpx_file).expanduser().resolve().as_posix()
+        filenames = basepath.replace("_hybrid_healpix_projected.h5", "")
+    else:
+        basepath = Path(hpx_file).expanduser().resolve().as_posix()
+        filenames = [
+            basepath.replace("hybrid_healpix_projected.h5", i.replace(".fits", ""))
+            for i in wcs.keys()
+        ]
+    filenames = dict(zip(list(wcs.keys()), filenames))
+
+    if (ngrids > 1) and parallel:
+        # Run the grids in parallel using python joblib
+        Parallel(n_jobs=ngrids)(
+            delayed(convert_mosaic_to_sky_image)(
+                data,
+                wcs[sgrid],
+                filenames[sgrid],
+                meta,
+            )
+            for sgrid in list(wcs.keys())
+        )
+    else:
+        for sgrid in list(wcs.keys()):
+            convert_mosaic_to_sky_image(
+                data,
+                wcs[sgrid],
+                filenames[sgrid],
+                meta,
+            )
+
+
 def merge_mosaics(intermediate_mosaic_dir_list, savedir=None):
     """
     Merges the intermediate mosaic images from a number of previously calculated mosaic images for a set of time bins.
@@ -1634,12 +2388,8 @@ def merge_mosaics(intermediate_mosaic_dir_list, savedir=None):
     # create the directory that will hold the total mosaiced images,
     # get the directory to create the folder that we will put the images
     if savedir is None:
-        savedir = intermediate_mosaic_dir_list[
-            0
-        ].parent
-        total_dir = savedir.joinpath(
-            "total_mosaic"
-        )
+        savedir = intermediate_mosaic_dir_list[0].parent
+        total_dir = savedir.joinpath("total_mosaic")
     else:
         total_dir = savedir
 
@@ -1671,9 +2421,7 @@ def merge_mosaics(intermediate_mosaic_dir_list, savedir=None):
             string = "c%d_%s" % (j, _proj)
 
             # open the pimg and add it to the array and accumulate the exposure and other header info
-            pimg_file = i.joinpath(
-                "pcode_" + string + ".img"
-            )
+            pimg_file = i.joinpath("pcode_" + string + ".img")
             with fits.open(str(pimg_file)) as file:
                 # read the partial coding map
                 pimg[:, :, j] += file[0].data
@@ -1689,20 +2437,14 @@ def merge_mosaics(intermediate_mosaic_dir_list, savedir=None):
                     user_met_tbin_end.append(file[0].header["E_TBIN"])
 
             # open the eimg and add it to the array and accumulate the exposure
-            eimg_file = i.joinpath(
-                "expmap_" + string + ".img"
-            )
+            eimg_file = i.joinpath("expmap_" + string + ".img")
             with fits.open(str(eimg_file)) as file:
                 # read the flat exposure map
                 eimg[:, :, j] += file[0].data
 
             # open the vimg and flux files
-            simg_file_name = i.joinpath(
-                "flux_" + string + ".img"
-            )
-            vimg_file_name = i.joinpath(
-                "var_" + string + ".img"
-            )
+            simg_file_name = i.joinpath("flux_" + string + ".img")
+            vimg_file_name = i.joinpath("var_" + string + ".img")
 
             simg_file = fits.open(str(simg_file_name))
             vimg_file = fits.open(str(vimg_file_name))
@@ -1832,9 +2574,12 @@ def merge_mosaics(intermediate_mosaic_dir_list, savedir=None):
 # if it's not the first time this module is imported (ie that batanalysis is imported) then dont redo this calculation
 
 package_data_dir = Path(__file__).parent.joinpath("data")
-files = sorted(package_data_dir.glob("*_ZEA.img"))
-# the 2*_nskyimg is for the fact that we need skyfacets for RA and for Dec
-if len(files) < 2 * _nskyimg:
+zea_proj = sorted(package_data_dir.glob("*_ZEA.img"))
+grid_completion = (
+    False if (len(zea_proj) < 2 * _nskyimg) else True
+)  # the 2*_nskyimg is for the fact that we need skyfacets for RA and for Dec
+
+if not grid_completion:
     print("Initalizing the BatAnalysis package")
-    make_skygrids()
+    make_skygrids()  # For ZEA projection
     print("Completed initalizing the package")
