@@ -4,7 +4,6 @@ information about a given survey. it also reads in survey data and processes it
 
 Tyler Parsotan April 5 2023
 """
-
 import os
 import pickle
 import re
@@ -96,14 +95,14 @@ class BatSurvey(BatObservation):
     """
 
     def __init__(
-        self,
-        obs_id,
-        obs_dir=None,
-        input_dict=None,
-        recalc=False,
-        verbose=False,
-        load_dir=None,
-        patt_noise_dir=None,
+            self,
+            obs_id,
+            obs_dir=None,
+            input_dict=None,
+            recalc=False,
+            verbose=False,
+            load_dir=None,
+            patt_noise_dir=None,
     ):
         """
         Constructs the BatSurvey object.
@@ -190,8 +189,8 @@ class BatSurvey(BatObservation):
             # batsurvey relies on "bat" and "auxil" folders in the observation ID folder, therefore we need to check
             # for these https://heasarc.gsfc.nasa.gov/ftools/caldb/help/batsurvey.html
             if (
-                not self.obs_dir.joinpath("bat").joinpath("survey").is_dir()
-                or not self.obs_dir.joinpath("auxil").is_dir()
+                    not self.obs_dir.joinpath("bat").joinpath("survey").is_dir()
+                    or not self.obs_dir.joinpath("auxil").is_dir()
             ):
                 raise ValueError(
                     "The observation ID folder needs to contain the bat/survey/ and auxil/ subdirectories in order to "
@@ -328,46 +327,46 @@ class BatSurvey(BatObservation):
                 # if detthresh/detthresh2 isnt defined need to set default detthresh to prevent gti identification
                 # errors
                 if (
-                    "detthresh" not in input_dict_copy
-                    or input_dict_copy["detthresh"] is None
+                        "detthresh" not in input_dict_copy
+                        or input_dict_copy["detthresh"] is None
                 ):
                     input_dict_copy["detthresh"] = "10000"
 
                 if (
-                    "detthresh2" not in input_dict_copy
-                    or input_dict_copy["detthresh2"] is None
+                        "detthresh2" not in input_dict_copy
+                        or input_dict_copy["detthresh2"] is None
                 ):
                     input_dict_copy["detthresh2"] = "10000"
 
                 if (
-                    "incatalog" not in input_dict_copy
-                    or input_dict_copy["incatalog"] is None
+                        "incatalog" not in input_dict_copy
+                        or input_dict_copy["incatalog"] is None
                 ):
                     input_dict_copy["incatalog"] = str(
                         Path(__file__).parent.joinpath("data/survey6b_2.cat")
                     )
 
                 if (
-                    "global_pattern_map" not in input_dict_copy
-                    or input_dict_copy["global_pattern_map"] is None
+                        "global_pattern_map" not in input_dict_copy
+                        or input_dict_copy["global_pattern_map"] is None
                 ):
                     input_dict_copy["global_pattern_map"] = str(patt_map_name)
 
                 if (
-                    "global_pattern_mask" not in input_dict_copy
-                    or input_dict_copy["global_pattern_mask"] is None
+                        "global_pattern_mask" not in input_dict_copy
+                        or input_dict_copy["global_pattern_mask"] is None
                 ):
                     input_dict_copy["global_pattern_mask"] = str(patt_mask_name)
 
                 if (
-                    "cleansnr" not in input_dict_copy
-                    or input_dict_copy["cleansnr"] is None
+                        "cleansnr" not in input_dict_copy
+                        or input_dict_copy["cleansnr"] is None
                 ):
                     input_dict_copy["cleansnr"] = 6
 
                 if (
-                    "cleanexpr" not in input_dict_copy
-                    or input_dict_copy["cleanexpr"] is None
+                        "cleanexpr" not in input_dict_copy
+                        or input_dict_copy["cleanexpr"] is None
                 ):
                     input_dict_copy["cleanexpr"] = "ALWAYS_CLEAN==T"
 
@@ -419,7 +418,9 @@ class BatSurvey(BatObservation):
             # need to extract the respective pointing IDs
             self.pointing_ids = []
             for pointing in self.pointing_flux_files:
-                self.pointing_ids.append(pointing.parent.name.split("_")[-1])
+                self.pointing_ids.append(
+                    pointing.parent.name.split("_")[-1]
+                )
 
             # create dict of pointings ids and their respective information of time, exposure, etc which is the same
             # for each pointing
@@ -532,7 +533,9 @@ class BatSurvey(BatObservation):
         Saves the current BatSurvey object
         :return: None
         """
-        file = self.result_dir.joinpath("batsurvey.pickle")
+        file = self.result_dir.joinpath(
+            "batsurvey.pickle"
+        )
         with open(file, "wb") as f:
             pickle.dump(self.__dict__, f, 2)
         print("A save file has been written to %s." % (str(file)))
@@ -617,7 +620,9 @@ class BatSurvey(BatObservation):
 
         # see if the directory is specified in the input values, if so then use default outdir
         if input_dict is None or "outfile" not in input_dict:
-            output_dir = self.result_dir.joinpath("merged_pointings_lc")
+            output_dir = self.result_dir.joinpath(
+                "merged_pointings_lc"
+            )
         else:
             output_dir = (
                 Path(input_dict["outfile"]).expanduser().resolve()
@@ -648,14 +653,14 @@ class BatSurvey(BatObservation):
             self.merge_input = dictionary
 
     def calculate_pha(
-        self,
-        id_list,
-        output_dir=None,
-        calc_upper_lim=False,
-        bkg_nsigma=None,
-        verbose=True,
-        clean_dir=False,
-        single_pointing=None,
+            self,
+            id_list,
+            output_dir=None,
+            calc_upper_lim=False,
+            bkg_nsigma=None,
+            verbose=True,
+            clean_dir=False,
+            single_pointing=None,
     ):
         """
         This function calculates the pha files for each object in the input catalog file by default. Can specify
@@ -690,7 +695,9 @@ class BatSurvey(BatObservation):
 
         if output_dir is None:
             # set default directory to save files into
-            output_dir = self.result_dir.joinpath("PHA_files")
+            output_dir = self.result_dir.joinpath(
+                "PHA_files"
+            )
         else:
             output_dir = Path(output_dir).expanduser().resolve()
 
@@ -731,7 +738,9 @@ class BatSurvey(BatObservation):
                 ident = None
 
             # get info from the newly created cat file (from merge)
-            catalog = merge_output_path.joinpath(f"{ident}.cat")
+            catalog = merge_output_path.joinpath(
+                f"{ident}.cat"
+            )
             try:
                 cat_file = fits.open(str(catalog))
                 tbdata = cat_file[1].data
@@ -798,7 +807,9 @@ class BatSurvey(BatObservation):
                 for i in range(len(time_array)):
                     # These are to ensure that we are starting fresh with our T_start and T_stop, and not
                     # appending them.
-                    count_rate_band = []
+                    count_rate_band = (
+                        []
+                    )
                     count_rate_band_error = []
                     channel = []
                     gti_starttime = []
@@ -807,9 +818,9 @@ class BatSurvey(BatObservation):
                     check = 0
                     # find the time in the light curve cat file
                     if (
-                        (time_array[i] + tstart_sinceT0[i])
-                        <= time_array[i]
-                        < (time_array[i] + tstart_sinceT0[i] + exposure_array[i])
+                            (time_array[i] + tstart_sinceT0[i])
+                            <= time_array[i]
+                            < (time_array[i] + tstart_sinceT0[i] + exposure_array[i])
                     ):
                         check += 1
                         gti_starttime.append(time_array[i])
@@ -840,14 +851,22 @@ class BatSurvey(BatObservation):
 
                         attfile = self.result_dir.joinpath(
                             f"{pointing_array[i]}"
-                        ).joinpath(f"{pointing_array[i]}.att")
+                        ).joinpath(
+                            f"{pointing_array[i]}.att"
+                        )
                         dpifile = self.result_dir.joinpath(
                             f"{pointing_array[i]}"
-                        ).joinpath(f"{pointing_array[i]}_1.dpi")
+                        ).joinpath(
+                            f"{pointing_array[i]}_1.dpi"
+                        )
                         detmask = self.result_dir.joinpath(
                             f"{pointing_array[i]}"
-                        ).joinpath(f"{pointing_array[i]}.detmask")
-                        output_srcmask = output_dir.joinpath("src.mask")
+                        ).joinpath(
+                            f"{pointing_array[i]}.detmask"
+                        )
+                        output_srcmask = output_dir.joinpath(
+                            "src.mask"
+                        )
 
                         input_dict = dict(
                             outfile=str(output_srcmask),
@@ -947,35 +966,14 @@ class BatSurvey(BatObservation):
                         )
                         pha_prime_hdr["INSTRUME"] = ("BAT", "Instrument name")
                         pha_prime_hdr["TIMESYS"] = ("TT", " Time system")
-                        pha_prime_hdr["MJDREFI"] = (
-                            51910.0,
-                            " Reference MJD Integer part",
-                        )
-                        pha_prime_hdr["MJDREFF"] = (
-                            0.00074287037,
-                            " Reference MJD fractional",
-                        )
-                        pha_prime_hdr["TIMEREF"] = (
-                            "LOCAL",
-                            " Time reference (barycenter/local)",
-                        )
-                        pha_prime_hdr["TASSIGN"] = (
-                            "SATELLITE",
-                            " Time assigned by clock",
-                        )
+                        pha_prime_hdr["MJDREFI"] = (51910.0, " Reference MJD Integer part")
+                        pha_prime_hdr["MJDREFF"] = (0.00074287037, " Reference MJD fractional")
+                        pha_prime_hdr["TIMEREF"] = ("LOCAL", " Time reference (barycenter/local)")
+                        pha_prime_hdr["TASSIGN"] = ("SATELLITE", " Time assigned by clock")
                         pha_prime_hdr["TIMEUNIT"] = ("s", " Time unit")
-                        pha_prime_hdr["TIERRELA"] = (
-                            1.0e-8,
-                            " [s/s] relative errors expressed as rate",
-                        )
-                        pha_prime_hdr["TIERABSO"] = (
-                            1.0,
-                            " [s] timing precision in seconds",
-                        )
-                        pha_prime_hdr["CLOCKAPP"] = (
-                            "F",
-                            "Is mission time corrected for clock drift?",
-                        )
+                        pha_prime_hdr["TIERRELA"] = (1.0e-8, " [s/s] relative errors expressed as rate")
+                        pha_prime_hdr["TIERABSO"] = (1.0, " [s] timing precision in seconds")
+                        pha_prime_hdr["CLOCKAPP"] = ("F", "Is mission time corrected for clock drift?")
 
                         pha_prime_hdr["OBS_ID"] = (self.obs_id, "Observation ID")
                         pha_prime_hdr["OBJECT"] = (name_array[i], "Object name")
@@ -994,10 +992,8 @@ class BatSurvey(BatObservation):
                         pha_prime_hdr["TSTART"] = (gti_starttime[0], "Start time")
                         pha_prime_hdr["TSTOP"] = (gti_stoptime[0], "Stop time")
 
-                        utc_starttime = met2utc(gti_starttime[0]).astype(
-                            "datetime64[s]"
-                        )
-                        utc_stoptime = met2utc(gti_stoptime[0]).astype("datetime64[s]")
+                        utc_starttime = met2utc(gti_starttime[0]).astype('datetime64[s]')
+                        utc_stoptime = met2utc(gti_stoptime[0]).astype('datetime64[s]')
                         pha_prime_hdr["DATE-OBS"] = (
                             f"{utc_starttime}",
                             "TSTART, expressed in UTC",
@@ -1010,35 +1006,14 @@ class BatSurvey(BatObservation):
                         pha_spec_hdr["TELESCOP"] = ("SWIFT", "Telescope (mission) name")
                         pha_spec_hdr["INSTRUME"] = ("BAT", "Instrument name")
                         pha_spec_hdr["TIMESYS"] = ("TT", " Time system")
-                        pha_spec_hdr["MJDREFI"] = (
-                            51910.0,
-                            " Reference MJD Integer part",
-                        )
-                        pha_spec_hdr["MJDREFF"] = (
-                            0.00074287037,
-                            " Reference MJD fractional",
-                        )
-                        pha_spec_hdr["TIMEREF"] = (
-                            "LOCAL",
-                            " Time reference (barycenter/local)",
-                        )
-                        pha_spec_hdr["TASSIGN"] = (
-                            "SATELLITE",
-                            " Time assigned by clock",
-                        )
+                        pha_spec_hdr["MJDREFI"] = (51910.0, " Reference MJD Integer part")
+                        pha_spec_hdr["MJDREFF"] = (0.00074287037, " Reference MJD fractional")
+                        pha_spec_hdr["TIMEREF"] = ("LOCAL", " Time reference (barycenter/local)")
+                        pha_spec_hdr["TASSIGN"] = ("SATELLITE", " Time assigned by clock")
                         pha_spec_hdr["TIMEUNIT"] = ("s", " Time unit")
-                        pha_spec_hdr["TIERRELA"] = (
-                            1.0e-8,
-                            " [s/s] relative errors expressed as rate",
-                        )
-                        pha_spec_hdr["TIERABSO"] = (
-                            1.0,
-                            " [s] timing precision in seconds",
-                        )
-                        pha_spec_hdr["CLOCKAPP"] = (
-                            "F",
-                            "Is mission time corrected for clock drift?",
-                        )
+                        pha_spec_hdr["TIERRELA"] = (1.0e-8, " [s/s] relative errors expressed as rate")
+                        pha_spec_hdr["TIERABSO"] = (1.0, " [s] timing precision in seconds")
+                        pha_spec_hdr["CLOCKAPP"] = ("F", "Is mission time corrected for clock drift?")
                         pha_spec_hdr["EQUINOX"] = (2000.0, " Equinox")
                         pha_spec_hdr["RADECSYS"] = ("FK5", " Coordinate system")
                         pha_spec_hdr["RA_OBJ"] = (raobj_array[i], "[deg] R.A. Object")
@@ -1210,10 +1185,8 @@ class BatSurvey(BatObservation):
                         print(
                             "This method does not add up the counts for more than one time intervals."
                         )
-                        raise RuntimeError(
-                            "Found more than one matched time, please double check the time interval.\n"
-                            "This method does not add up the counts for more than one time intervals."
-                        )
+                        raise RuntimeError("Found more than one matched time, please double check the time interval.\n"
+                                           "This method does not add up the counts for more than one time intervals.")
             except FileNotFoundError as e:
                 print(e)
                 raise FileNotFoundError(
@@ -1264,18 +1237,14 @@ class BatSurvey(BatObservation):
                             bkg_var_array = file[1].data[idx]["BKG_VAR"][0]
                             snr_array = file[1].data[idx]["VECTSNR"][0]
 
-                            self.set_pointing_info(
-                                point_id, "rate", rate_array, source_id=s
-                            )
+                            self.set_pointing_info(point_id, "rate", rate_array, source_id=s)
                             self.set_pointing_info(
                                 point_id, "rate_err", rate_err_array, source_id=s
                             )
                             self.set_pointing_info(
                                 point_id, "bkg_var", bkg_var_array, source_id=s
                             )
-                            self.set_pointing_info(
-                                point_id, "snr", snr_array, source_id=s
-                            )
+                            self.set_pointing_info(point_id, "snr", snr_array, source_id=s)
 
                             # this does the calculation for the total energy range so set the if statement so the
                             # mosaic results dont attempt to calculate a wrong energy integrated count rate
@@ -1288,10 +1257,7 @@ class BatSurvey(BatObservation):
                                 ) = self.get_count_rate(energy_idx, point_id, s)
 
                                 rate_array = np.concatenate(
-                                    (
-                                        self.pointing_info[point_id][s]["rate"],
-                                        [rate_tot],
-                                    )
+                                    (self.pointing_info[point_id][s]["rate"], [rate_tot])
                                 )
                                 rate_err_array = np.concatenate(
                                     (
@@ -1322,12 +1288,10 @@ class BatSurvey(BatObservation):
                         else:
                             # a given pointing may not have the source in it so just raise a warning
                             try:
-                                warn_str = (
-                                    f"Observation ID: {self.obs_id} Pointing ID: {point_id} \n"
-                                    f"There is no source {s} "
-                                    f"found in the catalog file. Please double check the spelling.\nThis "
-                                    f"source may also not be detected in this observation ID/pointing ID"
-                                )
+                                warn_str = (f"Observation ID: {self.obs_id} Pointing ID: {point_id} \n"
+                                            f"There is no source {s} "
+                                            f"found in the catalog file. Please double check the spelling.\nThis "
+                                            f"source may also not be detected in this observation ID/pointing ID")
                                 warnings.warn(warn_str)
                             except AttributeError:
                                 warn_str = (
@@ -1899,14 +1863,14 @@ class MosaicBatSurvey(BatSurvey):
         self.pointing_flux_files = [all_src_file]
 
     def calculate_pha(
-        self,
-        id_list,
-        output_dir=None,
-        calc_upper_lim=False,
-        bkg_nsigma=None,
-        verbose=True,
-        clean_dir=False,
-        single_pointing=None,
+            self,
+            id_list,
+            output_dir=None,
+            calc_upper_lim=False,
+            bkg_nsigma=None,
+            verbose=True,
+            clean_dir=False,
+            single_pointing=None,
     ):
         """
         This function calculates the pha files for each object in the input catalog file by default. Can specify
@@ -1935,7 +1899,9 @@ class MosaicBatSurvey(BatSurvey):
 
         if output_dir is None:
             # set default directory to save files into
-            output_dir = self.result_dir.joinpath("PHA_files")
+            output_dir = self.result_dir.joinpath(
+                "PHA_files"
+            )
         else:
             output_dir = Path(output_dir).expanduser().resolve()
 
@@ -1968,7 +1934,9 @@ class MosaicBatSurvey(BatSurvey):
             .parent.joinpath("data")
             .joinpath("swiftbat_survey_full_157m.rsp")
         )
-        copied_responsefile = output_dir.joinpath(responsefile.name)
+        copied_responsefile = output_dir.joinpath(
+            responsefile.name
+        )
         # if the file doesnt exist in the directory create a sym link to the file
         if not copied_responsefile.exists():
             copied_responsefile.symlink_to(responsefile)
@@ -1990,7 +1958,9 @@ class MosaicBatSurvey(BatSurvey):
 
             # get info from the newly created cat file (from merge)
             try:
-                catalog = merge_output_path.joinpath(f"{ident}.cat")
+                catalog = merge_output_path.joinpath(
+                    f"{ident}.cat"
+                )
                 cat_file = fits.open(catalog)
                 tbdata = cat_file[1].data
                 name_array = tbdata.field("NAME")
