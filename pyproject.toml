@@ -1,0 +1,83 @@
+# ==============================================================
+# Build system — replaces setup_requires / the setuptools import
+# ==============================================================
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+# ==============================================================
+# Core project metadata — replaces setup() arguments
+# ==============================================================
+[project]
+name = "BatAnalysis"
+dynamic = ["version"]   # version is read dynamically from _version.py (see [tool.setuptools.dynamic] below)
+description = "Routines for analyzing data from BAT on the Neil Gehrels Swift Observatory"
+readme = "README.md"
+license = { text = "BSD-3-Clause" }
+authors = [
+    { name = "Tyler Parsotan", email = "tyler.parsotan@nasa.gov" },
+    { name = "Sibasish Laha" },
+]
+requires-python = ">=3.9"
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: BSD Software License",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Topic :: Scientific/Engineering :: Astronomy",
+]
+
+# Replaces install_requires=required (which read from requirements.txt)
+# Note: setuptools is kept here as it was an explicit runtime dependency
+# in your requirements.txt, which is unusual but preserved for compatibility.
+dependencies = [
+    "setuptools>=58.0.4",
+    "numpy>=1.24.4",
+    "matplotlib>=3.4.2",
+    "astropy>=4.3.1",
+    "astroquery>=0.4.10",
+    "swiftbat>=0.1.5",
+    "swifttools>=3.0.21",
+    "scipy>=1.7.2",
+    "requests>=2.20",
+    "joblib>=1.1.0",
+    "dpath>=2.1.4",
+    "histpy>=2.0.2",
+    "reproject>=0.13.1",
+    "healpy>=1.16.6",
+    "mhealpy>=0.3.5",
+    "astro-gdt-swift>=1.0.1",
+    "ligo.skymap>=2.1.2",
+]
+
+# ==============================================================
+# Project URLs — replaces url= in setup()
+# ==============================================================
+[project.urls]
+Homepage   = "https://github.com/parsotat/BatAnalysis"
+Repository = "https://github.com/parsotat/BatAnalysis"
+
+# ==============================================================
+# Dynamic version — replaces the manual open("batanalysis/_version.py") parsing.
+# This tells setuptools to import `batanalysis._version` and read __version__.
+# ⚠️  Assumes the variable in _version.py is named `__version__`.
+#     If it is named differently (e.g. `version`), update the attr value below.
+# ==============================================================
+[tool.setuptools.dynamic]
+version = { attr = "batanalysis._version.__version__" }
+
+# ==============================================================
+# Package discovery — replaces find_packages() / packages=["batanalysis"]
+# ==============================================================
+[tool.setuptools.packages.find]
+where   = ["."]
+include = ["batanalysis*"]
+
+# ==============================================================
+# Package data — replaces the package_files() walk of batanalysis/data
+# and package_data={"": extra_files} + include_package_data=True.
+# The glob "data/**/*" recursively includes all files under batanalysis/data/.
+# ==============================================================
+[tool.setuptools.package-data]
+batanalysis = ["data/**/*"]
