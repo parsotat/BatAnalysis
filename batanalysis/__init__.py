@@ -46,6 +46,8 @@ from .mosaic import *
 from .skyproject import *
 from . import parallel
 
+# from .skyproject_direct import *
+
 # In general ignore WCS warnings
 import warnings
 from astropy.wcs import FITSFixedWarning

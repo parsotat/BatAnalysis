@@ -17,7 +17,6 @@ from joblib import Parallel, delayed
 
 from .bat_skyview import BatSkyView
 from .bat_survey import MosaicBatSurvey, BatSurvey
-from .skyproject import ReprojectSurvey
 from .bat_tte import BatEvent
 from .batlib import combine_survey_lc as serial_combine_survey_lc
 from .batlib import (
@@ -35,10 +34,21 @@ from .mosaic import (
     finalize_mosaic,
     read_correctionsmap,
     read_skygrids,
-    convert_time_to_decimal_day,
+)
+
+from .skyproject import (
     make_healpix_mosaics,
     make_all_sky_stg_grids,
+    ReprojectSurvey,
+    convert_time_to_decimal_day,
+    get_all_sky_wcs_grids,
 )
+
+# from .skyproject_direct import (
+#     ReprojectSurvey,
+#     convert_time_to_decimal_day,
+#     make_mosaics,
+# )
 
 # for python>3.6
 try:
@@ -66,10 +76,18 @@ def _create_BatSurvey(
     obs_id,
     obs_dir=None,
     input_dict=None,
+    truncated=False,
+    use_independent_modules=False,
     recalc=False,
     load_dir=None,
     patt_noise_dir=None,
     verbose=False,
+    add_total_energy_image=True,
+    get_new_sources=True,
+    plot_new_sources=True,
+    plot_dest_dir=None,
+    plot_all_sources=True,
+    plot_individual_sources=False,
 ):
     """
     The inner loop that attempts to run batsurvey on a survey observation ID. If ther eis a load file saved already, it
@@ -80,6 +98,7 @@ def _create_BatSurvey(
     :param obs_dir: None or a Path object of where the directory that the observation ID data is located. This will most
         likely be the datadir path. None defaults to using the datadir() output
     :param input_dict: The input dictionary that will be passed to the heasoft batsurvey call
+    :param truncated: Boolean to denote whether the data is truncated to 20 energy channels only.
     :param recalc: Boolean False by default. The default, will cause the function to try to load a save file to save on
         computational time. If set to True, do not try to load the results of prior calculations. Instead rerun
         batsurvey on the observation ID.
@@ -89,6 +108,18 @@ def _create_BatSurvey(
         None defaults to looking for the maps in a folder called: "noise_pattern_maps" located in the ba.datadir()
         directory. If this directory doesn't exist then pattern maps are not used.
     :param verbose: Boolean False by default. Tells the code to print progress/diagnostic information.
+    :param add_total_energy_image: Boolean to add in the total energy band image and catalog to the batsurvey
+        results. Default is True.
+    :param get_new_sources: Boolean to identify new sources in the survey data after adding the total energy band.
+        Default is True.
+    :param plot_new_sources: Boolean to plot the new sources found in the survey data after adding the total energy
+        band. Default is True.
+    :param plot_dest_dir: String of the directory to save the new source plots to. None defaults to the directory
+        that holds the batsurvey result directory.
+    :param plot_all_sources: Boolean to plot all the new sources found in the survey data to the same plot.
+        Default is True.
+    :param plot_individual_sources: Boolean to plot each new source found in the survey data to its own plot.
+        Default is False.
     :return: None or a BATSurvey object
     """
 
@@ -100,12 +131,21 @@ def _create_BatSurvey(
             recalc=recalc,
             load_dir=load_dir,
             input_dict=input_dict,
+            truncated=truncated,
+            use_independent_modules=use_independent_modules,
             verbose=verbose,
             patt_noise_dir=patt_noise_dir,
+            add_total_energy_image=add_total_energy_image,
+            get_new_sources=get_new_sources,
+            plot_new_sources=plot_new_sources,
+            plot_dest_dir=plot_dest_dir,
+            plot_all_sources=plot_all_sources,
+            plot_individual_sources=plot_individual_sources,
         )
         # see if there is already a .pickle file, if there is not or if the user wants to recalc, then do the save
         if not obs.result_dir.joinpath("batsurvey.pickle").exists() or recalc:
             obs.save()
+
     except ValueError as ve:
         print(f"{ve}")
         obs = None
@@ -118,10 +158,18 @@ def _create_BatSurvey(
 def batsurvey_analysis(
     obs_id_list,
     input_dict=None,
+    truncated=False,
     recalc=False,
+    use_independent_modules=False,
     load_dir=None,
     patt_noise_dir=None,
     verbose=False,
+    add_total_energy_image=True,
+    get_new_sources=True,
+    plot_new_sources=True,
+    plot_dest_dir=None,
+    plot_all_sources=True,
+    plot_individual_sources=False,
     nprocs=1,
 ):
     """
@@ -129,6 +177,7 @@ def batsurvey_analysis(
 
     :param obs_id_list: list of strings that denote the observation IDs to run batsurvey on
     :param input_dict: user defined dictionary of key/value pairs that will be passed to batsurvey
+    :param truncated: Boolean to denote whether the data is truncated to 20 energy channels only.
     :param recalc:  Boolean False by default. The default, will cause the function to try to load a save file to save
         on computational time. If set to True, do not try to load the results of prior calculations. Instead rerun
         batsurvey on the observation ID.
@@ -138,6 +187,18 @@ def batsurvey_analysis(
         None defaults to looking for the maps in a folder called: "noise_pattern_maps" located in the ba.datadir()
         directory. If this directory doesn't exist then pattern maps are not used.
     :param verbose: Boolean False by default. Tells the code to print progress/diagnostic information.
+    :param add_total_energy_image: Boolean to add in the total energy band image and catalog to the batsurvey
+        results. Default is True.
+    :param get_new_sources: Boolean to identify new sources in the survey data after adding the total energy band.
+        Default is True.
+    :param plot_new_sources: Boolean to plot the new sources found in the survey data after adding the total energy
+        band. Default is True.
+    :param plot_dest_dir: String of the directory to save the new source plots to. None defaults to the directory
+        that holds the batsurvey result directory.
+    :param plot_all_sources: Boolean to plot all the new sources found in the survey data to the same plot.
+        Default is True.
+    :param plot_individual_sources: Boolean to plot each new source found in the survey data to its own plot.
+        Default is False.
     :param nprocs: The number of processes that will be run simulaneously. This number should not be larger than the
         number of CPUs that a user has available to them.
     :return: a list of BATSurvey objects for all the observation IDs that completed successfully.
@@ -145,21 +206,66 @@ def batsurvey_analysis(
 
     _remove_pfiles()
 
+    # Try to see if plot_dest_dir is a list or a string
+    if plot_dest_dir is not None:
+        if isinstance(plot_dest_dir, str):
+            # Then this is a single object
+            # Make it a list with same length as time bins
+            plot_dest_dir = [plot_dest_dir] * len(obs_id_list)
+        elif len(plot_dest_dir) != len(obs_id_list):
+            raise ValueError(
+                "The length of the plot_dest_dir list must be the number of time bins - 1."
+            )
+    else:
+        # Make it a list of None objects
+        plot_dest_dir = [None] * len(obs_id_list)
+
+    # See if truncated is a list or a single boolean
+    if isinstance(truncated, bool):
+        truncated = [truncated] * len(obs_id_list)
+    elif len(truncated) != len(obs_id_list):
+        raise ValueError(
+            "The length of the truncated list must be the number of observation IDs."
+        )
+
+    # Same for use_independent_modules
+    if isinstance(use_independent_modules, bool):
+        use_independent_modules = [use_independent_modules] * len(obs_id_list)
+    elif len(use_independent_modules) != len(obs_id_list):
+        raise ValueError(
+            "The length of the use_independent_modules list must be the number of observation IDs."
+        )
+
+    # See if the input dictionary is a list or a single dictionary that is common for all observation IDs
+    if isinstance(input_dict, dict):
+        input_dict = [input_dict] * len(obs_id_list)
+    elif input_dict is not None and len(input_dict) != len(obs_id_list):
+        raise ValueError(
+            "The length of the input_dict list must be the number of observation IDs."
+        )
+
     obs = Parallel(n_jobs=nprocs)(
         delayed(_create_BatSurvey)(
-            i,
+            obs_id_list[i],
             obs_dir=datadir(),
             recalc=recalc,
+            truncated=truncated[i],
             load_dir=load_dir,
-            input_dict=input_dict,
+            use_independent_modules=use_independent_modules[i],
+            input_dict=input_dict[i],
             patt_noise_dir=patt_noise_dir,
             verbose=verbose,
+            add_total_energy_image=add_total_energy_image,
+            get_new_sources=get_new_sources,
+            plot_new_sources=plot_new_sources,
+            plot_dest_dir=plot_dest_dir[i],
+            plot_all_sources=plot_all_sources,
+            plot_individual_sources=plot_individual_sources,
         )
-        for i in obs_id_list
+        for i in range(len(obs_id_list))
     )
 
     final_obs = [i for i in obs if i is not None]
-
     return final_obs
 
 
@@ -218,6 +324,10 @@ def reproject_batsurvey(
     :return: a list of BATSurvey objects for all the observation IDs that completed successfully.
     """
     # _remove_pfiles()
+
+    # # First make the sky grids
+    # ra_grid, dec_grid = read_skygrids()
+    # skygrids = [ra_grid, dec_grid]
 
     obs = Parallel(n_jobs=nprocs)(
         delayed(_create_ReprojectSurvey)(
@@ -631,13 +741,56 @@ def batspectrum_analysis(*args, **kwargs):
     return ret
 
 
-def mosaic_skyviews(
+def process_mosaic(
+    outventory_file,
+    start,
+    end,
+    obsdir,
+    dt,
+    recalc,
+    make_image,
+    wcs,
+    use_intermediate,
+    snr,
+    plot_dest_dir,
+    plot_all_sources,
+    plot_individual_sources,
+    verbose,
+):
+    try:
+        mosaic_obj = make_healpix_mosaics(
+            outventory_file,
+            start,
+            end,
+            obsdir=obsdir,
+            dt=dt,
+            recalc=recalc,
+            make_image=make_image,
+            wcs=wcs,
+            use_intermediate=use_intermediate,
+            snr=snr,
+            plot_dest_dir=plot_dest_dir,
+            plot_all_sources=plot_all_sources,
+            plot_individual_sources=plot_individual_sources,
+            verbose=verbose,
+        )
+    except ValueError:
+        mosaic_obj = None
+    return mosaic_obj
+
+
+def mosaic_skyprojections(
     outventory_file,
     time_bins,
+    precision=0,
     recalc=False,
     verbose=True,
+    startend=False,
     use_intermediate=False,
-    parallel_grids=False,
+    snr=5,
+    plot_dest_dir=None,
+    plot_all_sources=True,
+    plot_individual_sources=False,
     nprocs=1,
 ):
     """Calculates the mosaic images (from healpix projected images) in parallel.
@@ -653,8 +806,19 @@ def mosaic_skyviews(
         :param nprocs: The number of processes that will be run simulaneously. This number should not be larger than the
             number of CPUs that a user has available to them.
         :param verbose: Boolean False by default. Tells the code to print progress/diagnostic information.
+        :param startend: Boolean False by default. If True, this means that the time bins are given as lists of [start, end]. Else they are given as times and the start and end are calculated
+            sliding them.
         :param parallel_grids: Boolean False by default. If True, will make the sky WCS grid projection (from healpix) parallel.
-        :param use_intermediate: Boolean False by default. If True, will use intermediate healpix projected images
+        :param use_intermediate: Boolean False by default. If True, will use intermediate healpix projected images.
+        :param snr: Float 5 by default. The signal to noise ratio threshold that a source must meet to be identified in
+            the mosaiced images.
+        :param plot_dest_dir: String of the directory to save the source plots to. None defaults to the directory
+            that holds the outventory file.
+        :param plot_all_sources: Boolean to plot all the new sources found in the survey data to the same plot.
+            Default is True.
+        :param plot_individual_sources: Boolean to plot each new source found in the survey data to its own plot.
+            Default is False.
+    :return: a list of MosaicBatSurvey objects for all the time bins that completed successfully
     """
 
     # make sure its a path object
@@ -662,7 +826,7 @@ def mosaic_skyviews(
 
     # determine format of the time_bins, ie an astropy Time array or a list of astropy Time arrays
     # no error checking here since it should be taken care of in group_outventory function
-    timedelta = np.mean(np.round(np.ediff1d(time_bins.mjd), 1))
+    timedelta = np.median(np.ediff1d(time_bins.mjd))
     if timedelta % 1 == 0:
         timedelta = int(timedelta)
 
@@ -672,8 +836,13 @@ def mosaic_skyviews(
 
     if not time_bins_is_list:
         # get the lower and upper time limits
-        start_t = time_bins[:-1]
-        end_t = time_bins[1:]
+        if startend:
+            # Then this is given as tuples of (start, end)
+            start_t = time_bins[:, 0]
+            end_t = time_bins[:, 1]
+        else:
+            start_t = time_bins[:-1]
+            end_t = time_bins[1:]
     else:
         start = []
         end = []
@@ -687,38 +856,57 @@ def mosaic_skyviews(
     if recalc:
         # make sure that the time bins are cleared
         for i in range(len(start_t)):
-            start_time_str = convert_time_to_decimal_day(start_t[i])
-            end_time_str = convert_time_to_decimal_day(end_t[i])
+            start_time_str = convert_time_to_decimal_day(
+                start_t[i], precision=precision
+            )
+            end_time_str = convert_time_to_decimal_day(end_t[i], precision=precision)
             binned_savedir = outventory_file.parent.joinpath(
                 f"{timedelta}_day_mosaics"
             ).joinpath(f"mosaic_{start_time_str}_{end_time_str}")
 
             dirtest(binned_savedir)
 
-    if verbose:
-        print("Making full sky WCS object...")
-    all_sky_wcs_grids = make_all_sky_stg_grids()
-
     # Then start mosaicking in parallel
     if verbose:
         print("Starting parallel mosaicking...")
 
-    Parallel(n_jobs=nprocs)(
-        delayed(make_healpix_mosaics)(
+    # Get all sky WCS grids
+    all_sky_wcs_grids = get_all_sky_wcs_grids()
+
+    # Try to see if plot_dest_dir is a list or a string
+    if plot_dest_dir is not None:
+        if isinstance(plot_dest_dir, str):
+            # Then this is a single object
+            # Make it a list with same length as time bins
+            plot_dest_dir = [plot_dest_dir] * len(start_t)
+        elif len(plot_dest_dir) != len(start_t):
+            raise ValueError(
+                "The length of the plot_dest_dir list must be the number of time bins - 1."
+            )
+    else:
+        # Make it a list of None objects
+        plot_dest_dir = [None] * len(start_t)
+
+    mosaic_objs = Parallel(n_jobs=nprocs)(
+        delayed(process_mosaic)(
             outventory_file,
-            start,
-            end,
-            datadir=datadir(),
+            start_t[i],
+            end_t[i],
+            obsdir=datadir(),
             dt=timedelta,
             recalc=recalc,
             make_image=True,
             wcs=all_sky_wcs_grids,
             use_intermediate=use_intermediate,
-            parallel_grids=parallel_grids,
             verbose=True,
+            snr=snr,
+            plot_dest_dir=plot_dest_dir[i],
+            plot_all_sources=plot_all_sources,
+            plot_individual_sources=plot_individual_sources,
         )
-        for start, end in zip(start_t, end_t)
+        for i in range(len(start_t))
     )
+    return mosaic_objs
 
 
 def batmosaic_analysis(
@@ -786,12 +974,12 @@ def batmosaic_analysis(
 
     if recalc:
         # make sure that the time bins are cleared
-        for i in range(len(start_t)):
-            start_time_str = convert_time_to_decimal_day(start_t[i])
-            end_time_str = convert_time_to_decimal_day(end_t[i])
+        for i in start_t:
             binned_savedir = outventory_file.parent.joinpath(
-                f"mosaic_{start_time_str}_{end_time_str}"
+                f"mosaic_{i.datetime64.astype('datetime64[D]')}"
             )
+            if not binned_savedir.exists():
+                binned_savedir = outventory_file.parent.joinpath(f"mosaic_{i.mjd}")
 
             dirtest(binned_savedir)
 
@@ -849,6 +1037,136 @@ def batmosaic_analysis(
         return final_mosaics, total_mosaic
     else:
         return final_mosaics
+
+
+# def batmosaic_analysis(
+#     batsurvey_obs_list,
+#     outventory_file,
+#     time_bins,
+#     catalog_file=None,
+#     compute_total_mosaic=True,
+#     total_mosaic_savedir=None,
+#     recalc=False,
+#     nprocs=1,
+# ):
+#     """
+#     Calculates the mosaic images in parallel.
+
+#     :param batsurvey_obs_list: The list of BATSurvey objects that correpond to the observations listed in the
+#         outventory file parameter
+#     :param outventory_file: Path object of the outventory file that contains all the BAT survey observations that will
+#         be used to create the mosaiced images.
+#     :param time_bins: astropy Time array of the time bin edges that are created based on the user specification of the
+#         group_outventory function
+#     :param catalog_file: A Path object of the catalog file that should be used to identify sources in the mosaic images.
+#         This will default to using the catalog file that is included with the BatAnalysis package.
+#     :param compute_total_mosaic: Default True, set to False to skip the computation of the total mosaic and return
+#         a single object.
+#     :param total_mosaic_savedir: Default None or a Path object that denotes the directory that the total
+#         "time-integrated" images will be saved to. The default is to place the total mosaic image in a directory
+#         called "total_mosaic" located in the same directory as the outventory file.
+#     :param recalc: Boolean False by default. If this calculation was done previously, do not try to load the results of
+#         prior calculations. Instead recalculate the mosaiced images. The default, will cause the function to try to load
+#         a save file to save on computational time.
+#     :param nprocs: The number of processes that will be run simulaneously. This number should not be larger than the
+#         number of CPUs that a user has available to them.
+#     :return:
+#     """
+
+#     _remove_pfiles()
+
+#     # make sure its a path object
+#     outventory_file = Path(outventory_file)
+
+#     # get the corections map and the skygrids
+#     corrections_map = read_correctionsmap()
+#     ra_skygrid, dec_skygrid = read_skygrids()
+
+#     # determine format of the time_bins, ie an astropy Time array or a list of astropy Time arrays
+#     # no error checking here since it should be taken care of in group_outventory function
+#     time_bins_is_list = False
+#     if type(time_bins) is list:
+#         time_bins_is_list = True
+
+#     if not time_bins_is_list:
+#         # get the lower and upper time limits
+#         start_t = time_bins[:-1]
+#         end_t = time_bins[1:]
+#     else:
+#         start = []
+#         end = []
+#         for i in time_bins:
+#             start.append(i[0, 0])
+#             end.append(i[1, 0])
+
+#         start_t = Time(start)
+#         end_t = Time(end)
+
+#     if recalc:
+#         # make sure that the time bins are cleared
+#         for i in range(len(start_t)):
+#             start_time_str = convert_time_to_decimal_day(start_t[i])
+#             end_time_str = convert_time_to_decimal_day(end_t[i])
+#             binned_savedir = outventory_file.parent.joinpath(
+#                 f"mosaic_{start_time_str}_{end_time_str}"
+#             )
+
+#             dirtest(binned_savedir)
+
+#     all_mosaic_survey = Parallel(n_jobs=nprocs)(
+#         delayed(_mosaic_loop)(
+#             outventory_file,
+#             start,
+#             end,
+#             corrections_map,
+#             ra_skygrid,
+#             dec_skygrid,
+#             batsurvey_obs_list,
+#             recalc=recalc,
+#             verbose=True,
+#         )
+#         for start, end in zip(start_t, end_t)
+#     )  # i in range(len(start_t)))
+
+#     final_mosaics = [i for i in all_mosaic_survey if i is not None]
+
+#     # if batcelldetect hasnt been run yet do so
+#     for i in final_mosaics:
+#         if not i.result_dir.joinpath("sources_tot.cat").exists():
+#             i.detect_sources(catalog_file=catalog_file)
+#             i.save()
+
+#     intermediate_mosaic_dir_list = [i.result_dir for i in final_mosaics]
+
+#     if compute_total_mosaic:
+#         # see if the total mosaic has been created and saved (ie there is a .batsurvey file in that directory) if there
+#         # isnt, then do the full calculation or if we set recalc=True then also do the full calculation
+#         if total_mosaic_savedir is None:
+#             total_mosaic_savedir = intermediate_mosaic_dir_list[0].parent.joinpath(
+#                 "total_mosaic"
+#             )
+#         else:
+#             total_mosaic_savedir = Path(total_mosaic_savedir)
+
+#         if not total_mosaic_savedir.joinpath("batsurvey.pickle").exists() or recalc:
+#             # merge all the mosaics together to get the full 'time integrated' images and convert to final files with
+#             # proper units
+#             total_dir = merge_mosaics(
+#                 intermediate_mosaic_dir_list, savedir=total_mosaic_savedir
+#             )
+#             finalize_mosaic(total_dir)
+#             total_mosaic = MosaicBatSurvey(total_dir)
+#         else:
+#             total_mosaic = MosaicBatSurvey(total_mosaic_savedir)
+
+#         # if batcelldetect hasnt been run yet do so
+#         if not total_mosaic.result_dir.joinpath("sources_tot.cat").exists():
+#             total_mosaic.detect_sources(catalog_file=catalog_file)
+#             total_mosaic.save()
+
+#         return final_mosaics, total_mosaic
+#     else:
+#         return final_mosaics
 
 
 """
