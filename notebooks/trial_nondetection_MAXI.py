@@ -16,17 +16,19 @@ from matplotlib import ticker
 
 
 object_name = "MAXI J0637-430"
-queryargs = dict(time="2019-11-01 .. 2020-01-30", fields="All", resultmax=0)
 object_location = swiftbat.simbadlocation(object_name)
 object_batsource = swiftbat.source(
     ra=object_location[0], dec=object_location[1], name=object_name
 )
-table_everything = ba.from_heasarc(**queryargs)
+
+table_everything, query = ba.from_heasarc(time_range=Time(["2019-11-01","2020-01-30"]), return_query=True)
+
+
 minexposure = 1000  # cm^2 after cos adjust
 exposures = u.Quantity(
-    [object_batsource.exposure(ra=row["RA"],
-                               dec=row["DEC"], 
-                               roll=row["ROLL_ANGLE"])[0]
+    [object_batsource.exposure(ra=row["ra"],
+                               dec=row["dec"],
+                               roll=row["roll_angle"])[0]
         for row in table_everything
     ])
 
@@ -36,7 +38,7 @@ print(
 )
 
 # result = ba.download_swiftdata(table_exposed)
-obs_ids = [i for i in table_exposed["OBSID"] if result[i]["success"]]
+obs_ids = [i for i in table_exposed["obsid"] if result[i]["success"]]
 
 # The below excluded observation IDs had too few detectors which led to batcelldetect not being able to analyze the background variance within certain energy bins. This led to batsurvey being stuck when analyzing these observation IDs.
 # obs_ids=[i.parent.name.split("_")[0] for i in sorted(ba.datadir().glob("*_surveyresult/batsurvey.pickle"))]

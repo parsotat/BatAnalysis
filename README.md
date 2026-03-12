@@ -193,41 +193,6 @@ The typical BatAnalysis workflow for analyzing survey data is as follows:
 11. Calculate the light curve of the source from the mosaiced images
 12. Plot the light curve/spectral information for the mosaiced images
 
-Following these steps for the first 5 survey observation IDs for the Crab (although see the notebooks directory for recommended analysis steps):
-```sh
-import batanalysis as ba
-import swiftbat
-import numpy as np 
-import matplotlib.pyplot as plt
-from pathlib import Path
-plt.ion()
-
-object_name='Crab'
-catalog_name="Crab_Nebula_Pulsar"
-table = ba.from_heasarc(object_name)
-result = ba.download_swiftdata(table[:5])
-
-batsurvey_obs=ba.parallel.batsurvey_analysis(table["OBSID"][:5], nprocs=2)
-
-#the name of the source in the included survey catalog must be used here 
-noise_map_dir=Path("/path/to/downloaded/PATTERN_MAPS/")
-batsurvey_obs=ba.parallel.batspectrum_analysis(batsurvey_obs, catalog_name, patt_noise_dir=noise_map_dir, nprocs=2)
-
-ba.plot_survey_lc(batsurvey_obs, id_list=catalog_name, calc_lc=True)
-
-outventory_file=ba.merge_outventory(batsurvey_obs)
-
-#bin into 1 month time bins
-time_bins=ba.group_outventory(outventory_file, np.timedelta64(1,'M'))
-
-#bin into daily time bin
-mosaic_list, total_mosaic=ba.parallel.batmosaic_analysis(batsurvey_obs, outventory_file, time_bins, nprocs=3)
-
-mosaic_list=ba.parallel.batspectrum_analysis(mosaic_list, catalog_name, nprocs=2)
-
-ba.plot_survey_lc(mosaic_list, id_list=catalog_name, calc_lc=True)
-
-```
 
 ### b) TTE Data
 

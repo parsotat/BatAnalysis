@@ -525,76 +525,84 @@ class DetectorPlaneHistogram(Histogram):
             exposure time of the plotted histogram
         :return: matplotlib figure and axis for the plotted histogram
         """
+        
+        try:
+            if emin is None and emax is None:
+                plot_emin = self.ebins["E_MIN"].min()
+                plot_emax = self.ebins["E_MAX"].max()
+            elif emin is not None and emax is not None:
+                plot_emin = emin
+                plot_emax = emax
+            else:
+                raise ValueError(
+                    "emin and emax must either both be None or both be specified."
+                )
+            plot_e_idx = np.where(
+                (self.ebins["E_MIN"] >= plot_emin) & (self.ebins["E_MAX"] <= plot_emax)
+            )[0]
 
-        if emin is None and emax is None:
-            plot_emin = self.ebins["E_MIN"].min()
-            plot_emax = self.ebins["E_MAX"].max()
-        elif emin is not None and emax is not None:
-            plot_emin = emin
-            plot_emax = emax
-        else:
-            raise ValueError(
-                "emin and emax must either both be None or both be specified."
-            )
-        plot_e_idx = np.where(
-            (self.ebins["E_MIN"] >= plot_emin) & (self.ebins["E_MAX"] <= plot_emax)
-        )[0]
+            if tmin is None and tmax is None:
+                plot_tmin = self.tbins["TIME_START"].min()
+                plot_tmax = self.tbins["TIME_STOP"].max()
+            elif tmin is not None and tmax is not None:
+                plot_tmin = tmin
+                plot_tmax = tmax
+            else:
+                raise ValueError(
+                    "tmin and tmax must either both be None or both be specified."
+                )
+            plot_t_idx = np.where(
+                (self.tbins["TIME_START"] >= plot_tmin)
+                & (self.tbins["TIME_STOP"] <= plot_tmax)
+            )[0]
 
-        if tmin is None and tmax is None:
-            plot_tmin = self.tbins["TIME_START"].min()
-            plot_tmax = self.tbins["TIME_STOP"].max()
-        elif tmin is not None and tmax is not None:
-            plot_tmin = tmin
-            plot_tmax = tmax
-        else:
-            raise ValueError(
-                "tmin and tmax must either both be None or both be specified."
-            )
-        plot_t_idx = np.where(
-            (self.tbins["TIME_START"] >= plot_tmin)
-            & (self.tbins["TIME_STOP"] <= plot_tmax)
-        )[0]
+            # now start to accumulate the DPH counts based on the time and energy range that we care about
+            plot_data = self.contents[plot_t_idx, :, :, :]
 
-        # now start to accumulate the DPH counts based on the time and energy range that we care about
-        plot_data = self.contents[plot_t_idx, :, :, :]
+            if len(plot_t_idx) > 0:
+                plot_data = plot_data.sum(axis=0)
+            else:
+                raise ValueError(
+                    f"There are no DPH time bins that fall between {plot_tmin} and {plot_tmax}"
+                )
 
-        if len(plot_t_idx) > 0:
-            plot_data = plot_data.sum(axis=0)
-        else:
-            raise ValueError(
-                f"There are no DPH time bins that fall between {plot_tmin} and {plot_tmax}"
-            )
+            plot_data = plot_data[:, :, plot_e_idx]
 
-        plot_data = plot_data[:, :, plot_e_idx]
+            if len(plot_e_idx) > 0:
+                plot_data = plot_data.sum(axis=-1)
+            else:
+                raise ValueError(
+                    f"There are no DPH energy bins that fall between {plot_emin} and {plot_emax}"
+                )
 
-        if len(plot_e_idx) > 0:
-            plot_data = plot_data.sum(axis=-1)
-        else:
-            raise ValueError(
-                f"There are no DPH energy bins that fall between {plot_emin} and {plot_emax}"
-            )
+            if plot_rate:
+                # calcualte the totoal exposure
+                exposure_tot = np.sum(self.exposure[plot_t_idx])
+                plot_data /= exposure_tot
 
-        if plot_rate:
-            # calcualte the totoal exposure
-            exposure_tot = np.sum(self.exposure[plot_t_idx])
-            plot_data /= exposure_tot
+            # set any 0 count detectors to nan so they get plotted in black
+            # this includes detectors that are off and "space holders" between detectors where the value is 0
+            plot_data[plot_data == 0] = np.nan
 
-        # set any 0 count detectors to nan so they get plotted in black
-        # this includes detectors that are off and "space holders" between detectors where the value is 0
-        plot_data[plot_data == 0] = np.nan
+            fig, ax = plt.subplots()
+            divider = make_axes_locatable(ax)
+            cax = divider.append_axes("right", size="5%", pad=0.05)
 
-        fig, ax = plt.subplots()
-        divider = make_axes_locatable(ax)
-        cax = divider.append_axes("right", size="5%", pad=0.05)
+            cmap = mpl.colormaps.get_cmap("viridis")
+            cmap.set_bad(color="k")
 
-        cmap = mpl.colormaps.get_cmap("viridis")
-        cmap.set_bad(color="k")
+            im = ax.imshow(plot_data.value, origin="lower", interpolation="none", cmap=cmap)
 
-        im = ax.imshow(plot_data.value, origin="lower", interpolation="none", cmap=cmap)
+            fig.colorbar(im, cax=cax, orientation="vertical", label=plot_data.unit)
 
-        fig.colorbar(im, cax=cax, orientation="vertical", label=plot_data.unit)
-
-        ax.set_ylabel("DETY")
-        ax.set_xlabel("DETX")
-
-        return fig, ax
+            ax.set_ylabel("DETY")
+            ax.set_xlabel("DETX")
+            
+            return fig, ax
+            
+        except Exception as e:
+            #If things broke, revert to the super class plot()
+            # this is meant to capture different binnings than those expected for time, energy, detx, dety which still results in a DetectorPlaneHistogram object, but is really just a general Histogram object. This change was needed since projections in histpy now return an object of self instead of a Histogram object explicitly
+            ax, artist_containers = super().plot()
+            return ax, artist_containers
+        

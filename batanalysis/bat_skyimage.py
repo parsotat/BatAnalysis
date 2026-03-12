@@ -17,6 +17,7 @@ from astropy.coordinates import SkyCoord
 from astropy.io import fits
 from astropy.wcs import WCS
 from healpy.newvisufunc import projview
+import mhealpy as mhp
 from histpy import Histogram, HealpixAxis, Axes
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from reproject import reproject_to_healpix
@@ -517,47 +518,49 @@ class BatSkyImage(Histogram):
             healpix resolution of the sky image is used.
         :return: (matplotlib axis object, matplotlib Quadmesh object) or just the matplotlib Quadmesh object
         """
+        
+        # Handle the case where we may be asked to plot a BatSkyImage object that doesnt generally have "ENERGY" or "TIME" axes. This change was needed since projections in histpy now return an object of self instead of a Histogram object explicitly so a user can do different projections where just a spatial axis remains and then want to plot the resulting BatSkyImage.
+        
+        try:
+            # do some error checking
+            if emin is None and emax is None:
+                emin = self.axes["ENERGY"].lo_lim
+                emax = self.axes["ENERGY"].hi_lim
+            elif emin is not None and emax is not None:
+                if emin not in self.axes["ENERGY"].edges or emax not in self.axes["ENERGY"].edges:
+                    raise ValueError(
+                        f'The passed in emin or emax value is not a valid ENERGY bin edge: {self.axes["ENERGY"].edges}')
+            else:
+                raise ValueError("emin and emax must either both be None or both be specified.")
+        except KeyError as e:
+            #no ENERGY axis in the BatSkyImage
+            emin=None
+            emax=None
 
-        # do some error checking
-        if emin is None and emax is None:
-            emin = self.axes["ENERGY"].lo_lim
-            emax = self.axes["ENERGY"].hi_lim
-        elif emin is not None and emax is not None:
-            if (
-                emin not in self.axes["ENERGY"].edges
-                or emax not in self.axes["ENERGY"].edges
-            ):
-                raise ValueError(
-                    f'The passed in emin or emax value is not a valid ENERGY bin edge: {self.axes["ENERGY"].edges}'
-                )
-        else:
-            raise ValueError(
-                "emin and emax must either both be None or both be specified."
-            )
-
-        if tmin is None and tmax is None:
-            tmin = self.axes["TIME"].lo_lim
-            tmax = self.axes["TIME"].hi_lim
-        elif tmin is not None and tmax is not None:
-            if (
-                tmin not in self.axes["TIME"].edges
-                or tmax not in self.axes["TIME"].edges
-            ):
-                raise ValueError(
-                    f'The passed in tmin or tmax value is not a valid TIME bin edge: {self.axes["TIME"].edges}'
-                )
-        else:
-            raise ValueError(
-                "tmin and tmax must either both be None or both be specified."
-            )
+        try:
+            if tmin is None and tmax is None:
+                tmin = self.axes["TIME"].lo_lim
+                tmax = self.axes["TIME"].hi_lim
+            elif tmin is not None and tmax is not None:
+                if tmin not in self.axes["TIME"].edges or tmax not in self.axes["TIME"].edges:
+                    raise ValueError(
+                        f'The passed in tmin or tmax value is not a valid TIME bin edge: {self.axes["TIME"].edges}')
+            else:
+                raise ValueError("tmin and tmax must either both be None or both be specified.")
+        except KeyError as e:
+            #no TIME axis in the BatSkyImage
+            tmin=None
+            tmax=None
 
         # get the bin index to then do slicing and projecting for plotting. Need to make sure that the inputs are
         # single numbers (not single element array) which is why we do __.item()
-        tmin_idx = self.axes["TIME"].find_bin(tmin.item())
-        tmax_idx = self.axes["TIME"].find_bin(tmax.item())
-
-        emin_idx = self.axes["ENERGY"].find_bin(emin.item())
-        emax_idx = self.axes["ENERGY"].find_bin(emax.item())
+        if tmin is not None:
+            tmin_idx = self.axes["TIME"].find_bin(tmin.item())
+            tmax_idx = self.axes["TIME"].find_bin(tmax.item())
+            
+        if emin is not None:
+            emin_idx = self.axes["ENERGY"].find_bin(emin.item())
+            emax_idx = self.axes["ENERGY"].find_bin(emax.item())
 
         # for mosaic images, cannot do normal projection with summing up
         if self.is_mosaic_intermediate:
@@ -575,45 +578,58 @@ class BatSkyImage(Histogram):
                 #                       image_type=self.image_type,
                 #                       is_mosaic_intermediate=self.is_mosaic_intermediate).project("SKYX",
                 #                                                                                   "SKYY").plot()
+                if tmin is not None and emin is not None:
+                    tmp_img = self.slice[tmin_idx:tmax_idx, :, :, emin_idx:emax_idx].project("SKYX","SKYY")
+                elif tmin is not None and emin is None:
+                    tmp_img = self.slice[{h.axes.label_to_index("TIME"):slice(tmin_idx,tmax_idx)}].project("SKYX","SKYY")
+                elif tmin is None and emin is not None:
+                    tmp_img = self.slice[{h.axes.label_to_index("ENERGY"):slice(emin_idx,emax_idx)}].project("SKYX","SKYY")
+                else:
+                    tmp_img=self
 
-                tmp_img = self.slice[
-                    tmin_idx:tmax_idx, :, :, emin_idx:emax_idx
-                ].project("SKYX", "SKYY")
-
+                
                 ax, mesh = Histogram(tmp_img.axes, contents=tmp_img.contents).plot()
 
                 ret = (ax, mesh)
             elif "HPX" in self.axes.labels:
                 if "galactic" in coordsys.lower():
-                    coord = ["G"]
+                    coord = "G"
                 elif "icrs" in coordsys.lower():
-                    coord = ["G", "C"]
+                    coord = "C"
                 else:
-                    raise ValueError(
-                        "This plotting function can only plot the healpix map in galactic or icrs "
-                        "coordinates."
-                    )
-                plot_quantity = (
-                    BatSkyImage(
-                        image_data=self.slice[tmin_idx:tmax_idx, :, emin_idx:emax_idx],
-                        image_type=self.image_type,
-                        is_mosaic_intermediate=self.is_mosaic_intermediate,
-                    )
-                    .project("HPX")
-                    .contents
-                )
+                    raise ValueError('This plotting function can only plot the healpix map in galactic or icrs '
+                                     'coordinates.')
+                
+                
+                if tmin is not None and emin is not None:
+                    plot_quantity = self.slice[tmin_idx:tmax_idx, :, emin_idx:emax_idx].project("HPX").contents
+                    
+                    #BatSkyImage(image_data=self.slice[tmin_idx:tmax_idx, :, emin_idx:emax_idx],
+                    #                        image_type=self.image_type,
+                    #                        is_mosaic_intermediate=self.is_mosaic_intermediate).project(
+                    #"HPX").contents
+                elif tmin is not None and emin is None:
+                    plot_quantity =  self.slice[{h.axes.label_to_index("TIME"):slice(tmin_idx,tmax_idx)}].project("HPX").contents
+                elif tmin is None and emin is not None:
+                    plot_quantity =  self.slice[{h.axes.label_to_index("ENERGY"):slice(emin_idx,emax_idx)}].project("HPX").contents
+                else:
+                    plot_quantity = self.contents
+                
                 if isinstance(plot_quantity, u.Quantity):
                     plot_quantity = plot_quantity.value
 
-                mesh = projview(
-                    plot_quantity,
-                    coord=coord,
-                    graticule=True,
-                    graticule_labels=True,
-                    projection_type="mollweide",
-                    reuse_axes=False,
-                )
-                ret = mesh
+                #mesh = projview(plot_quantity,
+                #                coord=coord, graticule=True, graticule_labels=True,
+                #                projection_type="mollweide", reuse_axes=False)
+                
+                m = mhp.HealpixMap(data=plot_quantity, coordsys="G")
+                
+                plotMoll, projMoll= m.plot(ax_kw={"coord":coord}, interpolation='none')
+                projMoll.graticule(dmer=60, color="gray", alpha=0.5, linewidth=0.75)
+                projMoll.coords[0].set_ticklabel_visible(True)
+                projMoll.coords[1].set_ticklabel_visible(True)
+                
+                ret = (plotMoll, projMoll)
             else:
                 raise ValueError(
                     "The spatial projection of the sky image is currently not accepted as a plotting "
@@ -664,42 +680,47 @@ class BatSkyImage(Histogram):
             elif "healpix" in projection.lower():
                 hist = self.healpix_projection(coordsys="galactic", nside=nside)
                 if "galactic" in coordsys.lower():
-                    coord = ["G"]
+                    coord = "G"
                 elif "icrs" in coordsys.lower():
-                    coord = ["G", "C"]
+                    coord = "C"
                 else:
                     raise ValueError(
                         "This plotting function can only plot the healpix map in galactic or icrs "
                         "coordinates."
                     )
 
-                plot_quantity = (
-                    BatSkyImage(
-                        image_data=hist.slice[tmin_idx:tmax_idx, :, emin_idx:emax_idx],
-                        image_type=self.image_type,
-                        is_mosaic_intermediate=self.is_mosaic_intermediate,
-                    )
-                    .project("HPX")
-                    .contents
-                )
+                if tmin is not None and emin is not None:
+                    plot_quantity = hist.slice[tmin_idx:tmax_idx, :, emin_idx:emax_idx].project("HPX").contents
+                    
+                #plot_quantity = BatSkyImage(image_data=hist.slice[tmin_idx:tmax_idx, :, emin_idx:emax_idx],
+                #                            image_type=self.image_type,
+                #                            is_mosaic_intermediate=self.is_mosaic_intermediate).project("HPX").contents
+                elif tmin is not None and emin is None:
+                    plot_quantity =  hist.slice[{h.axes.label_to_index("TIME"):slice(tmin_idx,tmax_idx)}].project("HPX").contents
+                elif tmin is None and emin is not None:
+                    plot_quantity =  hist.slice[{h.axes.label_to_index("ENERGY"):slice(emin_idx,emax_idx)}].project("HPX").contents
+                else:
+                    plot_quantity = hist.contents
+                
                 if isinstance(plot_quantity, u.Quantity):
                     plot_quantity = plot_quantity.value
-
-                mesh = projview(
-                    plot_quantity,
-                    coord=coord,
-                    graticule=True,
-                    graticule_labels=True,
-                    projection_type="mollweide",
-                    reuse_axes=False,
-                )
-                ret = mesh
+                    
+                m = mhp.HealpixMap(data=plot_quantity, coordsys="G")
+                
+                plotMoll, projMoll= m.plot(ax_kw={"coord":coord}, interpolation='none')
+                projMoll.graticule(dmer=60, color="gray", alpha=0.5, linewidth=0.75)
+                projMoll.coords[0].set_ticklabel_visible(True)
+                projMoll.coords[1].set_ticklabel_visible(True)
+                
+                ret = (plotMoll, projMoll)
+                
             else:
                 raise ValueError(
                     "The projection value only accepts ra/dec or healpix as inputs."
                 )
 
         return ret
+            
 
     @classmethod
     def from_file(cls, file):
@@ -886,17 +907,16 @@ class BatSkyImage(Histogram):
             "ENERGY" not in [i for i in axis] and self.axes["ENERGY"].nbins > 1
         ) and self.image_type is not None:
             # check to see if we have images that are not intermediate mosaic images and they are stddev/snr quantities
-            if not self.is_mosaic_intermediate and np.any(
-                [self.image_type == i for i in ["snr", "stddev"]]
-            ):
+            if not self.is_mosaic_intermediate and np.any([self.image_type == i for i in ["snr", "stddev"]]):
+                
+                orig_unit=self.unit
+                
                 # because the self.project is recursive below, we need to create a new Histogram object so we call that
                 temp_hist = Histogram(edges=self.axes, contents=(self * self).contents)
 
                 ax = Axes([self.axes[i] for i in axis])
-
-                hist = self._replace(
-                    _axes=ax, _contents=np.sqrt(temp_hist.project(*axis))
-                )
+                
+                hist = self._replace(_axes=ax, _contents = np.sqrt(temp_hist.project(*axis).contents.value), _track_overflow=np.array([False]*len(ax)), _unit=orig_unit)
 
             elif np.any([self.image_type == i for i in ["pcode", "exposure"]]):
                 # this gets executed even if self.is_mosaic_intermediate is True

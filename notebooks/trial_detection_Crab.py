@@ -22,21 +22,20 @@ ba.datadir(newdir, mkdir=True)
 
 # query heasarc for all the data within the time period of interest and download it
 object_name = "Crab_Nebula_Pulsar"
-queryargs = dict(time="2004-12-15 .. 2006-10-27", fields="All", resultmax=0)
 
 # use swiftbat to create a bat source object
 object_location = swiftbat.simbadlocation("Crab")
 object_batsource = swiftbat.source(
     ra=object_location[0], dec=object_location[1], name=object_name
 )
-table_everything = ba.from_heasarc(name=None, **queryargs)
+table_everything, query = ba.from_heasarc(time_range=Time(["2004-12-15","2006-10-27"]), return_query=True)
 minexposure = 1000  # cm^2 after cos adjust
 
 # calculate the exposure with partial coding
 exposures = u.Quantity(
-    [object_batsource.exposure(ra=row["RA"],
-                               dec=row["DEC"], 
-                               roll=row["ROLL_ANGLE"])[0]
+    [object_batsource.exposure(ra=row["ra"],
+                               dec=row["dec"],
+                               roll=row["roll_angle"])[0]
         for row in table_everything
     ])
 
@@ -50,7 +49,7 @@ print(
 # result = ba.download_swiftdata(table_exposed)
 
 # get a list of the fully downloaded observation IDs
-obs_ids = [i for i in table_exposed["OBSID"] if result[i]["success"]]
+obs_ids = [i for i in table_exposed["obsid"] if result[i]["success"]]
 
 # To reload data wthout querying the database again
 # obs_ids=[i.name for i in sorted(ba.datadir().glob("*")) if i.name.isnumeric()]

@@ -21,14 +21,13 @@ object_batsource = swiftbat.source(
     ra=object_location[0], dec=object_location[1], name=object_name
 )
 
-queryargs = dict(time="2004-12-15 .. 2005-12-16", fields="All", resultmax=0)
-table_everything = ba.from_heasarc(**queryargs)
+table_everything, query = ba.from_heasarc(time_range=Time(["2004-12-15","2005-12-16"]), return_query=True)
 
 minexposure = 1000  # cm^2 after cos adjust
 exposures = u.Quantity(
-    [object_batsource.exposure(ra=row["RA"],
-                               dec=row["DEC"], 
-                               roll=row["ROLL_ANGLE"])[0]
+    [object_batsource.exposure(ra=row["ra"],
+                               dec=row["dec"],
+                               roll=row["roll_angle"])[0]
         for row in table_everything
     ])
 table_exposed = table_everything[exposures.value > minexposure]
@@ -37,7 +36,7 @@ print(
 )
 
 # result = ba.download_swiftdata(table_exposed)
-obs_ids = [i for i in table_exposed["OBSID"] if result[i]["success"]]
+obs_ids = [i for i in table_exposed["obsid"] if result[i]["success"]]
 
 noise_map_dir = Path("/local/data/tparsota/PATTERN_MAPS/")
 batsurvey_obs = ba.parallel.batsurvey_analysis(

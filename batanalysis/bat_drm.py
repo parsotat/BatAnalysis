@@ -297,14 +297,16 @@ class BatDRM(Histogram):
 
         :return: matplotlib axis and mesh handles
         """
+        
+        tmp_img = self.project("E_IN", "E_OUT")
 
-        plot_data = self.project("E_IN", "E_OUT").contents
+        plot_data = tmp_img.contents
         vmax = plot_data.max().value
         vmin = plot_data[plot_data > 0].min().value
 
         t = colors.LogNorm(vmin=vmin, vmax=vmax)
 
-        ax, mesh = self.project("E_IN", "E_OUT").plot(norm=t)
+        ax, mesh = Histogram(tmp_img.axes, contents=tmp_img.contents).plot(norm=t) 
         ax.set_xscale("log")
         ax.set_yscale("log")
 
