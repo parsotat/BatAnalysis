@@ -2,22 +2,26 @@
 This file holds various functions that users can call to interface with bat observation objects
 """
 
+from asyncio import futures
 import datetime
 import functools
 import os
 import shutil
 import warnings
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 import astropy as ap
 import astropy.units as u
 import dpath
 import matplotlib.pyplot as plt
+from scipy.stats import norm
+from scipy.optimize import fsolve
 import numpy as np
 import requests
 import swiftbat.swutil as sbu
 import swifttools.swift_too as swtoo
+from swifttools.ukssdc.data import downloadObsData
 from astropy.io import fits
 from astropy.time import Time
 from astroquery.heasarc import Heasarc
@@ -1524,13 +1528,16 @@ def download_swiftdata(
     observations,
     reload=False,
     fetch=True,
+    ukserver=False,
     jobs=10,
+    timeout=120,
     bat=True,
     auxil=True,
     log=False,
     uvot=False,
     xrt=False,
     tdrss=True,
+    clobber=None,
     save_dir=None,
     **kwargs,
 ) -> dict:
@@ -1556,8 +1563,11 @@ def download_swiftdata(
 
     :param observations: OBSIDs to download
     :param reload: load even if the data is already in the save_dir
+    :param ukserver: use the UK Swift Science Data Centre server for data downloads
+        (defaults to False, using US sites)
     :param fetch: Download the data if it is not locally cached (defaults to True)
     :param jobs: number of simultaneous download jobs.  (Set to 1 to execute unthreaded.)
+    :param timeout: timeout for download requests in seconds (defaults to 120)
     :param bat: load the bat data
     :param auxil: load the auxil data
     :param log: load the log data   (mostly diagnostic, defaults to false)
@@ -1567,6 +1577,9 @@ def download_swiftdata(
     :param save_dir: The output directory where the observation ID directories will be saved
     (From swifttools.swift_too.Data )
     :param match: pattern (or list) to match (defaults to all)
+    :param clobber: overwrite existing files (defaults to None). Respect even if it just re-downloading
+        the quicklook data. Default is to decide based on whether reload is set or if the data is quicklook.
+        See _download_single_observation() for details.
     :param kwargs: passed to swifttools.swift_too.Data
     :return: dict{obsid: {obsoutdir:..., success:..., loaded:..., [, datafiles:swtoo.Data][, ]}
     """
@@ -1603,35 +1616,89 @@ def download_swiftdata(
     obsids = list({o: None for o in obsids}.keys())
     nowts = datetime.datetime.now().timestamp()
     kwargs["fetch"] = fetch
-    download_partialfunc = functools.partial(
-        _download_single_observation,
-        reload=reload,
-        bat=bat,
-        auxil=auxil,
-        log=log,
-        uvot=uvot,
-        xrt=xrt,
-        tdrss=tdrss,
-        save_dir=save_dir,
-        nowts=nowts,
-        **kwargs,
-    )
+    if not ukserver:
+        download_partialfunc = functools.partial(
+            _download_single_observation,
+            reload=reload,
+            timeout=timeout,
+            bat=bat,
+            auxil=auxil,
+            log=log,
+            uvot=uvot,
+            xrt=xrt,
+            tdrss=tdrss,
+            save_dir=save_dir,
+            nowts=nowts,
+            clobber=clobber,
+            **kwargs,
+        )
+    else:
+        download_partialfunc = functools.partial(
+            _download_single_observation_alt_server,
+            bat=bat,
+            auxil=auxil,
+            log=log,
+            uvot=uvot,
+            xrt=xrt,
+            tdrss=tdrss,
+            save_dir=save_dir,
+            clobber=clobber,
+        )
     if jobs == 1:
         results = {}
         for obsid in obsids:
             result = download_partialfunc(obsid)
             results[obsid] = result
     else:
+
+        # with ThreadPoolExecutor(max_workers=jobs) as executor:
+        # results = {
+        #     result["obsid"]: result
+        #     for result in executor.map(download_partialfunc, obsids)
+        # }
+        results = {}
+
         with ThreadPoolExecutor(max_workers=jobs) as executor:
-            results = {
-                result["obsid"]: result
-                for result in executor.map(download_partialfunc, obsids)
+            futures = {
+                executor.submit(download_partialfunc, obsid): obsid for obsid in obsids
             }
+
+            for fut in as_completed(futures):
+                result = futures[fut]
+                try:
+                    result = fut.result()  # <-- this is where the output appears
+                    results[result["obsid"]] = result
+                except Exception as e:
+                    print(f"Download failed for {result['obsid']}: {e}")
+                    continue
+
+        # The following block is to ensure that any exceptions raised during the download are caught
+        # and handled appropriately. This is particularly important when using ThreadPoolExecutor,
+        # as exceptions in threads may not propagate to the main thread.
+        # all_res = list(results.values())
+        # for res in as_completed(all_res):
+        #     try:
+        #         res.result()
+        #     except Exception as e:
+        #         continue
     return results
 
 
 def _download_single_observation(
-    obsid, *, reload, bat, auxil, log, uvot, xrt, tdrss, save_dir, nowts, **kwargs
+    obsid,
+    *,
+    reload,
+    timeout,
+    bat,
+    auxil,
+    log,
+    uvot,
+    xrt,
+    tdrss,
+    save_dir,
+    nowts,
+    clobber,
+    **kwargs,
 ):
     """Helper function--not for general use
 
@@ -1654,7 +1721,15 @@ def _download_single_observation(
     quicklookfile = obsoutdir.joinpath(".quicklook")
     result = dict(obsid=obsid, success=True, obsoutdir=obsoutdir, quicklook=False)
     try:
-        clobber = reload or quicklookfile.exists()
+
+        # We want to change the timeout for the download, so we have to create the object first
+        # Hence set fetch to False here, and then do the download after changing the timeout
+        kwargs["fetch"] = False
+        if clobber is None:
+            clobber = reload or quicklookfile.exists()
+        else:
+            # Respect clobber even if it is just re-downloading quicklook data
+            clobber = clobber
         data = swtoo.Swift_Data(
             obsid=obsid,
             clobber=clobber,
@@ -1664,9 +1739,15 @@ def _download_single_observation(
             uvot=uvot,
             xrt=xrt,
             tdrss=tdrss,
-            outdir=str(save_dir),
             **kwargs,
         )
+
+        # Now increase the timeout to user required value
+        data.timeout = timeout
+        # And then download the data
+        data.download(outdir=str(save_dir))
+
+        # And then process it
         result["data"] = data
         if data.status.status != "Accepted":
             raise RuntimeError(" ".join(data.status.warnings + data.status.errors))
@@ -1698,6 +1779,71 @@ def _download_single_observation(
     except Exception as e:
         warnings.warn(f"Did not download {obsid} {e}")
         result["success"] = False
+    return result
+
+
+def _download_single_observation_alt_server(
+    obsid,
+    *,
+    bat,
+    auxil,
+    log,
+    uvot,
+    xrt,
+    tdrss,
+    save_dir,
+    clobber,
+):
+    """Helper function if US data directory fails--not for general use
+
+    Downloads files for a single OBSID, given parameters from download_swiftdata()
+    after encapsulation as a partial function for threading.
+
+    Args:
+        obsid (str): Observation ID to download
+        (remaining arguments are as in download_swiftdata())
+
+
+    Raises:
+        RuntimeError: If missing local directory.  Other exceptions are presented as warnings and
+        by setting the 'success' flag to False.
+
+    Returns:
+        _type_: _description_
+    """
+    obsoutdir = save_dir.joinpath(obsid)
+    result = dict(obsid=obsid, success=True, obsoutdir=obsoutdir, quicklook=False)
+
+    instruments = []
+    if bat:
+        instruments.append("bat")
+    if uvot:
+        instruments.append("uvot")
+    if xrt:
+        instruments.append("xrt")
+    getAuxil = True if auxil else False
+    getLog = True if log else False
+    getTDRSS = True if tdrss else False
+
+    try:
+        downloadObsData(
+            obsid=obsid,
+            instruments=instruments,
+            destDir=str(save_dir),
+            getAuxil=getAuxil,
+            getLog=getLog,
+            getTDRSS=getTDRSS,
+            clobber=clobber,
+            verbose=True,
+        )
+        success = True
+    except Exception as e:
+        success = False
+        print(f"Did not download {obsid} from alternate server: {e}")
+
+    # And then process it
+    result["success"] = success
+    result["downloaded"] = success
     return result
 
 
@@ -2749,3 +2895,70 @@ def find_sources(sky_image, input_dict=None):
         lat2="DEC_OBJ",
         clobber="YES",
     )
+
+
+def find_sigma(target_pdf, x, mu):
+    # Define the equation: calculated_pdf - known_pdf = 0
+    # Do it in log space to avoid numerical issues
+    func = lambda s: np.log(norm.cdf(x, loc=mu, scale=s)) - np.log(target_pdf)
+
+    # Use a starting guess for sigma (e.g., 1.0)
+    sigma_guess = 1.0
+    sigma_solution = fsolve(func, x0=sigma_guess, maxfev=9, full_output=True)
+    return sigma_solution
+
+
+def calculate_effective_snr(img, var, snr, mask=None):
+    """
+    This function calculates the effective SNR for a given image, variance map, and the SNR. This is useful for
+    determining the true significance of a source in an image. The logic used here follows
+
+    Calculate the SNR map (in a given energy band) as:
+    SNR = IMG / VAR
+
+    this gives the SNR information for all the pixels in the image.
+    For random noise, the distrubution of SNR<0 shoukd follow Gaussian statistics.
+    Hence consider the most -ve SNR pixel and calculate the scale (sigma) of the Gaussian
+    that yeilds this value with a given probability (e.g. 1 pixel in number of image pixels).
+    We then use this to calculate the probability of getting the +ve SNR value at the source position
+    and then this is cdf to estimate the effective SNR.
+
+    :param img: 2D numpy array of the image data.
+    :param var: 2D numpy array of the variance data.
+    :param snr: 1D array representing the SNR at the source positions.
+    :param mask: 2D numpy array of the same shape as img/var where True values indicate pixels to include in the calculation.
+    :return: A tuple containing the effective SNR values and the number of negative pixels below -SNR.
+    """
+
+    # Calculate the SNR image
+    snr_map = np.divide(img, var, out=np.zeros_like(img) * np.nan, where=var != 0)
+    if mask is not None:
+        snr_map[~mask] = np.nan
+    snr_vals = snr_map[~np.isnan(snr_map)]
+
+    max_noise = np.min(snr_vals)  # most negative SNR value
+    npixels = len(snr_vals)
+
+    far = 1.0 / npixels  # false alarm rate
+
+    # Now get the effective scale
+    scale, _, ier, _ = find_sigma(
+        far, max_noise, mu=0
+    )  # mu=0 since we are assuming noise is centered at 0
+
+    if ier != 1:
+        warnings.warn(
+            "Failed to find sigma for effective SNR calculation. Performing alternate calculation."
+        )
+        inds = np.sum(snr_vals < -snr)
+        far = inds / np.sum(snr_vals <= 0)
+        effective_snr = -norm.ppf(far, loc=0, scale=1)
+    else:
+        prob = norm.cdf(-snr, loc=0, scale=scale[0])
+
+        # And convert this to effective snr
+        effective_snr = -norm.ppf(prob, loc=0, scale=1)
+
+        # Also return how many negative values are less than -SNR
+        inds = np.searchsorted(np.sort(snr_vals), -snr)
+    return effective_snr, int(inds)
