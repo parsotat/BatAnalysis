@@ -375,15 +375,6 @@ class BatSurvey(BatObservation):
             self.batsurvey_result = bs
             # can print output of batsurvey with ba.stdout.split("\n")
 
-            # self._local_pfile_dir = self.result_dir.joinpath(".local_pfile")
-
-            # make the local pfile dir if it doesnt exist and set this value
-            # self._local_pfile_dir.mkdir(parents=True, exist_ok=True)
-            # try:
-            #     hsp.local_pfiles(pfiles_dir=str(self._local_pfile_dir))
-            # except AttributeError:
-            #     hsp_util.local_pfiles(par_dir=str(self._local_pfile_dir))
-
             complete_file = self.result_dir.joinpath(".batsurvey_complete")
 
             # identify the pointings that have been created
