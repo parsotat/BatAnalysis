@@ -7,7 +7,6 @@ Tyler Parsotan April 5 2023
 
 import os
 import pickle
-import psutil
 import re
 import shutil
 import warnings
