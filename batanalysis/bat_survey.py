@@ -25,6 +25,8 @@ from astropy.wcs import WCS
 from astropy.nddata import Cutout2D
 from astropy.visualization import ZScaleInterval
 from matplotlib.patches import Circle
+from dataclasses import dataclass, field
+from typing import List
 
 from .batlib import datadir, dirtest, met2mjd, met2utc, calculate_effective_snr
 from .batobservation import BatObservation
@@ -40,6 +42,25 @@ try:
 except ModuleNotFoundError as err:
     # Error handling
     print(err)
+
+@dataclass
+class _PointStats:
+    image_id: str
+    status: bool
+    descr: str
+    tstart: float
+    tstop: float
+    raw_exposure: float
+    exposure: float
+    ra_pnt: float
+    dec_pnt: float
+    pa_pnt: float
+    ndets: int
+    date_obs: str = ""
+    date_end: str = ""
+    numband: int = 0
+    chi2: List[float] = field(default_factory=list)
+    bkg_counts: List[float] = field(default_factory=list)
 
 
 def add_additional_info(file):

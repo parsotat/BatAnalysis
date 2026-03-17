@@ -562,24 +562,6 @@ def check_valid_inputs(
     return {k: v for k, v in input_params.items() if k in allowed}
 
 
-@dataclass
-class PointStats:
-    image_id: str
-    status: bool
-    descr: str
-    tstart: float
-    tstop: float
-    raw_exposure: float
-    exposure: float
-    ra_pnt: float
-    dec_pnt: float
-    pa_pnt: float
-    ndets: int
-    date_obs: str = ""
-    date_end: str = ""
-    numband: int = 0
-    chi2: List[float] = field(default_factory=list)
-    bkg_counts: List[float] = field(default_factory=list)
 
 
 class BatTools:
