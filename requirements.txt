@@ -1,0 +1,17 @@
+setuptools>=58.0.4
+numpy>=1.24.4
+matplotlib>=3.4.2
+astropy>=4.3.1
+astroquery>=0.4.10
+swiftbat>=0.1.5
+swifttools>=3.0.21
+scipy>=1.7.2
+requests>=2.20
+joblib>=1.1.0
+dpath>=2.1.4
+histpy>=2.0.2
+reproject>=0.13.1
+healpy>=1.16.6
+mhealpy>=0.3.5
+astro-gdt-swift>=1.0.1
+ligo.skymap>=2.1.2

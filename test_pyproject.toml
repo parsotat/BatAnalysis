@@ -2,14 +2,14 @@
 # Build system — replaces setup_requires / the setuptools import
 # ==============================================================
 [build-system]
-requires = ["setuptools>=68", "wheel"]
+requires = ["setuptools>=61", "wheel"]
 build-backend = "setuptools.build_meta"
 
 # ==============================================================
 # Core project metadata — replaces setup() arguments
 # ==============================================================
 [project]
-name = "BatAnalysis"
+name = "batanalysis"
 dynamic = ["version"]   # version is read dynamically from _version.py (see [tool.setuptools.dynamic] below)
 description = "Routines for analyzing data from BAT on the Neil Gehrels Swift Observatory"
 readme = "README.md"
@@ -70,9 +70,8 @@ version = { attr = "batanalysis._version.__version__" }
 # ==============================================================
 # Package discovery — replaces find_packages() / packages=["batanalysis"]
 # ==============================================================
-[tool.setuptools.packages.find]
-where   = ["."]
-include = ["batanalysis*"]
+[tool.setuptools]
+packages = ["batanalysis"]
 
 # ==============================================================
 # Package data — replaces the package_files() walk of batanalysis/data
@@ -80,4 +79,4 @@ include = ["batanalysis*"]
 # The glob "data/**/*" recursively includes all files under batanalysis/data/.
 # ==============================================================
 [tool.setuptools.package-data]
-batanalysis = ["data/**/*"]
+"batanalysis" = ["data/**/*"]
