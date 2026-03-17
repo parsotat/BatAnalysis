@@ -52,4 +52,4 @@ from . import parallel
 import warnings
 from astropy.wcs import FITSFixedWarning
 
-warnings.filterwarnings("ignore", category=FITSFixedWarning)
+warnings.filterwarnings("ignore", category=FITSFixedWarning, module="batanalysis")
