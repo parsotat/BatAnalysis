@@ -7,8 +7,7 @@ from pathlib import Path
 
 import numpy as np
 import pkg_resources
-from scipy.spatial import Delaunay
-from scipy.interpolate import LinearNDInterpolator
+import scipy.spatial.qhull as qhull
 from astropy.coordinates import SkyCoord
 from astropy.io import fits
 from astropy.time import Time
@@ -31,7 +30,7 @@ import swiftbat.swutil as sbu
 # Off-axis flux correction file
 _cimgfile = "offaxiscorr_8bin_20061221.img"
 _chilothresh = 0.50  # Minimum chi-square for any energy band
-_chihithresh = 1.5  # Maximum chi-square for any energy band
+_chihithresh = 1.15  # Maximum chi-square for any energy band
 _chiscobump = 0.35  # Additional bump of chi-square threshold around Sco X-1 (band 0)
 _chiscotheta = 30  # Approximate angular scale of bump around Sco X-1 (deg)
 _pcodethresh = 0.15  # Minimum image partial coding
@@ -69,7 +68,7 @@ def interp_weights(xyz, uvw, d=2):
     :param d: dimension of the grid, default is 2D grids
     :return: returns the vertices of the interpolation funciton and the weights at each vertex
     """
-    tri = Delaunay(xyz)
+    tri = qhull.Delaunay(xyz)
     simplex = tri.find_simplex(uvw)
     vertices = np.take(tri.simplices, simplex, axis=0)
     temp = np.take(tri.transform, simplex, axis=0)
@@ -199,7 +198,7 @@ def make_skygrids(
     return 0
 
 
-def merge_outventory(survey_list, savedir=None, append=False):
+def merge_outventory(survey_list, savedir=None):
     """
     Creates a merged outventory file in the savedir parameter which lists all the BAT surveys that will be
     combined into the mosaiced image.
@@ -208,8 +207,6 @@ def merge_outventory(survey_list, savedir=None, append=False):
         images
     :param savedir: Default None or a Path object that points to a directory where the merged outventory file will be
         saved. This is also the directory where the mosaiced images will be saved.
-    :param append: A boolean that denotes whether to append to an existing outventory file in the savedir or not. If set to
-        True, then the existing outventory file will be appended to with the new survey_list entries. If set to False, then a new outventory file will be created.
     :return: A pathlib object of the created outventory file
     """
 
@@ -271,41 +268,19 @@ def merge_outventory(survey_list, savedir=None, append=False):
     # input_filename.unlink()
     # Above IS HEASOFT STUFF
 
-    # We need to decide, if we want to append to an existing outventory file,
-    # then we need to read in the existing file and append to it, otherwise
-    # we can just create a new file with the first entry of the survey list
-    # and then loop through the rest of the survey list and append to it.
     output_file = savedir.joinpath("outventory_all.fits")
-    if append and output_file.exists():
-        for i in survey_list:
-            hdul1 = fits.open(output_file, mode="update")
-            nrows1 = hdul1[1].data.shape[0]
-            hdul2 = fits.open(i.result_dir.joinpath("stats_point.fits"))
-            nrows2 = hdul2[1].data.shape[0]
-            nrows = nrows1 + nrows2
-            hdu = fits.BinTableHDU.from_columns(hdul1[1].columns, nrows=nrows)
-            for colname in hdul1[1].columns.names:
-                hdu.data[colname][nrows1:] = hdul2[1].data[colname]
-            hdul1[1] = hdu
-            hdul1.flush()
-            hdul1.close()
-            hdul2.close()
-    else:
-        shutil.copy(survey_list[0].result_dir.joinpath("stats_point.fits"), output_file)
-        for i in survey_list[1:]:
-            hdul1 = fits.open(output_file, mode="update")
-            hdul2 = fits.open(i.result_dir.joinpath("stats_point.fits"))
 
-            nrows1 = hdul1[1].data.shape[0]
-            nrows2 = hdul2[1].data.shape[0]
-            nrows = nrows1 + nrows2
-            hdu = fits.BinTableHDU.from_columns(hdul1[1].columns, nrows=nrows)
-            for colname in hdul1[1].columns.names:
-                hdu.data[colname][nrows1:] = hdul2[1].data[colname]
-            hdul1[1] = hdu
-            hdul1.flush()
-            hdul1.close()
-            hdul2.close()
+    shutil.copy(survey_list[0].result_dir.joinpath("stats_point.fits"), output_file)
+    for i in survey_list[1:]:
+        with fits.open(output_file) as hdul1:
+            with fits.open(i.result_dir.joinpath("stats_point.fits")) as hdul2:
+                nrows1 = hdul1[1].data.shape[0]
+                nrows2 = hdul2[1].data.shape[0]
+                nrows = nrows1 + nrows2
+                hdu = fits.BinTableHDU.from_columns(hdul1[1].columns, nrows=nrows)
+                for colname in hdul1[1].columns.names:
+                    hdu.data[colname][nrows1:] = hdul2[1].data[colname]
+                hdu.writeto(output_file, overwrite=True)
 
     # now sort the file by time
     with fits.open(output_file, mode="update") as hdul:
@@ -346,45 +321,6 @@ def select_outventory(outventory_file, start_met, end_met):
         hdu.writeto(output_file)
 
 
-def convert_time_to_decimal_day(times, precision=3):
-    """
-    Converts an array of astropy Time objects to decimal days
-
-    :param times: an array of astropy Time objects
-    :param precision: an integer that denotes the number of decimal places to round the decimal day value to
-    :return: an array of decimal days corresponding to the input times
-    """
-    # get the ymdhms values for each time object
-    # First decode the object shape
-    nelements = len(times.shape)
-    if nelements == 0:
-        times = Time([times])
-    ymdhms = times.ymdhms
-
-    # calculate the decimal day values
-    year = ymdhms["year"].astype(str)
-    month = [str(i).zfill(2) for i in ymdhms["month"]]
-    # day = [str(i).zfill(2) for i in ymdhms["day"]]
-    decimal_day = np.round(
-        ymdhms["day"]
-        + ymdhms["hour"] / 24
-        + ymdhms["minute"] / 1440
-        + ymdhms["second"] / 86400,
-        precision,
-    ).astype(str)
-    decimal_day = [str(int(float(i))) if float(i) % 1 == 0 else i for i in decimal_day]
-
-    strfmt = f"0{precision+3}.{precision}f" if precision > 0 else f"02.0f"
-    output_str = [
-        f"{y}_{m.rjust(2, '0')}_{float(d):{strfmt}}"
-        for y, m, d in zip(year, month, decimal_day)
-    ]
-    if nelements == 0:
-        return output_str[0]
-    else:
-        return output_str
-
-
 def group_outventory(
     outventory_file,
     binning_timedelta=None,
@@ -392,10 +328,7 @@ def group_outventory(
     end_datetime=None,
     recalc=False,
     mjd_savedir=False,
-    decimal_day=False,
-    precision=3,
     custom_timebins=None,
-    append=False,
     save_group_outventory=True,
 ):
     """
@@ -411,9 +344,6 @@ def group_outventory(
     :param mjd_savedir: Boolean to denote if the directory of the created directory has the datetime64 with the start
         date of the beginning of the timebin of interest or if the directory name is formatted with mjd time
         (which is useful for mosaicing with timebins shorter than a day)
-    :param decimal_day: Boolean to denote if the directory of the created directory has the decimal day formatting
-        (YYYY-MM-DD.DDD) with the start date of the beginning of the timebin of interest.
-    :param precision: Integer that denotes the number of decimal places to use if the decimal_day parameter is set.
     :param custom_timebins: None OR
         an array of astropy Time values denoting the timebin edges for which mosaicing will take place.
             ie if custom_timebins=astropy.Time(["2022-10-08","2022-10-10", "2022-10-12"]) then there will be 2 grouped
@@ -436,7 +366,6 @@ def group_outventory(
     :param save_group_outventory: a Boolean that denotes whether the grouped outventory files for each time bin and the
         associated directories to hold the mosaic results for the time bins will be created. If this is set to False,
         these will not be created but the calculated time_bins will be returned
-    :param append: Boolean to denote if the grouped outventory files should be appended to existing ones.
     :return: astropy Time array of the time bin edges that are created based on the user specification. This can be
         passed directly to the create_mosaic function.
     """
@@ -483,6 +412,9 @@ def group_outventory(
                         dimension 2 x T, where T is the number of timebins of interest."
                     )
             time_bins_is_list = True
+
+    # initalize the reference time for the Swift MET time (starts from 2001), used to calculate MET
+    reference_time = Time("2001-01-01")
 
     # make sure its a path object
     outventory_file = Path(outventory_file)
@@ -571,14 +503,6 @@ def group_outventory(
         # be that
         time_bins = custom_timebins
 
-    if custom_timebins is None:
-        dt = np.median(np.ediff1d(time_bins.mjd))  # This is dt in days
-        if dt % 1 == 0:
-            dt = int(dt)
-        # Put them in a sub directory
-        mosaic_dir = outventory_file.parent.joinpath(f"{dt}_day_mosaics")
-        dirtest(mosaic_dir, clean_dir=False)
-
     # need to see if time_bins is a 1D Time array or a list of size N where there are N arrays of dimension 2xT where
     # there are T time bins of interest that will be combined into a grouped outventory file. The index 0 of the T
     # times should be the start of the time bin(s) of interest while the index 1 of the T times should be the end of
@@ -591,11 +515,11 @@ def group_outventory(
         savedir = outventory_file.parent.joinpath("grouped_outventory")
 
         # see if the savedir exists, if it does, then we dont have to do all of these calculations again
-        if (not savedir.exists()) or (recalc) or (append):
+        if not savedir.exists() or recalc:
             # clear the directory
-            dirtest(savedir, clean_dir=False)
+            dirtest(savedir)
 
-            # get the number of iterations we need to do in the loop below
+            # get the number of iterations we need to do in teh loop below
             if not time_bins_is_list:
                 # this is to account for the fact that we have the array consisting of the start/end edges all in one
                 loop_iters = len(time_bins) - 1
@@ -640,59 +564,42 @@ def group_outventory(
 
                 # move the outventory file to the folder where we will keep them
                 output_file = Path(str(outventory_file).replace(".fits", "_sel.fits"))
-                tstart = convert_time_to_decimal_day(start, precision=precision)
-                tend = convert_time_to_decimal_day(end, precision=precision)
-                if decimal_day:
-                    savefile = savedir.joinpath(
-                        output_file.name.replace(
-                            "_sel.fits",
-                            f"_{tstart}_{tend}.fits",
-                        )
-                    )
-                elif mjd_savedir:
-                    savefile = savedir.joinpath(
-                        output_file.name.replace("_sel.fits", f"_{start.mjd}.fits")
-                    )
-                else:
+                if not mjd_savedir:
                     savefile = savedir.joinpath(
                         output_file.name.replace(
                             "_sel.fits",
                             f"_{start.datetime64.astype('datetime64[D]')}.fits",
                         )
                     )
+                else:
+                    savefile = savedir.joinpath(
+                        output_file.name.replace("_sel.fits", f"_{start.mjd}.fits")
+                    )
 
-                if (recalc or append) and savedir.exists():
-                    output_file.rename(savefile)
+                output_file.rename(savefile)
 
-                    with fits.open(str(savefile), mode="update") as file:
-                        file[1].header["S_TBIN"] = (
-                            float(start_met),
-                            "Mosaicing Start of Time Bin (MET)",
-                        )
-                        file[1].header["E_TBIN"] = (
-                            float(end_met),
-                            "Mosaicing End of Time Bin (MET)",
-                        )
-                        file.flush()
+                with fits.open(str(savefile), mode="update") as file:
+                    file[1].header["S_TBIN"] = (
+                        float(start_met),
+                        "Mosaicing Start of Time Bin (MET)",
+                    )
+                    file[1].header["E_TBIN"] = (
+                        float(end_met),
+                        "Mosaicing End of Time Bin (MET)",
+                    )
+                    file.flush()
 
                 # create the directories that will hold all the mosaiced images within a given time bin
-                if decimal_day:
-                    if custom_timebins is None:
-                        # Put them in a sub directory
-                        binned_savedir = mosaic_dir.joinpath(f"mosaic_{tstart}_{tend}")
-                elif mjd_savedir:
-                    binned_savedir = outventory_file.parent.joinpath(
-                        f"mosaic_{start.mjd}"
-                    )
-                else:
+                if not mjd_savedir:
                     binned_savedir = outventory_file.parent.joinpath(
                         f"mosaic_{start.datetime64.astype('datetime64[D]')}"
                     )
-
-                if recalc:
-                    dirtest(binned_savedir, clean_dir=True)
                 else:
-                    dirtest(binned_savedir, clean_dir=False)
+                    binned_savedir = outventory_file.parent.joinpath(
+                        f"mosaic_{start.mjd}"
+                    )
+
+                dirtest(binned_savedir)
 
     return time_bins
 
@@ -854,9 +761,7 @@ def scox1_slop(ang_sep):
     return f
 
 
-def compute_statistics_map(
-    chi_sq, nbatdet, ra_pnt, dec_pnt, pa_pnt, tstart, truncated=None, avoid_sco=True
-):
+def compute_statistics_map(chi_sq, nbatdet, ra_pnt, dec_pnt, pa_pnt, tstart):
     """
     Determines whether the statistics in a given BAT survey observation is sufficient to be added to the total mosaiced
     image. This function also exludes observations that are pointed at/near Sco X-1.
@@ -867,9 +772,6 @@ def compute_statistics_map(
     :param dec_pnt: numpy array of the DEC pointing values for a set of BAT survey observations (same order as above)
     :param pa_pnt: numpy array of the pointing angle valules for a set of BAT survey observations (same order as above)
     :param tstart: numpy array of the pointing observations' start time in MET (same order as above)
-    :param truncated: Is the data truncated? Default is None. Which means all energy bins are recorded.
-        For data with only 20 energy channels (i.e. truncated data), adjust the chi squared thresholds accordingly.
-    :param avoid_sco: Boolean to denote whether to avoid Sco X-1 pointings
     :return: numpy array mask of good and bad survey observations (0=bad observation that will be excluded)
     """
     # computes the stastics map based on chi squared values and angular separation from Sco X-1
@@ -879,30 +781,9 @@ def compute_statistics_map(
     fudge = 1.5
 
     # reduced chisq
-    red_chi2 = np.divide(
-        chi_sq,
-        nbatdet[:, np.newaxis],
-        out=np.ones_like(chi_sq) * np.inf,
-        where=nbatdet[:, np.newaxis] != 0,
-    )
+    red_chi2 = chi_sq / nbatdet[:, np.newaxis]
 
     # calculate angular separation between the pointings and Sco X-1
-    # But make sure that the coordinates are good
-    valid_mask = (
-        (~np.isnan(ra_pnt))
-        & (~np.isnan(dec_pnt))
-        & (ra_pnt <= 360)
-        & (
-            ra_pnt >= -180
-        )  # There can be ambiguity here (-180 to 180 vs 0 to 360), be safe
-        & (dec_pnt <= 90)
-        & (dec_pnt >= -90)
-    )
-
-    # Fill in filler values for invalid coordinates
-    ra_pnt = np.where(valid_mask, ra_pnt, 0.0)
-    dec_pnt = np.where(valid_mask, dec_pnt, 0.0)
-
     coord_array = SkyCoord(ra_pnt, dec_pnt, frame="icrs", unit="deg")
     ang_sep = coord_array.separation(_sco_coord)  # these are in degrees
 
@@ -912,41 +793,30 @@ def compute_statistics_map(
     # stop
 
     # create the mask (1=good; 0=bad) based on if the reduced chisq values in each energy bin meet the requirements
-    # mask = np.zeros_like(chi_sq[:, 0])
-
-    # Take care of truncated data
-    if truncated is None:
-        truncated_mask = np.zeros_like(chi_sq, dtype=bool)
-    else:
-        truncated_mask = truncated
-
-    lothresh = np.ones_like(red_chi2) * _chilothresh
-    hithresh = np.ones_like(red_chi2) * _chihithresh
-    hithresh[:, 0] = fudge * sco_xtra_chi2
-    mask = (red_chi2 < hithresh) & (red_chi2 >= lothresh)
-    mask = truncated_mask | mask
-    if np.any(truncated_mask):
-        mask = np.any(
-            mask, axis=1
-        )  # if any energy bin is good, then we can include the pointing
-    else:
-        mask = np.all(mask, axis=1)
+    mask = np.zeros_like(chi_sq[:, 0])
+    for i in range(_nebands):
+        if i == 0:
+            mask = (red_chi2[:, i] < fudge * sco_xtra_chi2) & (
+                red_chi2[:, i] > _chilothresh
+            )
+        else:
+            mask = (
+                mask & (red_chi2[:, i] > _chilothresh) & (red_chi2[:, i] < _chihithresh)
+            )
 
     # include whether Sco is the object corresponding to the pointing. If it is, we want to exclude this pointing ID,
     # therefore set mask=0
-    if avoid_sco:
-        idx = np.where(
-            (ra_pnt > 245)
-            & (ra_pnt < 246)
-            & (dec_pnt > -18)
-            & (dec_pnt < -17)
-            & (pa_pnt > 100)
-            & (pa_pnt < 110)
-            & (tstart > 0)
-        )
-        mask[idx] = 0
-    # Also impose valid mask here
-    mask[~valid_mask] = 0
+    idx = np.where(
+        (ra_pnt > 245)
+        & (ra_pnt < 246)
+        & (dec_pnt > -18)
+        & (dec_pnt < -17)
+        & (pa_pnt > 100)
+        & (pa_pnt < 110)
+        & (tstart > 0)
+    )
+    mask[idx] = 0
+
     return np.array(mask, dtype=np.int64)
 
 
