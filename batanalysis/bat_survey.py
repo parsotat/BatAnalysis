@@ -935,11 +935,15 @@ class BatSurvey(BatObservation):
         Args:
             input_dict (dict): input parameters for batcelldetect
         """
+        #TODO: the BatMosaic object also has a detect sources method that can be merged with this one or can call this one
+
         # Then one needs to run batcelldetect on these new files to get the source information
         # Add in a dictionary of inputs
 
         all_cats = [i.as_posix() for i in self.pointing_flux_files]
         all_pointing_ids = self.pointing_ids
+
+        #TODO: consider if a user cleans an image >2 times
         all_images = [i.replace("_2.cat", "_2.img") for i in all_cats]
         self.source_catalogs = {}
         self.bat_source_catalog = Path(__file__).parent.joinpath("data/survey6b_2.cat")
@@ -1023,7 +1027,7 @@ class BatSurvey(BatObservation):
             batcelldetect_input_dict["rows"] = "1-9"
 
             batcelldetect_output.append(
-                self._run_batcelldetect(batcelldetect_input_dict)
+                self._call_batcelldetect(batcelldetect_input_dict)
             )
 
             source_hdu = fits.open(batcelldetect_input_dict["outfile"], mode="update")
@@ -1058,7 +1062,7 @@ class BatSurvey(BatObservation):
                 print(batcelldetect_input_dict)
 
                 batcelldetect_output.append(
-                    self._run_batcelldetect(batcelldetect_input_dict)
+                    self._call_batcelldetect(batcelldetect_input_dict)
                 )
                 # Now use this to run a second iteration of batcelldetect to get the fluxes
 
@@ -1205,17 +1209,24 @@ class BatSurvey(BatObservation):
                     )
                 self.unknown_sources_catalogs.append(unknown_source_file)
 
-    def _run_batcelldetect(self, input_dict):
+    def _call_batcelldetect(self, input_dict):
         """
-        Calls heasoftpy's batcelldetect with an error wrapper
-        :param input_dict: Dictionary of inputs that will be passed to heasoftpy's batcelldetect
-        :return: heasoftpy Result object from batcelldetect
+        Call heasoftpy batcelldetect.
+
+        :param input_dict: dictionary of inputs to pass to batcelldetet.
+        :return: heasoft output object
         """
-        # directly calls batcelldetect
+        # make the local pfile dir if it doesnt exist and set this value
+        self._local_pfile_dir.mkdir(parents=True, exist_ok=True)
         try:
-            return hsp.batcelldetect(**input_dict)
-        except Exception as e:
-            raise ValueError(f"batcelldetect failed with error: {e}")
+            hsp.local_pfiles(pfiles_dir=str(self._local_pfile_dir))
+        except AttributeError:
+            hsp_util.local_pfiles(par_dir=str(self._local_pfile_dir))
+
+        out = hsp.batcelldetect(**input_dict)
+
+        return out
+
 
     def plot_unknown_sources(self, dest_dir=None, save_ind=False, save_coll=True):
         """
@@ -2560,23 +2571,6 @@ class MosaicBatSurvey(BatSurvey):
         else:
             self.load(load_file)
 
-    def _call_batcelldetect(self, input_dict):
-        """
-        Call heasoftpy batcelldetect.
-
-        :param input_dict: dictionary of inputs to pass to batcelldetet.
-        :return: heasoft output object
-        """
-        # make the local pfile dir if it doesnt exist and set this value
-        self._local_pfile_dir.mkdir(parents=True, exist_ok=True)
-        try:
-            hsp.local_pfiles(pfiles_dir=str(self._local_pfile_dir))
-        except AttributeError:
-            hsp_util.local_pfiles(par_dir=str(self._local_pfile_dir))
-
-        out = hsp.batcelldetect(**input_dict)
-
-        return out
 
     def detect_sources(self, catalog_file=None, input_dict=None):
         """
