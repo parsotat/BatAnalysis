@@ -482,29 +482,6 @@ ALLOWED_TASK_PARAMS: Dict[str, List[str]] = {
 }
 
 
-def convert_met_to_utc(times, invert=False):
-    """Convert a list of MET times to UTC datetime objects.
-
-    Args:
-        times: List of MET times to convert.
-        invert: If True, will convert from UTC to MET instead of MET to UTC.
-
-    Returns:
-        List[datetime]: List of corresponding UTC datetime objects.
-    """
-    from astropy.time import Time
-
-    swift_epoch = Time("2001-01-01T00:00:00", scale="utc")
-    input_times = times
-
-    if not invert:
-        # 3. Convert to UTC
-        utc_time = swift_epoch + TimeDelta(input_times, format="sec")
-        return utc_time
-    else:
-        met_times = Time(input_times, format="iso", scale="utc") - swift_epoch
-        met_times = met_times.sec
-        return met_times
 
 
 @dataclass
