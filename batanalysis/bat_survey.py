@@ -38,7 +38,7 @@ try:
     import heasoftpy.swift as hsp
     import heasoftpy.utils as hsp_util
     from heasoftpy import heatools
-    import heasoftpy as heapy
+    import heasoftpy as hsp_core
 except ModuleNotFoundError as err:
     # Error handling
     print(err)
@@ -641,6 +641,10 @@ class BatSurvey(BatObservation):
         Raises:
             ValueError: _description_
         """
+        batsurvey = hsp_core.HSPTask("batsurvey")
+        # get the default names of the parameters for batsurvey including its name (which should never change)
+        default_batsurvey_input_dict = batsurvey.default_params.copy()
+
         patt_map_name, patt_mask_name = self._get_pattern_noise_maps()
         input_dict = self.survey_input
         if input_dict is None:
@@ -704,9 +708,9 @@ class BatSurvey(BatObservation):
             ):
                 input_dict_copy["detthresh2"] = "10000"
 
-            if "incatalog" not in input_dict_copy:
+            if ("incatalog" not in input_dict_copy) or (input_dict_copy["incatalog"] is None):
                 # If the user choses to provide no input catalog,
-                # then respect the choice and do not provide any catalog to batsurvey
+                # then use the default catalog
                 input_dict_copy["incatalog"] = str(
                     Path(__file__).parent.joinpath("data/survey6b_2.cat")
                 )
@@ -749,7 +753,12 @@ class BatSurvey(BatObservation):
                     "The directory %s needs to exist for batsurvey to save its results."
                     % (os.path.split(input_dict_copy["outdir"])[0])
                 )
-        self.survey_input = input_dict_copy
+
+        #overwrite the defaults in the default_batsurvey_input_dict with what has been determined here
+        for key, value in input_dict_copy.items():
+            default_batsurvey_input_dict[key] = value
+
+        self.survey_input = default_batsurvey_input_dict
 
     def _call_batsurvey(self, input_dict, use_independent_modules=False):
         """
@@ -936,6 +945,14 @@ class BatSurvey(BatObservation):
             input_dict (dict): input parameters for batcelldetect
         """
         #TODO: the BatMosaic object also has a detect sources method that can be merged with this one or can call this one
+
+        # make the local pfile dir if it doesnt exist and set this value
+        self._local_pfile_dir.mkdir(parents=True, exist_ok=True)
+        try:
+            hsp.local_pfiles(pfiles_dir=str(self._local_pfile_dir))
+        except AttributeError:
+            hsp_util.local_pfiles(par_dir=str(self._local_pfile_dir))
+
 
         # Then one needs to run batcelldetect on these new files to get the source information
         # Add in a dictionary of inputs
@@ -1167,7 +1184,7 @@ class BatSurvey(BatObservation):
                         ),
                         "BAT_PCODE_1",
                     )
-                    mask = pcoding_mask > 0.05
+                    mask = pcoding_mask > 0.05 #TODO: can this be made adjustable based on input_dict?
                     esnr, nfp_val = calculate_effective_snr(
                         img=imdata,
                         var=vardata,
