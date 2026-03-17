@@ -390,7 +390,7 @@ class BatSurvey(BatObservation):
             # all these pointings may not have the object of interest, so need to double-check that with the
             # merge_pointings method
             self.pointing_flux_files = sorted(
-                self.result_dir.glob(f"point*/*_{bs.params['ncleaniter']}.cat")
+                self.result_dir.glob(f"point*/*_{self.survey_input['ncleaniter']}.cat")
             )
 
             # need to extract the respective pointing IDs
@@ -815,8 +815,8 @@ class BatSurvey(BatObservation):
         so those that are generated after second iteration of cleaning.
         """
         all_cats = [i.as_posix() for i in self.pointing_flux_files]
-        all_images = [i.replace("_2.cat", "_2.img") for i in all_cats]
-        all_vars = [i.replace("_2.cat", "_2.var") for i in all_cats]
+        all_images = [i.replace(f"_{self.survey_input['ncleaniter']}.cat", f"_{self.survey_input['ncleaniter']}.img") for i in all_cats]
+        all_vars = [i.replace(f"_{self.survey_input['ncleaniter']}.cat", f"_{self.survey_input['ncleaniter']}.var") for i in all_cats]
 
         # Now work on those images and variation maps
         for ind in range(len(all_images)):
@@ -960,8 +960,7 @@ class BatSurvey(BatObservation):
         all_cats = [i.as_posix() for i in self.pointing_flux_files]
         all_pointing_ids = self.pointing_ids
 
-        #TODO: consider if a user cleans an image >2 times
-        all_images = [i.replace("_2.cat", "_2.img") for i in all_cats]
+        all_images = [i.replace(f"_{self.survey_input['ncleaniter']}.cat", f"_{self.survey_input['ncleaniter']}.img") for i in all_cats]
         self.source_catalogs = {}
         self.bat_source_catalog = Path(__file__).parent.joinpath("data/survey6b_2.cat")
         batcelldetect_output = []
