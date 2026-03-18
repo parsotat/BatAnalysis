@@ -263,10 +263,6 @@ class BatSurvey(BatObservation):
 
         self.truncated = truncated
         self.use_independent_modules = use_independent_modules
-        # If it is truncated data, use independent modules since the full batsurvey command will not work with truncated data
-        if self.truncated:
-            # The same for pattern noise maps since these are not compatible with truncated data
-            patt_noise_dir = None
 
         # Check for pattern maps
         if patt_noise_dir is None:
@@ -274,6 +270,13 @@ class BatSurvey(BatObservation):
         else:
             # make a Path object
             patt_noise_dir = Path(patt_noise_dir)
+
+        # If it is truncated data, use independent modules since the full batsurvey command will not work with truncated data
+        if self.truncated:
+            # The same for pattern noise maps since these are not compatible with truncated data,
+            # in _get_pattern_noise_maps we will return NONE
+            patt_noise_dir = None
+
         # Get the pattern maps
         self.patt_noise_dir = patt_noise_dir
 
@@ -555,6 +558,15 @@ class BatSurvey(BatObservation):
             patt_mask_name (str): The filename of the pattern noise mask to be used for the
             observation ID. If no pattern noise maps are available, then this will be "NONE".
         """
+
+        #if we have truncated DPHs we found that the pipeline crashes for some reason so just ignore them when processing this type of data
+        if self.truncated:
+            patt_map_name = "NONE"
+            patt_mask_name = "NONE"
+            warnings.warn("pattern noise maps are being ignored for the processing of the truncated DPHs. ")
+            return patt_map_name, patt_mask_name
+
+
         input_file = sorted(
             self.obs_dir.joinpath("bat").joinpath("survey").glob("*dph*")
         )
@@ -756,6 +768,26 @@ class BatSurvey(BatObservation):
             default_batsurvey_input_dict[key] = value
 
         self.survey_input = default_batsurvey_input_dict
+
+    # def _identify_truncated_files():
+    #     """
+    #     Whenever there is a data pile up issue, BAT records the data in reduced number
+    #      of energy bins, leading to truncated files. This function identifies such files.
+    #
+    #     Args:
+    #         obs_ids (list): List of observation IDs to check.
+    #     Returns:
+    #         list: List of observation IDs with truncated files.
+    #     """
+    #     is_truncated = []
+    #     for obs in obs_ids:
+    #         dph_files = Path(f"{str(datadir)}/{obs}/bat/survey").glob("*.dph*")
+    #         mask = np.any([True if "e20.dph.gz" in str(i) else False for i in dph_files])
+    #         if mask:
+    #             is_truncated.append(True)
+    #         else:
+    #             is_truncated.append(False)
+    #     return Table([obs_ids, is_truncated], names=["obsid", "truncated"])
 
     def _call_batsurvey(self, input_dict, use_independent_modules=False):
         """
