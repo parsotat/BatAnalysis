@@ -778,7 +778,7 @@ class BatSurvey(BatObservation):
             boolean: True if there are truncated DPH files otherwise false.
         """
         dph_files = self.obs_dir.joinpath("bat/survey").glob("*.dph*")
-        mask = np.any([True if "e20.dph.gz" in str(i) else False for i in dph_files])
+        mask = np.any([True if "e20.dph.gz" in i.name else False for i in dph_files])
         return mask
 
     def _call_batsurvey(self, input_dict, use_independent_modules=False):
