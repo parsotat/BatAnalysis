@@ -13,7 +13,7 @@ def check_for_truncated_images(infile: str, force: bool = True, emax: float = 35
     Args:
         infile (str): Image file to check (e.g. "point_20233341529_1.img")
         force (bool): If True, forces the > 35 keV image to be treated as truncated regardless of
-            the check. Default is False. That means it only selects the first three bands.
+            the check. Default is True. That means it only selects the first three bands.
         emax (float): The maximum energy to check for in the header.
             If the E_MIN keyword is greater than this value, the image will be treated as truncated.
             Default is 35.0 keV.
