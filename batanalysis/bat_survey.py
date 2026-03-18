@@ -261,7 +261,10 @@ class BatSurvey(BatObservation):
         self.emax = [20.0, 24.0, 35.0, 50.0, 75.0, 100.0, 150.0, 195.0]
         self.syserr = [0.6, 0.3, 0.15, 0.15, 0.15, 0.15, 0.15, 0.6]
 
-        self.truncated = truncated
+        # initialize super class
+        super().__init__(obs_id, obs_dir)
+
+        self.truncated = self._identify_truncated_files()
         self.use_independent_modules = use_independent_modules
 
         # Check for pattern maps
@@ -287,9 +290,6 @@ class BatSurvey(BatObservation):
 
         # initalize the pha filename list attribute
         self.pha_file_names_list = []
-
-        # initialize super class
-        super().__init__(obs_id, obs_dir)
 
         # See if a loadfile exists, if we dont want to recalculate everything, otherwise remove any load file and
         # .batsurveycomplete file (this is produced only if the batsurvey calculation was completely finished, and thus
@@ -769,25 +769,17 @@ class BatSurvey(BatObservation):
 
         self.survey_input = default_batsurvey_input_dict
 
-    # def _identify_truncated_files():
-    #     """
-    #     Whenever there is a data pile up issue, BAT records the data in reduced number
-    #      of energy bins, leading to truncated files. This function identifies such files.
-    #
-    #     Args:
-    #         obs_ids (list): List of observation IDs to check.
-    #     Returns:
-    #         list: List of observation IDs with truncated files.
-    #     """
-    #     is_truncated = []
-    #     for obs in obs_ids:
-    #         dph_files = Path(f"{str(datadir)}/{obs}/bat/survey").glob("*.dph*")
-    #         mask = np.any([True if "e20.dph.gz" in str(i) else False for i in dph_files])
-    #         if mask:
-    #             is_truncated.append(True)
-    #         else:
-    #             is_truncated.append(False)
-    #     return Table([obs_ids, is_truncated], names=["obsid", "truncated"])
+    def _identify_truncated_files(self):
+        """
+        Whenever there is a data pile up issue, BAT records the data in reduced number
+         of energy bins, leading to truncated files. This function identifies such files.
+
+        Returns:
+            boolean: True if there are truncated DPH files otherwise false.
+        """
+        dph_files = self.obs_dir.joinpath("bat/survey").glob("*.dph*")
+        mask = np.any([True if "e20.dph.gz" in str(i) else False for i in dph_files])
+        return mask
 
     def _call_batsurvey(self, input_dict, use_independent_modules=False):
         """
