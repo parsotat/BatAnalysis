@@ -471,8 +471,6 @@ class BatSurvey(BatObservation):
                 else:
                     print("No pointings were found.")
 
-            # Then fix the stats file for any truncated data
-            patch_truncated_obsid(obsid_dir=str(self.result_dir))
 
             # Then check for truncated data and update headers accordingly
             if len(self.pointing_flux_files) > 0:
@@ -774,18 +772,17 @@ class BatSurvey(BatObservation):
         if use_independent_modules:
             # Then import the BatTools module and run it using that
             try:
-                survey_obj = BatTools(
+                batsurvey_return = BatTools(
                     indir=input_dict["indir"],
                     outdir=input_dict["outdir"],
                     params=input_dict,
                     truncated=self.truncated,
                 )
-                if survey_obj.success:
+                if batsurvey_return.success:
                     print("Successfully reduced the survey data.")
 
                 # The backend will cause pickle to fail, so set it to none before starting
-                survey_obj.backend = None
-                return survey_obj
+                batsurvey_return.backend = None
             except Exception as e:
                 raise ValueError(
                     f"An error occurred while running the independent modules of batsurvey: {str(e)}"
@@ -793,7 +790,7 @@ class BatSurvey(BatObservation):
             # This will handle error warnings and will also patch the results if there is truncated data
         else:
             try:
-                return hsp.batsurvey(**input_dict)
+                batsurvey_return=hsp.batsurvey(**input_dict)
             except Exception:
                 # see if there were any pointings that failed
                 status_file = self.result_dir.joinpath("stats_point.dat")
@@ -805,6 +802,11 @@ class BatSurvey(BatObservation):
                     )
                 else:
                     raise ValueError(f"Obsid {self.obs_id} has no survey data")
+
+        # Then fix the stats file for any truncated data
+        patch_truncated_obsid(obsid_dir=str(self.result_dir))
+
+        return batsurvey_return
 
     def _add_total_energy_image(self):
         """
