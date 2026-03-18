@@ -1,4 +1,6 @@
 import glob
+import warnings
+
 import numpy as np
 from pathlib import Path
 from astropy.io import fits
@@ -228,3 +230,5 @@ def patch_truncated_obsid(obsid_dir: str):
                 f["STATS_POINT"].data['TRUNCATED_MASK'][:] = masks
 
             f.flush()
+    else:
+        warnings.warn(f"The file {res_file} doesnt seem to exist for adding information related to the truncation of DPH data.")
