@@ -196,18 +196,35 @@ def patch_truncated_obsid(obsid_dir: str):
     # Then look at the stats file and change it
     res_file = Path(obsid_dir).joinpath("stats_point.fits")
     if res_file.exists():
-        stats_data = Table.read(res_file)
+        stats_data = Table.read(res_file, format='fits')
         masks = np.zeros_like(stats_data["CHI2"].data).astype(bool)
         names = [str(i).replace(" ", "") for i in stats_data["IMAGE_ID"]]
         for pid in list(all_truncated_masks.keys()):
             inds = np.where(np.array(names) == pid)[0]
             if len(inds) > 0:
                 masks[inds] = all_truncated_masks[pid]
-        try:
-            stats_data.add_column(Column(data=masks, name="TRUNCATED_MASK", dtype=bool))
-        except:
-            stats_data.replace_column(
-                "TRUNCATED_MASK",
-                Column(data=masks, name="TRUNCATED_MASK", dtype=bool),
-            )
-        stats_data.write(res_file, overwrite=True)
+
+        is_truncated_col = fits.Column(array=masks, name="TRUNCATED_MASK", format=f"{len(masks[0])}L")
+        new_cols = fits.ColDefs([is_truncated_col])
+
+        with fits.open(res_file, mode="update") as f:
+            if "TRUNCATED_MASK" not in f["STATS_POINT"].columns.names:
+                #add the column to the table
+                orig_table = f["STATS_POINT"].data
+                orig_cols = orig_table.columns
+                hdu=fits.BinTableHDU.from_columns(orig_cols + new_cols)
+                hdu.name="STATS_POINT"
+                new_hdu_keys=[i for i in hdu.header.keys()]
+
+                #copy all the comments over too
+                for key, comment in zip(f["STATS_POINT"].header.keys(), f["STATS_POINT"].header.comments):
+                    if key in new_hdu_keys:
+                        hdu.header.comments[key] = comment
+
+                f["STATS_POINT"] = hdu
+
+            else:
+                #overwrite the column data
+                f["STATS_POINT"].data['TRUNCATED_MASK'][:] = masks
+
+            f.flush()

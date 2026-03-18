@@ -40,7 +40,7 @@ try:
     try:
         hsp.Config.allow_failure = True
     except AttributeError as e:
-        print(f"heasoftpy version {hsp.__version__} doesnt allow for the Config syntax. Not disabling failure messages.")
+        print(f"heasoftpy version {hsp.__version__} doesnt allow for the Config syntax. Now disabling failure messages.")
 except ModuleNotFoundError as exc:
     raise RuntimeError(
         "heasoftpy is not installed. Install HEASoftPy to run BatSurveyTools."
