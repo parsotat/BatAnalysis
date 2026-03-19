@@ -25,7 +25,7 @@ from typing import List
 from .batlib import datadir, dirtest, met2mjd, met2utc, calculate_effective_snr
 from .batobservation import BatObservation
 from .bat_survey_tools import BatTools
-from .bat_truncated import patch_truncated_obsid, make_files_consistent
+from .bat_truncated import denote_truncated_stats_point, patch_truncated_dphs
 
 
 # for python>3.6
@@ -247,7 +247,7 @@ class BatSurvey(BatObservation):
         # initialize super class
         super().__init__(obs_id, obs_dir)
 
-        self.truncated = self._identify_truncated_files()
+        self.truncated = self._identify_truncated_dphs()
         self.use_independent_modules = use_independent_modules
         self._create_total_energy_image=create_total_energy_image
 
@@ -357,20 +357,10 @@ class BatSurvey(BatObservation):
             # if the user wants to relaculate things or if recalc==False but the result directory specified doesnt exist
             # we need to recalculate things for further processing, IMPLEMENT LATER ON
             # call the heasoftpy command
-            bs = self._call_batsurvey(
-                self.survey_input, use_independent_modules=self.use_independent_modules
-            )
+            bs = self._call_batsurvey(self.survey_input)
             self.batsurvey_result = bs
             # can print output of batsurvey with ba.stdout.split("\n")
 
-            # self._local_pfile_dir = self.result_dir.joinpath(".local_pfile")
-
-            # make the local pfile dir if it doesnt exist and set this value
-            # self._local_pfile_dir.mkdir(parents=True, exist_ok=True)
-            # try:
-            #     hsp.local_pfiles(pfiles_dir=str(self._local_pfile_dir))
-            # except AttributeError:
-            #     hsp_util.local_pfiles(par_dir=str(self._local_pfile_dir))
 
             complete_file = self.result_dir.joinpath(".batsurvey_complete")
 
@@ -748,7 +738,7 @@ class BatSurvey(BatObservation):
 
         self.survey_input = default_batsurvey_input_dict
 
-    def _identify_truncated_files(self):
+    def _identify_truncated_dphs(self):
         """
         Whenever there is a data pile up issue, BAT records the data in reduced number
          of energy bins, leading to truncated files. This function identifies such files and patches them
@@ -761,11 +751,11 @@ class BatSurvey(BatObservation):
         has_truncated_files=np.any(mask)
 
         if has_truncated_files:
-            make_files_consistent(self.obs_dir)
+            patch_truncated_dphs(self.obs_dir)
 
         return has_truncated_files
 
-    def _call_batsurvey(self, input_dict, use_independent_modules=False):
+    def _call_batsurvey(self, input_dict):
         """
         Calls heasoftpy's batsurvey with an error wrapper
         :param input_dict: Dictionary of inputs that will be passed to heasoftpy's batsurvey
@@ -777,7 +767,7 @@ class BatSurvey(BatObservation):
         # The latter is useful for debugging and to bypass certain steps
         # of the batsurvey calculation if the user wants to. It is especially preferred
         # when working with truncated data
-        if use_independent_modules:
+        if self.use_independent_modules:
             # Then import the BatTools module and run it using that
             try:
                 batsurvey_return = BatTools(
@@ -812,7 +802,7 @@ class BatSurvey(BatObservation):
                     raise ValueError(f"Obsid {self.obs_id} has no survey data")
 
         # Then fix the stats file for any truncated data
-        patch_truncated_obsid(obsid_dir=str(self.result_dir))
+        denote_truncated_stats_point(obsid_dir=str(self.result_dir))
 
         return batsurvey_return
 

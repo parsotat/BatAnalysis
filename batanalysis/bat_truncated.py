@@ -7,7 +7,7 @@ from astropy.io import fits
 from astropy.table import Table, Column
 
 
-def check_for_truncated_images(infile: str, force: bool = True, emax: float = 35.0):
+def identify_truncated_images(infile: str, force: bool = True, emax: float = 35.0):
     """Check if the given image file is truncated by looking for the presence of the expected extensions.
 
     Args:
@@ -55,8 +55,9 @@ def check_for_truncated_images(infile: str, force: bool = True, emax: float = 35
 
 
 def patch_truncated_results(files: list, good_rows: list, bad_rows: list):
-    """Make the necessary adjustments to the variance map and catalog files to account
-    for any truncated images that were detected in the check_for_truncated_images
+    """
+    Make the necessary adjustments to the variance map and catalog files to account
+    for any truncated images that were detected in the identify_truncated_images
     step, so that the source detection can proceed without errors.
 
     Args:
@@ -171,7 +172,7 @@ def patch_truncated_results(files: list, good_rows: list, bad_rows: list):
         cat_hdul.close()
 
 
-def patch_truncated_obsid(obsid_dir: str):
+def denote_truncated_stats_point(obsid_dir: str):
     """BAT when operating in reduced efficiency mode, will only collect data
     in the first 20 energy bins instead of the full 80 bins. This will cause
     some of the images (high energy bands) to be all zero. This function checks
@@ -233,7 +234,7 @@ def patch_truncated_obsid(obsid_dir: str):
     else:
         warnings.warn(f"The file {res_file} doesnt seem to exist for adding information related to the truncation of DPH data.")
 
-def make_files_consistent(obsid):
+def patch_truncated_dphs(obsid):
     """
     Take the truncated file and make it consistent with full energy bin files.
 

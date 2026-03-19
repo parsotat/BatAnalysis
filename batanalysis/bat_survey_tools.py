@@ -30,7 +30,7 @@ from astropy.io import fits
 from astropy.table import Table
 from astropy.time import Time, TimeDelta
 from astropy import units as u
-from .bat_truncated import check_for_truncated_images, patch_truncated_results
+from .bat_truncated import identify_truncated_images, patch_truncated_results
 
 try:
     import heasoftpy.swift as hsp  # type: ignore
@@ -2372,9 +2372,7 @@ class BatTools:
             if cleaniter > 1:
                 batcelldetect_params["newsrcind"] = 10
             if self.truncated:
-                good_rows, bad_rows = check_for_truncated_images(
-                    infile=str(img), force=True
-                )
+                good_rows, bad_rows = identify_truncated_images(infile=str(img), force=True)
                 batcelldetect_params["rows"] = ",".join(np.array(good_rows).astype(str))
 
             self.batcelldetect(
