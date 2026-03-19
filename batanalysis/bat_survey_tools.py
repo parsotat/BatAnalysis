@@ -31,6 +31,7 @@ from astropy.table import Table
 from astropy.time import Time, TimeDelta
 from astropy import units as u
 from .bat_truncated import identify_truncated_images, patch_truncated_results
+from .batlib import convert_met_to_utc
 
 try:
     import heasoftpy.swift as hsp  # type: ignore
@@ -495,6 +496,25 @@ class ToolResult:
     stderr: str = ""
     raw: Any = None
 
+@dataclass
+class _PointStats:
+    image_id: str
+    status: bool
+    descr: str
+    tstart: float
+    tstop: float
+    raw_exposure: float
+    exposure: float
+    ra_pnt: float
+    dec_pnt: float
+    pa_pnt: float
+    ndets: int
+    date_obs: str = ""
+    date_end: str = ""
+    numband: int = 0
+    chi2: List[float] = field(default_factory=list)
+    bkg_counts: List[float] = field(default_factory=list)
+
 
 class HeasoftPyBackend:
     def __init__(self) -> None:
@@ -635,7 +655,7 @@ class BatTools:
             )
 
         self.status_file = self.outdir / "global_status.txt"
-        self.point_stats: List[PointStats] = []
+        self.point_stats: List[_PointStats] = []
         self.outventory_file = self.outdir / "stats_point.dat"
         self.outventory_fits = self.outdir / "stats_point.fits"
         self.inventory_file = self.outdir / "stats_obs.dat"
@@ -961,10 +981,10 @@ class BatTools:
         exposure: float = 0.0,
         chi2: Optional[List[float]] = None,
         bkg_counts: Optional[List[float]] = None,
-    ) -> PointStats:
+    ) -> _PointStats:
         tstart = float(self.pointing_info[pid]["tstart_met"])
         tstop = float(self.pointing_info[pid]["tstop_met"])
-        return PointStats(
+        return _PointStats(
             image_id=pid,
             status=False,
             descr=self.current_pointstatus,
@@ -1097,7 +1117,7 @@ class BatTools:
 
         return values
 
-    def _record_snapshot_stats(self, s: PointStats) -> None:
+    def _record_snapshot_stats(self, s: _PointStats) -> None:
         with self.outventory_file.open("a", encoding="utf-8") as f:
             chi_str = " ".join(str(float(x)) for x in s.chi2)
             f.write(
@@ -2144,7 +2164,7 @@ class BatTools:
             return False, "sigmamask2_failed", "Could not create sigma cut map (2)"
         return True, "ok", "success"
 
-    def _process_pointing(self, pid, params) -> PointStats:
+    def _process_pointing(self, pid, params) -> _PointStats:
         """This is the main function that processes a single pointing,
         which is defined by a GTI row. It will run through the various
         steps of the survey processing for that pointing, including
@@ -2162,7 +2182,7 @@ class BatTools:
             pid: Pointing ID to process (e.g. "20233341529")
             params: Dictionary of parameters to pass to each step, which may include overrides for defaults.
         Returns:
-            PointStats: _description_
+            _PointStats: _description_
         """
         self.current_pointstatus = "unknown"
         self.current_pointreason = ""
@@ -2734,7 +2754,7 @@ class BatTools:
                 or 0
             )
         )
-        return PointStats(
+        return _PointStats(
             image_id=pid,
             status=True,
             descr="ok",
