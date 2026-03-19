@@ -19,11 +19,6 @@ from astropy.table import Table, vstack, Column
 from astropy.coordinates import SkyCoord
 from sklearn.cluster import DBSCAN
 import astropy.units as u
-from matplotlib.backends.backend_pdf import PdfPages
-from astropy.wcs import WCS
-from astropy.nddata import Cutout2D
-from astropy.visualization import ZScaleInterval
-from matplotlib.patches import Circle
 from dataclasses import dataclass, field
 from typing import List
 
@@ -197,18 +192,12 @@ class BatSurvey(BatObservation):
         obs_id,
         obs_dir=None,
         input_dict=None,
-        truncated=False,
-        use_independent_modules=False,
         recalc=False,
         verbose=False,
         load_dir=None,
         patt_noise_dir=None,
         add_total_energy_image=True,
-        get_new_sources=True,
-        plot_new_sources=True,
-        plot_dest_dir=None,
-        plot_all_sources=True,
-        plot_individual_sources=False,
+        use_independent_modules=False,
     ):
         """
         Constructs the BatSurvey object.
@@ -230,11 +219,6 @@ class BatSurvey(BatObservation):
             A dictionary can take the form x=dict(incatalog="custom_catalog.cat", detthresh="10000"). Here, the
             remaining unspecified parameters will first take the values above and then the default values of
             heasoft's batsurvey.
-        :param truncated: Boolean to denote whether the data is truncated to 20 energy channels only.
-        :param use_independent_modules: Boolean to denote whether to use the independent modules of batsurvey instead of the
-            full batsurvey command. Default is False, meaning that the full batsurvey command will be used. If True, then
-            the individual modules of batsurvey will be called in sequence. This allows for more control and flexibility
-            in the survey process, but also requires more time and computational resources.
         :param recalc: Boolean to either delete the existing batsurvey results and start over
         :param verbose: Boolean to print diagnostic information
         :param load_dir: String of the directory that holds the result directory of batsurvey for a given observation ID
@@ -243,16 +227,10 @@ class BatSurvey(BatObservation):
             directory. If this directory doesn't exist then pattern maps are not used.
         :param add_total_energy_image: Boolean to add in the total energy band image and catalog to the batsurvey
             results. Default is True.
-        :param get_new_sources: Boolean to identify new sources in the survey data after adding the total energy band.
-            Default is True.
-        :param plot_new_sources: Boolean to plot the new sources found in the survey data after adding the total energy
-            band. Default is True.
-        :param plot_dest_dir: String of the directory to save the new source plots to. None defaults to the directory
-            that holds the batsurvey result directory.
-        :param plot_all_sources: Boolean to plot all the new sources found in the survey data to the same plot.
-            Default is True.
-        :param plot_individual_sources: Boolean to plot each new source found in the survey data to its own plot.
-            Default is False.
+        :param use_independent_modules: Boolean to denote whether to use the independent modules of batsurvey instead of the
+            full batsurvey command. Default is False, meaning that the full batsurvey command will be used. If True, then
+            the individual modules of batsurvey will be called in sequence. This allows for more control and flexibility
+            in the survey process, but also requires more time and computational resources.
         """
 
         # Set default energy ranges in keV and system errors
@@ -266,6 +244,7 @@ class BatSurvey(BatObservation):
 
         self.truncated = self._identify_truncated_files()
         self.use_independent_modules = use_independent_modules
+        self._add_total_energy_image=add_total_energy_image
 
         # Check for pattern maps
         if patt_noise_dir is None:
@@ -836,8 +815,8 @@ class BatSurvey(BatObservation):
         """
         batsurvey in general only makes images for non-overlapping energy bands, so when all 8 individual
         bands are made, a total energy band image is missing, we nned to estimate that. So take all the images
-        for a given OBSID which can have multiple pointings and change them. This changes only the "_2" images,
-        so those that are generated after second iteration of cleaning.
+        for a given OBSID which can have multiple pointings and change them. This changes only the images,
+        generated for the specified number of cleaning iterations.
         """
         all_cats = [i.as_posix() for i in self.pointing_flux_files]
         all_images = [i.replace(f"_{self.survey_input['ncleaniter']}.cat", f"_{self.survey_input['ncleaniter']}.img") for i in all_cats]
@@ -1065,7 +1044,10 @@ class BatSurvey(BatObservation):
 
             # We need to decide which rows to run on.
             # batcelldetect_input_dict["rows"] = ",".join(good_rows)
-            batcelldetect_input_dict["rows"] = "1-9"
+            if self._add_total_energy_image:
+                batcelldetect_input_dict["rows"] = "1-9"
+            else:
+                batcelldetect_input_dict["rows"] = "1-9"
 
             batcelldetect_output.append(
                 self._call_batcelldetect(batcelldetect_input_dict)
@@ -1268,154 +1250,6 @@ class BatSurvey(BatObservation):
 
         return out
 
-
-    def plot_unknown_sources(self, dest_dir=None, save_ind=False, save_coll=True):
-        """
-        Plots the unknown sources found in the catalog for each pointing
-        :param new_source_sep: Quantity of the minimum separation from known BAT persistent sources to consider
-            a source as unknown
-        :param dest_dir: String of the directory to save the plots to, if None then saves to the same directory
-            as the source catalog
-        :param save_ind: Boolean to save individual source cutout plots, default False
-        :param save_coll: Boolean to save a single PDF with all source cutouts, default True
-        :return: None
-        """
-        unknown_source_catalogs = self.unknown_sources_catalogs
-
-        for catalog in unknown_source_catalogs:
-            unknown_sources = Table.read(catalog, format="fits")
-            # sort by SNR
-            unknown_sources.sort("MAX_SNR", reverse=True)
-            # Now plot them
-            if len(unknown_sources) > 0:
-
-                # Then decide where to save these
-                dest_dir = (
-                    Path(dest_dir) if dest_dir is not None else Path(catalog).parent
-                )
-
-                if save_coll:
-                    # Save all in a single PDF
-                    filename = Path(catalog).name.replace(
-                        "_src_catalog.fits", "_unknown_src_cutouts.pdf"
-                    )
-                    plotfile = PdfPages(dest_dir.joinpath(filename).as_posix())
-                if save_ind:
-                    # Save individual cutout plots
-                    cutout_dir = (
-                        dest_dir.joinpath("source_cutouts")
-                        if dest_dir is None
-                        else dest_dir
-                    )
-                    cutout_dir.mkdir(parents=True, exist_ok=True)
-
-                for i in range(len(unknown_sources)):
-                    enbin = unknown_sources["MAX_SNR_ENBIN"][i]
-                    cutout_size = 10  # degrees
-
-                    # Now make cutout from total energy image
-                    img_file = catalog.replace("_unknown_src_catalog.fits", ".img")
-                    with fits.open(img_file) as f:
-                        w = WCS(f[0].header)
-                        data = f[enbin].data
-
-                    source_coord = SkyCoord(
-                        ra=unknown_sources["RA_OBJ"][i],
-                        dec=unknown_sources["DEC_OBJ"][i],
-                        unit="deg",
-                        frame="icrs",
-                    )
-                    src_name = "J" + source_coord.to_string(
-                        "hmsdms", fields=3, sep="", precision=0
-                    ).replace(" ", "")
-
-                    cutout = Cutout2D(
-                        data,
-                        position=source_coord,
-                        size=cutout_size * u.deg,
-                        wcs=w,
-                    )
-
-                    fig = plt.figure(figsize=(8, 8))
-                    ax = plt.subplot(projection=cutout.wcs)
-
-                    vmin, vmax = ZScaleInterval().get_limits(cutout.data)
-                    ax.imshow(
-                        cutout.data,
-                        origin="lower",
-                        cmap="viridis",
-                        vmin=vmin,
-                        vmax=vmax,
-                    )
-
-                    # Add a circle at source location of radius 22 arcmin
-                    pix_coords = cutout.wcs.world_to_pixel(source_coord)
-                    rad = 22 / (
-                        np.max(np.abs(cutout.wcs.wcs.cdelt)) * 60
-                    )  # Convert 22 arcmin to pixels
-                    circ = Circle(
-                        np.array(pix_coords),
-                        radius=rad,
-                        edgecolor="red",
-                        facecolor="none",
-                    )
-                    ax.add_patch(circ)
-
-                    ax.coords[0].set_axislabel("RA", fontsize=12)
-                    ax.coords[1].set_axislabel("DEC", fontsize=12)
-                    ax.coords.grid(color="k", ls="--")
-                    ax.tick_params(labelsize=15)
-
-                    # Format it
-                    ax.coords[0].set_axislabel("Galactic Longitude (deg)", fontsize=12)
-                    ax.coords[1].set_axislabel("Galactic Latitude (deg)", fontsize=12)
-                    ax.coords[0].set_ticks_position("b")
-                    ax.coords[1].set_ticks_position("l")
-                    ax.coords[0].set_axislabel_position("b")
-                    ax.coords[1].set_axislabel_position("l")
-
-                    # Now add galactic coordinates grid
-                    gal = ax.get_coords_overlay("galactic")
-
-                    # Position
-                    gal[0].set_ticks_position("t")
-                    gal[1].set_ticks_position("r")
-
-                    gal[0].set_axislabel_position("t")
-                    gal[1].set_axislabel_position("r")
-
-                    # Color
-                    gal_color = "red"
-                    gal[0].set_axislabel("Galactic Longitude ℓ", color=gal_color)
-                    gal[1].set_axislabel("Galactic Latitude b", color=gal_color)
-                    gal[0].set_ticklabel(color=gal_color)
-                    gal[1].set_ticklabel(color=gal_color)
-                    gal[0].set_ticks(color=gal_color)
-                    gal[1].set_ticks(color=gal_color)
-                    gal.grid("on", color=gal_color, ls="dotted")
-
-                    plt.tight_layout()
-
-                    # Make the title
-                    title = f"Source at RA={unknown_sources['RA_OBJ'][i]:.2f} Dec={unknown_sources['DEC_OBJ'][i]:.2f} SNR= {unknown_sources['MAX_SNR'][i]:.2f} ({enbin})"
-                    if not np.ma.is_masked(unknown_sources["ESNR"][i]):
-                        title += f", eSNR={unknown_sources['ESNR'][i]:.2f}, FP={int(unknown_sources['NFP'][i])}"
-                    else:
-                        title += ", eSNR=--, FP=--"
-                    fig.suptitle(title, fontsize=12)
-
-                    plt.tight_layout()
-
-                    if save_coll:
-                        plotfile.savefig(fig)
-                    if save_ind:
-                        ind_filename = cutout_dir.joinpath(
-                            f"{src_name}_cutout.jpg"
-                        ).as_posix()
-                        plt.savefig(ind_filename, dpi=150)
-                    plt.close(fig)
-                if save_coll:
-                    plotfile.close()
 
     def _batsurvey_error(self, status_file):
         """
