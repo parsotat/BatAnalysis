@@ -25,7 +25,8 @@ from typing import List
 from .batlib import datadir, dirtest, met2mjd, met2utc, calculate_effective_snr
 from .batobservation import BatObservation
 from .bat_survey_tools import BatTools
-from .bat_truncated import patch_truncated_obsid
+from .bat_truncated import patch_truncated_obsid, make_files_consistent
+
 
 # for python>3.6
 try:
@@ -258,6 +259,8 @@ class BatSurvey(BatObservation):
             # The same for pattern noise maps since these are not compatible with truncated data,
             # in _get_pattern_noise_maps we will return NONE
             patt_noise_dir = None
+
+
 
         # Get the pattern maps
         self.patt_noise_dir = patt_noise_dir
@@ -744,14 +747,19 @@ class BatSurvey(BatObservation):
     def _identify_truncated_files(self):
         """
         Whenever there is a data pile up issue, BAT records the data in reduced number
-         of energy bins, leading to truncated files. This function identifies such files.
+         of energy bins, leading to truncated files. This function identifies such files and patches them
 
         Returns:
             boolean: True if there are truncated DPH files otherwise false.
         """
         dph_files = self.obs_dir.joinpath("bat/survey").glob("*.dph*")
-        mask = np.any([True if "e20.dph.gz" in i.name else False for i in dph_files])
-        return mask
+        mask = [True if "e20.dph.gz" in i.name else False for i in dph_files]
+        has_truncated_files=np.any(mask)
+
+        if has_truncated_files:
+            make_files_consistent(self.obs_dir)
+
+        return has_truncated_files
 
     def _call_batsurvey(self, input_dict, use_independent_modules=False):
         """
@@ -1040,7 +1048,7 @@ class BatSurvey(BatObservation):
             if self._add_total_energy_image:
                 batcelldetect_input_dict["rows"] = "1-9"
             else:
-                batcelldetect_input_dict["rows"] = "1-9"
+                batcelldetect_input_dict["rows"] = "1-8"
 
             batcelldetect_output.append(
                 self._call_batcelldetect(batcelldetect_input_dict)
@@ -1183,7 +1191,7 @@ class BatSurvey(BatObservation):
                         ),
                         "BAT_PCODE_1",
                     )
-                    mask = pcoding_mask > pcoding_threshold 
+                    mask = pcoding_mask > pcoding_threshold
                     esnr, nfp_val = calculate_effective_snr(
                         img=imdata,
                         var=vardata,
