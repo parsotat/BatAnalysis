@@ -232,3 +232,50 @@ def patch_truncated_obsid(obsid_dir: str):
             f.flush()
     else:
         warnings.warn(f"The file {res_file} doesnt seem to exist for adding information related to the truncation of DPH data.")
+
+def make_files_consistent(obsid):
+    """
+    Take the truncated file and make it consistent with full energy bin files.
+
+    Args:
+        obsid (str): Observation ID of the truncated DPH file.
+    """
+    complete_file = Path(obsid).joinpath("/bat/survey/survey.corrected")
+    if not complete_file.exists():
+        dph_files = list(
+            Path(obsid).joinpath("/bat/survey").glob("sw*e20.dph.gz")
+        )
+        print(
+            f"Fixing truncated files for OBSID {obsid}, found {len(dph_files)} files."
+        )
+        if len(dph_files) > 0:
+            for f in dph_files:
+                print(f"Processing file {f} in OBSID {obsid}...")
+                hdu = fits.open(f)
+                # Next change the header and the data
+                if len(hdu) == 1:
+                    print(f"File {f} has only one extension, skipping...")
+                    Path(f).unlink()
+                else:
+                    hdu[1].header["LDPEBINS"] = 80
+                    hdu[2].header["LDPEBINS"] = 80
+                    data = Table(hdu[1].data)
+
+                    dph = data["DPH_COUNTS"]
+                    dph_shape = dph.shape[:-1]
+                    new_dph_shape = np.concatenate((dph_shape, [80]))
+                    null_dph = np.zeros(new_dph_shape)
+                    null_dph[:, :, :, :20] = dph
+                    data.replace_column("DPH_COUNTS", null_dph)
+                    hdu[1] = fits.BinTableHDU(data=data, header=hdu[1].header)
+                    #TODO: figure out what this is: answer reset the energy extension to be the usual 80 energy bins, should I hardcode that here?
+                    hdu[2] = fits.BinTableHDU(
+                        data=Table.read(f"{str(newdir.parent)}/full_ebins_bat.ecsv"),
+                        header=hdu[2].header,
+                    )
+                    hdu.writeto(f, overwrite=True)
+        complete_file.touch()
+    else:
+        print(
+            f"DPH files already corrected for 80 energy bins for OBSID {obsid}, skipping ..."
+        )
