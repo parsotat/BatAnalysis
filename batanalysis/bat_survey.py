@@ -240,6 +240,10 @@ class BatSurvey(BatObservation):
         self.emax = [20.0, 24.0, 35.0, 50.0, 75.0, 100.0, 150.0, 195.0]
         self.syserr = [0.6, 0.3, 0.15, 0.15, 0.15, 0.15, 0.15, 0.6]
 
+        # make sure that the observation ID is a string
+        if type(obs_id) is not str:
+            obs_id = f"{int(obs_id)}"
+
         # initialize super class
         super().__init__(obs_id, obs_dir)
 
@@ -260,15 +264,15 @@ class BatSurvey(BatObservation):
             # in _get_pattern_noise_maps we will return NONE
             patt_noise_dir = None
 
-
+        #if we have truncated data and the user didnt specify use_independent_module set it to be true
+        if self.truncated and not self.use_independent_modules:
+            self.use_independent_modules=True
+            warnings.warn(f"BatAnalysis detected truncated DPHs for obsid {obs_id}. Now setting use_independent_modules=True to process the data.")
 
         # Get the pattern maps
         self.patt_noise_dir = patt_noise_dir
 
         self.survey_input = input_dict
-        # make sure that the observation ID is a string
-        if type(obs_id) is not str:
-            obs_id = f"{int(obs_id)}"
 
         # initalize the pha filename list attribute
         self.pha_file_names_list = []
