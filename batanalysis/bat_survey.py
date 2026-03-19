@@ -196,7 +196,7 @@ class BatSurvey(BatObservation):
         verbose=False,
         load_dir=None,
         patt_noise_dir=None,
-        add_total_energy_image=True,
+        create_total_energy_image=True,
         use_independent_modules=False,
     ):
         """
@@ -244,7 +244,7 @@ class BatSurvey(BatObservation):
 
         self.truncated = self._identify_truncated_files()
         self.use_independent_modules = use_independent_modules
-        self._add_total_energy_image=add_total_energy_image
+        self._create_total_energy_image=create_total_energy_image
 
         # Check for pattern maps
         if patt_noise_dir is None:
@@ -457,21 +457,14 @@ class BatSurvey(BatObservation):
             # Then check for truncated data and update headers accordingly
             if len(self.pointing_flux_files) > 0:
                 # Once all of this is done, add in the total energy band images and catalogs
-                if add_total_energy_image:
+                if self._create_total_energy_image:
                     self._add_total_energy_image()
 
                 # Retrieve any new sources found in the survey data
-                if get_new_sources:
-                    self._detect_sources()
-                    self._get_unknown_sources()
+                #if get_new_sources:
+                #    self._detect_sources()
+                #    self._get_unknown_sources()
 
-                # Plot any new sources found in the survey data
-                if plot_new_sources:
-                    self.plot_unknown_sources(
-                        dest_dir=plot_dest_dir,
-                        save_coll=plot_all_sources,
-                        save_ind=plot_individual_sources,
-                    )
 
             # Save the pickle file of the current state
             self.save()
@@ -1105,7 +1098,7 @@ class BatSurvey(BatObservation):
                 print(f"No sources detected in {img_file}, skipping further analysis\n")
         self.batcelldetect_output = batcelldetect_output
 
-    def _get_unknown_sources(self, new_source_sep=10.0 * u.arcmin):
+    def _get_unknown_sources(self, new_source_sep=10.0 * u.arcmin, snr_threshold=5, pcoding_threshold=0.05):
         """Function to cross match detected sources with known BAT persistent sources and identify unknown sources.
 
         Args:
@@ -1127,7 +1120,7 @@ class BatSurvey(BatObservation):
             source_data = Table.read(self.source_catalogs[pointing_id], format="fits")
             if len(source_data) > 0:
                 # First filter sources with SNR>=5 in any energy band
-                filtered_sources = source_data[np.max(source_data["SNR"], axis=1) >= 5]
+                filtered_sources = source_data[np.max(source_data["SNR"], axis=1) >= snr_threshold]
 
                 # Now select and remove BAT persistent sources
 
@@ -1190,7 +1183,7 @@ class BatSurvey(BatObservation):
                         ),
                         "BAT_PCODE_1",
                     )
-                    mask = pcoding_mask > 0.05 #TODO: can this be made adjustable based on input_dict?
+                    mask = pcoding_mask > pcoding_threshold 
                     esnr, nfp_val = calculate_effective_snr(
                         img=imdata,
                         var=vardata,
