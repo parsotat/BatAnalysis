@@ -153,7 +153,7 @@ def initalize_heasoft_task(
 
     #check that the required parameters are passed in too ie no empty strings
     #include check that the parameters that we check dont have _opts in the name which indicate optional
-    # eg batoccultgti_opts parameter in batsurvey-gti 
+    # eg batoccultgti_opts parameter in batsurvey-gti
     missing_req_params=[i for i in hsp_task_params.keys() if len(str(hsp_task_params[i]))==0 and "_opts" not in i]
     if missing_req_params and not soft_fail:
         raise KeyError(f"The user supplied parameters for the {routine} task is missing these required parameters: {','.join(missing_req_params)}")
@@ -952,17 +952,12 @@ class BatTools:
         """
         params = self.params
         # Only pass those that are valid to this
-        batbinevt_params = initalize_heasoft_task("batbinevt", params)
+        _, batbinevt_params = initalize_heasoft_task("batbinevt", params)
 
         mandatory_params = {}
         mandatory_params["infile"] = infile
         mandatory_params["outfile"] = outfile
         mandatory_params["gtifile"] = gtifile
-
-        # And then replace these mandatory params into the user-provided params,
-        # ensuring that mandatory params take precedence
-        for key, value in mandatory_params.items():
-            batbinevt_params[key] = value
 
         # And these are defaults, so if the user didnt provide them then we set them,
         # but if they did then we respect the user choice
@@ -975,11 +970,24 @@ class BatTools:
             "min_dph_frac_overlap": 0.75,
             "max_dph_time_nonoverlap": 40,
         }
-        for key, value in default_params.items():
-            if key not in batbinevt_params:
-                batbinevt_params[key] = value
+        #TODO: figure out the best logic for this since initalize_heasoft_task populates this with the default values from
+        # heasoft and the keys will always be there
+        # for key, value in default_params.items():
+        #     if key not in batbinevt_params:
+        #         batbinevt_params[key] = value
+
+        batbinevt_params.update(mandatory_params)
+
+        # And then replace these mandatory params into the user-provided params,
+        # ensuring that mandatory params take precedence
+        batbinevt_params.update(mandatory_params)
+
+
+
+        batbinevt_task, batbinevt_params = initalize_heasoft_task("batbinevt", batbinevt_params, soft_fail=False)
+
         # print("Running batbinevt with parameters:", batbinevt_params)
-        batbinevtlog = self.backend.run("batbinevt", **batbinevt_params)
+        batbinevtlog = batbinevt_task(**batbinevt_params) #self.backend.run("batbinevt", **batbinevt_params)
         # print(batbinevtlog.stdout)
         if "batbinevt" not in self.all_params:
             self.all_params["batbinevt"] = [batbinevt_params]
