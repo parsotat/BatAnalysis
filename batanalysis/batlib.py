@@ -21,7 +21,6 @@ import numpy as np
 import requests
 import swiftbat.swutil as sbu
 import swifttools.swift_too as swtoo
-from swifttools.ukssdc.data import downloadObsData
 from astropy.io import fits
 from astropy.time import Time, TimeDelta
 from astroquery.heasarc import Heasarc
@@ -1563,8 +1562,6 @@ def download_swiftdata(
 
     :param observations: OBSIDs to download
     :param reload: load even if the data is already in the save_dir
-    :param ukserver: use the UK Swift Science Data Centre server for data downloads
-        (defaults to False, using US sites)
     :param fetch: Download the data if it is not locally cached (defaults to True)
     :param jobs: number of simultaneous download jobs.  (Set to 1 to execute unthreaded.)
     :param timeout: timeout for download requests in seconds (defaults to 120)
@@ -1616,34 +1613,21 @@ def download_swiftdata(
     obsids = list({o: None for o in obsids}.keys())
     nowts = datetime.datetime.now().timestamp()
     kwargs["fetch"] = fetch
-    if not ukserver:
-        download_partialfunc = functools.partial(
-            _download_single_observation,
-            reload=reload,
-            timeout=timeout,
-            bat=bat,
-            auxil=auxil,
-            log=log,
-            uvot=uvot,
-            xrt=xrt,
-            tdrss=tdrss,
-            save_dir=save_dir,
-            nowts=nowts,
-            clobber=clobber,
-            **kwargs,
-        )
-    else:
-        download_partialfunc = functools.partial(
-            _download_single_observation_alt_server,
-            bat=bat,
-            auxil=auxil,
-            log=log,
-            uvot=uvot,
-            xrt=xrt,
-            tdrss=tdrss,
-            save_dir=save_dir,
-            clobber=clobber,
-        )
+    download_partialfunc = functools.partial(
+        _download_single_observation,
+        reload=reload,
+        timeout=timeout,
+        bat=bat,
+        auxil=auxil,
+        log=log,
+        uvot=uvot,
+        xrt=xrt,
+        tdrss=tdrss,
+        save_dir=save_dir,
+        nowts=nowts,
+        clobber=clobber,
+        **kwargs,
+    )
     if jobs == 1:
         results = {}
         for obsid in obsids:
@@ -1779,71 +1763,6 @@ def _download_single_observation(
     except Exception as e:
         warnings.warn(f"Did not download {obsid} {e}")
         result["success"] = False
-    return result
-
-
-def _download_single_observation_alt_server(
-    obsid,
-    *,
-    bat,
-    auxil,
-    log,
-    uvot,
-    xrt,
-    tdrss,
-    save_dir,
-    clobber,
-):
-    """Helper function if US data directory fails--not for general use
-
-    Downloads files for a single OBSID, given parameters from download_swiftdata()
-    after encapsulation as a partial function for threading.
-
-    Args:
-        obsid (str): Observation ID to download
-        (remaining arguments are as in download_swiftdata())
-
-
-    Raises:
-        RuntimeError: If missing local directory.  Other exceptions are presented as warnings and
-        by setting the 'success' flag to False.
-
-    Returns:
-        _type_: _description_
-    """
-    obsoutdir = save_dir.joinpath(obsid)
-    result = dict(obsid=obsid, success=True, obsoutdir=obsoutdir, quicklook=False)
-
-    instruments = []
-    if bat:
-        instruments.append("bat")
-    if uvot:
-        instruments.append("uvot")
-    if xrt:
-        instruments.append("xrt")
-    getAuxil = True if auxil else False
-    getLog = True if log else False
-    getTDRSS = True if tdrss else False
-
-    try:
-        downloadObsData(
-            obsid=obsid,
-            instruments=instruments,
-            destDir=str(save_dir),
-            getAuxil=getAuxil,
-            getLog=getLog,
-            getTDRSS=getTDRSS,
-            clobber=clobber,
-            verbose=True,
-        )
-        success = True
-    except Exception as e:
-        success = False
-        print(f"Did not download {obsid} from alternate server: {e}")
-
-    # And then process it
-    result["success"] = success
-    result["downloaded"] = success
     return result
 
 
