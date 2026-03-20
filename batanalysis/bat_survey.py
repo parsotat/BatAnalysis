@@ -1035,7 +1035,6 @@ class BatSurvey(BatObservation):
             source_data = Table(source_hdu[1].data)
             if len(source_data) > 0:
                 # Now select unique sources
-                stop
                 unique_sources = self._filter_duplicate_sources(source_data)
 
                 source_hdu[1] = fits.BinTableHDU(
@@ -1313,7 +1312,11 @@ class BatSurvey(BatObservation):
 
             self.merge_input = dictionary
 
-    def calculate_pha(
+    def calculate_pha(self, *args):
+        warnings.warn("The calculate_pha method is being depreciated in the coming versions. Please switch to the create_pha method, which accepts the same arguments.", DeprecationWarning)
+        return self.create_pha(*args)
+
+    def create_pha(
         self,
         id_list,
         output_dir=None,
@@ -2547,7 +2550,11 @@ class MosaicBatSurvey(BatSurvey):
         tmp_all_src_file.rename(all_src_file)
         self.pointing_flux_files = [all_src_file]
 
-    def calculate_pha(
+    def calculate_pha(self, *args):
+        warnings.warn("The calculate_pha method is being depreciated in the coming versions. Please switch to the create_pha method, which accepts the same arguments.", DeprecationWarning)
+        return self.create_pha(*args)
+
+    def create_pha(
         self,
         id_list,
         output_dir=None,
