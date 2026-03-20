@@ -23,7 +23,7 @@ import time
 import copy
 import glob
 import json
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
 from astropy.io import fits
@@ -112,11 +112,11 @@ class HeasoftPyBackend:
         return getattr(out, "stdout", "")
 
 
-def check_heasoft_inputs(
+def initalize_heasoft_task(
     routine: str,
     input_params: Dict[str, Any],
-    soft_fail: bool = False,
-) -> Dict[str, Any]:
+    soft_fail: bool = True,
+) -> Tuple[hsp_core.HSPTask, Dict[str, Any]]:
     """
     Validate user parameters against HEASARC fhelp-allowed parameters.
 
@@ -146,12 +146,17 @@ def check_heasoft_inputs(
             f"Allowed parameters are: {sorted(hsp_task_params.keys())}"
         )
 
-    #check that the required parameters are passed in too
-    missing_req_params=[i for i in hsp_task_params.keys() if len(str(hsp_task_params[i]))==0]
-    if missing_req_params:
-        raise KeyError(f"The {routine} task is missing these required parameters: {','.join(missing_req_params)}")
+    #determine the parameters that go into this task's parameter dict from what the user provided
+    for key in hsp_task_params.keys():
+        if key in input_params.keys():
+            hsp_task_params[key] = input_params[key]
 
-    return {k: v for k, v in input_params.items() if k in allowed}
+    #check that the required parameters are passed in too ie no empty strings
+    missing_req_params=[i for i in hsp_task_params.keys() if len(str(hsp_task_params[i]))==0]
+    if missing_req_params and not soft_fail:
+        raise KeyError(f"The user supplied parameters for the {routine} task is missing these required parameters: {','.join(missing_req_params)}")
+
+    return hsp_task, hsp_task_params
 
 
 
@@ -775,7 +780,7 @@ class BatTools:
 
         params = self.params
         # Only pass those that are valid to this
-        baterebin_params = check_heasoft_inputs("baterebin", params)
+        baterebin_params = initalize_heasoft_task("baterebin", params)
 
         erebin_log = []
 
@@ -849,7 +854,7 @@ class BatTools:
     def batsurvey_gti(self, params: Dict[str, Any]):
 
         params = self.params
-        batsurvey_gti_params = check_heasoft_inputs("batsurvey-gti", params)
+        batsurvey_gti_params = initalize_heasoft_task("batsurvey-gti", params)
 
         mandatory_params = {}
         mandatory_params["indir"] = str(self.indir)
@@ -940,7 +945,7 @@ class BatTools:
         """
         params = self.params
         # Only pass those that are valid to this
-        batbinevt_params = check_heasoft_inputs("batbinevt", params)
+        batbinevt_params = initalize_heasoft_task("batbinevt", params)
 
         mandatory_params = {}
         mandatory_params["infile"] = infile
@@ -998,7 +1003,7 @@ class BatTools:
 
         """
         params = self.params
-        batsurvey_aspect_params = check_heasoft_inputs("batsurvey-aspect", params)
+        batsurvey_aspect_params = initalize_heasoft_task("batsurvey-aspect", params)
 
         mandatory_params = {}
         mandatory_params["gtifile"] = f"{gti_file}[STDGTI]"
@@ -1089,7 +1094,7 @@ class BatTools:
             "clobber": "YES",
         }
 
-        fimgstat_params = check_heasoft_inputs("fimgstat", params)
+        fimgstat_params = initalize_heasoft_task("fimgstat", params)
         for key, value in defaults.items():
             if key not in fimgstat_params:
                 fimgstat_params[key] = value
@@ -1154,7 +1159,7 @@ class BatTools:
         default_params["chatter"] = 2
         default_params["cleanup"] = "YES"
 
-        batsurvey_detmask_params = check_heasoft_inputs("batsurvey-detmask", params)
+        batsurvey_detmask_params = initalize_heasoft_task("batsurvey-detmask", params)
         # Replace mandatory params into the user-provided params, ensuring that mandatory params take precedence
         for key, value in mandatory_params.items():
             batsurvey_detmask_params[key] = value
@@ -1201,7 +1206,7 @@ class BatTools:
         defaults_params["maskfit"] = "YES"
         defaults_params["clobber"] = "YES"
 
-        batclean_params = check_heasoft_inputs("batclean", params)
+        batclean_params = initalize_heasoft_task("batclean", params)
 
         # Overwrite mandatory params
         for key, value in mandatory_params.items():
@@ -1261,7 +1266,7 @@ class BatTools:
         defaults_params["keepbits"] = "7"
         defaults_params["bkgvartype"] = "STDDEV"
 
-        batfftimage_params = check_heasoft_inputs("batfftimage", params)
+        batfftimage_params = initalize_heasoft_task("batfftimage", params)
 
         # Overwrite mandatory params
         for key, value in mandatory_params.items():
@@ -1309,7 +1314,7 @@ class BatTools:
         )
         default_params["clobber"] = "YES"
 
-        batoccultmap_params = check_heasoft_inputs("batoccultmap", params)
+        batoccultmap_params = initalize_heasoft_task("batoccultmap", params)
 
         # Replace mandatory params into the user-provided params, ensuring that mandatory params take precedence
         for key, value in mandatory_params.items():
@@ -1367,7 +1372,7 @@ class BatTools:
         defaults_params["posfluxfit"] = "NO"
         defaults_params["keepkeywords"] = "*APP,OBS_ID,IMAGE_ID,RA_PNT,DEC_PNT,PA_PNT"
 
-        batcelldetect_params = check_heasoft_inputs("batcelldetect", params)
+        batcelldetect_params = initalize_heasoft_task("batcelldetect", params)
 
         # Replace mandatory params into the user-provided params, ensuring that mandatory params take precedence
         for key, value in mandatory_params.items():
@@ -1434,7 +1439,7 @@ class BatTools:
         default_params["outtype"] = "NONZERO"
         default_params["clobber"] = "YES"
 
-        batmaskwtimg_params = check_heasoft_inputs("batmaskwtimg", params)
+        batmaskwtimg_params = initalize_heasoft_task("batmaskwtimg", params)
 
         # Replace mandatory params into the user-provided params, ensuring that mandatory params take precedence
         for key, value in mandatory_params.items():
@@ -1464,7 +1469,7 @@ class BatTools:
             expression to calculate, and any of the optional
             parameters a,b,c,d,e,f,g,h,z,nvectimages,wcsimage,resultname,replicate as needed.
         """
-        ftimgcalc_params = check_heasoft_inputs("ftimgcalc", params)
+        ftimgcalc_params = initalize_heasoft_task("ftimgcalc", params)
         res = self.backend.run(
             "ftimgcalc", **ftimgcalc_params
         )  # hsp.ftimgcalc(**ftimgcalc_params)
