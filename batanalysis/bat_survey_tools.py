@@ -32,6 +32,7 @@ from astropy.time import Time, TimeDelta
 from astropy import units as u
 from .bat_truncated import identify_truncated_images, patch_truncated_results
 from .batlib import convert_met_to_utc
+from ._version import __version__ as batsurvey_version
 
 try:
     import heasoftpy.swift as hsp  # type: ignore
@@ -48,8 +49,6 @@ except ModuleNotFoundError as exc:
         "heasoftpy is not installed. Install HEASoftPy to run BatSurveyTools."
     ) from exc
 
-
-SURVEY_VERSION = "6.16"
 
 ALLOWED_TASK_PARAMS: Dict[str, List[str]] = {
     "baterebin": [
@@ -977,7 +976,7 @@ class BatTools:
             fits.Column(name="BKG_COUNTS", format=f"{self.numbins}D", unit="count"),
         ]
         hdu = fits.BinTableHDU.from_columns(cols, nrows=0, name="STATS_POINT")
-        hdu.header["BSURVER"] = (SURVEY_VERSION, "BAT survey processing version")
+        hdu.header["BSURVER"] = (batsurvey_version, "BAT survey processing version")
         bsurseq = str(self.params.get("bsurseq", "NONE"))
         if bsurseq.upper() != "NONE":
             hdu.header["BSURSEQ"] = (bsurseq, "BAT survey processing sequence")
@@ -1004,7 +1003,7 @@ class BatTools:
             fits.Column(name="N_IMAGES", format="I"),
         ]
         hdu = fits.BinTableHDU.from_columns(cols, nrows=0, name="STATS_OBS")
-        hdu.header["BSURVER"] = (SURVEY_VERSION, "BAT survey processing version")
+        hdu.header["BSURVER"] = (batsurvey_version, "BAT survey processing version")
         bsurseq = str(self.params.get("bsurseq", "NONE"))
         if bsurseq.upper() != "NONE":
             hdu.header["BSURSEQ"] = (bsurseq, "BAT survey processing sequence")
@@ -1069,7 +1068,7 @@ class BatTools:
         with self.outventory_file.open("a", encoding="utf-8") as f:
             chi_str = " ".join(str(float(x)) for x in s.chi2)
             f.write(
-                f"B {SURVEY_VERSION} {self.indir.name} {s.image_id} {int(s.status)} {s.descr} "
+                f"B {batsurvey_version} {self.indir.name} {s.image_id} {int(s.status)} {s.descr} "
                 f"{s.tstart} {s.tstop} {s.ra_pnt} {s.dec_pnt} {s.pa_pnt} "
                 f"{s.raw_exposure} {s.exposure} {s.ndets} {self.numbins} {chi_str}\n"
             )
@@ -1082,7 +1081,7 @@ class BatTools:
             {
                 "OBS_ID": self.obs_id,
                 "IMAGE_ID": s.image_id,
-                "BSURVER": SURVEY_VERSION,
+                "BSURVER": batsurvey_version,
                 "BSURSEQ": (bsurseq if bsurseq.upper() != "NONE" else "NULL"),
                 "DATE_OBS": s.date_obs,
                 "DATE_END": s.date_end,
@@ -1127,7 +1126,7 @@ class BatTools:
             "STATS_OBS",
             {
                 "OBS_ID": self.obs_id,
-                "BSURVER": SURVEY_VERSION,
+                "BSURVER": batsurvey_version,
                 "BSURSEQ": (bsurseq if bsurseq.upper() != "NONE" else "NULL"),
                 "DATE_OBS": date_obs,
                 "DATE_END": date_end,
