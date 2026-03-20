@@ -858,7 +858,7 @@ class BatTools:
     def batsurvey_gti(self, params: Dict[str, Any]):
 
         params = self.params
-        batsurvey_gti_params = initalize_heasoft_task("batsurvey-gti", params)
+        _, batsurvey_gti_params = initalize_heasoft_task("batsurvey-gti", params)
 
         mandatory_params = {}
         mandatory_params["indir"] = str(self.indir)
@@ -878,16 +878,17 @@ class BatTools:
         default_params["saofiltexpr"] = "ELV > 30.0"
         default_params["dphfiltexpr"] = "DATA_FLAGS == 0"
         default_params["gtifile"] = "NONE"
-        # Replace mandatory params into the user-provided params, ensuring that mandatory params take precedence
-        for key, value in mandatory_params.items():
-            batsurvey_gti_params[key] = value
 
-        for key in default_params.keys():
-            if key not in batsurvey_gti_params:
-                batsurvey_gti_params[key] = default_params[key]
+        # Replace mandatory params into the user-provided params, ensuring that mandatory params take precedence
+        batsurvey_gti_params.update(default_params)
+        batsurvey_gti_params.update(mandatory_params)
+
+        # check the parameters and ensure they are what we need to run the task
+        batsurvey_gti_task, batsurvey_gti_params = initalize_heasoft_task("batsurvey-gti", batsurvey_gti_params, soft_fail=False)
+
 
         # print("Running batsurvey-gti with parameters:", batsurvey_gti_params)
-        batsurvey_gti_log = self.backend.run("batsurvey-gti", **batsurvey_gti_params)
+        batsurvey_gti_log = batsurvey_gti_task(**batsurvey_gti_params) #self.backend.run("batsurvey-gti", **batsurvey_gti_params)
         self.all_params["batsurvey-gti"] = batsurvey_gti_params
         self.all_logs["batsurvey-gti"] = batsurvey_gti_log
         # print(batsurvey_gti_log.stdout)
