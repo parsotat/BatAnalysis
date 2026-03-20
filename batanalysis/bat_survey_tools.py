@@ -152,7 +152,9 @@ def initalize_heasoft_task(
             hsp_task_params[key] = input_params[key]
 
     #check that the required parameters are passed in too ie no empty strings
-    missing_req_params=[i for i in hsp_task_params.keys() if len(str(hsp_task_params[i]))==0]
+    #include check that the parameters that we check dont have _opts in the name which indicate optional
+    # eg batoccultgti_opts parameter in batsurvey-gti 
+    missing_req_params=[i for i in hsp_task_params.keys() if len(str(hsp_task_params[i]))==0 and "_opts" not in i]
     if missing_req_params and not soft_fail:
         raise KeyError(f"The user supplied parameters for the {routine} task is missing these required parameters: {','.join(missing_req_params)}")
 
