@@ -780,7 +780,7 @@ class BatTools:
 
         params = self.params
         # Only pass those that are valid to this
-        baterebin_params = initalize_heasoft_task("baterebin", params)
+        _, baterebin_params = initalize_heasoft_task("baterebin", params)
 
         erebin_log = []
 
@@ -794,6 +794,10 @@ class BatTools:
         default_params["ebins"] = (
             "0-14,14-20,20-24,24-35,35-50,50-75,75-100,100-150,150-195"
         )
+
+        #update the heasoftpy task params
+        baterebin_params.update(default_params)
+
         for dph_file in self.dph_files:
             dph_file = Path(dph_file)
             mandatory_params["infile"] = str(dph_file)
@@ -808,14 +812,14 @@ class BatTools:
             mandatory_params["calfile"] = self.cal_file
 
             # Replace mandatory params into the user-provided params, ensuring that mandatory params take precedence
-            for key, value in mandatory_params.items():
-                baterebin_params[key] = value
+            baterebin_params.update(mandatory_params)
 
-            for key in default_params.keys():
-                if key not in baterebin_params:
-                    baterebin_params[key] = default_params[key]
+            #check the parameters and ensure they are what we need to run the task
+            baterebin_task, baterebin_params = initalize_heasoft_task("baterebin", baterebin_params)
+
             # print("Running baterebin with parameters:", baterebin_params)
-            erebin_log.append(self.backend.run("baterebin", **baterebin_params))
+            #erebin_log.append(self.backend.run("baterebin", **baterebin_params))
+            erebin_log.append(baterebin_task(**baterebin_params))
             # print(erebin_log[-1].stdout)
 
         erebinned = list((self.outdir / "dph").glob("*_erebin.dph"))
