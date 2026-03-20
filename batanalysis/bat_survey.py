@@ -787,6 +787,17 @@ class BatSurvey(BatObservation):
         # Then fix the stats file for any truncated data
         denote_truncated_stats_point(obsid_dir=str(self.result_dir))
 
+        #set the local pfiles dir to the resulting directory now
+        self._local_pfile_dir = self.result_dir.joinpath(".local_pfile")
+
+        # make the local pfile dir if it doesnt exist and set this value
+        self._local_pfile_dir.mkdir(parents=True, exist_ok=True)
+        try:
+            hsp.local_pfiles(pfiles_dir=str(self._local_pfile_dir))
+        except AttributeError:
+            hsp_util.local_pfiles(par_dir=str(self._local_pfile_dir))
+
+
         return batsurvey_return
 
     def _add_total_energy_image(self):

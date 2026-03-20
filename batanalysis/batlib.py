@@ -2370,7 +2370,8 @@ def met2utc(met_time, mjd_time=None):
     return atime.datetime64
 
 def convert_met_to_utc(times, invert=False):
-    """Convert a list of MET times to UTC datetime objects.
+    """
+    Convert a list of MET times to UTC datetime objects.
 
     Args:
         times: List of MET times to convert.
