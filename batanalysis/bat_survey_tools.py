@@ -976,7 +976,7 @@ class BatTools:
         #     if key not in batbinevt_params:
         #         batbinevt_params[key] = value
 
-        batbinevt_params.update(mandatory_params)
+        batbinevt_params.update(default_params)
 
         # And then replace these mandatory params into the user-provided params,
         # ensuring that mandatory params take precedence
@@ -1018,14 +1018,12 @@ class BatTools:
 
         """
         params = self.params
-        batsurvey_aspect_params = initalize_heasoft_task("batsurvey-aspect", params)
+        _, batsurvey_aspect_params = initalize_heasoft_task("batsurvey-aspect", params)
 
         mandatory_params = {}
         mandatory_params["gtifile"] = f"{gti_file}[STDGTI]"
         mandatory_params["outgtifile"] = outgti_file
 
-        for key, value in mandatory_params.items():
-            batsurvey_aspect_params[key] = value
 
         default_params = {}
         default_params["attfile"] = self.att_file
@@ -1037,14 +1035,19 @@ class BatTools:
         )
         self.pointing_info[pid]["attfile"] = default_params["outattfile"]
 
-        for key, value in default_params.items():
-            if key not in batsurvey_aspect_params:
-                batsurvey_aspect_params[key] = value
+
+        batsurvey_aspect_params.update(default_params)
+
+        batsurvey_aspect_params.update(mandatory_params)
+
+        batsurvey_aspect_task, batsurvey_aspect_params = initalize_heasoft_task("batsurvey-aspect", batsurvey_aspect_params, soft_fail=False)
+
 
         # print("Running batsurvey-aspect with parameters:", batsurvey_aspect_params)
-        batsurvey_aspect_log = self.backend.run(
-            "batsurvey-aspect", **batsurvey_aspect_params
-        )
+        #batsurvey_aspect_log = self.backend.run(
+        #    "batsurvey-aspect", **batsurvey_aspect_params
+        #)
+        batsurvey_aspect_log = batsurvey_aspect_task(**batsurvey_aspect_params)
 
         if "batsurvey-aspect" not in self.all_params:
             self.all_params["batsurvey-aspect"] = [batsurvey_aspect_params]
