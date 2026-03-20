@@ -38,6 +38,7 @@ try:
     from heasoftpy import heatools  # type: ignore
     import heasoftpy as hsp
     import heasoftpy.utils as hsp_util
+    import heasoftpy as hsp_core
     try:
         hsp.Config.allow_failure = True
     except AttributeError as e:
@@ -48,62 +49,6 @@ except ModuleNotFoundError as exc:
     ) from exc
 
 
-DEFAULT_PARAMS: Dict[str, Any] = {
-    "ncleaniter": 2,
-    "energybins": "14-20,20-24,24-35,35-50,50-75,75-100,100-150,150-195",
-    "elimits": "14-195",
-    "timesep": "SNAPSHOT",
-    "keepbits": 7,
-    "keep_sky_images": "LAST",
-    "poivarmap": "YES",
-    "pointing_check": "YES",
-    "ratemaxthresh": 12000.0,
-    "rateminthresh": 3000.0,
-    "detthresh": 22000,
-    "detthresh2": 16000,
-    "gtifile": "NONE",
-    "filtexpr": "NONE",
-    "filtnames": "all",
-    "saofiltexpr": "ELV > 30.0",
-    "stlossfcnthresh": 1.0e-9,
-    "expothresh": 150.0,
-    "timeslop": 0.0,
-    "balance": "ShortEdges,LongEdges,InOut",
-    "snrthresh": 5.0,
-    "cleansnr": 9.0,
-    "cleanexpr": "NONE",
-    "brightthresh": 0.017,
-    "pcodethresh": 0.05,
-    "bkgpcodethresh": 0.01,
-    "badpixthresh": 4.0,
-    "copy_cleaned_sources": "YES",
-    "copy_cleaned_radius": 0.008,
-    "batclean_backexp": "YES",
-    "batclean_bkgmodel": "SIMPLE",
-    "eff_area_map": "NONE",
-    "point_toler": 0.025,
-    "roll_toler": 0.083,
-    "pointerr_frac_time": 0.15,
-    "pointerr_abs_time": 35.0,
-    "min_dph_frac_overlap": 0.75,
-    "max_dph_time_nonoverlap": 40.0,
-    "aperture": "CALDB",
-    "mask_edge_aperture": "CALDB",
-    "global_pattern_map": "NONE",
-    "global_pattern_mask": "NONE",
-    "alignfile": "CALDB",
-    "pulserfile": "CALDB",
-    "fltpulserfile": "CALDB",
-    "residfile": "CALDB",
-    "baterebin_opts": "NONE",
-    "dph_pattern": "INDIR/bat/survey/sw*g????.dph*",
-    "attitude_pattern": "INDIR/auxil/sw*sat.fits*",
-    "sao_pattern": "INDIR/auxil/sw*sao.fits*",
-    "go_pattern": "INDIR/bat/hk/sw*bgocb.hk*",
-    "de_pattern": "INDIR/bat/hk/sw*bdecb.hk*",
-    "chatter": 2,
-    "bsurseq": "NONE",
-}
 SURVEY_VERSION = "6.16"
 
 ALLOWED_TASK_PARAMS: Dict[str, List[str]] = {
@@ -833,8 +778,11 @@ class BatTools:
         self.obs_id = self.indir.name
         input_dict = self.user_params
 
+        batsurvey = hsp_core.HSPTask("batsurvey")
+
+
         if input_dict is None:
-            input_dict_copy = DEFAULT_PARAMS.copy()
+            input_dict_copy = batsurvey.default_params.copy()
 
             input_dict_copy["indir"] = str(self.indir)
             input_dict_copy["outdir"] = str(self.outdir)
@@ -849,7 +797,7 @@ class BatTools:
             input_dict_copy["cleanexpr"] = "ALWAYS_CLEAN==T"
         else:
             # need to create copy of input dict so we dont overwrite it
-            input_dict_copy = DEFAULT_PARAMS.copy()
+            input_dict_copy = batsurvey.default_params.copy()
 
             # And then overwrite with the user-provided values, ensuring that
             # user-provided values take precedence over defaults
