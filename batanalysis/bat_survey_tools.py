@@ -815,7 +815,7 @@ class BatTools:
             baterebin_params.update(mandatory_params)
 
             #check the parameters and ensure they are what we need to run the task
-            baterebin_task, baterebin_params = initalize_heasoft_task("baterebin", baterebin_params)
+            baterebin_task, baterebin_params = initalize_heasoft_task("baterebin", baterebin_params, soft_fail=False)
 
             # print("Running baterebin with parameters:", baterebin_params)
             #erebin_log.append(self.backend.run("baterebin", **baterebin_params))
