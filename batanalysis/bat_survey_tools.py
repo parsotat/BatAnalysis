@@ -1450,7 +1450,7 @@ class BatTools:
             parameters a,b,c,d,e,f,g,h,z,nvectimages,wcsimage,resultname,replicate as needed.
         """
         ftimgcalc_task, ftimgcalc_params = initalize_heasoft_task("ftimgcalc", params)
-        res = ftimgcalc_task(**ftimgcalc_params)  
+        res = ftimgcalc_task(**ftimgcalc_params)
         if "ftimgcalc" not in self.all_params:
             self.all_params["ftimgcalc"] = [ftimgcalc_params]
         else:
