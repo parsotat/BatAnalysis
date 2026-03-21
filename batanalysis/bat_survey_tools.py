@@ -1144,20 +1144,18 @@ class BatTools:
         default_params["chatter"] = 2
         default_params["cleanup"] = "YES"
 
-        batsurvey_detmask_params = initalize_heasoft_task("batsurvey-detmask", params)
+        _, batsurvey_detmask_params = initalize_heasoft_task("batsurvey-detmask", params)
         # Replace mandatory params into the user-provided params, ensuring that mandatory params take precedence
-        for key, value in mandatory_params.items():
-            batsurvey_detmask_params[key] = value
+        batsurvey_detmask_params.update(mandatory_params)
 
         # And these are defaults, so if the user didnt provide them then we set them,
         # but if they did then we respect the user choice
-        for key, value in default_params.items():
-            if key not in batsurvey_detmask_params:
-                batsurvey_detmask_params[key] = value
+        batsurvey_detmask_params.update(default_params)
 
-        batsurvey_detmask_log = self.backend.run(
-            "batsurvey-detmask", **batsurvey_detmask_params
-        )
+        batsurvey_detmask_task, batsurvey_detmask_params = initalize_heasoft_task("batsurvey-detmask", batsurvey_detmask_params, soft_fail=False)
+
+
+        batsurvey_detmask_log = batsurvey_detmask_task(**batsurvey_detmask_params)
         # print(batsurvey_detmask_log.stdout)
         if "batsurvey-detmask" not in self.all_params:
             self.all_params["batsurvey-detmask"] = [batsurvey_detmask_params]
