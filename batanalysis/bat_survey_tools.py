@@ -1189,18 +1189,16 @@ class BatTools:
         defaults_params["maskfit"] = "YES"
         defaults_params["clobber"] = "YES"
 
-        batclean_params = initalize_heasoft_task("batclean", params)
+        _, batclean_params = initalize_heasoft_task("batclean", params)
 
         # Overwrite mandatory params
-        for key, value in mandatory_params.items():
-            batclean_params[key] = value
+        batclean_params.update(mandatory_params)
+        batclean_params.update(defaults_params)
 
-        for key, value in defaults_params.items():
-            if key not in batclean_params:
-                batclean_params[key] = value
+        batclean_task, batclean_params = initalize_heasoft_task("batclean", batclean_params, soft_fail=False)
 
         # print("Running batclean with parameters:", batclean_params)
-        batclean_log = self.backend.run("batclean", **batclean_params)
+        batclean_log = batclean_task(**batclean_params)
         # print(batclean_log.stdout)
         if "batclean" not in self.all_params:
             self.all_params["batclean"] = [batclean_params]
