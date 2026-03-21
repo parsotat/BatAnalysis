@@ -780,14 +780,6 @@ class BatTools:
             Only valid parameters will be used.
         """
 
-        params = self.params
-        # Only pass those that are valid to this
-        _, baterebin_params = initalize_heasoft_task("baterebin", params)
-
-        erebin_log = []
-
-        mandatory_params = {}
-
         default_params = {}
         default_params["residfile"] = "CALDB"
         default_params["pulserfile"] = "CALDB"
@@ -797,8 +789,15 @@ class BatTools:
             "0-14,14-20,20-24,24-35,35-50,50-75,75-100,100-150,150-195"
         )
 
-        #update the heasoftpy task params
-        baterebin_params.update(default_params)
+        #update the default params with those values that the user supplied and all others
+        params = default_params | self.params
+
+        # Only pass those that are valid to this
+        _, baterebin_params = initalize_heasoft_task("baterebin", params)
+
+        erebin_log = []
+
+        mandatory_params = {}
 
         for dph_file in self.dph_files:
             dph_file = Path(dph_file)
@@ -859,14 +858,6 @@ class BatTools:
 
     def batsurvey_gti(self, params: Dict[str, Any]):
 
-        params = self.params
-        _, batsurvey_gti_params = initalize_heasoft_task("batsurvey-gti", params)
-
-        mandatory_params = {}
-        mandatory_params["indir"] = str(self.indir)
-        mandatory_params["dphfiles"] = f"@{self.esurvey_lis}"
-        mandatory_params["outdir"] = str(self.outdir / "gti")
-
         default_params = {}
 
         default_params["sepdph"] = "NO"
@@ -881,8 +872,17 @@ class BatTools:
         default_params["dphfiltexpr"] = "DATA_FLAGS == 0"
         default_params["gtifile"] = "NONE"
 
+        #merge the user provided parameters with the default from above with the user values taking precedence
+        params = default_params | self.params
+        _, batsurvey_gti_params = initalize_heasoft_task("batsurvey-gti", params)
+
+        mandatory_params = {}
+        mandatory_params["indir"] = str(self.indir)
+        mandatory_params["dphfiles"] = f"@{self.esurvey_lis}"
+        mandatory_params["outdir"] = str(self.outdir / "gti")
+
+
         # Replace mandatory params into the user-provided params, ensuring that mandatory params take precedence
-        batsurvey_gti_params.update(default_params)
         batsurvey_gti_params.update(mandatory_params)
 
         # check the parameters and ensure they are what we need to run the task
@@ -919,7 +919,6 @@ class BatTools:
         for point_name in self.pointing_info.keys():
             point_dir = self.pointing_info[point_name]["dir"]
             pnt0 = point_dir / f"{point_name}_pnt0.gti"
-            pnt0 = point_dir / f"{point_name}_pnt0.gti"
             master = self.outdir / "gti" / "master.gti"
             igtirow = int(self.pointing_info[point_name]["igtirow"])
             timeslop = float(self.params.get("timeslop", 0.0))
@@ -950,15 +949,6 @@ class BatTools:
             params: Dictionary of parameters to override defaults for this step. Only valid parameters will be used.
 
         """
-        params = self.params
-        # Only pass those that are valid to this
-        _, batbinevt_params = initalize_heasoft_task("batbinevt", params)
-
-        mandatory_params = {}
-        mandatory_params["infile"] = infile
-        mandatory_params["outfile"] = outfile
-        mandatory_params["gtifile"] = gtifile
-
         # And these are defaults, so if the user didnt provide them then we set them,
         # but if they did then we respect the user choice
         default_params = {
@@ -970,19 +960,21 @@ class BatTools:
             "min_dph_frac_overlap": 0.75,
             "max_dph_time_nonoverlap": 40,
         }
-        #TODO: figure out the best logic for this since initalize_heasoft_task populates this with the default values from
-        # heasoft and the keys will always be there
-        # for key, value in default_params.items():
-        #     if key not in batbinevt_params:
-        #         batbinevt_params[key] = value
 
-        batbinevt_params.update(default_params)
+        params = default_params | self.params
+
+        # Only pass those that are valid to this
+        _, batbinevt_params = initalize_heasoft_task("batbinevt", params)
+
+        mandatory_params = {}
+        mandatory_params["infile"] = infile
+        mandatory_params["outfile"] = outfile
+        mandatory_params["gtifile"] = gtifile
+
 
         # And then replace these mandatory params into the user-provided params,
         # ensuring that mandatory params take precedence
         batbinevt_params.update(mandatory_params)
-
-
 
         batbinevt_task, batbinevt_params = initalize_heasoft_task("batbinevt", batbinevt_params, soft_fail=False)
 
@@ -1017,13 +1009,6 @@ class BatTools:
             params: Dictionary of parameters to override defaults for this step. Only valid parameters will be used.
 
         """
-        params = self.params
-        _, batsurvey_aspect_params = initalize_heasoft_task("batsurvey-aspect", params)
-
-        mandatory_params = {}
-        mandatory_params["gtifile"] = f"{gti_file}[STDGTI]"
-        mandatory_params["outgtifile"] = outgti_file
-
 
         default_params = {}
         default_params["attfile"] = self.att_file
@@ -1035,8 +1020,15 @@ class BatTools:
         )
         self.pointing_info[pid]["attfile"] = default_params["outattfile"]
 
+        #merge the default params dict and user supplied params, allowing user supplied to overwrite anything in the
+        #default_params
+        params = default_params | self.params
 
-        batsurvey_aspect_params.update(default_params)
+        _, batsurvey_aspect_params = initalize_heasoft_task("batsurvey-aspect", params)
+
+        mandatory_params = {}
+        mandatory_params["gtifile"] = f"{gti_file}[STDGTI]"
+        mandatory_params["outgtifile"] = outgti_file
 
         batsurvey_aspect_params.update(mandatory_params)
 
@@ -1057,10 +1049,13 @@ class BatTools:
             self.all_logs["batsurvey-aspect"] = [batsurvey_aspect_log]
         else:
             self.all_logs["batsurvey-aspect"].append(batsurvey_aspect_log)
-
+        print("batsurvey_aspect:", batsurvey_aspect_task)
         expotot = float(batsurvey_aspect_log.params.get("expotot"))
+        print("batsurvey_aspect expotot:",expotot)
 
         expobad = float(batsurvey_aspect_log.params.get("expobad"))
+        print("batsurvey_aspect expobad:",expobad)
+
         med_ra = float(batsurvey_aspect_log.params.get("med_ra"))
         med_dec = float(batsurvey_aspect_log.params.get("med_dec"))
         med_roll = float(batsurvey_aspect_log.params.get("med_roll"))
@@ -1099,12 +1094,15 @@ class BatTools:
         fimgstat_task, fimgstat_params = initalize_heasoft_task("fimgstat", fimgstat_params, soft_fail=False)
 
         hsp_return=fimgstat_task(**fimgstat_params)
+        print("fimgstat:",hsp_return)
 
         dmin = float(hsp_return.params.get("min") or 0)
-
         dmax = float(hsp_return.params.get("max") or 0)
 
         dsum = float(hsp_return.params.get("sum") or 0)
+
+        print("fimgstat:", dmin, dmax, dsum)
+
         return dmin, dmax, dsum
 
     def batsurvey_detmask(
@@ -1144,16 +1142,16 @@ class BatTools:
         default_params["chatter"] = 2
         default_params["cleanup"] = "YES"
 
-        _, batsurvey_detmask_params = initalize_heasoft_task("batsurvey-detmask", params)
+        # And these are defaults, so if the user didnt provide them then we set them,
+        # but if they did then we respect the user choice
+        merged_params=default_params|params
+
+        _, batsurvey_detmask_params = initalize_heasoft_task("batsurvey-detmask", merged_params)
+
         # Replace mandatory params into the user-provided params, ensuring that mandatory params take precedence
         batsurvey_detmask_params.update(mandatory_params)
 
-        # And these are defaults, so if the user didnt provide them then we set them,
-        # but if they did then we respect the user choice
-        batsurvey_detmask_params.update(default_params)
-
         batsurvey_detmask_task, batsurvey_detmask_params = initalize_heasoft_task("batsurvey-detmask", batsurvey_detmask_params, soft_fail=False)
-
 
         batsurvey_detmask_log = batsurvey_detmask_task(**batsurvey_detmask_params)
         # print(batsurvey_detmask_log.stdout)
@@ -1189,11 +1187,12 @@ class BatTools:
         defaults_params["maskfit"] = "YES"
         defaults_params["clobber"] = "YES"
 
-        _, batclean_params = initalize_heasoft_task("batclean", params)
+        merged_params = defaults_params | params
+
+        _, batclean_params = initalize_heasoft_task("batclean", merged_params)
 
         # Overwrite mandatory params
         batclean_params.update(mandatory_params)
-        batclean_params.update(defaults_params)
 
         batclean_task, batclean_params = initalize_heasoft_task("batclean", batclean_params, soft_fail=False)
 
@@ -1247,12 +1246,12 @@ class BatTools:
         defaults_params["keepbits"] = "7"
         defaults_params["bkgvartype"] = "STDDEV"
 
-        _, batfftimage_params = initalize_heasoft_task("batfftimage", params)
+        merged_params= defaults_params | params
+
+        _, batfftimage_params = initalize_heasoft_task("batfftimage", merged_params)
 
         # Overwrite mandatory params
         batfftimage_params.update(mandatory_params)
-        batfftimage_params.update(defaults_params)
-
 
         batfftimage_task, batfftimage_params = initalize_heasoft_task("batfftimage", batfftimage_params, soft_fail=False)
 
@@ -1295,14 +1294,14 @@ class BatTools:
         )
         default_params["clobber"] = "YES"
 
-        _, batoccultmap_params = initalize_heasoft_task("batoccultmap", params)
+        merged_params= default_params | params
+
+        _, batoccultmap_params = initalize_heasoft_task("batoccultmap", merged_params)
 
         # Replace mandatory params into the user-provided params, ensuring that mandatory params take precedence
         batoccultmap_params.update(mandatory_params)
-        batoccultmap_params.update(default_params)
 
         batoccultmap_task, batoccultmap_params = initalize_heasoft_task("batoccultmap", batoccultmap_params)
-
 
         batoccultmap_log = batoccultmap_task(**batoccultmap_params)
         # print(batoccultmap_log.stdout)
@@ -1353,14 +1352,14 @@ class BatTools:
         defaults_params["posfluxfit"] = "NO"
         defaults_params["keepkeywords"] = "*APP,OBS_ID,IMAGE_ID,RA_PNT,DEC_PNT,PA_PNT"
 
-        _, batcelldetect_params = initalize_heasoft_task("batcelldetect", params)
+        merged_params = defaults_params | params
+
+        _, batcelldetect_params = initalize_heasoft_task("batcelldetect", merged_params)
 
         # Replace mandatory params into the user-provided params, ensuring that mandatory params take precedence
         batcelldetect_params.update(mandatory_params)
-        batcelldetect_params = defaults_params | batcelldetect_params
 
         batcelldetect_task, batcelldetect_params = initalize_heasoft_task("batcelldetect", batcelldetect_params, soft_fail=False)
-
 
         # print("Running batcelldetect with parameters:", batcelldetect_params)
         batcelldetect_log = batcelldetect_task(**batcelldetect_params)
@@ -1420,11 +1419,13 @@ class BatTools:
         default_params["outtype"] = "NONZERO"
         default_params["clobber"] = "YES"
 
-        _, batmaskwtimg_params = initalize_heasoft_task("batmaskwtimg", params)
+        merged_params = default_params | params
+
+
+        _, batmaskwtimg_params = initalize_heasoft_task("batmaskwtimg", merged_params)
 
         # Replace mandatory params into the user-provided params, ensuring that mandatory params take precedence
         batmaskwtimg_params.update(mandatory_params)
-        batmaskwtimg_params = default_params | batmaskwtimg_params
 
         batmaskwtimg_task, batmaskwtimg_params = initalize_heasoft_task("batmaskwtimg", batmaskwtimg_params, soft_fail=False)
 
@@ -2301,6 +2302,8 @@ class BatTools:
             expo = float(fits.getval(dpi1, "EXPOSURE", ext=1))
         except Exception:
             expo = float(expo) if expo else 0.0
+
+        #TODO: figure out how to replace this subprocess check
         ndets = int(
             49478
             - float(
