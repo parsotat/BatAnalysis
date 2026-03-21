@@ -1247,16 +1247,16 @@ class BatTools:
         defaults_params["keepbits"] = "7"
         defaults_params["bkgvartype"] = "STDDEV"
 
-        batfftimage_params = initalize_heasoft_task("batfftimage", params)
+        _, batfftimage_params = initalize_heasoft_task("batfftimage", params)
 
         # Overwrite mandatory params
-        for key, value in mandatory_params.items():
-            batfftimage_params[key] = value
+        batfftimage_params.update(mandatory_params)
+        batfftimage_params.update(defaults_params)
 
-        for key, value in defaults_params.items():
-            if key not in batfftimage_params:
-                batfftimage_params[key] = value
-        batfftimage_log = self.backend.run("batfftimage", **batfftimage_params)
+
+        batfftimage_task, batfftimage_params = initalize_heasoft_task("batfftimage", batfftimage_params, soft_fail=False)
+
+        batfftimage_log = batfftimage_task(**batfftimage_params)
         # print(batfftimage_log.stdout)
         if "batfftimage" not in self.all_params:
             self.all_params["batfftimage"] = [batfftimage_params]
