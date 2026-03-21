@@ -1353,17 +1353,17 @@ class BatTools:
         defaults_params["posfluxfit"] = "NO"
         defaults_params["keepkeywords"] = "*APP,OBS_ID,IMAGE_ID,RA_PNT,DEC_PNT,PA_PNT"
 
-        batcelldetect_params = initalize_heasoft_task("batcelldetect", params)
+        _, batcelldetect_params = initalize_heasoft_task("batcelldetect", params)
 
         # Replace mandatory params into the user-provided params, ensuring that mandatory params take precedence
-        for key, value in mandatory_params.items():
-            batcelldetect_params[key] = value
+        batcelldetect_params.update(mandatory_params)
+        batcelldetect_params = defaults_params | batcelldetect_params
 
-        for key, value in defaults_params.items():
-            if key not in batcelldetect_params:
-                batcelldetect_params[key] = value
+        batcelldetect_task, batcelldetect_params = initalize_heasoft_task("batcelldetect", batcelldetect_params, soft_fail=False)
+
+
         # print("Running batcelldetect with parameters:", batcelldetect_params)
-        batcelldetect_log = self.backend.run("batcelldetect", **batcelldetect_params)
+        batcelldetect_log = batcelldetect_task(**batcelldetect_params)
         # print(batcelldetect_log.stdout)
         if "batcelldetect" not in self.all_params:
             self.all_params["batcelldetect"] = [batcelldetect_params]
@@ -1420,17 +1420,16 @@ class BatTools:
         default_params["outtype"] = "NONZERO"
         default_params["clobber"] = "YES"
 
-        batmaskwtimg_params = initalize_heasoft_task("batmaskwtimg", params)
+        _, batmaskwtimg_params = initalize_heasoft_task("batmaskwtimg", params)
 
         # Replace mandatory params into the user-provided params, ensuring that mandatory params take precedence
-        for key, value in mandatory_params.items():
-            batmaskwtimg_params[key] = value
+        batmaskwtimg_params.update(mandatory_params)
+        batmaskwtimg_params = default_params | batmaskwtimg_params
 
-        for key, value in default_params.items():
-            if key not in batmaskwtimg_params:
-                batmaskwtimg_params[key] = value
+        batmaskwtimg_task, batmaskwtimg_params = initalize_heasoft_task("batmaskwtimg", batmaskwtimg_params, soft_fail=False)
 
-        batmaskwtimg_log = self.backend.run("batmaskwtimg", **batmaskwtimg_params)
+
+        batmaskwtimg_log = batmaskwtimg_task(**batmaskwtimg_params)
         if "batmaskwtimg" not in self.all_params:
             self.all_params["batmaskwtimg"] = [batmaskwtimg_params]
         else:
@@ -1450,10 +1449,8 @@ class BatTools:
             expression to calculate, and any of the optional
             parameters a,b,c,d,e,f,g,h,z,nvectimages,wcsimage,resultname,replicate as needed.
         """
-        ftimgcalc_params = initalize_heasoft_task("ftimgcalc", params)
-        res = self.backend.run(
-            "ftimgcalc", **ftimgcalc_params
-        )  # hsp.ftimgcalc(**ftimgcalc_params)
+        ftimgcalc_task, ftimgcalc_params = initalize_heasoft_task("ftimgcalc", params)
+        res = ftimgcalc_task(**ftimgcalc_params)  
         if "ftimgcalc" not in self.all_params:
             self.all_params["ftimgcalc"] = [ftimgcalc_params]
         else:
