@@ -1058,36 +1058,12 @@ class BatTools:
         else:
             self.all_logs["batsurvey-aspect"].append(batsurvey_aspect_log)
 
-        expotot = float(
-            subprocess.check_output(
-                "pget batsurvey-aspect expotot", shell=True, text=True
-            ).strip()
-            or 0
-        )
-        expobad = float(
-            subprocess.check_output(
-                "pget batsurvey-aspect expobad", shell=True, text=True
-            ).strip()
-            or 0
-        )
-        med_ra = float(
-            subprocess.check_output(
-                "pget batsurvey-aspect med_ra", shell=True, text=True
-            ).strip()
-            or -999
-        )
-        med_dec = float(
-            subprocess.check_output(
-                "pget batsurvey-aspect med_dec", shell=True, text=True
-            ).strip()
-            or -999
-        )
-        med_roll = float(
-            subprocess.check_output(
-                "pget batsurvey-aspect med_roll", shell=True, text=True
-            ).strip()
-            or -999
-        )
+        expotot = float(batsurvey_aspect_log.params.get("expotot"))
+
+        expobad = float(batsurvey_aspect_log.params.get("expobad"))
+        med_ra = float(batsurvey_aspect_log.params.get("med_ra"))
+        med_dec = float(batsurvey_aspect_log.params.get("med_dec"))
+        med_roll = float(batsurvey_aspect_log.params.get("med_roll"))
 
         pnt = finalgti_file
         use_pnt = outgti_file
