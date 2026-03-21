@@ -752,22 +752,22 @@ class BatSurvey(BatObservation):
         # when working with truncated data
         if self.use_independent_modules:
             # Then import the BatTools module and run it using that
-            #try:
-            batsurvey_return = BatTools(
-                indir=input_dict["indir"],
-                outdir=input_dict["outdir"],
-                params=input_dict,
-                truncated=self.truncated,
-            )
-            if batsurvey_return.success:
-                print("Successfully reduced the survey data.")
+            try:
+                batsurvey_return = BatTools(
+                    indir=input_dict["indir"],
+                    outdir=input_dict["outdir"],
+                    params=input_dict,
+                    truncated=self.truncated,
+                )
+                if batsurvey_return.success:
+                    print("Successfully reduced the survey data.")
 
-                # The backend will cause pickle to fail, so set it to none before starting
-            batsurvey_return.backend = None
-            #except Exception as e:
-            raise ValueError(
-                f"An error occurred while running the independent modules of batsurvey: {str(e)}"
-            )
+                    # The backend will cause pickle to fail, so set it to none before starting
+                batsurvey_return.backend = None
+            except Exception as e:
+                raise ValueError(
+                    f"An error occurred while running the independent modules of batsurvey: {str(e)}"
+                )
             # This will handle error warnings and will also patch the results if there is truncated data
         else:
             try:
