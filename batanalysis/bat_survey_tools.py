@@ -1088,32 +1088,23 @@ class BatTools:
             "clobber": "YES",
         }
 
-        fimgstat_params = initalize_heasoft_task("fimgstat", params)
-        for key, value in defaults.items():
-            if key not in fimgstat_params:
-                fimgstat_params[key] = value
+        #get the merged dictionary of params, where the user supplied parameters override these defaults
+        merged_params=defaults | params
 
-        hsp.fimgstat(
-            infile=infile,
-            threshlo=fimgstat_params["threshlo"],
-            threshup=fimgstat_params["threshup"],
-            min=fimgstat_params["min"],
-            max=fimgstat_params["max"],
-            clobber=fimgstat_params["clobber"],
-        )
+        _, fimgstat_params = initalize_heasoft_task("fimgstat", merged_params)
 
-        dmin = float(
-            subprocess.check_output("pget fimgstat min", shell=True, text=True).strip()
-            or 0
-        )
-        dmax = float(
-            subprocess.check_output("pget fimgstat max", shell=True, text=True).strip()
-            or 0
-        )
-        dsum = float(
-            subprocess.check_output("pget fimgstat sum", shell=True, text=True).strip()
-            or 0
-        )
+        fimgstat_params["infile"]=infile
+
+        #do this again to get the task
+        fimgstat_task, fimgstat_params = initalize_heasoft_task("fimgstat", fimgstat_params, soft_fail=False)
+
+        hsp_return=fimgstat_task(**fimgstat_params)
+
+        dmin = float(hsp_return.params.get("min") or 0)
+
+        dmax = float(hsp_return.params.get("max") or 0)
+
+        dsum = float(hsp_return.params.get("sum") or 0)
         return dmin, dmax, dsum
 
     def batsurvey_detmask(
