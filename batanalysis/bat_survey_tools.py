@@ -1295,16 +1295,16 @@ class BatTools:
         )
         default_params["clobber"] = "YES"
 
-        batoccultmap_params = initalize_heasoft_task("batoccultmap", params)
+        _, batoccultmap_params = initalize_heasoft_task("batoccultmap", params)
 
         # Replace mandatory params into the user-provided params, ensuring that mandatory params take precedence
-        for key, value in mandatory_params.items():
-            batoccultmap_params[key] = value
+        batoccultmap_params.update(mandatory_params)
+        batoccultmap_params.update(default_params)
 
-        for key, value in default_params.items():
-            if key not in batoccultmap_params:
-                batoccultmap_params[key] = value
-        batoccultmap_log = self.backend.run("batoccultmap", **batoccultmap_params)
+        batoccultmap_task, batoccultmap_params = initalize_heasoft_task("batoccultmap", batoccultmap_params)
+
+
+        batoccultmap_log = batoccultmap_task(**batoccultmap_params)
         # print(batoccultmap_log.stdout)
         if "batoccultmap" not in self.all_params:
             self.all_params["batoccultmap"] = [batoccultmap_params]
