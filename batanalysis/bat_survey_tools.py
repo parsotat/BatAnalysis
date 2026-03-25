@@ -23,6 +23,7 @@ import time
 import copy
 import glob
 import json
+import os
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
@@ -130,33 +131,34 @@ def initalize_heasoft_task(
     Raises:
         KeyError if unknown parameters are present and soft_fail=False.
     """
-    try:
-        hsp_task=hsp_core.HSPTask(routine)
-        hsp_task_params=hsp_task.default_params
-    except hsp_core.HSPTaskException as e:
-        raise AttributeError(
-            f"The requested routine '{routine}' is not found. Please check the name."
-        )
+    with hsp_util.local_pfiles_context():
+        try:
+            hsp_task=hsp_core.HSPTask(routine)
+            hsp_task_params=hsp_task.default_params
+        except hsp_core.HSPTaskException as e:
+            raise AttributeError(
+                f"The requested routine '{routine}' is not found. Please check the name."
+            )
 
-    allowed = [k for k in input_params.keys() if k in hsp_task_params.keys()]
-    not_allowed = [k for k in input_params.keys() if k not in hsp_task_params.keys()]
-    if not_allowed and not soft_fail:
-        raise KeyError(
-            f"Invalid parameter(s) for '{routine}': {not_allowed}. "
-            f"Allowed parameters are: {sorted(hsp_task_params.keys())}"
-        )
+        allowed = [k for k in input_params.keys() if k in hsp_task_params.keys()]
+        not_allowed = [k for k in input_params.keys() if k not in hsp_task_params.keys()]
+        if not_allowed and not soft_fail:
+            raise KeyError(
+                f"Invalid parameter(s) for '{routine}': {not_allowed}. "
+                f"Allowed parameters are: {sorted(hsp_task_params.keys())}"
+            )
 
-    #determine the parameters that go into this task's parameter dict from what the user provided
-    for key in hsp_task_params.keys():
-        if key in input_params.keys():
-            hsp_task_params[key] = input_params[key]
+        #determine the parameters that go into this task's parameter dict from what the user provided
+        for key in hsp_task_params.keys():
+            if key in input_params.keys():
+                hsp_task_params[key] = input_params[key]
 
-    #check that the required parameters are passed in too ie no empty strings
-    #include check that the parameters that we check dont have _opts in the name which indicate optional
-    # eg batoccultgti_opts parameter in batsurvey-gti
-    missing_req_params=[i for i in hsp_task_params.keys() if len(str(hsp_task_params[i]))==0 and "_opts" not in i]
-    if missing_req_params and not soft_fail:
-        raise KeyError(f"The user supplied parameters for the {routine} task is missing these required parameters: {','.join(missing_req_params)}")
+        #check that the required parameters are passed in too ie no empty strings
+        #include check that the parameters that we check dont have _opts in the name which indicate optional
+        # eg batoccultgti_opts parameter in batsurvey-gti
+        missing_req_params=[i for i in hsp_task_params.keys() if len(str(hsp_task_params[i]))==0 and "_opts" not in i]
+        if missing_req_params and not soft_fail:
+            raise KeyError(f"The user supplied parameters for the {routine} task is missing these required parameters: {','.join(missing_req_params)}")
 
     return hsp_task, hsp_task_params
 
@@ -790,10 +792,19 @@ class BatTools:
         )
 
         #update the default params with those values that the user supplied and all others
-        params = default_params | self.params
+        #there seems to be a bug with the default parameters that are accessed in heasoftpy  as of v 1.5
+        # for residfile, pulserfile, fltpulserfile beign set to INDEF, if this is the case they should be set to
+        # CALDB ie take on the defaults here
+        if self.params["residfile"].upper() == "INDEF":
+            params = self.params | default_params
+        else:
+            params = default_params | self.params
 
         # Only pass those that are valid to this
         _, baterebin_params = initalize_heasoft_task("baterebin", params)
+
+        print(self.params, default_params, params, baterebin_params)
+
 
         erebin_log = []
 
@@ -818,7 +829,7 @@ class BatTools:
             #check the parameters and ensure they are what we need to run the task
             baterebin_task, baterebin_params = initalize_heasoft_task("baterebin", baterebin_params, soft_fail=False)
 
-            # print("Running baterebin with parameters:", baterebin_params)
+            print("Running baterebin with parameters:", baterebin_params)
             #erebin_log.append(self.backend.run("baterebin", **baterebin_params))
             erebin_log.append(baterebin_task(**baterebin_params))
             # print(erebin_log[-1].stdout)
@@ -1050,15 +1061,15 @@ class BatTools:
         else:
             self.all_logs["batsurvey-aspect"].append(batsurvey_aspect_log)
         print("batsurvey_aspect:", batsurvey_aspect_task)
-        expotot = float(batsurvey_aspect_log.params.get("expotot"))
+        expotot = float(batsurvey_aspect_task.expotot.value)
         print("batsurvey_aspect expotot:",expotot)
 
-        expobad = float(batsurvey_aspect_log.params.get("expobad"))
+        expobad = float(batsurvey_aspect_task.expobad.value)
         print("batsurvey_aspect expobad:",expobad)
 
-        med_ra = float(batsurvey_aspect_log.params.get("med_ra"))
-        med_dec = float(batsurvey_aspect_log.params.get("med_dec"))
-        med_roll = float(batsurvey_aspect_log.params.get("med_roll"))
+        med_ra = float(batsurvey_aspect_task.med_ra.value)
+        med_dec = float(batsurvey_aspect_task.med_dec.value)
+        med_roll = float(batsurvey_aspect_task.med_roll.value)
 
         pnt = finalgti_file
         use_pnt = outgti_file
@@ -1096,10 +1107,10 @@ class BatTools:
         hsp_return=fimgstat_task(**fimgstat_params)
         print("fimgstat:",hsp_return)
 
-        dmin = float(hsp_return.params.get("min") or 0)
-        dmax = float(hsp_return.params.get("max") or 0)
+        dmin = float(fimgstat_task.min.value or 0)
+        dmax = float(fimgstat_task.max.value or 0)
 
-        dsum = float(hsp_return.params.get("sum") or 0)
+        dsum = float(fimgstat_task.sum.value or 0)
 
         print("fimgstat:", dmin, dmax, dsum)
 
@@ -1154,7 +1165,7 @@ class BatTools:
         batsurvey_detmask_task, batsurvey_detmask_params = initalize_heasoft_task("batsurvey-detmask", batsurvey_detmask_params, soft_fail=False)
 
         batsurvey_detmask_log = batsurvey_detmask_task(**batsurvey_detmask_params)
-        # print(batsurvey_detmask_log.stdout)
+        print("batsurvey_detmask:", batsurvey_detmask_log)
         if "batsurvey-detmask" not in self.all_params:
             self.all_params["batsurvey-detmask"] = [batsurvey_detmask_params]
         else:
@@ -1450,7 +1461,10 @@ class BatTools:
             expression to calculate, and any of the optional
             parameters a,b,c,d,e,f,g,h,z,nvectimages,wcsimage,resultname,replicate as needed.
         """
+
         ftimgcalc_task, ftimgcalc_params = initalize_heasoft_task("ftimgcalc", params)
+
+        print("ftimgcalc", params, ftimgcalc_params)
         res = ftimgcalc_task(**ftimgcalc_params)
         if "ftimgcalc" not in self.all_params:
             self.all_params["ftimgcalc"] = [ftimgcalc_params]
@@ -1481,6 +1495,15 @@ class BatTools:
         Direct port of the "cheesemap" logic.
         Uses ftimgcalc iteratively to avoid long command lines, same as Perl.
         """
+        current_dir=Path().cwd()
+        img_dir=Path(img).parent
+
+        if str(img_dir) != str(current_dir):
+            os.chdir(img_dir)
+
+        if not Path(img).exists():
+            FileNotFoundError(f"The file {img} doesnt seem to exist.")
+        stop
         try:
             with fits.open(prevcat, mode="readonly") as hdul:
                 tab = None
@@ -1537,30 +1560,40 @@ class BatTools:
             if Path(cheesemap1).exists():
                 Path(cheesemap1).unlink(missing_ok=True)
 
+            if not Path(img).exists():
+                FileNotFoundError(f"The file {img} doesnt seem to exist.")
+
+
         if Path(cheesemap).exists():
-            oldimg = img + ".orig"
+            oldimg = img + ".o"
             if Path(img).exists():
                 shutil.move(img, oldimg)
+            else:
+                FileNotFoundError(f"The file {img} doesnt seem to exist.")
 
-            self.ftimgcalc(
+            out=self.ftimgcalc(
                 params={
-                    "outfile": img,
-                    "expr": "(CHEESE>0)?(OLD):(NEW)",
-                    "a": f"NEW={str(oldimg)}",
-                    "b": f"CHEESE={str(cheesemap)}",
-                    "c": f"OLD={str(previmg)}",
+                    "outfile": str(img),
+                    "expr": '"(CHEESE>0)?(OLD):(NEW)"',
+                    "a": f'"NEW={str(oldimg)}"',
+                    "b": f'"CHEESE={str(cheesemap)}"',
+                    "c": f'"OLD={str(previmg)}"',
                     "clobber": "YES",
                     "replicate": "YES",
-                    "bunit": ":NEW",
-                    "wcsimage": ":NEW",
+                    "bunit": '":NEW"',
+                    "wcsimage": '":NEW"',
                     "nvectimages": nebins,
-                    "otherext": "+NEW",
+                    "otherext": '"+NEW"',
                     "bitpix": "E",
                     "resultname": "BAT_IMAGE",
                 }
             )
 
             Path(oldimg).unlink(missing_ok=True)
+
+        # cd back
+        if str(img_dir) != str(current_dir):
+            os.chdir(current_dir)
 
     def _bright_source_filtering(
         self,
@@ -2303,7 +2336,7 @@ class BatTools:
         except Exception:
             expo = float(expo) if expo else 0.0
 
-        #TODO: figure out how to replace this subprocess check
+        #TODO: figure out how to replace this subprocess check, maybe this does the same thing as ndet above
         ndets = int(
             49478
             - float(
@@ -2516,7 +2549,7 @@ class BatTools:
                 self.pntstat(
                     pid, desc="success", code="ok", ndets=s.ndets, exposure=s.exposure
                 )
-            except Exception as exc:
+            except ValueError as exc: #Exception as exc:
                 self.pntstat(pid, code="failed", desc=str(exc))
                 s = self._build_fail_pointstats(pid, -999.0, -999.0, -999.0)
                 raise ValueError(
