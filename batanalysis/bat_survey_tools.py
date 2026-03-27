@@ -79,40 +79,6 @@ class _PointStats:
     bkg_counts: List[float] = field(default_factory=list)
 
 
-class HeasoftPyBackend:
-    def __init__(self) -> None:
-
-        self._hsp = hsp
-        self._heatools = heatools
-
-    @staticmethod
-    def _normalize_names(task_name: str) -> List[str]:
-        return [task_name, task_name.replace("-", "_"), task_name.replace("_", "-")]
-
-    def _resolve_callable(self, task_name: str):
-        for name in self._normalize_names(task_name):
-            if hasattr(self._hsp, name):
-                return getattr(self._hsp, name)
-            if hasattr(self._heatools, name):
-                return getattr(self._heatools, name)
-        raise AttributeError(
-            f"Task '{task_name}' not found in heasoftpy.swift/heatools"
-        )
-
-    def run(self, task_name: str, **params: Any) -> ToolResult:
-        func = self._resolve_callable(task_name)
-        out = func(**params)
-        # return ToolResult(
-        #     task=task_name,
-        #     params=dict(params),
-        #     returncode=getattr(out, "returncode", 0),
-        #     stdout=getattr(out, "stdout", ""),
-        #     stderr=getattr(out, "stderr", ""),
-        #     raw=out,
-        # )
-        return getattr(out, "stdout", "")
-
-
 def initalize_heasoft_task(
     routine: str,
     input_params: Dict[str, Any],
@@ -213,7 +179,6 @@ class BatTools:
         except AttributeError:
             hsp_util.local_pfiles(par_dir=str(self._local_pfile_dir))
 
-        self.backend = HeasoftPyBackend()
         self._get_survey_parameters()
         self._init_paths()
         self._get_pattern_noise_maps()
@@ -832,7 +797,6 @@ class BatTools:
             baterebin_task, baterebin_params = initalize_heasoft_task("baterebin", baterebin_params, soft_fail=False)
 
             print("Running baterebin with parameters:", baterebin_params)
-            #erebin_log.append(self.backend.run("baterebin", **baterebin_params))
             erebin_log.append(baterebin_task(**baterebin_params))
             # print(erebin_log[-1].stdout)
 
@@ -903,7 +867,7 @@ class BatTools:
 
 
         # print("Running batsurvey-gti with parameters:", batsurvey_gti_params)
-        batsurvey_gti_log = batsurvey_gti_task(**batsurvey_gti_params) #self.backend.run("batsurvey-gti", **batsurvey_gti_params)
+        batsurvey_gti_log = batsurvey_gti_task(**batsurvey_gti_params)
         self.all_params["batsurvey-gti"] = batsurvey_gti_params
         self.all_logs["batsurvey-gti"] = batsurvey_gti_log
         # print(batsurvey_gti_log.stdout)
@@ -992,7 +956,7 @@ class BatTools:
         batbinevt_task, batbinevt_params = initalize_heasoft_task("batbinevt", batbinevt_params, soft_fail=False)
 
         # print("Running batbinevt with parameters:", batbinevt_params)
-        batbinevtlog = batbinevt_task(**batbinevt_params) #self.backend.run("batbinevt", **batbinevt_params)
+        batbinevtlog = batbinevt_task(**batbinevt_params)
         # print(batbinevtlog.stdout)
         if "batbinevt" not in self.all_params:
             self.all_params["batbinevt"] = [batbinevt_params]
@@ -1049,9 +1013,6 @@ class BatTools:
 
 
         # print("Running batsurvey-aspect with parameters:", batsurvey_aspect_params)
-        #batsurvey_aspect_log = self.backend.run(
-        #    "batsurvey-aspect", **batsurvey_aspect_params
-        #)
         batsurvey_aspect_log = batsurvey_aspect_task(**batsurvey_aspect_params)
 
         if "batsurvey-aspect" not in self.all_params:
@@ -1468,13 +1429,6 @@ class BatTools:
 
         print("ftimgcalc", params, ftimgcalc_params)
         res = ftimgcalc_task(**ftimgcalc_params)
-
-        #res = self.backend.run(
-        #    "ftimgcalc", **ftimgcalc_params
-        #)
-
-        #result=subprocess.run(["punlearn", "ftimgcalc"])
-        #print(f"Command exited with return code: {result.returncode}")
 
         if "ftimgcalc" not in self.all_params:
             self.all_params["ftimgcalc"] = [ftimgcalc_params]
