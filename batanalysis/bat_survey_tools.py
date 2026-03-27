@@ -416,7 +416,7 @@ class BatTools:
 
 
         if input_dict is None:
-            input_dict_copy = batsurvey.default_params.copy()
+            input_dict_copy = batsurvey.default_params.copy() | input_dict
 
             input_dict_copy["indir"] = str(self.indir)
             input_dict_copy["outdir"] = str(self.outdir)
@@ -431,7 +431,7 @@ class BatTools:
             input_dict_copy["cleanexpr"] = "ALWAYS_CLEAN==T"
         else:
             # need to create copy of input dict so we dont overwrite it
-            input_dict_copy = batsurvey.default_params.copy()
+            input_dict_copy = batsurvey.default_params.copy() | input_dict
 
             # And then overwrite with the user-provided values, ensuring that
             # user-provided values take precedence over defaults
@@ -493,6 +493,7 @@ class BatTools:
                     input_dict_copy["cleanexpr"] = "NONE"
 
         self.params = input_dict_copy
+        self.params['ncleaniter']=1 #TODO: REMOVE AFTER TESTING
         self.numbins = len(str(self.params["energybins"]).split(","))
         # Dump this into the log file for later reference
 
@@ -1465,7 +1466,15 @@ class BatTools:
         ftimgcalc_task, ftimgcalc_params = initalize_heasoft_task("ftimgcalc", params)
 
         print("ftimgcalc", params, ftimgcalc_params)
-        res = ftimgcalc_task(**ftimgcalc_params)
+        #res = ftimgcalc_task(**ftimgcalc_params)
+
+        res = self.backend.run(
+            "ftimgcalc", **ftimgcalc_params
+        )
+
+        result=subprocess.run(["punlearn", "ftimgcalc"])
+        print(f"Command exited with return code: {result.returncode}")
+
         if "ftimgcalc" not in self.all_params:
             self.all_params["ftimgcalc"] = [ftimgcalc_params]
         else:
@@ -1503,7 +1512,7 @@ class BatTools:
 
         if not Path(img).exists():
             FileNotFoundError(f"The file {img} doesnt seem to exist.")
-        stop
+        #stop
         try:
             with fits.open(prevcat, mode="readonly") as hdul:
                 tab = None
@@ -1557,6 +1566,21 @@ class BatTools:
                     **({"b": cheesemap1} if opts else {}),
                 }
             )
+
+
+            print("rerun just cause")
+            self.ftimgcalc(
+                params={
+                    "outfile": cheesemap,
+                    "expr": f"({expr})?1:0",
+                    "a": img,
+                    "wcsimage": ":A",
+                    "clobber": "YES",
+                    **({"b": cheesemap1} if opts else {}),
+                }
+            )
+
+
             if Path(cheesemap1).exists():
                 Path(cheesemap1).unlink(missing_ok=True)
 
@@ -1565,30 +1589,34 @@ class BatTools:
 
 
         if Path(cheesemap).exists():
-            oldimg = img + ".o"
+            oldimg = img + ".orig"
             if Path(img).exists():
                 shutil.move(img, oldimg)
-            else:
-                FileNotFoundError(f"The file {img} doesnt seem to exist.")
+            #else:
+            #    FileNotFoundError(f"The file {img} doesnt seem to exist.")
 
-            out=self.ftimgcalc(
-                params={
-                    "outfile": str(img),
-                    "expr": '"(CHEESE>0)?(OLD):(NEW)"',
-                    "a": f'"NEW={str(oldimg)}"',
-                    "b": f'"CHEESE={str(cheesemap)}"',
-                    "c": f'"OLD={str(previmg)}"',
-                    "clobber": "YES",
-                    "replicate": "YES",
-                    "bunit": '":NEW"',
-                    "wcsimage": '":NEW"',
-                    "nvectimages": nebins,
-                    "otherext": '"+NEW"',
-                    "bitpix": "E",
-                    "resultname": "BAT_IMAGE",
-                }
-            )
+            #out=self.ftimgcalc(
+            params = {
+                "outfile": str(img),
+                "expr": '"(A>0)?(C):(B)"',
+                "a": f"{str(cheesemap)}",
+                "b": f"{str(oldimg)}",
+                "c": f"{str(previmg)}",
+                "clobber": "YES",
+                "replicate": "YES",
+                "bunit": '":B"',
+                "wcsimage": '":B"',
+                "nvectimages": str(nebins),
+                "otherext": '":B"', #was +B
+                "bitpix": "E",
+                "resultname": "BAT_IMAGE",
+            }
 
+            out=hsp.heatools.ftimgcalc(**params)
+            result=subprocess.run(["ftimgcalc"]+[f"{key}={value}" for key, value in params.items()], capture_output=True, text=True, check=True)
+            print(out)
+            print(result)
+            stop
             Path(oldimg).unlink(missing_ok=True)
 
         # cd back
@@ -2441,7 +2469,10 @@ class BatTools:
                 "BKG_COUNTS",
             ],
         )
-        stats_tab.write(self.outdir / "stats_point.fits", overwrite=True)
+        #stop
+        #stats_tab.write(self.outdir / "stats_point.fits", overwrite=True)
+        stats_hdu = fits.table_to_hdu(stats_tab, name='STATS_POINT')
+        stats_hdu.writeto(self.outdir / "stats_point.fits", overwrite=True)
 
         n_good = sum(1 for s in self.point_stats if s.status)
         obs = Table(
@@ -2466,7 +2497,12 @@ class BatTools:
                 "N_IMAGES",
             ],
         )
-        obs.write(self.outdir / "stats_obs.fits", overwrite=True)
+
+        #obs.write(self.outdir / "stats_obs.fits", overwrite=True)
+        obs_hdu = fits.table_to_hdu(obs, name='STATS_OBS')
+        obs_hdu.writeto(self.outdir / "stats_obs.fits", overwrite=True)
+
+
         (self.outdir / "stats_obs.dat").write_text(
             f"A {self.indir.name} {self.outdir.name} {totexpo} {goodexpo} {len(starts)} {n_good} 1\n"
         )
