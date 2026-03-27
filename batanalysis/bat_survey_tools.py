@@ -134,7 +134,8 @@ def initalize_heasoft_task(
     with hsp_util.local_pfiles_context():
         try:
             hsp_task=hsp_core.HSPTask(routine)
-            hsp_task_params=hsp_task.default_params
+            hsp_task_params=hsp_task.default_params.copy()
+
         except hsp_core.HSPTaskException as e:
             raise AttributeError(
                 f"The requested routine '{routine}' is not found. Please check the name."
@@ -493,7 +494,7 @@ class BatTools:
                     input_dict_copy["cleanexpr"] = "NONE"
 
         self.params = input_dict_copy
-        self.params['ncleaniter']=1 #TODO: REMOVE AFTER TESTING
+        self.params['ncleaniter']=2 #TODO: REMOVE AFTER TESTING
         self.numbins = len(str(self.params["energybins"]).split(","))
         # Dump this into the log file for later reference
 
@@ -1466,14 +1467,14 @@ class BatTools:
         ftimgcalc_task, ftimgcalc_params = initalize_heasoft_task("ftimgcalc", params)
 
         print("ftimgcalc", params, ftimgcalc_params)
-        #res = ftimgcalc_task(**ftimgcalc_params)
+        res = ftimgcalc_task(**ftimgcalc_params)
 
-        res = self.backend.run(
-            "ftimgcalc", **ftimgcalc_params
-        )
+        #res = self.backend.run(
+        #    "ftimgcalc", **ftimgcalc_params
+        #)
 
-        result=subprocess.run(["punlearn", "ftimgcalc"])
-        print(f"Command exited with return code: {result.returncode}")
+        #result=subprocess.run(["punlearn", "ftimgcalc"])
+        #print(f"Command exited with return code: {result.returncode}")
 
         if "ftimgcalc" not in self.all_params:
             self.all_params["ftimgcalc"] = [ftimgcalc_params]
@@ -1592,31 +1593,28 @@ class BatTools:
             oldimg = img + ".orig"
             if Path(img).exists():
                 shutil.move(img, oldimg)
-            #else:
-            #    FileNotFoundError(f"The file {img} doesnt seem to exist.")
 
-            #out=self.ftimgcalc(
-            params = {
-                "outfile": str(img),
-                "expr": '"(A>0)?(C):(B)"',
-                "a": f"{str(cheesemap)}",
-                "b": f"{str(oldimg)}",
-                "c": f"{str(previmg)}",
-                "clobber": "YES",
-                "replicate": "YES",
-                "bunit": '":B"',
-                "wcsimage": '":B"',
-                "nvectimages": str(nebins),
-                "otherext": '":B"', #was +B
-                "bitpix": "E",
-                "resultname": "BAT_IMAGE",
-            }
+            self.ftimgcalc(
+                params={
+                    "outfile": img,
+                    "expr": "(CHEESE>0)?(OLD):(NEW)",
+                    "a": f"NEW={str(oldimg)}",
+                    "b": f"CHEESE={str(cheesemap)}",
+                    "c": f"OLD={str(previmg)}",
+                    "clobber": "YES",
+                    "replicate": "YES",
+                    "bunit": ":NEW",
+                    "wcsimage": ":NEW",
+                    "nvectimages": nebins,
+                    "otherext": "+NEW",
+                    "bitpix": "E",
+                    "resultname": "BAT_IMAGE",
+                }
+            )
 
-            out=hsp.heatools.ftimgcalc(**params)
-            result=subprocess.run(["ftimgcalc"]+[f"{key}={value}" for key, value in params.items()], capture_output=True, text=True, check=True)
-            print(out)
-            print(result)
-            stop
+            if not Path(img).exists():
+                FileNotFoundError(f"The file {img} doesnt seem to exist.")
+
             Path(oldimg).unlink(missing_ok=True)
 
         # cd back
@@ -2364,16 +2362,6 @@ class BatTools:
         except Exception:
             expo = float(expo) if expo else 0.0
 
-        #TODO: figure out how to replace this subprocess check, maybe this does the same thing as ndet above
-        ndets = int(
-            49478
-            - float(
-                subprocess.check_output(
-                    "pget fimgstat sum", shell=True, text=True
-                ).strip()
-                or 0
-            )
-        )
         return _PointStats(
             image_id=pid,
             status=True,
