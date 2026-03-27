@@ -741,7 +741,7 @@ class BatTools:
             },
         )
 
-    def baterebin(self, params: Dict[str, Any]) -> List[str]:
+    def _call_baterebin(self, params: Dict[str, Any]) -> List[str]:
         """Run baterebin on the survey list to create erebinned DPH files and masks.
 
         Args:
@@ -833,7 +833,7 @@ class BatTools:
                 good_files.append(str(f.resolve()))
         return good_files
 
-    def batsurvey_gti(self, params: Dict[str, Any]):
+    def _call_batsurvey_gti(self, params: Dict[str, Any]):
 
         default_params = {}
 
@@ -899,7 +899,8 @@ class BatTools:
             master = self.outdir / "gti" / "master.gti"
             igtirow = int(self.pointing_info[point_name]["igtirow"])
             timeslop = float(self.params.get("timeslop", 0.0))
-            res = heatools.ftcopy(
+            #res = heatools.ftcopy(
+            res=self._call_ftcopy(
                 infile=f"{master}[1][#ROW == ({igtirow}+1)][col START=START-{timeslop}; STOP=STOP+{timeslop}]",
                 outfile=pnt0,
                 clobber=True,
@@ -912,7 +913,7 @@ class BatTools:
 
             self.pointing_info[point_name]["gti_files"] = [pnt0]
 
-    def batbinevt(
+    def _call_batbinevt(
         self, pid, infile: str, outfile: str, gtifile: str, params: Dict[str, Any]
     ):
         """Run batbinevt on the discovered DPH file with internal path
@@ -967,7 +968,7 @@ class BatTools:
         else:
             self.all_logs["batbinevt"].append(batbinevtlog)
 
-    def batsurvey_aspect(
+    def _call_batsurvey_aspect(
         self,
         pid: str,
         gti_file: str,
@@ -1048,7 +1049,7 @@ class BatTools:
         self.pointing_info[pid]["gti_files"].append(outgti_file)
         return expotot, expobad, med_ra, med_dec, med_roll
 
-    def fimgstat(self, infile: str, params: Optional[Dict[str, Any]] = {}):
+    def _call_fimgstat(self, infile: str, params: Optional[Dict[str, Any]] = {}):
         defaults = {
             "threshlo": "INDEF",
             "threshup": "INDEF",
@@ -1079,7 +1080,7 @@ class BatTools:
 
         return dmin, dmax, dsum
 
-    def batsurvey_detmask(
+    def _call_batsurvey_detmask(
         self, pid: str, infile: str, maskfile: str, params: Dict[str, Any]
     ):
         """Run batsurvey-detmask on the given input file with the provided parameters and output the detector mask.
@@ -1138,7 +1139,7 @@ class BatTools:
         else:
             self.all_logs["batsurvey-detmask"].append(batsurvey_detmask_log)
 
-    def batclean(self, infile, outfile, detmask, params: Dict[str, Any]):
+    def _call_batclean(self, infile, outfile, detmask, params: Dict[str, Any]):
         """Run batclean on the given input file with the provided parameters and output the cleaned file.
 
         Args:
@@ -1182,7 +1183,7 @@ class BatTools:
         else:
             self.all_logs["batclean"].append(batclean_log)
 
-    def batfftimage(
+    def _call_batfftimage(
         self,
         pid: str,
         infile: str,
@@ -1240,7 +1241,7 @@ class BatTools:
         else:
             self.all_logs["batfftimage"].append(batfftimage_log)
 
-    def batoccultmap(self, infile: str, outfile: str, params: Dict[str, Any]):
+    def _call_batoccultmap(self, infile: str, outfile: str, params: Dict[str, Any]):
         """Run batoccultmap on the given input file with the provided parameters
         and output the occultation map.
 
@@ -1288,7 +1289,7 @@ class BatTools:
         else:
             self.all_logs["batoccultmap"].append(batoccultmap_log)
 
-    def batcelldetect(
+    def _call_batcelldetect(
         self, pid: str, infile: str, outfile: str, params: Dict[str, Any]
     ):
         """Source finder that runs on the image with the provided parameters and outputs a source list.
@@ -1348,7 +1349,7 @@ class BatTools:
         else:
             self.all_logs["batcelldetect"].append(batcelldetect_log)
 
-    def ftcopy(self, infile: str, outfile: str):
+    def _call_ftcopy(self, infile: str, outfile: str, clobber: bool = True):
         """Helper function to do basic manipulation of files with ftcopy
         and copy files
 
@@ -1359,7 +1360,7 @@ class BatTools:
         res = heatools.ftcopy(
             infile=infile,
             outfile=outfile,
-            clobber="YES",
+            clobber="YES" if clobber else "NO",
             copyall="YES",
         )
         if "ftcopy" not in self.all_logs:
@@ -1368,7 +1369,7 @@ class BatTools:
             self.all_logs["ftcopy"].append(res)
         # print(res)
 
-    def batmaskwtimg(
+    def _call_batmaskwtimg(
         self, pid: str, infile: str, maskfile: str, outfile: str, params: Dict[str, Any]
     ):
         """Run batmaskwtimg on the given input file with the provided parameters and output the masked image.
@@ -1414,7 +1415,7 @@ class BatTools:
         else:
             self.all_logs["batmaskwtimg"].append(batmaskwtimg_log)
 
-    def ftimgcalc(self, params: Dict[str, Any]):
+    def _call_ftimgcalc(self, params: Dict[str, Any]):
         """Run ftimgcalc on the given input file with the provided parameters
         and output the calculated image.
 
@@ -1511,7 +1512,7 @@ class BatTools:
                 expr = expr + " || (B == 1)"
                 opts = f"b='{cheesemap1}'"
 
-            self.ftimgcalc(
+            self._call_ftimgcalc(
                 params={
                     "outfile": cheesemap,
                     "expr": f"({expr})?1:0",
@@ -1524,7 +1525,7 @@ class BatTools:
 
 
             print("rerun just cause")
-            self.ftimgcalc(
+            self._call_ftimgcalc(
                 params={
                     "outfile": cheesemap,
                     "expr": f"({expr})?1:0",
@@ -1548,7 +1549,7 @@ class BatTools:
             if Path(img).exists():
                 shutil.move(img, oldimg)
 
-            self.ftimgcalc(
+            self._call_ftimgcalc(
                 params={
                     "outfile": img,
                     "expr": "(CHEESE>0)?(OLD):(NEW)",
@@ -1595,7 +1596,7 @@ class BatTools:
 
         temp_cat = self.scratchdir / "temp.cat"
 
-        self.ftcopy(infile=f"{cat}{brightexpr}", outfile=str(temp_cat))
+        self._call_ftcopy(infile=f"{cat}{brightexpr}", outfile=str(temp_cat))
         if not temp_cat.exists():
             return (
                 dmask,
@@ -1621,7 +1622,7 @@ class BatTools:
         newdmask = f"{proot}_1_maskedge.detmask"
 
         try:
-            self.batmaskwtimg(
+            self._call_batmaskwtimg(
                 pid=pid,
                 outfile=scrdpi1,
                 infile=dpi,
@@ -1638,7 +1639,7 @@ class BatTools:
             return dmask, False, "maskedge_failed1", "Could not create mask edge map"
 
         try:
-            self.ftimgcalc(
+            self._call_ftimgcalc(
                 params={
                     "outfile": newdmask,
                     "expr": "(A>0 || B>0)?(1):(0)",
@@ -1693,7 +1694,7 @@ class BatTools:
         expr1 = f"(ABS(DATA - {model_expr} )*SQRT({expo}/(MODEL + 1E-20)) > {self.params['badpixthresh']}) ? 1 : 0"
 
         try:
-            self.ftimgcalc(
+            self._call_ftimgcalc(
                 params={
                     "outfile": scrdpi1,
                     "expr": expr1,
@@ -1728,7 +1729,7 @@ class BatTools:
         for key, value in extra_params.items():
             params[key] = value
         try:
-            self.ftimgcalc(params=params)
+            self._call_ftimgcalc(params=params)
         except Exception as e:
             print(f"Error running ftimgcalc for sigma cut master mask: {e}")
             return False, "sigmamask2_failed", "Could not create sigma cut map (2)"
@@ -1785,7 +1786,7 @@ class BatTools:
         pnt1 = Path(f"{proot}_pnt1.gti")
         pnt = Path(f"{proot}_pnt.gti")
 
-        self.batbinevt(
+        self._call_batbinevt(
             pid=pid,
             infile=survey_files_list,
             outfile=str(dpi1),
@@ -1802,7 +1803,7 @@ class BatTools:
         # which will produce the pnt1 and att files, and then decide whether to
         # use pnt0 or pnt1 based on the exposure and bad time fractions, and
         # copy the chosen GTI to the final pnt file for this pointing
-        _expotot, _expobad, med_ra, med_dec, med_roll = self.batsurvey_aspect(
+        _expotot, _expobad, med_ra, med_dec, med_roll = self._call_batsurvey_aspect(
             pid=pid,
             gti_file=str(pnt0),
             outgti_file=str(pnt1),
@@ -1829,7 +1830,7 @@ class BatTools:
         second_pass_params["max_dph_time_nonoverlap"] = float(
             self.params["pointerr_abs_time"]
         )
-        self.batbinevt(
+        self._call_batbinevt(
             pid=pid,
             infile=survey_files_list,
             outfile=str(dpi1),
@@ -1855,7 +1856,7 @@ class BatTools:
                 pid, med_ra, med_dec, med_roll, raw_exposure=expo
             )
 
-        dmin, dmax, dsum = self.fimgstat(str(dpi1))
+        dmin, dmax, dsum = self._call_fimgstat(str(dpi1))
         if dmin == 0 and dmax == 0:
             self.pntstat(pid, "zero_counts", "Output DPI was zero")
             return self._build_fail_pointstats(
@@ -1867,7 +1868,7 @@ class BatTools:
         # same detmask for all subsequent steps for this pointing
 
         detmask = Path(f"{proot}.detmask")
-        self.batsurvey_detmask(
+        self._call_batsurvey_detmask(
             pid=pid, infile=str(dpi1), maskfile=str(detmask), params=params
         )
         if not detmask.exists():
@@ -1885,7 +1886,7 @@ class BatTools:
         batclean_params["srclean"] = "NO"
         batclean_params["aperture"] = "NONE"
         batclean_params["maskfit"] = "YES"
-        self.batclean(
+        self._call_batclean(
             infile=str(dpi1),
             outfile=str(bkgdpi),
             detmask=str(detmask),
@@ -1910,7 +1911,7 @@ class BatTools:
             var = Path(f"{proot}_{cleaniter}.var")
             cat = Path(f"{proot}_{cleaniter}.cat")
 
-            self.batfftimage(
+            self._call_batfftimage(
                 pid=pid,
                 infile=str(dpi1),
                 outfile=str(img),
@@ -1931,7 +1932,7 @@ class BatTools:
                     pid, med_ra, med_dec, med_roll, raw_exposure=expo
                 )
 
-            self.batoccultmap(
+            self._call_batoccultmap(
                 infile=str(img),
                 outfile=str(occult_map),
                 params=params,
@@ -1965,7 +1966,7 @@ class BatTools:
                 good_rows, bad_rows = identify_truncated_images(infile=str(img), force=True)
                 batcelldetect_params["rows"] = ",".join(np.array(good_rows).astype(str))
 
-            self.batcelldetect(
+            self._call_batcelldetect(
                 pid=pid.replace("point_", ""),
                 infile=str(img),
                 outfile=str(cat),
@@ -2015,7 +2016,7 @@ class BatTools:
                 '#TDISP#(display format) = "F8.2"; '
             )
 
-            self.ftcopy(
+            self._call_ftcopy(
                 f"{cat}[1][col *; {expr}]",
                 str(tmpcat),
             )
@@ -2060,7 +2061,7 @@ class BatTools:
                 # print(f"Using clean expression: {clean_expr}")
 
                 try:
-                    self.ftcopy(
+                    self._call_ftcopy(
                         f"{cat}[col *;CLEANED=({clean_expr});]",
                         str(trancat),
                     )
@@ -2087,7 +2088,7 @@ class BatTools:
 
                 if ncatrows > 0:
                     print(f"{ncatrows} sources cleaned during iteration {cleaniter}")
-                    self.batclean(
+                    self._call_batclean(
                         infile=str(dpi1),
                         outfile=str(bkgdpi1),
                         detmask=str(detmask),
@@ -2124,7 +2125,7 @@ class BatTools:
 
                 detmask = sigma_mask
 
-                dmin, dmax, dsum = self.fimgstat(infile=str(detmask))
+                dmin, dmax, dsum = self._call_fimgstat(infile=str(detmask))
                 ndets = 49478 - dsum
                 print(f"Number of enabled detectors: {ndets}")
                 if ndets < float(self.params["detthresh2"]):
@@ -2152,7 +2153,7 @@ class BatTools:
                 if self.params.get("global_pattern_map", "NONE") != "NONE":
                     adjdpi = self.scratchdir / "raw_minus_pattern.dpi"
                     try:
-                        self.ftimgcalc(
+                        self._call_ftimgcalc(
                             params={
                                 "outfile": adjdpi,
                                 "expr": f"RAW - DEFNULL(PATTERN,0)",
@@ -2204,7 +2205,7 @@ class BatTools:
                     "balance": "ShortEdges,LongEdges,InOut",
                 }
 
-                self.batclean(
+                self._call_batclean(
                     infile=str(adjdpi),
                     outfile=str(bkgdpi_next),
                     detmask=str(detmask),
@@ -2231,7 +2232,7 @@ class BatTools:
                 if self.params.get("global_pattern_map", "NONE") != "NONE":
                     rawname = bkgdpi_next + ".raw"
                     shutil.move(bkgdpi_next, rawname)
-                    self.ftimgcalc(
+                    self._call_ftimgcalc(
                         params={
                             "outfile": bkgdpi_next,
                             "expr": f"BKG + DEFNULL(PATTERN,0)",
@@ -2276,7 +2277,7 @@ class BatTools:
 
         # Post-processing diagnostics
         chifile = Path(f"{proot}_chi.fits")
-        self.ftimgcalc(
+        self._call_ftimgcalc(
             params={
                 "outfile": str(chifile),
                 "expr": "SUM((MASK == 0)?((DATA-MODEL)**2/MODEL*#EXPOSURE):0)",
@@ -2295,7 +2296,7 @@ class BatTools:
             chi = self._read_per_band_scalar_fits(chifile)
 
         bkgfile = Path(f"{proot}_totbkg.fits")
-        self.ftimgcalc(
+        self._call_ftimgcalc(
             params={
                 "outfile": str(bkgfile),
                 "expr": "SUM((MASK == 0)?(DATA*#EXPOSURE):0)",
@@ -2495,7 +2496,7 @@ class BatTools:
 
         # First run baterebin to create the erebinned DPH files and masks
         try:
-            self.baterebin(params=self.params)
+            self._call_baterebin(params=self.params)
         except Exception as exc:
             self.obsstat(
                 code="baterebin_failed",
@@ -2508,7 +2509,7 @@ class BatTools:
         # Second get the GTIs for the pointings using batsurvey-gti, which
         # also creates the master GTI file and makes the pointing GTI files
         try:
-            self.batsurvey_gti(params=self.params)
+            self._call_batsurvey_gti(params=self.params)
         except Exception as exc:
             self.obsstat(
                 code="batsurvey_gti_failed",
