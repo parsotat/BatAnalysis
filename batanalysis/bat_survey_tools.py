@@ -899,17 +899,11 @@ class BatTools:
             master = self.outdir / "gti" / "master.gti"
             igtirow = int(self.pointing_info[point_name]["igtirow"])
             timeslop = float(self.params.get("timeslop", 0.0))
-            #res = heatools.ftcopy(
-            res=self._call_ftcopy(
+            self._call_ftcopy(
                 infile=f"{master}[1][#ROW == ({igtirow}+1)][col START=START-{timeslop}; STOP=STOP+{timeslop}]",
                 outfile=pnt0,
                 clobber=True,
             )
-
-            if "ftcopy" not in self.all_logs:
-                self.all_logs["ftcopy"] = [res]
-            else:
-                self.all_logs["ftcopy"].append(res)
 
             self.pointing_info[point_name]["gti_files"] = [pnt0]
 
