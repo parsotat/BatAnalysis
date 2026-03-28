@@ -50,14 +50,6 @@ except ModuleNotFoundError as exc:
         "heasoftpy is not installed. Install HEASoftPy to run BatSurveyTools."
     ) from exc
 
-@dataclass
-class ToolResult:
-    task: str
-    params: Dict[str, Any]
-    returncode: int = 0
-    stdout: str = ""
-    stderr: str = ""
-    raw: Any = None
 
 @dataclass
 class _PointStats:
@@ -159,7 +151,7 @@ class BatTools:
 
         self.outdir.mkdir(parents=True, exist_ok=True)
 
-        self.all_logs: Dict[str, List[ToolResult]] = {}
+        self.all_logs: Dict[str, List[hsp_core.core.HSPResult]] = {}
         self.all_params: Dict[str, Dict] = {}
         self.user_params = params.copy() if params else {}
         self.current_pointstatus = "unknown"
@@ -2459,8 +2451,8 @@ class BatTools:
 
             for idx, entry in enumerate(entries, start=1):
                 lines.append(f"-- call {idx} --")
-                if isinstance(entry, ToolResult):
-                    lines.append(f"task={entry.task}")
+                if isinstance(entry, hsp_core.core.HSPResult):
+                    lines.append(f"task={task_name}")
                     lines.append(f"returncode={entry.returncode}")
                     lines.append(
                         "params="
