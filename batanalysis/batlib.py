@@ -1527,7 +1527,6 @@ def download_swiftdata(
     observations,
     reload=False,
     fetch=True,
-    ukserver=False,
     jobs=10,
     timeout=120,
     bat=True,
