@@ -1917,6 +1917,10 @@ class BatTools:
                 return self._build_fail_pointstats(
                     pid, med_ra, med_dec, med_roll, raw_exposure=expo
                 )
+            else:
+                with fits.open(img, mode="update") as hdul:
+                    for i in hdul:
+                        i.header["IMAGE_ID"]=(pid, 'Image Identifier')
 
             self._call_batoccultmap(
                 infile=str(img),
