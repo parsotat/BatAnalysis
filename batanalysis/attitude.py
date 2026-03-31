@@ -118,3 +118,41 @@ class Attitude(object):
         plt.legend()
         plt.xlabel(f"MET-{t_rel}")
         plt.ylabel(f"Pointing ({self.ra.unit})")
+
+#TODO: implement merging attitude files and loading the merged file into a Attitude object
+"""
+from astropy.table import Table, vstack
+import os
+
+# Create dummy FITS files for demonstration purposes if needed, 
+# or assume 'table1.fits' and 'table2.fits' exist.
+
+# 1. Read the FITS tables into astropy Table objects
+table1 = Table.read('table1.fits', format='fits')
+table2 = Table.read('table2.fits', format='fits')
+
+# 2. Vertically stack the tables
+# This appends rows of table2 to table1.
+combined_table = vstack([table1, table2])
+
+# 3. Remove duplicate rows based on a specific column 
+unique_table = combined_table.unique(keys=['TIME'])
+
+# 4. Write the unique table to a new FITS file
+output_filename = 'merged_unique_catalog.fits'
+unique_table.write(output_filename, format='fits', overwrite=True)
+
+print(f"Merged tables and saved unique rows to {output_filename}")
+
+trigtime=Time("2021-06-05T14:55:58.000")
+
+guano=GUANO(triggertime=trigtime.datetime)
+
+afst_obs=ObsQuery(begin=trigtime-TimeDelta(0,format="sec"), end=trigtime+TimeDelta(60*60,format="sec"))
+
+if guano.entries[0].obsid != afst_obs[0].obsid:
+    #then download
+    Data(afst_obs[0].obsid, auxil=True)
+
+    #then merge the attitudes using the pseudo code above, making sure to save the new file in the guano.entries[0].obsid auxil directory
+"""
