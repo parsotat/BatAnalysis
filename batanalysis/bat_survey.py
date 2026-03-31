@@ -1323,9 +1323,9 @@ class BatSurvey(BatObservation):
 
             self.merge_input = dictionary
 
-    def calculate_pha(self, *args):
+    def calculate_pha(self, *args, **kwargs):
         warnings.warn("The calculate_pha method is being depreciated in the coming versions. Please switch to the create_pha method, which accepts the same arguments.", DeprecationWarning)
-        return self.create_pha(*args)
+        return self.create_pha(*args, **kwargs)
 
     def create_pha(
         self,
@@ -1496,7 +1496,15 @@ class BatSurvey(BatObservation):
                         gti_stoptime.append(time_array[i] + exposure_array[i])
                         if verbose:
                             print("Time interval:", gti_starttime, gti_stoptime)
-                        for i_band in range(len(count_rate_array[i])):
+
+                        num_channels=len(count_rate_array[i])
+
+                        #if we have calculated the total energy image, then need to exclude it from the
+                        # spectra that is constructed
+                        if self._create_total_energy_image:
+                            num_channels-=1
+
+                        for i_band in range(num_channels):
                             channel.append(i_band + 1)
                             # print(i_band, count_rate_array[i][i_band])
                             count_rate_band.append(scale * count_rate_array[i][i_band])
