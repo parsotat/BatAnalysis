@@ -10,6 +10,8 @@ import shutil
 import warnings
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
+from typing import Any, Dict, List, Optional, Sequence, Tuple
+
 
 import astropy as ap
 import astropy.units as u
@@ -32,6 +34,7 @@ try:
     import heasoftpy.swift as hsp
     import heasoftpy.utils as hsp_util
     from heasoftpy import heatools
+    import heasoftpy as hsp_core
 except ModuleNotFoundError as err:
     # Error handling
     print(err)
@@ -3100,3 +3103,52 @@ def calculate_effective_snr(img, var, snr, mask=None):
         # Also return how many negative values are less than -SNR
         inds = np.searchsorted(np.sort(snr_vals), -snr)
     return effective_snr, int(inds)
+
+def _initalize_heasoft_task(
+    routine: str,
+    input_params: Dict[str, Any],
+    soft_fail: bool = True,
+) -> Tuple[hsp_core.HSPTask, Dict[str, Any]]:
+    """
+    Validate user parameters against HEASARC fhelp-allowed parameters.
+
+    Args:
+        routine: Name of the HEASoft routine (e.g. "baterebin").
+        input_params: Dictionary of user-provided parameters to validate.
+        soft_fail: If True, will return allowed parameters without raising an error on unknowns.
+
+    Returns:
+        A copy of input_params containing only allowed keys.
+    Raises:
+        KeyError if unknown parameters are present and soft_fail=False.
+    """
+    try:
+        hsp_task=hsp_core.HSPTask(routine)
+        hsp_task_params=hsp_task.default_params.copy()
+
+    except hsp_core.HSPTaskException as e:
+        raise AttributeError(
+            f"The requested routine '{routine}' is not found. Please check the name."
+        )
+
+    allowed = [k for k in input_params.keys() if k in hsp_task_params.keys()]
+    not_allowed = [k for k in input_params.keys() if k not in hsp_task_params.keys()]
+    if not_allowed and not soft_fail:
+        raise KeyError(
+            f"Invalid parameter(s) for '{routine}': {not_allowed}. "
+            f"Allowed parameters are: {sorted(hsp_task_params.keys())}"
+        )
+
+    #determine the parameters that go into this task's parameter dict from what the user provided
+    for key in hsp_task_params.keys():
+        if key in input_params.keys():
+            hsp_task_params[key] = input_params[key]
+
+    #check that the required parameters are passed in too ie no empty strings
+    #include check that the parameters that we check dont have _opts in the name which indicate optional
+    # eg batoccultgti_opts parameter in batsurvey-gti
+    missing_req_params=[i for i in hsp_task_params.keys() if len(str(hsp_task_params[i]))==0 and "_opts" not in i]
+    if missing_req_params and not soft_fail:
+        raise KeyError(f"The user supplied parameters for the {routine} task is missing these required parameters: {','.join(missing_req_params)}")
+
+    return hsp_task, hsp_task_params

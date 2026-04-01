@@ -32,7 +32,7 @@ from astropy.table import Table
 from astropy.time import Time, TimeDelta
 from astropy import units as u
 from .bat_truncated import identify_truncated_images, patch_truncated_results
-from .batlib import convert_met_to_utc
+from .batlib import convert_met_to_utc, _initalize_heasoft_task
 from ._version import __version__ as batsurvey_version
 
 try:
@@ -69,57 +69,6 @@ class _PointStats:
     numband: int = 0
     chi2: List[float] = field(default_factory=list)
     bkg_counts: List[float] = field(default_factory=list)
-
-
-def initalize_heasoft_task(
-    routine: str,
-    input_params: Dict[str, Any],
-    soft_fail: bool = True,
-) -> Tuple[hsp_core.HSPTask, Dict[str, Any]]:
-    """
-    Validate user parameters against HEASARC fhelp-allowed parameters.
-
-    Args:
-        routine: Name of the HEASoft routine (e.g. "baterebin").
-        input_params: Dictionary of user-provided parameters to validate.
-        soft_fail: If True, will return allowed parameters without raising an error on unknowns.
-
-    Returns:
-        A copy of input_params containing only allowed keys.
-    Raises:
-        KeyError if unknown parameters are present and soft_fail=False.
-    """
-    with hsp_util.local_pfiles_context():
-        try:
-            hsp_task=hsp_core.HSPTask(routine)
-            hsp_task_params=hsp_task.default_params.copy()
-
-        except hsp_core.HSPTaskException as e:
-            raise AttributeError(
-                f"The requested routine '{routine}' is not found. Please check the name."
-            )
-
-        allowed = [k for k in input_params.keys() if k in hsp_task_params.keys()]
-        not_allowed = [k for k in input_params.keys() if k not in hsp_task_params.keys()]
-        if not_allowed and not soft_fail:
-            raise KeyError(
-                f"Invalid parameter(s) for '{routine}': {not_allowed}. "
-                f"Allowed parameters are: {sorted(hsp_task_params.keys())}"
-            )
-
-        #determine the parameters that go into this task's parameter dict from what the user provided
-        for key in hsp_task_params.keys():
-            if key in input_params.keys():
-                hsp_task_params[key] = input_params[key]
-
-        #check that the required parameters are passed in too ie no empty strings
-        #include check that the parameters that we check dont have _opts in the name which indicate optional
-        # eg batoccultgti_opts parameter in batsurvey-gti
-        missing_req_params=[i for i in hsp_task_params.keys() if len(str(hsp_task_params[i]))==0 and "_opts" not in i]
-        if missing_req_params and not soft_fail:
-            raise KeyError(f"The user supplied parameters for the {routine} task is missing these required parameters: {','.join(missing_req_params)}")
-
-    return hsp_task, hsp_task_params
 
 
 
@@ -760,7 +709,7 @@ class BatTools:
             params = default_params | self.params
 
         # Only pass those that are valid to this
-        _, baterebin_params = initalize_heasoft_task("baterebin", params)
+        _, baterebin_params = _initalize_heasoft_task("baterebin", params)
 
         print(self.params, default_params, params, baterebin_params)
 
@@ -786,7 +735,7 @@ class BatTools:
             baterebin_params.update(mandatory_params)
 
             #check the parameters and ensure they are what we need to run the task
-            baterebin_task, baterebin_params = initalize_heasoft_task("baterebin", baterebin_params, soft_fail=False)
+            baterebin_task, baterebin_params = _initalize_heasoft_task("baterebin", baterebin_params, soft_fail=False)
 
             print("Running baterebin with parameters:", baterebin_params)
             erebin_log.append(baterebin_task(**baterebin_params))
@@ -843,7 +792,7 @@ class BatTools:
 
         #merge the user provided parameters with the default from above with the user values taking precedence
         params = default_params | self.params
-        _, batsurvey_gti_params = initalize_heasoft_task("batsurvey-gti", params)
+        _, batsurvey_gti_params = _initalize_heasoft_task("batsurvey-gti", params)
 
         mandatory_params = {}
         mandatory_params["indir"] = str(self.indir)
@@ -855,7 +804,7 @@ class BatTools:
         batsurvey_gti_params.update(mandatory_params)
 
         # check the parameters and ensure they are what we need to run the task
-        batsurvey_gti_task, batsurvey_gti_params = initalize_heasoft_task("batsurvey-gti", batsurvey_gti_params, soft_fail=False)
+        batsurvey_gti_task, batsurvey_gti_params = _initalize_heasoft_task("batsurvey-gti", batsurvey_gti_params, soft_fail=False)
 
 
         # print("Running batsurvey-gti with parameters:", batsurvey_gti_params)
@@ -928,7 +877,7 @@ class BatTools:
         params = default_params | self.params
 
         # Only pass those that are valid to this
-        _, batbinevt_params = initalize_heasoft_task("batbinevt", params)
+        _, batbinevt_params = _initalize_heasoft_task("batbinevt", params)
 
         mandatory_params = {}
         mandatory_params["infile"] = infile
@@ -940,7 +889,7 @@ class BatTools:
         # ensuring that mandatory params take precedence
         batbinevt_params.update(mandatory_params)
 
-        batbinevt_task, batbinevt_params = initalize_heasoft_task("batbinevt", batbinevt_params, soft_fail=False)
+        batbinevt_task, batbinevt_params = _initalize_heasoft_task("batbinevt", batbinevt_params, soft_fail=False)
 
         # print("Running batbinevt with parameters:", batbinevt_params)
         batbinevtlog = batbinevt_task(**batbinevt_params)
@@ -988,7 +937,7 @@ class BatTools:
         #default_params
         params = default_params | self.params
 
-        _, batsurvey_aspect_params = initalize_heasoft_task("batsurvey-aspect", params)
+        _, batsurvey_aspect_params = _initalize_heasoft_task("batsurvey-aspect", params)
 
         mandatory_params = {}
         mandatory_params["gtifile"] = f"{gti_file}[STDGTI]"
@@ -996,7 +945,7 @@ class BatTools:
 
         batsurvey_aspect_params.update(mandatory_params)
 
-        batsurvey_aspect_task, batsurvey_aspect_params = initalize_heasoft_task("batsurvey-aspect", batsurvey_aspect_params, soft_fail=False)
+        batsurvey_aspect_task, batsurvey_aspect_params = _initalize_heasoft_task("batsurvey-aspect", batsurvey_aspect_params, soft_fail=False)
 
 
         # print("Running batsurvey-aspect with parameters:", batsurvey_aspect_params)
@@ -1047,12 +996,12 @@ class BatTools:
         #get the merged dictionary of params, where the user supplied parameters override these defaults
         merged_params=defaults | params
 
-        _, fimgstat_params = initalize_heasoft_task("fimgstat", merged_params)
+        _, fimgstat_params = _initalize_heasoft_task("fimgstat", merged_params)
 
         fimgstat_params["infile"]=infile
 
         #do this again to get the task
-        fimgstat_task, fimgstat_params = initalize_heasoft_task("fimgstat", fimgstat_params, soft_fail=False)
+        fimgstat_task, fimgstat_params = _initalize_heasoft_task("fimgstat", fimgstat_params, soft_fail=False)
 
         hsp_return=fimgstat_task(**fimgstat_params)
         print("fimgstat:",hsp_return)
@@ -1107,12 +1056,12 @@ class BatTools:
         # but if they did then we respect the user choice
         merged_params=default_params|params
 
-        _, batsurvey_detmask_params = initalize_heasoft_task("batsurvey-detmask", merged_params)
+        _, batsurvey_detmask_params = _initalize_heasoft_task("batsurvey-detmask", merged_params)
 
         # Replace mandatory params into the user-provided params, ensuring that mandatory params take precedence
         batsurvey_detmask_params.update(mandatory_params)
 
-        batsurvey_detmask_task, batsurvey_detmask_params = initalize_heasoft_task("batsurvey-detmask", batsurvey_detmask_params, soft_fail=False)
+        batsurvey_detmask_task, batsurvey_detmask_params = _initalize_heasoft_task("batsurvey-detmask", batsurvey_detmask_params, soft_fail=False)
 
         batsurvey_detmask_log = batsurvey_detmask_task(**batsurvey_detmask_params)
         print("batsurvey_detmask:", batsurvey_detmask_log)
@@ -1150,12 +1099,12 @@ class BatTools:
 
         merged_params = defaults_params | params
 
-        _, batclean_params = initalize_heasoft_task("batclean", merged_params)
+        _, batclean_params = _initalize_heasoft_task("batclean", merged_params)
 
         # Overwrite mandatory params
         batclean_params.update(mandatory_params)
 
-        batclean_task, batclean_params = initalize_heasoft_task("batclean", batclean_params, soft_fail=False)
+        batclean_task, batclean_params = _initalize_heasoft_task("batclean", batclean_params, soft_fail=False)
 
         # print("Running batclean with parameters:", batclean_params)
         batclean_log = batclean_task(**batclean_params)
@@ -1209,12 +1158,12 @@ class BatTools:
 
         merged_params= defaults_params | params
 
-        _, batfftimage_params = initalize_heasoft_task("batfftimage", merged_params)
+        _, batfftimage_params = _initalize_heasoft_task("batfftimage", merged_params)
 
         # Overwrite mandatory params
         batfftimage_params.update(mandatory_params)
 
-        batfftimage_task, batfftimage_params = initalize_heasoft_task("batfftimage", batfftimage_params, soft_fail=False)
+        batfftimage_task, batfftimage_params = _initalize_heasoft_task("batfftimage", batfftimage_params, soft_fail=False)
 
         batfftimage_log = batfftimage_task(**batfftimage_params)
         # print(batfftimage_log.stdout)
@@ -1257,12 +1206,12 @@ class BatTools:
 
         merged_params= default_params | params
 
-        _, batoccultmap_params = initalize_heasoft_task("batoccultmap", merged_params)
+        _, batoccultmap_params = _initalize_heasoft_task("batoccultmap", merged_params)
 
         # Replace mandatory params into the user-provided params, ensuring that mandatory params take precedence
         batoccultmap_params.update(mandatory_params)
 
-        batoccultmap_task, batoccultmap_params = initalize_heasoft_task("batoccultmap", batoccultmap_params)
+        batoccultmap_task, batoccultmap_params = _initalize_heasoft_task("batoccultmap", batoccultmap_params)
 
         batoccultmap_log = batoccultmap_task(**batoccultmap_params)
         # print(batoccultmap_log.stdout)
@@ -1315,12 +1264,12 @@ class BatTools:
 
         merged_params = defaults_params | params
 
-        _, batcelldetect_params = initalize_heasoft_task("batcelldetect", merged_params)
+        _, batcelldetect_params = _initalize_heasoft_task("batcelldetect", merged_params)
 
         # Replace mandatory params into the user-provided params, ensuring that mandatory params take precedence
         batcelldetect_params.update(mandatory_params)
 
-        batcelldetect_task, batcelldetect_params = initalize_heasoft_task("batcelldetect", batcelldetect_params, soft_fail=False)
+        batcelldetect_task, batcelldetect_params = _initalize_heasoft_task("batcelldetect", batcelldetect_params, soft_fail=False)
 
         # print("Running batcelldetect with parameters:", batcelldetect_params)
         batcelldetect_log = batcelldetect_task(**batcelldetect_params)
@@ -1383,12 +1332,12 @@ class BatTools:
         merged_params = default_params | params
 
 
-        _, batmaskwtimg_params = initalize_heasoft_task("batmaskwtimg", merged_params)
+        _, batmaskwtimg_params = _initalize_heasoft_task("batmaskwtimg", merged_params)
 
         # Replace mandatory params into the user-provided params, ensuring that mandatory params take precedence
         batmaskwtimg_params.update(mandatory_params)
 
-        batmaskwtimg_task, batmaskwtimg_params = initalize_heasoft_task("batmaskwtimg", batmaskwtimg_params, soft_fail=False)
+        batmaskwtimg_task, batmaskwtimg_params = _initalize_heasoft_task("batmaskwtimg", batmaskwtimg_params, soft_fail=False)
 
 
         batmaskwtimg_log = batmaskwtimg_task(**batmaskwtimg_params)
@@ -1412,7 +1361,7 @@ class BatTools:
             parameters a,b,c,d,e,f,g,h,z,nvectimages,wcsimage,resultname,replicate as needed.
         """
 
-        ftimgcalc_task, ftimgcalc_params = initalize_heasoft_task("ftimgcalc", params)
+        ftimgcalc_task, ftimgcalc_params = _initalize_heasoft_task("ftimgcalc", params)
 
         print("ftimgcalc", params, ftimgcalc_params)
         res = ftimgcalc_task(**ftimgcalc_params)

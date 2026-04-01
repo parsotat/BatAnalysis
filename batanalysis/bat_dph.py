@@ -14,7 +14,7 @@ import numpy as np
 from astropy.io import fits
 
 from .bat_dpi import BatDPI
-from .batlib import create_gti_file
+from .batlib import create_gti_file, _initalize_heasoft_task
 from .detectorplanehist import DetectorPlaneHistogram
 
 try:
