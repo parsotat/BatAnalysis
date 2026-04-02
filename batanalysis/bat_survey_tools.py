@@ -684,7 +684,7 @@ class BatTools:
             },
         )
 
-    def _call_baterebin(self, params: Dict[str, Any]) -> List[str]:
+    def _erebin_dphs(self) -> List[str]:
         """Run baterebin on the survey list to create erebinned DPH files and masks.
 
         Args:
@@ -2396,7 +2396,7 @@ class BatTools:
 
         # First run baterebin to create the erebinned DPH files and masks
         try:
-            self._call_baterebin(params=self.params)
+            self._erebin_dphs()
         except Exception as exc:
             self.obsstat(
                 code="baterebin_failed",
