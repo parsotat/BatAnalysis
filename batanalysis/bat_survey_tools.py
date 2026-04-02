@@ -735,7 +735,11 @@ class BatTools:
                 good_files.append(str(f.resolve()))
         return good_files
 
-    def _call_batsurvey_gti(self, params: Dict[str, Any]):
+    def _call_batsurvey_gti(self, input_directory, dph_files, output_directory, input_dict=None) -> hsp_core.core.HSPResult:
+
+        if input_dict is None:
+            input_dict={}
+
 
         default_params = {}
 
@@ -752,13 +756,13 @@ class BatTools:
         default_params["gtifile"] = "NONE"
 
         #merge the user provided parameters with the default from above with the user values taking precedence
-        params = default_params | self.params
+        params = default_params | input_dict
         _, batsurvey_gti_params = _initalize_heasoft_task("batsurvey-gti", params)
 
         mandatory_params = {}
-        mandatory_params["indir"] = str(self.indir)
-        mandatory_params["dphfiles"] = f"@{self.esurvey_lis}"
-        mandatory_params["outdir"] = str(self.outdir / "gti")
+        mandatory_params["indir"] = str(input_directory)
+        mandatory_params["dphfiles"] = str(dph_files)
+        mandatory_params["outdir"] = str(output_directory)
 
 
         # Replace mandatory params into the user-provided params, ensuring that mandatory params take precedence
@@ -769,10 +773,22 @@ class BatTools:
 
 
         # print("Running batsurvey-gti with parameters:", batsurvey_gti_params)
-        batsurvey_gti_log = batsurvey_gti_task(**batsurvey_gti_params)
-        self.all_params["batsurvey-gti"] = batsurvey_gti_params
-        self.all_logs["batsurvey-gti"] = batsurvey_gti_log
-        # print(batsurvey_gti_log.stdout)
+        try:
+            batsurvey_gti_log = batsurvey_gti_task(**batsurvey_gti_params)
+            self.all_params["batsurvey-gti"] = batsurvey_gti_params
+            self.all_logs["batsurvey-gti"] = batsurvey_gti_log
+            # print(batsurvey_gti_log.stdout)
+            return batsurvey_gti_log
+        except Exception as e:
+            print(e)
+            raise RuntimeError(
+                f"The call to Heasoft batsurvey-gti failed with inputs {batsurvey_gti_params}."
+            )
+
+
+    def determine_pointings(self):
+
+        self._call_batsurvey_gti(input_directory=self.indir, dph_files=f"@{self.esurvey_lis}", output_directory=self.outdir / "gti", input_dict=self.params)
 
         master = self.outdir / "gti" / "master.gti"
         if not master.exists():
@@ -2409,7 +2425,7 @@ class BatTools:
         # Second get the GTIs for the pointings using batsurvey-gti, which
         # also creates the master GTI file and makes the pointing GTI files
         try:
-            self._call_batsurvey_gti(params=self.params)
+            self.determine_pointings()
         except Exception as exc:
             self.obsstat(
                 code="batsurvey_gti_failed",
