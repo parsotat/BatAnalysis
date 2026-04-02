@@ -31,6 +31,8 @@ from astropy.io import fits
 from astropy.table import Table
 from astropy.time import Time, TimeDelta
 from astropy import units as u
+
+from .bat_dph import BatDPH
 from .bat_truncated import identify_truncated_images, patch_truncated_results
 from .batlib import convert_met_to_utc, _initalize_heasoft_task
 from ._version import __version__ as batsurvey_version
@@ -690,56 +692,15 @@ class BatTools:
             Only valid parameters will be used.
         """
 
-        default_params = {}
-        default_params["residfile"] = "CALDB"
-        default_params["pulserfile"] = "CALDB"
-        default_params["fltpulserfile"] = "CALDB"
-        default_params["history"] = "YES"
-        default_params["ebins"] = (
-            "0-14,14-20,20-24,24-35,35-50,50-75,75-100,100-150,150-195"
-        )
-
-        #update the default params with those values that the user supplied and all others
-        #there seems to be a bug with the default parameters that are accessed in heasoftpy  as of v 1.5
-        # for residfile, pulserfile, fltpulserfile beign set to INDEF, if this is the case they should be set to
-        # CALDB ie take on the defaults here
-        if self.params["residfile"].upper() == "INDEF":
-            params = self.params | default_params
-        else:
-            params = default_params | self.params
-
-        # Only pass those that are valid to this
-        _, baterebin_params = _initalize_heasoft_task("baterebin", params)
-
-        print(self.params, default_params, params, baterebin_params)
+        dph_output_dir = self.outdir / "dph"
 
 
         erebin_log = []
 
-        mandatory_params = {}
-
         for dph_file in self.dph_files:
-            dph_file = Path(dph_file)
-            mandatory_params["infile"] = str(dph_file)
-            mandatory_params["outfile"] = str(
-                self.outdir
-                / "dph"
-                / f"{dph_file.name.replace('.dph.gz', '_erebin.dph')}"
-            )
-            mandatory_params["outmap"] = str(
-                self.outdir / "dph" / f"{dph_file.stem.replace('.dph', '.mask')}"
-            )
-            mandatory_params["calfile"] = self.cal_file
-
-            # Replace mandatory params into the user-provided params, ensuring that mandatory params take precedence
-            baterebin_params.update(mandatory_params)
-
-            #check the parameters and ensure they are what we need to run the task
-            baterebin_task, baterebin_params = _initalize_heasoft_task("baterebin", baterebin_params, soft_fail=False)
-
-            print("Running baterebin with parameters:", baterebin_params)
-            erebin_log.append(baterebin_task(**baterebin_params))
-            # print(erebin_log[-1].stdout)
+            dph=BatDPH.from_file(dph_file)
+            baterebin_output=dph.apply_survey_energy_rebinning(self.cal_file, output_directory=dph_output_dir)
+            erebin_log.append(baterebin_output)
 
         erebinned = list((self.outdir / "dph").glob("*_erebin.dph"))
         erebinned = self.select_good_files_for_gtis(files=erebinned)
@@ -758,7 +719,7 @@ class BatTools:
         self.dph_mask_lis = self.scratchdir / "dph_masks.lis"
         np.savetxt(self.dph_mask_lis, dph_masks, fmt="%s")
 
-        self.all_params["baterebin"] = baterebin_params
+        self.all_params["baterebin"] = baterebin_output.params
         self.all_logs["baterebin"] = erebin_log
 
     def select_good_files_for_gtis(self, files: List[str]) -> List[str]:

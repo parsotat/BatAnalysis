@@ -665,16 +665,23 @@ class BatDPH(DetectorPlaneHistogram):
         :param input_dict: Dictionary of inputs that will be passed to heasoftpy's batbinevt
         :return: heasoftpy Result object from batbinevt
         """
+        default_params ={
+            "clobber": "YES",
+            "outtype": "DPH"
+        }
 
-        input_dict["clobber"] = "YES"
-        input_dict["outtype"] = "DPH"
+        params = default_params | input_dict
+
+        # Only pass those that are valid to this
+        batbinevt_task, batbinevt_params = _initalize_heasoft_task("batbinevt", params, soft_fail=False)
+
 
         try:
-            return hsp.batbinevt(**input_dict)
+            return batbinevt_task(**params)
         except Exception as e:
             print(e)
             raise RuntimeError(
-                f"The call to Heasoft batbinevt failed with inputs {input_dict}."
+                f"The call to Heasoft batbinevt failed with inputs {params}."
             )
 
     @u.quantity_input(timebins=["time"])
@@ -704,33 +711,48 @@ class BatDPH(DetectorPlaneHistogram):
                 output_file = self.dph_file.parent.joinpath(new_name)
         return create_gti_file(timebins, output_file, T0=None, is_relative=False, overwrite=True)
 
-    def create_DPI(self):
+    def apply_survey_energy_rebinning(self, gain_offset_file, output_directory=None)->hsp_core.core.HSPResult:
         """
         This method applies the energy/time correction to the DPH which gives a DPI.
         These corections/filters are applied using heasoftpy's batsurvey-erebin, baterebin, and batsurvey-gti
 
         :return:
         """
+        if output_directory is None:
+            output_directory = self.dph_file.parent
+        else:
+            output_directory=Path(output_directory)
 
-        raise NotImplementedError("Creating a DPI from a DPH has not yet been implemented.")
+        if '.dph.gz' in self.dph_file.name:
+            #the file wasnt gunzipped so make sure we properly consider that in the names of output files
+            outfile = output_directory / f"{self.dph_file.name.replace('.dph.gz', '_erebin.dph')}"
+            detmask=output_directory / f"{self.dph_file.stem.replace('.dph', '.mask')}"
+        else:
+            outfile = output_directory / f"{self.dph_file.stem}_erebin.dph"
+            detmask = output_directory / f"{self.dph_file.stem}.mask"
+
+        calfile=Path(gain_offset_file)
 
         # call baterebin (batsurvey-erebin calls this for many DPHs)
-        baterebin_return = self._call_baterebin()
+        baterebin_return = self._call_baterebin(infile=str(self.dph_file),
+                                                    outfile=str(outfile),
+                                                gain_offset_file=str(calfile),
+                                                output_detmask=str(detmask)
+                                    )
 
         # make sure that the dph_return was successful
         if baterebin_return.returncode != 0:
             raise RuntimeError(f'The energy rebinning of the DPH failed with message: {baterebin_return.output}')
 
-        # now get the GTIs
-        batsurvey_gti_return = self._call_batsurvey_gti()
+        if not outfile.exists():
+            raise RuntimeError("No erebinned DPH files were created")
 
-        # make sure that the dph_return was successful
-        if batsurvey_gti_return.returncode != 0:
-            raise RuntimeError(f'The GTI filtering of the DPH failed with message: {baterebin_return.output}')
+        if not detmask.exists():
+            raise RuntimeError("No erebin DPH masks were created")
 
-        # cala batbinevt to go from DPH to DPI
+        return baterebin_return
 
-        return BatDPI()
+
 
     def _call_baterebin(self, infile=None, outfile=None, gain_offset_file=None, output_detmask=None, input_dict=None):
         """
@@ -745,60 +767,51 @@ class BatDPH(DetectorPlaneHistogram):
         :param input_dict:
         :return:
         """
-
-        baterebin = hsp_core.HSPTask("baterebin")
-
         if input_dict is None:
-            # get the default names of the parameters for batbinevt including its name 9which should never change)
-            input_dict = baterebin.default_params.copy()
-            if infile is None:
-                infile = self.dph_file
+            input_dict={}
 
-            input_dict["infile"] = str(infile)
+        mandatory_params = {}
+        mandatory_params["infile"] = str(infile)
+        mandatory_params["outfile"] = str(outfile)
+        mandatory_params["calfile"] = str(gain_offset_file)
+        mandatory_params["outmap"] = str(output_detmask)
 
-            if outfile is None:
-                # assume that the user wants the same name with _erebin at the end
-                outfilename = f"{self.dph_file.stem}_erebin{self.dph_file.suffix}"
-                outfile = self.dph_file.parent.joinpath(outfilename)
+        #if the user passed in these mandatory parameters explicity via input_dict the overwrite these
+        params = mandatory_params | input_dict
 
-            input_dict["outfile"] = str(outfile)
+        #we assign defaults and then merge them with the user defined parameters, prioritizing the user parameter when
+        # the input dict residfile value is not "INDEF" to match batsurvey behavior
+        default_params = {}
+        default_params["residfile"] = "CALDB"
+        default_params["pulserfile"] = "CALDB"
+        default_params["fltpulserfile"] = "CALDB"
+        default_params["history"] = "YES"
+        default_params["ebins"] = (
+            "0-14,14-20,20-24,24-35,35-50,50-75,75-100,100-150,150-195"
+        )
 
-            if gain_offset_file is None:
-                gain_offset_files = sorted(self.dph_file.parents[1].joinpath("hk").glob("*go*"))
-                if len(gain_offset_files) != 1:
-                    raise ValueError("More than 1 gain/offset file was found: {gain_offset_files}. Please specify which"
-                                     "should be passed into baterebin.")
-                else:
-                    gain_offset_file = gain_offset_files[0]
-            input_dict["calfile"] = str(gain_offset_file)
-
-            if output_detmask is None:
-                # assume that the user wants the same name with _erebin at the end
-                output_detmask_filename = f"{self.dph_file.stem}.mask"
-                output_detmask = self.dph_file.parent.joinpath(output_detmask_filename)
-
-            input_dict["outmap"] = str(output_detmask)
-
+        #update the default params with those values that the user supplied and all others
+        #there seems to be a bug with the default parameters that are accessed in heasoftpy  as of v 1.5
+        # for residfile, pulserfile, fltpulserfile beign set to INDEF, if this is the case they should be set to
+        # CALDB ie take on the defaults here
+        if ("residfile" not in input_dict.keys()) or (input_dict["residfile"].upper() == "INDEF"):
+            params = params| default_params
         else:
-            # make sure that the necessary parameters are in teh input dict
-            for i, j, k in zip(["infile", "outfile", "calfile"], [infile, outfile, gain_offset_file],
-                               ["infile", "outfile", "gain_offset_file"]):
-                if i not in input_dict.keys() and j is None:
-                    raise ValueError(
-                        f"There needs to be an {i} key with an associated value included in the input_dict or {k} needs to be passed in.")
+            params = default_params | params
 
-        input_dict["clobber"] = "YES"
 
-        # apply the default survey energy bins
-        input_dict["ebins"] = "0-14,14-20,20-24,24-35,35-50,50-75,75-100,100-150,150-195,195-350"
+        # Only pass those that are valid to this
+        baterebin_task, baterebin_params = _initalize_heasoft_task("baterebin", params, soft_fail=False)
 
         try:
-            return baterebin(**input_dict)
+            return baterebin_task(**baterebin_params)
         except Exception as e:
             print(e)
             raise RuntimeError(
-                f"The call to Heasoft baterebin failed with inputs {input_dict}."
+                f"The call to Heasoft baterebin failed with inputs {baterebin_params}."
             )
+
+
 
     def _call_batsurvey_gti(self, input_directory=None, output_directory=None, input_dict=None):
         """
