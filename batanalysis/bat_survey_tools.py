@@ -811,12 +811,14 @@ class BatTools:
             self.pointing_info[pid]["tstop_met"] = float(tstop[i])
 
     def ftcopy_gti_row(self):
+
+        master = self.outdir / "gti" / "master.gti"
+        timeslop = float(self.params.get("timeslop", 0.0))
+
         for point_name in self.pointing_info.keys():
             point_dir = self.pointing_info[point_name]["dir"]
             pnt0 = point_dir / f"{point_name}_pnt0.gti"
-            master = self.outdir / "gti" / "master.gti"
             igtirow = int(self.pointing_info[point_name]["igtirow"])
-            timeslop = float(self.params.get("timeslop", 0.0))
             self._call_ftcopy(
                 infile=f"{master}[1][#ROW == ({igtirow}+1)][col START=START-{timeslop}; STOP=STOP+{timeslop}]",
                 outfile=pnt0,
