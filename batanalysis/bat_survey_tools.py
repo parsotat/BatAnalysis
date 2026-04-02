@@ -896,11 +896,65 @@ class BatTools:
 
     def _call_batsurvey_aspect(
         self,
-        pid: str,
-        gti_file: str,
-        outgti_file: str,
-        finalgti_file: str,
-        params: Dict[str, Any],
+        att_file:Path | str,
+        gti_file: Path | str,
+        outatt_file:Path|str,
+        outgti_file: Path|str,
+        input_dict:Dict[str, Any] | None = None,
+    ) -> hsp_core.HSPTask:
+
+        if input_dict is None:
+            init_input_dict={}
+        else:
+            input_dict=input_dict.copy()
+
+            # note that the parameters that can be passed in for batsurvey include a gtifile parameter that is meant for
+            # batsurvey-gti and is set to None by default. Therefore we remove this parameter if it is set to None in the input dictionary
+            if "gtifile" in input_dict.keys() and input_dict.get("gtifile")=="NONE":
+                input_dict.pop("gtifile")
+
+        mandatory_params = {}
+        mandatory_params["attfile"] = str(att_file)
+        mandatory_params["outattfile"] = str(outatt_file)
+        mandatory_params["gtifile"] = f"{gti_file}[STDGTI]"
+        mandatory_params["outgtifile"] = str(outgti_file)
+
+        params = mandatory_params | input_dict
+
+        #extract the relevant parameters for this task
+        _, batsurvey_aspect_params = _initalize_heasoft_task("batsurvey-aspect", params)
+
+        #then get the task and run it
+        batsurvey_aspect_task, batsurvey_aspect_params = _initalize_heasoft_task("batsurvey-aspect", batsurvey_aspect_params, soft_fail=False)
+
+        # print("Running batsurvey-aspect with parameters:", batsurvey_aspect_params)
+        try:
+            batsurvey_aspect_log = batsurvey_aspect_task(**batsurvey_aspect_params)
+
+            if "batsurvey-aspect" not in self.all_params:
+                self.all_params["batsurvey-aspect"] = [batsurvey_aspect_params]
+            else:
+                self.all_params["batsurvey-aspect"].append(batsurvey_aspect_params)
+
+            if "batsurvey-aspect" not in self.all_logs:
+                self.all_logs["batsurvey-aspect"] = [batsurvey_aspect_log]
+            else:
+                self.all_logs["batsurvey-aspect"].append(batsurvey_aspect_log)
+            return batsurvey_aspect_task
+        except Exception as e:
+            print(e)
+            raise RuntimeError(
+                f"The call to Heasoft batsurvey_aspect failed with inputs {batsurvey_aspect_params}."
+            )
+
+
+
+    def _determine_aspect_solution(self,
+       pid: str,
+       gti_file: str,
+       outgti_file: str,
+       finalgti_file: str,
+       params: Dict[str, Any],
     ):
         """Run batsurvey-aspect on the GTI file with internal path defaults
         and optional parameter overrides.
@@ -924,38 +978,19 @@ class BatTools:
         )
         self.pointing_info[pid]["attfile"] = default_params["outattfile"]
 
-        #merge the default params dict and user supplied params, allowing user supplied to overwrite anything in the
-        #default_params
-        params = default_params | self.params
 
-        _, batsurvey_aspect_params = _initalize_heasoft_task("batsurvey-aspect", params)
+        batsurvey_aspect_task = self._call_batsurvey_aspect(att_file=self.att_file,
+                                                            outatt_file=self.pointing_info[pid]["dir"] / f"{pid}.att",
+                                                            gti_file=gti_file, outgti_file=outgti_file,
+                                                            input_dict=default_params|self.params
+                                                            )
 
-        mandatory_params = {}
-        mandatory_params["gtifile"] = f"{gti_file}[STDGTI]"
-        mandatory_params["outgtifile"] = outgti_file
-
-        batsurvey_aspect_params.update(mandatory_params)
-
-        batsurvey_aspect_task, batsurvey_aspect_params = _initalize_heasoft_task("batsurvey-aspect", batsurvey_aspect_params, soft_fail=False)
-
-
-        # print("Running batsurvey-aspect with parameters:", batsurvey_aspect_params)
-        batsurvey_aspect_log = batsurvey_aspect_task(**batsurvey_aspect_params)
-
-        if "batsurvey-aspect" not in self.all_params:
-            self.all_params["batsurvey-aspect"] = [batsurvey_aspect_params]
-        else:
-            self.all_params["batsurvey-aspect"].append(batsurvey_aspect_params)
-        if "batsurvey-aspect" not in self.all_logs:
-            self.all_logs["batsurvey-aspect"] = [batsurvey_aspect_log]
-        else:
-            self.all_logs["batsurvey-aspect"].append(batsurvey_aspect_log)
-        print("batsurvey_aspect:", batsurvey_aspect_task)
+        #print("batsurvey_aspect:", batsurvey_aspect_task)
         expotot = float(batsurvey_aspect_task.expotot.value)
-        print("batsurvey_aspect expotot:",expotot)
+        #print("batsurvey_aspect expotot:",expotot)
 
         expobad = float(batsurvey_aspect_task.expobad.value)
-        print("batsurvey_aspect expobad:",expobad)
+        #print("batsurvey_aspect expobad:",expobad)
 
         med_ra = float(batsurvey_aspect_task.med_ra.value)
         med_dec = float(batsurvey_aspect_task.med_dec.value)
@@ -973,6 +1008,7 @@ class BatTools:
         shutil.copy2(use_pnt, pnt)
         self.pointing_info[pid]["gti"] = pnt
         self.pointing_info[pid]["gti_files"].append(outgti_file)
+
         return expotot, expobad, med_ra, med_dec, med_roll
 
     def _call_fimgstat(self, infile: str, params: Optional[Dict[str, Any]] = {}):
@@ -1728,12 +1764,12 @@ class BatTools:
         # which will produce the pnt1 and att files, and then decide whether to
         # use pnt0 or pnt1 based on the exposure and bad time fractions, and
         # copy the chosen GTI to the final pnt file for this pointing
-        _expotot, _expobad, med_ra, med_dec, med_roll = self._call_batsurvey_aspect(
+        _expotot, _expobad, med_ra, med_dec, med_roll = self._determine_aspect_solution(
             pid=pid,
             gti_file=str(pnt0),
             outgti_file=str(pnt1),
             finalgti_file=str(pnt),
-            params=params,
+            params=self.params,
         )
 
         if (
