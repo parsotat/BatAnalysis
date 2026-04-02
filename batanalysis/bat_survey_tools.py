@@ -828,7 +828,7 @@ class BatTools:
             self.pointing_info[point_name]["gti_files"] = [pnt0]
 
     def _call_batbinevt(
-        self, pid, infile: str, outfile: str, gtifile: str, params: Dict[str, Any]
+        self, infile: str, outfile: str, gtifile: str, input_dict=None
     ):
         """Run batbinevt on the discovered DPH file with internal path
         defaults and optional parameter overrides.
@@ -841,6 +841,9 @@ class BatTools:
             params: Dictionary of parameters to override defaults for this step. Only valid parameters will be used.
 
         """
+        if input_dict is None:
+            input_dict={}
+
         # And these are defaults, so if the user didnt provide them then we set them,
         # but if they did then we respect the user choice
         default_params = {
@@ -853,7 +856,7 @@ class BatTools:
             "max_dph_time_nonoverlap": 40,
         }
 
-        params = default_params | self.params
+        params = default_params | input_dict
 
         # Only pass those that are valid to this
         _, batbinevt_params = _initalize_heasoft_task("batbinevt", params)
@@ -871,16 +874,25 @@ class BatTools:
         batbinevt_task, batbinevt_params = _initalize_heasoft_task("batbinevt", batbinevt_params, soft_fail=False)
 
         # print("Running batbinevt with parameters:", batbinevt_params)
-        batbinevtlog = batbinevt_task(**batbinevt_params)
-        # print(batbinevtlog.stdout)
-        if "batbinevt" not in self.all_params:
-            self.all_params["batbinevt"] = [batbinevt_params]
-        else:
-            self.all_params["batbinevt"].append(batbinevt_params)
-        if "batbinevt" not in self.all_logs:
-            self.all_logs["batbinevt"] = [batbinevtlog]
-        else:
-            self.all_logs["batbinevt"].append(batbinevtlog)
+        try:
+            batbinevtlog = batbinevt_task(**batbinevt_params)
+
+            if "batbinevt" not in self.all_params:
+                self.all_params["batbinevt"] = [batbinevt_params]
+            else:
+                self.all_params["batbinevt"].append(batbinevt_params)
+            if "batbinevt" not in self.all_logs:
+                self.all_logs["batbinevt"] = [batbinevtlog]
+            else:
+                self.all_logs["batbinevt"].append(batbinevtlog)
+
+            return batbinevtlog
+        except Exception as e:
+            print(e)
+            raise RuntimeError(
+                f"The call to Heasoft batbinevt failed with inputs {batbinevt_params}."
+            )
+
 
     def _call_batsurvey_aspect(
         self,
@@ -1701,11 +1713,10 @@ class BatTools:
         pnt = Path(f"{proot}_pnt.gti")
 
         self._call_batbinevt(
-            pid=pid,
             infile=survey_files_list,
             outfile=str(dpi1),
             gtifile=str(pnt0),
-            params=params,
+            input_dict=self.params
         )
         if not dpi1.exists():
             self.pntstat(pid, "dpi1_failed", "Could not create first output DPI")
@@ -1745,11 +1756,10 @@ class BatTools:
             self.params["pointerr_abs_time"]
         )
         self._call_batbinevt(
-            pid=pid,
             infile=survey_files_list,
             outfile=str(dpi1),
             gtifile=self.pointing_info[pid]["gti"],
-            params=second_pass_params,
+            input_dict= self.params | second_pass_params,
         )
         if not dpi1.exists():
             self.pntstat(pid, "dpi2_failed", "Could not create second output DPI")
