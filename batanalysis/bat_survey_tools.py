@@ -968,21 +968,15 @@ class BatTools:
 
         """
 
-        default_params = {}
-        default_params["attfile"] = self.att_file
-        default_params["point_toler"] = self.params["point_toler"]
-        default_params["roll_toler"] = self.params["roll_toler"]
-        default_params["alignfile"] = self.params["alignfile"]
-        default_params["outattfile"] = str(
+
+        self.pointing_info[pid]["attfile"] = str(
             self.pointing_info[pid]["dir"] / f"{pid}.att"
         )
-        self.pointing_info[pid]["attfile"] = default_params["outattfile"]
-
-
+        
         batsurvey_aspect_task = self._call_batsurvey_aspect(att_file=self.att_file,
                                                             outatt_file=self.pointing_info[pid]["dir"] / f"{pid}.att",
                                                             gti_file=gti_file, outgti_file=outgti_file,
-                                                            input_dict=default_params|self.params
+                                                            input_dict= self.params
                                                             )
 
         #print("batsurvey_aspect:", batsurvey_aspect_task)
