@@ -754,7 +754,7 @@ class BatDPH(DetectorPlaneHistogram):
 
 
 
-    def _call_baterebin(self, infile=None, outfile=None, gain_offset_file=None, output_detmask=None, input_dict=None):
+    def _call_baterebin(self, infile=None, outfile=None, gain_offset_file=None, output_detmask=None, input_dict=None) -> hsp_core.core.HSPResult:
         """
         Calls heasoftpy's baterebin with an error wrapper, ensures that this bins the DPH in energy with non-linear
         energy corrections applied. In the batsurvey code, batsurvey-erebins is called to process multiple DPHs
