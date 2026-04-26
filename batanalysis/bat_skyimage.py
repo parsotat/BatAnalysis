@@ -124,12 +124,17 @@ class BatSkyImage(Histogram):
                 raise TypeError(
                     f"The image_type must be a string that corresponds to one of the following: {_accepted_image_types}")
 
+        has_healpix_axis = isinstance(image_data, Histogram) and np.any(
+            [label == "HPX" for label in image_data.axes.labels]
+        )
+
         if wcs is None:
-            warnings.warn(
-                "No astropy World Coordinate System has been specified the sky image is assumed to be in the detector "
-                "tangent plane. No conversion to Healpix or RA/Dec & galactic coordinate systems will be possible.",
-                stacklevel=2,
-            )
+            if not has_healpix_axis:
+                warnings.warn(
+                    "No astropy World Coordinate System has been specified the sky image is assumed to be in the detector "
+                    "tangent plane. No conversion to Healpix or RA/Dec & galactic coordinate systems will be possible.",
+                    stacklevel=2,
+                )
         else:
             if not isinstance(wcs, WCS):
                 raise ValueError("The wcs is not an astropy WCS object.")
