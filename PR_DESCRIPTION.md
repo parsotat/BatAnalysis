@@ -6,6 +6,7 @@ This PR fixes a set of issues in the healpix/mosaic detection path that could ca
 
 ## Changes
 
+- lower `mosaic._pcodethresh` from `0.15` to `0.01` so the source branch matches the validated low-partial-coding workflow
 - align low-partial-coding masking in `BatSkyView._parse_skyimages()` with `mosaic._pcodethresh` instead of a hard-coded 5% floor
 - normalize mosaic `pcode_img` by `exposure_img` before applying `pcodethresh` inside `detect_sources()`
 - use healpix-aware detection defaults for mosaic views
@@ -16,6 +17,7 @@ This PR fixes a set of issues in the healpix/mosaic detection path that could ca
 
 Before this change:
 
+- the source branch still enforced a 15% minimum image partial coding in `mosaic.py`
 - the mosaic path discarded information below 5% partial coding before the mosaic thresholding stage
 - mosaic detection could apply `pcodethresh` to an exposure-weighted quantity rather than to true partial coding
 - HPX intermediate images could fall into logic intended for detector-plane WCS validation
@@ -30,5 +32,6 @@ Together, these behaviors made it easier to miss weak sources in short or low-pa
 
 ## Included regression tests
 
+- the mosaic partial-coding floor is 1%
 - HPX images without WCS no longer trigger the detector-plane warning path
 - mosaic detection thresholds are applied to normalized partial coding rather than `pcode * exposure`

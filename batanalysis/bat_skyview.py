@@ -279,9 +279,8 @@ class BatSkyView(object):
                                                     clobber="yes"))
 
                 # NOTE: these updated, correct snr and bkg_stddev files get read in in self._parse_skyimages below
-                # NOTE: The SNR/bkg stddev maps are most valid for partial codings of >5%, also the mosacing operation
-                #   selects image pixels with pcode>_pcodethresh, where _pcodethresh is set to 0.15 currently so
-                #   mosaicing with these values, etc is valid.
+                # NOTE: Keep the SNR/bkg stddev masking aligned with the mosaic partial-coding floor so the mosaic path
+                #   does not discard pixels that later detection is intended to consider.
 
 
             else:

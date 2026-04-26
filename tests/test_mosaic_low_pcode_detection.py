@@ -7,11 +7,15 @@ import astropy.units as u
 import numpy as np
 from histpy import Axis, HealpixAxis, Histogram
 
+from batanalysis.mosaic import _pcodethresh
 from batanalysis.bat_skyimage import BatSkyImage
 from batanalysis.bat_skyview import BatSkyView
 
 
 class MosaicLowPcodeDetectionTests(unittest.TestCase):
+    def test_mosaic_partial_coding_floor_is_one_percent(self):
+        self.assertAlmostEqual(_pcodethresh, 0.01)
+
     def test_healpix_image_without_wcs_does_not_emit_detector_plane_warning(self):
         t_ax = Axis([0, 1] * u.s, label="TIME")
         hp_ax = HealpixAxis(nside=1, coordsys="galactic", label="HPX")
@@ -76,7 +80,7 @@ class MosaicLowPcodeDetectionTests(unittest.TestCase):
 
         with patch("batanalysis.bat_skyview.hsp_core", fake_hsp_core, create=True):
             normalized_pcode = skyview._normalized_detection_pcode_img().contents[0, 0, 0]
-            result = skyview.detect_sources(input_dict=dict(snrthresh=5.0, pcodethresh=0.01))
+            result = skyview.detect_sources(input_dict=dict(snrthresh=5.0, pcodethresh=_pcodethresh))
 
         self.assertAlmostEqual(normalized_pcode, 0.02)
         self.assertIsNotNone(result)
