@@ -634,7 +634,7 @@ class BatSkyView(object):
                 self.src_detect_input_dict["incatalog"] = str(catalog_file)
                 self.src_detect_input_dict["pcodefile"] = str(self.pcodeimg_file)
                 self.src_detect_input_dict["snrthresh"] = 6
-                self.src_detect_input_dict["pcodethresh"] = 0.05
+                self.src_detect_input_dict["pcodethresh"] = _pcodethresh
                 self.src_detect_input_dict["vectorflux"] = "YES"
 
             For the case of detecting sources in a mosaic BatSkyView or a BatSkyView that is in the healpix projection,
@@ -667,7 +667,7 @@ class BatSkyView(object):
         self.src_detect_input_dict = default_params_dict
 
         self.src_detect_input_dict["snrthresh"] = 6
-        self.src_detect_input_dict["pcodethresh"] = _pcodethresh if is_healpix_view else 0.05
+        self.src_detect_input_dict["pcodethresh"] = _pcodethresh
         self.src_detect_input_dict["vectorflux"] = "YES"
 
         if input_dict is not None:

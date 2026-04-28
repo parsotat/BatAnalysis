@@ -635,14 +635,15 @@ class Lightcurve(BatObservation):
                     # print(i, values, "=" in values)
 
                     parameter_num = values[0]
-                    parameter = values[1]
                     if "=" not in values:
                         # this belongs with the previous parameter and is a line continuation
-                        default_params_dict[old_parameter] = default_params_dict[old_parameter] + values[-1]
+                        if old_parameter in default_params_dict:
+                            default_params_dict[old_parameter] = default_params_dict[old_parameter] + values[-1]
+                        continue
                     else:
+                        parameter = values[1]
                         default_params_dict[parameter] = values[-1]
-
-                    old_parameter = parameter
+                        old_parameter = parameter
 
             self.lc_input_dict = default_params_dict.copy()
 
