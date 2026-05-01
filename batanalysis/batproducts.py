@@ -639,7 +639,6 @@ class Lightcurve(BatObservation):
                         # this belongs with the previous parameter and is a line continuation
                         if old_parameter in default_params_dict:
                             default_params_dict[old_parameter] = default_params_dict[old_parameter] + values[-1]
-                        continue
                     else:
                         parameter = values[1]
                         default_params_dict[parameter] = values[-1]
