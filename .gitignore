@@ -13,6 +13,7 @@ MOSAIC_CODE/
 batanalysis/data/*_c*_ZEA.img
 PR_DESCRIPTION.md
 MOSAIC_LOW_PCODE_DETECTION_FIX.md
+tests/test_mosaic_low_pcode_detection.py
 
 # https://github.com/github/gitignore/blob/main/Python.gitignore
 
