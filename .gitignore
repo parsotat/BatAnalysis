@@ -11,6 +11,8 @@ bat_analysis/__*
 MOSAIC_CODE/
 .DS_Store
 batanalysis/data/*_c*_ZEA.img
+PR_DESCRIPTION.md
+MOSAIC_LOW_PCODE_DETECTION_FIX.md
 
 # https://github.com/github/gitignore/blob/main/Python.gitignore
 
