@@ -165,7 +165,7 @@ def _survey_spectrum_analysis(
         generic_model=None,
         setPars=None,
         fit_iterations=1000,
-        use_cstat=True,
+        use_cstat=False,
         ul_pl_index=2,
         nsigma=3,
         bkg_nsigma=5,

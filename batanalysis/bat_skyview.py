@@ -279,9 +279,8 @@ class BatSkyView(object):
                                                     clobber="yes"))
 
                 # NOTE: these updated, correct snr and bkg_stddev files get read in in self._parse_skyimages below
-                # NOTE: The SNR/bkg stddev maps are most valid for partial codings of >5%, also the mosacing operation
-                #   selects image pixels with pcode>_pcodethresh, where _pcodethresh is set to 0.15 currently so
-                #   mosaicing with these values, etc is valid.
+                # NOTE: Keep the SNR/bkg stddev masking aligned with the mosaic partial-coding floor so the mosaic path
+                #   does not discard pixels that later detection is intended to consider.
 
 
             else:
@@ -438,14 +437,14 @@ class BatSkyView(object):
                 Path(self.skyimg_input_dict["signifmap"]).expanduser().resolve())
 
         # now read in the file
-        # also want to filter out the partial coding >5% pixels for the batcelldetect produced snr and bkg stddev images
-        # batcelldetect seems to set everything with low partial coding to 0 whereas batfftimage sets it to nan
+        # also want to filter out the low-partial-coding pixels for the batcelldetect produced snr and bkg stddev
+        # images. Keep this aligned with the mosaic floor so we do not discard data that the mosaic path is meant to use.
         if self.snr_img_file is not None:
             self.snr_img = BatSkyImage.from_file(self.snr_img_file)
 
-            # want to filter out the partial coding >5% pixels for the batcelldetect produced image
+            # want to filter out the low-partial-coding pixels for the batcelldetect produced image
             if self.pcode_img is not None:
-                idx = np.where(self.pcode_img <= 0.05)
+                idx = np.where(self.pcode_img <= _pcodethresh)
                 self.snr_img[idx] = np.nan * self.snr_img.unit
         else:
             self.snr_img = None
@@ -457,9 +456,9 @@ class BatSkyView(object):
         # now read in the file
         if self.bkg_stddev_img_file is not None:
             self.bkg_stddev_img = BatSkyImage.from_file(self.bkg_stddev_img_file)
-            # want to filter out the partial coding >5% pixels for the batcelldetect produced image
+            # want to filter out the low-partial-coding pixels for the batcelldetect produced image
             if self.pcode_img is not None:
-                idx = np.where(self.pcode_img <= 0.05)
+                idx = np.where(self.pcode_img <= _pcodethresh)
                 self.bkg_stddev_img[idx] = np.nan * self.bkg_stddev_img.unit
 
         else:
@@ -482,6 +481,34 @@ class BatSkyView(object):
                              f"Please double check that it does.")
         else:
             raise ValueError(f"There are multiple files found in the glob for {file}*")
+
+    def _normalized_detection_pcode_img(self):
+        """
+        Return the partial-coding image to be used for source detection.
+
+        Mosaic skyviews accumulate pcode as pcode * exposure during addition. Convert that back to a true partial-
+        coding fraction before applying any detection threshold.
+
+        :return: BatSkyImage or None
+        """
+        if self.pcode_img is None or not self.is_mosaic:
+            return self.pcode_img
+
+        pcode_contents = self.pcode_img.contents
+        exposure_contents = self.exposure_img.contents
+        normalized_pcode = np.full(pcode_contents.shape, np.nan)
+
+        good_idx = np.where(
+            np.isfinite(pcode_contents)
+            & np.isfinite(exposure_contents)
+            & (exposure_contents > 0)
+        )
+        normalized_pcode[good_idx] = pcode_contents[good_idx] / exposure_contents[good_idx]
+
+        return BatSkyImage(
+            image_data=Histogram(self.pcode_img.axes, contents=normalized_pcode, unit=u.dimensionless_unscaled),
+            image_type="pcode",
+        )
 
     @property
     def pcodeimg_file(self):
@@ -607,7 +634,7 @@ class BatSkyView(object):
                 self.src_detect_input_dict["incatalog"] = str(catalog_file)
                 self.src_detect_input_dict["pcodefile"] = str(self.pcodeimg_file)
                 self.src_detect_input_dict["snrthresh"] = 6
-                self.src_detect_input_dict["pcodethresh"] = 0.05
+                self.src_detect_input_dict["pcodethresh"] = _pcodethresh
                 self.src_detect_input_dict["vectorflux"] = "YES"
 
             For the case of detecting sources in a mosaic BatSkyView or a BatSkyView that is in the healpix projection,
@@ -630,6 +657,8 @@ class BatSkyView(object):
         else:
             catalog_file = Path(catalog_file).expanduser().resolve()
 
+        is_healpix_view = self.is_mosaic or (self.sky_img is not None and "HPX" in self.sky_img.axes.labels)
+
         # get the default names of the parameters for batcelldetect including its name (which should never change)
         test = hsp_core.HSPTask("batcelldetect")
         default_params_dict = test.default_params.copy()
@@ -638,7 +667,7 @@ class BatSkyView(object):
         self.src_detect_input_dict = default_params_dict
 
         self.src_detect_input_dict["snrthresh"] = 6
-        self.src_detect_input_dict["pcodethresh"] = 0.05
+        self.src_detect_input_dict["pcodethresh"] = _pcodethresh
         self.src_detect_input_dict["vectorflux"] = "YES"
 
         if input_dict is not None:
@@ -647,7 +676,7 @@ class BatSkyView(object):
                     self.src_detect_input_dict[key] = input_dict[key]
 
         # if we dont have a mosaic image or an image that is a healpix projection then use batcelldetect
-        if not (self.is_mosaic or "HPX" in self.sky_img.axes.labels):
+        if not is_healpix_view:
             # need the pcode file
             if self.pcodeimg_file is None:
                 raise ValueError(
@@ -705,19 +734,27 @@ class BatSkyView(object):
 
             # if we have a mosaic skyview calcualte these now
             snr_image = self.snr_img
-            pcode_image = self.pcode_img
+            pcode_image = self._normalized_detection_pcode_img()
+            snr_contents = snr_image.contents
+            pcode_contents = pcode_image.contents
+
+            if isinstance(snr_contents, u.Quantity):
+                snr_contents = snr_contents.value
+
+            if isinstance(pcode_contents, u.Quantity):
+                pcode_contents = pcode_contents.to_value(u.dimensionless_unscaled)
 
             # get a sorted list of maximum SNR pixels that meet the snrthresh and pcodethresh criteria.
             # first need to mask off any np.nan values
             good_values = np.where(
-                np.isfinite(snr_image.contents) & np.isfinite(pcode_image.contents) & (
-                        snr_image.contents > snrthresh) & (pcode_image.contents > pcodethresh))
+                np.isfinite(snr_contents) & np.isfinite(pcode_contents) & (
+                        snr_contents > snrthresh) & (pcode_contents > pcodethresh))
             n_good_val = np.size(good_values)
 
             # if we have found SNR values that meet the conditions then do the full analysis otherwise output empty table
             if n_good_val != 0:
                 # now that we have the good snr values, we need to get the snr values and sort them from largest to smallest
-                good_snr_values = snr_image.contents[good_values]
+                good_snr_values = snr_contents[good_values]
                 sorted_good_snr_values_idx = np.argsort(good_snr_values)[::-1]
 
                 # also want to get the coordinates of the healpix pixels. Need to extract the appropriate axis index values
