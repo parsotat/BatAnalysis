@@ -24,7 +24,7 @@ from .batlib import (
     calc_response,
     calculate_detection,
     fit_spectrum,
-    download_swiftdata,
+    download_swiftdata as batlib_download_swiftdata,
 )
 from .batproducts import Spectrum
 from .mosaic import (
@@ -709,7 +709,7 @@ def download_swiftdata(
         nprocs=1,
 ):
     # create temporary functions that will be called separately to download the data
-    dl = lambda x: download_swiftdata(
+    dl = lambda x: batlib_download_swiftdata(
         x,
         reload=reload,
         bat=bat,
